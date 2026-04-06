@@ -126,6 +126,7 @@ lib/
 ### Prerequisites
 
 - Flutter stable SDK
+- Recommended Flutter version: 3.38.4
 - Android Studio or VS Code
 - Android SDK and emulator/device
 
