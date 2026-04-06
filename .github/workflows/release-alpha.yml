@@ -47,12 +47,12 @@ jobs:
         run: |
           if [[ -n "$ANDROID_KEYSTORE_BASE64" && -n "$ANDROID_KEY_ALIAS" && -n "$ANDROID_KEYSTORE_PASSWORD" && -n "$ANDROID_KEY_PASSWORD" ]]; then
             echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release-keystore.jks
-            cat <<EOF > android/key.properties
-            storePassword=$ANDROID_KEYSTORE_PASSWORD
-            keyPassword=$ANDROID_KEY_PASSWORD
-            keyAlias=$ANDROID_KEY_ALIAS
-            storeFile=release-keystore.jks
-            EOF
+            {
+              echo "storePassword=$ANDROID_KEYSTORE_PASSWORD"
+              echo "keyPassword=$ANDROID_KEY_PASSWORD"
+              echo "keyAlias=$ANDROID_KEY_ALIAS"
+              echo "storeFile=release-keystore.jks"
+            } > android/key.properties
             echo "Signing configured from repository secrets."
           else
             echo "Signing secrets not configured. Using debug signing fallback."
