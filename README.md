@@ -222,6 +222,7 @@ git push origin alpha-v0.1.0-build6
 - Bug report template: .github/ISSUE_TEMPLATE/bug_report.yml
 - Feature request template: .github/ISSUE_TEMPLATE/feature_request.yml
 - PR template: .github/pull_request_template.md
+- Security policy: SECURITY.md
 
 See CONTRIBUTING.md for contribution expectations.
 

@@ -46,4 +46,4 @@ When opening a bug report, include:
 ## Security
 
 Do not open public issues for sensitive vulnerabilities.
-Use private disclosure channels when available.
+Use the policy in SECURITY.md and private GitHub advisory reporting.
