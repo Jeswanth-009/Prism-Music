@@ -1,0 +1,126 @@
+name: Android Alpha Release
+
+on:
+  push:
+    tags:
+      - "alpha-v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: alpha-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and Publish Alpha Artifacts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Configure Android signing (optional)
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+        shell: bash
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/release-keystore.jks
+          cat <<EOF > android/key.properties
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          storeFile=release-keystore.jks
+          EOF
+
+      - name: Read app version
+        id: app_version
+        shell: bash
+        run: |
+          VERSION_LINE="$(grep '^version:' pubspec.yaml | awk '{print $2}')"
+          BUILD_NAME="${VERSION_LINE%%+*}"
+          BUILD_NUMBER="${VERSION_LINE##*+}"
+
+          if [[ -z "$BUILD_NAME" || -z "$BUILD_NUMBER" ]]; then
+            echo "Could not parse version from pubspec.yaml"
+            exit 1
+          fi
+
+          echo "build_name=$BUILD_NAME" >> "$GITHUB_OUTPUT"
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Build release APK
+        run: >
+          flutter build apk --release
+          --build-name "${{ steps.app_version.outputs.build_name }}"
+          --build-number "${{ steps.app_version.outputs.build_number }}"
+
+      - name: Build release App Bundle
+        run: >
+          flutter build appbundle --release
+          --build-name "${{ steps.app_version.outputs.build_name }}"
+          --build-number "${{ steps.app_version.outputs.build_number }}"
+
+      - name: Prepare release assets
+        id: assets
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          APK_SOURCE="build/app/outputs/flutter-apk/app-release.apk"
+          AAB_SOURCE="build/app/outputs/bundle/release/app-release.aab"
+          APK_TARGET="prism-music-${TAG}-android.apk"
+          AAB_TARGET="prism-music-${TAG}-android.aab"
+          SHA_TARGET="${APK_TARGET}.sha256"
+          SHA_AAB_TARGET="${AAB_TARGET}.sha256"
+
+          SIGNED_BUILD="false"
+          if [[ -f "android/key.properties" ]]; then
+            SIGNED_BUILD="true"
+          fi
+
+          cp "$APK_SOURCE" "$APK_TARGET"
+          cp "$AAB_SOURCE" "$AAB_TARGET"
+          sha256sum "$APK_TARGET" > "$SHA_TARGET"
+          sha256sum "$AAB_TARGET" > "$SHA_AAB_TARGET"
+
+          echo "apk_path=$APK_TARGET" >> "$GITHUB_OUTPUT"
+          echo "aab_path=$AAB_TARGET" >> "$GITHUB_OUTPUT"
+          echo "sha_path=$SHA_TARGET" >> "$GITHUB_OUTPUT"
+          echo "sha_aab_path=$SHA_AAB_TARGET" >> "$GITHUB_OUTPUT"
+          echo "signed_build=$SIGNED_BUILD" >> "$GITHUB_OUTPUT"
+
+      - name: Publish prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          prerelease: true
+          generate_release_notes: true
+          name: Prism Music ${{ github.ref_name }}
+          body: |
+            Very early alpha build of Prism Music.
+
+            Build name: ${{ steps.app_version.outputs.build_name }}
+            Build number: ${{ steps.app_version.outputs.build_number }}
+            Signed with custom keystore: ${{ steps.assets.outputs.signed_build }}
+
+            This release is experimental and may contain breaking changes.
+          files: |
+            ${{ steps.assets.outputs.apk_path }}
+            ${{ steps.assets.outputs.aab_path }}
+            ${{ steps.assets.outputs.sha_path }}
+            ${{ steps.assets.outputs.sha_aab_path }}

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
+  <rect width="1200" height="675" fill="#111827"/>
+  <rect x="90" y="70" width="1020" height="535" rx="24" fill="#1f2937" stroke="#374151" stroke-width="4"/>
+  <text x="600" y="250" text-anchor="middle" fill="#f8fafc" font-size="52" font-family="Arial, sans-serif">Prism Music</text>
+  <text x="600" y="320" text-anchor="middle" fill="#cbd5e1" font-size="32" font-family="Arial, sans-serif">Search Screen Placeholder</text>
+  <text x="600" y="390" text-anchor="middle" fill="#64748b" font-size="24" font-family="Arial, sans-serif">Replace with real screenshot in next alpha update</text>
+</svg>

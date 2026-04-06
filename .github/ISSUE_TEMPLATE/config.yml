@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Prism Music Discussions
+    url: https://github.com/Jeswanth-009/Prism-Music/discussions
+    about: Ask questions and discuss ideas before opening issues.

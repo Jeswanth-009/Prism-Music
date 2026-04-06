@@ -1,0 +1,58 @@
+name: Feature request
+description: Propose an improvement for Prism Music
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share the problem first, then the proposed feature. This helps prioritize work clearly.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What is difficult or missing today?
+      placeholder: It is hard to discover fresh songs without repeating the same recommendations.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe your ideal behavior
+      placeholder: Add a recommendation mode that prioritizes unexplored genres.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you considered
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Playback
+        - Search
+        - Recommendations
+        - Library
+        - UI/UX
+        - Developer Experience
+        - CI/CD
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched for existing feature requests first.
+          required: true
+        - label: This request matches Prism Music alpha scope.
+          required: true

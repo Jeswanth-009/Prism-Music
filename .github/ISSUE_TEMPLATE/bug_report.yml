@@ -1,0 +1,68 @@
+name: Bug report
+description: Report a reproducible problem in Prism Music
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please provide enough details for us to reproduce and fix it quickly.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Short summary
+      description: One-line description of the issue
+      placeholder: Player freezes when skipping to next track
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Exact steps we can follow
+      placeholder: |
+        1. Open app
+        2. Play any song
+        3. Tap next rapidly 4-5 times
+        4. Observe freeze
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: input
+    id: app_version
+    attributes:
+      label: App version
+      placeholder: 0.1.0+6
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device and OS
+      placeholder: Pixel 7, Android 15
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Paste logs or attach images if available
+      render: shell
