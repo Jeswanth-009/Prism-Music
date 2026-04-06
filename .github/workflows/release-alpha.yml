@@ -2,8 +2,11 @@ name: Android Alpha Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "alpha-v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -74,6 +77,19 @@ jobs:
           echo "build_name=$BUILD_NAME" >> "$GITHUB_OUTPUT"
           echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve release tag
+        id: release_tag
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="alpha-v${{ steps.app_version.outputs.build_name }}-build${{ steps.app_version.outputs.build_number }}-run${GITHUB_RUN_NUMBER}"
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "name=Prism Music $TAG" >> "$GITHUB_OUTPUT"
+
       - name: Build release APK
         run: >
           flutter build apk --release
@@ -90,7 +106,7 @@ jobs:
         id: assets
         shell: bash
         run: |
-          TAG="${GITHUB_REF_NAME}"
+          TAG="${{ steps.release_tag.outputs.tag }}"
           APK_SOURCE="build/app/outputs/flutter-apk/app-release.apk"
           AAB_SOURCE="build/app/outputs/bundle/release/app-release.aab"
           APK_TARGET="prism-music-${TAG}-android.apk"
@@ -101,6 +117,16 @@ jobs:
           SIGNED_BUILD="false"
           if [[ -f "android/key.properties" ]]; then
             SIGNED_BUILD="true"
+          fi
+
+          if [[ ! -f "$APK_SOURCE" ]]; then
+            echo "Expected APK not found at $APK_SOURCE"
+            exit 1
+          fi
+
+          if [[ ! -f "$AAB_SOURCE" ]]; then
+            echo "Expected AAB not found at $AAB_SOURCE"
+            exit 1
           fi
 
           cp "$APK_SOURCE" "$APK_TARGET"
@@ -114,19 +140,32 @@ jobs:
           echo "sha_aab_path=$SHA_AAB_TARGET" >> "$GITHUB_OUTPUT"
           echo "signed_build=$SIGNED_BUILD" >> "$GITHUB_OUTPUT"
 
+      - name: Upload APK and AAB artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-music-alpha-${{ steps.release_tag.outputs.tag }}
+          path: |
+            ${{ steps.assets.outputs.apk_path }}
+            ${{ steps.assets.outputs.aab_path }}
+            ${{ steps.assets.outputs.sha_path }}
+            ${{ steps.assets.outputs.sha_aab_path }}
+          if-no-files-found: error
+
       - name: Publish prerelease
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ steps.release_tag.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           prerelease: true
           generate_release_notes: true
-          name: Prism Music ${{ github.ref_name }}
+          name: ${{ steps.release_tag.outputs.name }}
           body: |
-            Very early alpha build of Prism Music.
+            Automated alpha release from CI.
 
             Build name: ${{ steps.app_version.outputs.build_name }}
             Build number: ${{ steps.app_version.outputs.build_number }}
             Signed with custom keystore: ${{ steps.assets.outputs.signed_build }}
+            Source ref: ${{ github.ref_name }}
 
             This release is experimental and may contain breaking changes.
           files: |

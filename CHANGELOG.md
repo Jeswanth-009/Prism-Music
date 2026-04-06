@@ -17,3 +17,4 @@ The format is inspired by Keep a Changelog, and this project follows semantic ve
 ### Changed
 - Rewrote README with detailed differentiation, completed work summary, and future roadmap.
 - Set app version baseline to 0.1.0+6 for the next alpha build.
+- Updated release workflow to auto-publish alpha prereleases on main pushes with APK always attached.

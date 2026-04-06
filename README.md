@@ -167,11 +167,13 @@ Runs on push and pull request:
 
 File: .github/workflows/release-alpha.yml
 
-Runs on tag push matching alpha-v*:
+Runs automatically on every push to main (and also supports manual tag pushes matching alpha-v*):
 
 - Builds release APK and AAB
 - Generates SHA-256 checksum files
-- Publishes GitHub prerelease artifacts
+- Fails the workflow if APK output is missing
+- Uploads APK and AAB as workflow artifacts
+- Publishes GitHub prerelease artifacts with APK attached every run
 - Uses contents write permissions for release publishing
 
 ### Signed release support via GitHub Secrets
@@ -197,13 +199,16 @@ Alpha guidance:
 
 - Keep MAJOR at 0 during unstable phase
 - Increase BUILD_NUMBER for each distributable build
-- Publish tags in format: alpha-v0.1.0-buildN
+- Automated releases use tag format: alpha-v<version>-build<build>-run<workflow run>
+- Optional manual releases can use tags like: alpha-v0.1.0-build6
 
 ## Publish Next Alpha
 
 1. Update version in pubspec.yaml.
 2. Commit and push to main branch.
-3. Tag and push release tag:
+3. Release is created automatically with APK and AAB assets.
+
+Optional manual trigger via tag:
 
 ```bash
 git tag alpha-v0.1.0-build6
