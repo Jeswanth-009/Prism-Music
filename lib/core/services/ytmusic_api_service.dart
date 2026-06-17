@@ -101,10 +101,70 @@ class YtMusicApiService {
         final videoId = renderer['videoId']?.toString();
         if (videoId == null) continue;
         
+        // 1. Extract Title
         final title = _readText(renderer['title']);
-        final subtitleRuns = _readRuns(renderer['longBylineText']);
-        final info = _parseSubtitleInfo(subtitleRuns);
         
+        // 2. Extract Duration (Cleans hidden spaces/newlines, forces raw numbers and colons)
+        final rawLength = _readText(renderer['lengthText']).replaceAll(RegExp(r'[^\d:]'), '');
+        int durationSec = 0;
+        if (rawLength.isNotEmpty) {
+          final parts = rawLength.split(':').map((e) => int.tryParse(e) ?? 0).toList();
+          if (parts.length == 2) {
+            durationSec = parts[0] * 60 + parts[1];
+          } else if (parts.length == 3) {
+            durationSec = parts[0] * 3600 + parts[1] * 60 + parts[2];
+          }
+        }
+        
+        // 3. Extract Artists and Albums safely using YouTube ID prefixes
+        final bylineRuns = _dig(renderer, ['longBylineText', 'runs']);
+        final artistsList = <Map<String, dynamic>>[];
+        String? albumName;
+        String? albumId;
+        
+        if (bylineRuns is List) {
+          for (final run in bylineRuns) {
+            if (run is! Map) continue;
+            final text = (run['text']?.toString() ?? '').trim();
+            if (text.isEmpty || text == '•') continue;
+            
+            final browseId = _dig(run, ['navigationEndpoint', 'browseEndpoint', 'browseId'])?.toString();
+            
+            if (browseId != null) {
+              // YouTube Artist IDs always start with 'UC'
+              if (browseId.startsWith('UC')) {
+                artistsList.add({'artistId': browseId, 'name': text});
+              } 
+              // YouTube Album IDs always start with 'MPRE'
+              else if (browseId.startsWith('MPRE')) {
+                albumName = text;
+                albumId = browseId;
+              } else {
+                // Safe fallback for unknown prefixes
+                if (albumName == null) artistsList.add({'artistId': browseId, 'name': text});
+              }
+            } else {
+              // If no ID exists, check if it's a year. If not, it's an unlinked artist.
+              if (albumName == null && !RegExp(r'^\d{4}$').hasMatch(text)) {
+                artistsList.add({'artistId': '', 'name': text});
+              }
+            }
+          }
+        }
+        
+        // Ultimate fallback if no artists were mapped
+        if (artistsList.isEmpty) {
+          final fallbackArtist = _readText(renderer['shortBylineText']);
+          artistsList.add({
+            'artistId': '',
+            'name': fallbackArtist.isNotEmpty ? fallbackArtist : 'Unknown Artist'
+          });
+        }
+
+        // Format a clean, comma-separated string for your UI (e.g. "Anirudh Ravichander, Jonita Gandhi")
+        final artistString = artistsList.map((a) => a['name']).join(', ');
+
+        // 4. Extract Thumbnail
         final thumb = _dig(renderer, ['thumbnail', 'thumbnails']);
         String image = '';
         if (thumb is List && thumb.isNotEmpty) {
@@ -117,10 +177,16 @@ class YtMusicApiService {
           'videoId': videoId,
           'title': title,
           'name': title,
-          'artist': info['artist'] ?? '',
-          'album': info['album'],
-          'durationSeconds': info['duration'] ?? 0,
-          'duration': info['duration'] ?? 0,
+          // Sends the clean, comma-separated string to your existing `Song` model
+          'artist': artistString, 
+          // Sends the rich array map for advanced mapping
+          'artists': artistsList, 
+          'album': albumName != null ? {
+             'albumId': albumId ?? '',
+             'name': albumName
+          } : null,
+          'durationSeconds': durationSec,
+          'duration': durationSec,
           'thumbnails': [
             if (image.isNotEmpty) {'url': image}
           ],
@@ -136,7 +202,7 @@ class YtMusicApiService {
         'name': 'Curated Mix',
         'artist': 'YouTube Music',
         'thumbnails': [],
-        'tracks': out, // Safely mapped track list
+        'tracks': out, 
       };
     } catch (e, st) {
       _logger.severe('getRadioPlaylist failed for "$playlistId"', e, st);

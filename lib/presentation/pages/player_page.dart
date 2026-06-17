@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart'; // Added for TapGestureRecognizer
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -544,40 +545,34 @@ class _PlayerPageState extends State<PlayerPage>
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 14),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => _openArtistPage(song.artist),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest
-                        .withOpacity(0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(LucideIcons.user,
-                      size: 14, color: theme.colorScheme.onSurface),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest
+                      .withOpacity(0.5),
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Text(
-                    song.artist,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color:
-                          theme.colorScheme.onSurface.withOpacity(0.8),
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.2,
-                      decoration: TextDecoration.underline,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                child: Icon(LucideIcons.user,
+                    size: 14, color: theme.colorScheme.onSurface),
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: _ClickableArtistText(
+                  artistString: song.artist,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    color:
+                        theme.colorScheme.onSurface.withOpacity(0.8),
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                    decoration: TextDecoration.underline,
                   ),
+                  onArtistTap: _openArtistPage,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -873,19 +868,14 @@ class _PlayerPageState extends State<PlayerPage>
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
               ),
-              GestureDetector(
-                onTap: () => _openArtistPage(song.artist),
-                child: Text(
-                  song.artist,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.white70,
-                    letterSpacing: 0.4,
-                    decoration: TextDecoration.underline,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
+              _ClickableArtistText(
+                artistString: song.artist,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.white70,
+                  letterSpacing: 0.4,
+                  decoration: TextDecoration.underline,
                 ),
+                onArtistTap: _openArtistPage,
               ),
             ],
           ),
@@ -1278,18 +1268,13 @@ class _PlayerPageState extends State<PlayerPage>
           overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: 6),
-        GestureDetector(
-          onTap: () => _openArtistPage(song.artist),
-          child: Text(
-            song.artist,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: Colors.white70,
-              decoration: TextDecoration.underline,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+        _ClickableArtistText(
+          artistString: song.artist,
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: Colors.white70,
+            decoration: TextDecoration.underline,
           ),
+          onArtistTap: _openArtistPage,
         ),
       ],
     );
@@ -1656,6 +1641,96 @@ class _PlayerPageState extends State<PlayerPage>
     final minutes = duration.inMinutes;
     final seconds = duration.inSeconds % 60;
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Custom RichText widget for Clickable Multiple Artists
+// ════════════════════════════════════════════════════════════════════════
+
+class _ClickableArtistText extends StatefulWidget {
+  final String artistString;
+  final TextStyle? style;
+  final void Function(String) onArtistTap;
+
+  const _ClickableArtistText({
+    required this.artistString,
+    required this.style,
+    required this.onArtistTap,
+  });
+
+  @override
+  State<_ClickableArtistText> createState() => _ClickableArtistTextState();
+}
+
+class _ClickableArtistTextState extends State<_ClickableArtistText> {
+  late List<TapGestureRecognizer> _recognizers;
+
+  @override
+  void initState() {
+    super.initState();
+    _createRecognizers();
+  }
+
+  @override
+  void didUpdateWidget(_ClickableArtistText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.artistString != widget.artistString) {
+      _disposeRecognizers();
+      _createRecognizers();
+    }
+  }
+
+  void _createRecognizers() {
+    final artists = widget.artistString.split(RegExp(r',\s*'));
+    _recognizers = artists.map((artistName) {
+      return TapGestureRecognizer()..onTap = () => widget.onArtistTap(artistName);
+    }).toList();
+  }
+
+  void _disposeRecognizers() {
+    for (final recognizer in _recognizers) {
+      recognizer.dispose();
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposeRecognizers();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final artists = widget.artistString.split(RegExp(r',\s*'));
+    
+    return Text.rich(
+      TextSpan(
+        style: widget.style,
+        children: artists.asMap().entries.map((entry) {
+          final isLast = entry.key == artists.length - 1;
+          final artistName = entry.value;
+          
+          return TextSpan(
+            children: [
+              TextSpan(
+                text: artistName,
+                recognizer: _recognizers[entry.key],
+              ),
+              if (!isLast)
+                TextSpan(
+                  text: ', ',
+                  // We remove the underline specifically for the comma delimiter
+                  style: widget.style?.copyWith(decoration: TextDecoration.none),
+                ),
+            ],
+          );
+        }).toList(),
+      ),
+      textAlign: TextAlign.center,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
   }
 }
 

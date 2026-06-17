@@ -298,34 +298,46 @@ class MusicRepositoryImpl implements MusicRepository {
       @override
   Future<Either<Failure, Playlist>> getPlaylistDetails(String playlistId) async {
     try {
+      Map<String, dynamic> playlistData = {};
+
+      // 1. Primary Native YT Music API Routing
       if (playlistId.startsWith('RD')) {
-        // 1. Radio Mixes (RDCLAK) -> Use native YT Music 'next' endpoint
-        final playlistData = await _ytMusicApiService.getRadioPlaylist(playlistId);
-        
-        if (playlistData.isNotEmpty && playlistData['tracks'] != null) {
-          final playlist = playlistFromYtMusicApi(playlistData);
-          if (playlist.songs != null && playlist.songs!.isNotEmpty) {
-             return Right(playlist);
-          }
-        }
+        // Radio Mixes MUST use the custom /next queue endpoint
+        playlistData = await _ytMusicApiService.getRadioPlaylist(playlistId);
       } else {
-        // 2. Static Playlists (PL, OLAK) -> Use standard browse endpoint
-        final playlistData = await _ytMusicApiService.getPlaylist(playlistId);
+        // Standard Playlists (PL, OLAK) use the standard /browse endpoint natively
+        try {
+          playlistData = await _ytMusicApiService.getPlaylist(playlistId);
+        } catch (e) {
+          debugPrint('YT Music API standard fetch failed for $playlistId: $e');
+        }
         
-        if (playlistData.isNotEmpty) {
-          final playlist = playlistFromYtMusicApi(playlistData);
-          if (playlist.songs != null && playlist.songs!.isNotEmpty) {
-             return Right(playlist);
-          }
+        // THE MAGIC TRICK:
+        // If standard browse fails or returns 0 tracks (extremely common for 
+        // auto-generated Global Charts like PL4f...), we instantly fallback 
+        // and force it through the custom /next queue endpoint!
+        if (playlistData.isEmpty || 
+            playlistData['tracks'] == null || 
+            (playlistData['tracks'] as List).isEmpty) {
+          debugPrint('Standard fetch empty, forcing queue endpoint for $playlistId');
+          playlistData = await _ytMusicApiService.getRadioPlaylist(playlistId);
         }
       }
 
-      // 3. Fallback (Only fires if the official API is down)
+      // 2. Map the data if successful
+      if (playlistData.isNotEmpty && playlistData['tracks'] != null) {
+        final playlist = playlistFromYtMusicApi(playlistData);
+        if (playlist.songs != null && playlist.songs!.isNotEmpty) {
+           return Right(playlist);
+        }
+      }
+
+      // 3. Last Resort: Explode Fallback (Only fires if API servers are entirely down)
       final cleanedId = playlistId.startsWith('RDCLAK') ? playlistId.substring(2) : playlistId;
-      final playlist = await _youtubeMusicDataSource.getPlaylistDetails(cleanedId);
+      final fallbackPlaylist = await _youtubeMusicDataSource.getPlaylistDetails(cleanedId);
       
-      if (playlist.songs != null && playlist.songs!.isNotEmpty) {
-        return Right(playlist);
+      if (fallbackPlaylist.songs != null && fallbackPlaylist.songs!.isNotEmpty) {
+        return Right(fallbackPlaylist);
       }
 
       return const Left(SearchFailure(message: 'Playlist not found or empty'));
@@ -333,6 +345,7 @@ class MusicRepositoryImpl implements MusicRepository {
       return Left(UnknownFailure(message: e.toString()));
     }
   }
+
   @override
   Future<Either<Failure, List<Song>>> getRelatedSongs(
     String songId, {

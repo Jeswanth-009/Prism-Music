@@ -509,44 +509,51 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
 
   // Helper methods
   Song _videoToSong(dynamic video) {
-    // Extract video ID
     String videoId;
     String title;
     String channelName;
     String? thumbnailUrl;
     Duration? duration;
 
-    if (video is yt.Video) {
-      videoId = video.id.value;
-      title = video.title;
-      channelName = video.author;
+    try {
+      // 1. Safe extraction using dynamic property access (Duck Typing)
+      // This bypasses strict class checks (yt.Video, yt.SearchVideo, yt.PlaylistVideo)
+      // and just looks for the data we need, making it immune to package version changes.
+      
+      videoId = video.id.value.toString();
+      title = video.title.toString();
+      channelName = video.author.toString();
+      
+      // Safely extract thumbnail
       try {
-        thumbnailUrl = video.thumbnails.maxResUrl;
+        if (video.thumbnails != null && video.thumbnails.isNotEmpty) {
+          // Check if it has maxResUrl property first
+          try {
+            thumbnailUrl = video.thumbnails.maxResUrl.toString();
+          } catch (_) {
+            // Fallback to the first available URL
+            thumbnailUrl = video.thumbnails.first.url.toString();
+          }
+        }
       } catch (e) {
         thumbnailUrl = null;
       }
-      duration = video.duration;
-    } else if (video is yt.SearchVideo) {
-      videoId = video.id.value;
-      title = video.title;
-      channelName = video.author;
-      try {
-        thumbnailUrl = video.thumbnails.isNotEmpty
-            ? video.thumbnails.first.url.toString()
-            : null;
-      } catch (e) {
-        thumbnailUrl = null;
+      
+      // Safely extract duration (Handles both String and Duration types)
+      final rawDuration = video.duration;
+      if (rawDuration is Duration) {
+        duration = rawDuration;
+      } else if (rawDuration is String) {
+        duration = _parseDuration(rawDuration);
+      } else {
+        duration = const Duration(minutes: 3);
       }
-      // SearchVideo has duration as a String – parse it
-      duration = _parseDuration(video.duration);
-    } else {
-      throw Exception('Unsupported video type: ${video.runtimeType}');
+      
+    } catch (e) {
+      throw Exception('Unsupported video structure: ${video.runtimeType} - $e');
     }
 
     // ── Clean title ──
-    // Only strip noise tags like [Official Video], (Official Audio), [Lyrics],
-    // [HD], [HQ], (Audio), (Music Video), etc.
-    // KEEP meaningful info like (feat. …), (from …), (Deluxe), (Remix).
     String cleanTitle = title
         .replaceAll(
           RegExp(
@@ -560,8 +567,6 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
 
-    // Extract artist and song name from "Artist - Song" pattern
-    // Use the FIRST " - " only (some songs have dashes in the title)
     String artist = channelName;
     String songName = cleanTitle;
 
@@ -575,11 +580,9 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
       }
     }
 
-    // Strip " - Topic" from auto-generated YouTube Music channels
     artist = artist
         .replaceAll(RegExp(r'\s*-\s*Topic$', caseSensitive: false), '')
         .trim();
-    // Strip "VEVO" suffix from channel names
     artist = artist
         .replaceAll(RegExp(r'VEVO$', caseSensitive: false), '')
         .trim();
