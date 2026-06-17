@@ -23,6 +23,16 @@ class YtMusicApiService {
     await _ytMusic.initialize();
     _initialized = true;
   }
+    Future<Map<String, dynamic>> getPlaylist(String playlistId) async {
+    await _ensureInitialized();
+    try {
+      final raw = await _ytMusic.getPlaylist(playlistId);
+      return _toMap(raw) ?? <String, dynamic>{};
+    } catch (e, st) {
+      _logger.severe('getPlaylist failed for "$playlistId"', e, st);
+      return <String, dynamic>{};
+    }
+  }
 
   Future<List<Map<String, dynamic>>> searchSongs(String query) async {
     await _ensureInitialized();
@@ -50,6 +60,87 @@ class YtMusicApiService {
         params: _songsParams,
         expectedType: 'song',
       );
+    }
+  }
+
+  /// Directly fetches Radio Mixes (RDCLAK, RDMM) using the watch playlist endpoint.
+  Future<Map<String, dynamic>> getRadioPlaylist(String playlistId) async {
+    await _ensureInitialized();
+    try {
+      final body = <String, dynamic>{
+        'playlistId': playlistId,
+      };
+      
+      final raw = await _ytMusic.constructRequest('next', body: body);
+      
+      final contents = _dig(raw, [
+        'contents',
+        'singleColumnMusicWatchNextResultsRenderer',
+        'tabbedRenderer',
+        'watchNextTabbedResultsRenderer',
+        'tabs',
+        0,
+        'tabRenderer',
+        'content',
+        'musicQueueRenderer',
+        'content',
+        'playlistPanelRenderer',
+        'contents'
+      ]);
+
+      if (contents is! List) {
+        _logger.warning('getRadioPlaylist: contents is null or not a List');
+        return <String, dynamic>{};
+      }
+
+      final out = <Map<String, dynamic>>[];
+      for (final item in contents) {
+        final renderer = item['playlistPanelVideoRenderer'];
+        if (renderer == null) continue;
+        
+        final videoId = renderer['videoId']?.toString();
+        if (videoId == null) continue;
+        
+        final title = _readText(renderer['title']);
+        final subtitleRuns = _readRuns(renderer['longBylineText']);
+        final info = _parseSubtitleInfo(subtitleRuns);
+        
+        final thumb = _dig(renderer, ['thumbnail', 'thumbnails']);
+        String image = '';
+        if (thumb is List && thumb.isNotEmpty) {
+          image = thumb.last['url']?.toString() ?? '';
+        }
+
+        out.add({
+          'type': 'song',
+          'id': videoId,
+          'videoId': videoId,
+          'title': title,
+          'name': title,
+          'artist': info['artist'] ?? '',
+          'album': info['album'],
+          'durationSeconds': info['duration'] ?? 0,
+          'duration': info['duration'] ?? 0,
+          'thumbnails': [
+            if (image.isNotEmpty) {'url': image}
+          ],
+        });
+      }
+      
+      return {
+        'type': 'playlist',
+        'playlistId': playlistId,
+        'browseId': playlistId,
+        'id': playlistId,
+        'title': 'Curated Mix',
+        'name': 'Curated Mix',
+        'artist': 'YouTube Music',
+        'thumbnails': [],
+        'tracks': out, // Safely mapped track list
+      };
+    } catch (e, st) {
+      _logger.severe('getRadioPlaylist failed for "$playlistId"', e, st);
+      return <String, dynamic>{};
     }
   }
 
@@ -576,7 +667,12 @@ class YtMusicApiService {
       };
     }
 
-    if (raw is PlaylistDetailed) {
+            if (raw is PlaylistDetailed) {
+      // We cast 'raw' to dynamic so Flutter doesn't throw a 
+      // compile error if the 'tracks' getter name is different 
+      // across package versions.
+      final dynamic rawDyn = raw; 
+      
       return {
         'type': raw.type,
         'playlistId': raw.playlistId,
@@ -586,12 +682,9 @@ class YtMusicApiService {
         'name': raw.name,
         'artist': raw.artist.name,
         'thumbnails': raw.thumbnails
-            .map((t) => {
-                  'url': t.url,
-                  'width': t.width,
-                  'height': t.height,
-                })
+            .map((t) => {'url': t.url, 'width': t.width, 'height': t.height})
             .toList(),
+        'tracks': rawDyn.tracks, // Now it will compile!
       };
     }
 

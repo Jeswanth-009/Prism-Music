@@ -117,10 +117,12 @@ class LocalDataSourceImpl implements LocalDataSource {
   static const String _likedBoxName = 'liked_songs';
   static const String _searchHistoryBoxName = 'search_history';
   static const String _downloadsBoxName = 'downloads';
+  static const String _playlistsBoxName = 'playlists';
   Box? _historyBox;
   Box? _likedBox;
   Box? _searchHistoryBox;
   Box? _downloadsBox;
+  Box? _playlistsBox;
 
   LocalDataSourceImpl();
 
@@ -148,49 +150,96 @@ class LocalDataSourceImpl implements LocalDataSource {
     return _downloadsBox!;
   }
 
+  Future<Box> _getPlaylistsBox() async {
+    if (_playlistsBox != null && _playlistsBox!.isOpen) return _playlistsBox!;
+    _playlistsBox = await Hive.openBox(_playlistsBoxName);
+    return _playlistsBox!;
+  }
+
   Map<String, dynamic> _songToMap(Song song) => {
-        'id': song.id,
-        'title': song.title,
-        'artist': song.artist,
-        'artists': song.artists,
-        'album': song.album,
-        'albumId': song.albumId,
-        'durationMs': song.duration.inMilliseconds,
-        'thumbnailLow': song.thumbnails.low,
-        'thumbnailMed': song.thumbnails.medium,
-        'thumbnailHigh': song.thumbnails.high,
-        'thumbnailMax': song.thumbnails.max,
-        'source': song.source.index,
-        'youtubeId': song.youtubeId,
-        'spotifyId': song.spotifyId,
-        'isExplicit': song.isExplicit,
-        'year': song.year,
-        'genre': song.genre,
-        'playCount': song.playCount,
-      };
+    'id': song.id,
+    'title': song.title,
+    'artist': song.artist,
+    'artists': song.artists,
+    'album': song.album,
+    'albumId': song.albumId,
+    'durationMs': song.duration.inMilliseconds,
+    'thumbnailLow': song.thumbnails.low,
+    'thumbnailMed': song.thumbnails.medium,
+    'thumbnailHigh': song.thumbnails.high,
+    'thumbnailMax': song.thumbnails.max,
+    'source': song.source.index,
+    'youtubeId': song.youtubeId,
+    'spotifyId': song.spotifyId,
+    'isExplicit': song.isExplicit,
+    'year': song.year,
+    'genre': song.genre,
+    'playCount': song.playCount,
+  };
 
   Song _mapToSong(Map data) => Song(
-        id: data['id'] as String? ?? '',
-        title: data['title'] as String? ?? '',
-        artist: data['artist'] as String? ?? '',
-        artists: (data['artists'] as List?)?.cast<String>() ?? const [],
-        album: data['album'] as String?,
-        albumId: data['albumId'] as String?,
-        duration: Duration(milliseconds: data['durationMs'] as int? ?? 0),
-        thumbnails: Thumbnails(
-          low: data['thumbnailLow'] as String?,
-          medium: data['thumbnailMed'] as String?,
-          high: data['thumbnailHigh'] as String?,
-          max: data['thumbnailMax'] as String?,
-        ),
-        source: MusicSource.values.elementAtOrNull(data['source'] as int? ?? 4) ?? MusicSource.unknown,
-        youtubeId: data['youtubeId'] as String?,
-        spotifyId: data['spotifyId'] as String?,
-        isExplicit: data['isExplicit'] as bool? ?? false,
-        year: data['year'] as int?,
-        genre: data['genre'] as String?,
-        playCount: data['playCount'] as int?,
-      );
+    id: data['id'] as String? ?? '',
+    title: data['title'] as String? ?? '',
+    artist: data['artist'] as String? ?? '',
+    artists: (data['artists'] as List?)?.cast<String>() ?? const [],
+    album: data['album'] as String?,
+    albumId: data['albumId'] as String?,
+    duration: Duration(milliseconds: data['durationMs'] as int? ?? 0),
+    thumbnails: Thumbnails(
+      low: data['thumbnailLow'] as String?,
+      medium: data['thumbnailMed'] as String?,
+      high: data['thumbnailHigh'] as String?,
+      max: data['thumbnailMax'] as String?,
+    ),
+    source: MusicSource.values.elementAtOrNull(data['source'] as int? ?? 4) ?? MusicSource.unknown,
+    youtubeId: data['youtubeId'] as String?,
+    spotifyId: data['spotifyId'] as String?,
+    isExplicit: data['isExplicit'] as bool? ?? false,
+    year: data['year'] as int?,
+    genre: data['genre'] as String?,
+    playCount: data['playCount'] as int?,
+  );
+
+  Map<String, dynamic> _playlistToMap(Playlist playlist) => {
+    'id': playlist.id,
+    'name': playlist.name,
+    'description': playlist.description,
+    'thumbnailsLow': playlist.thumbnails?.low,
+    'thumbnailsMed': playlist.thumbnails?.medium,
+    'thumbnailsHigh': playlist.thumbnails?.high,
+    'thumbnailsMax': playlist.thumbnails?.max,
+    'isUserCreated': playlist.isUserCreated,
+    'createdAt': playlist.createdAt?.toIso8601String(),
+    'updatedAt': playlist.updatedAt?.toIso8601String(),
+    'trackCount': playlist.trackCount,
+    'totalDurationMs': playlist.totalDuration?.inMilliseconds ?? 0,
+    'songs': playlist.songs?.map((s) => _songToMap(s)).toList() ?? [],
+  };
+
+  Playlist _mapToPlaylist(Map data) {
+    final songsData = data['songs'] as List? ?? [];
+    final songs = songsData.map((s) => _mapToSong(Map<String, dynamic>.from(s))).toList();
+
+    return Playlist(
+      id: data['id'] as String? ?? '',
+      name: data['name'] as String? ?? '',
+      description: data['description'] as String?,
+      thumbnails: data['thumbnailsLow'] != null || data['thumbnailsMed'] != null || data['thumbnailsHigh'] != null || data['thumbnailsMax'] != null
+          ? Thumbnails(
+              low: data['thumbnailsLow'] as String?,
+              medium: data['thumbnailsMed'] as String?,
+              high: data['thumbnailsHigh'] as String?,
+              max: data['thumbnailsMax'] as String?,
+            )
+          : null,
+      isUserCreated: data['isUserCreated'] as bool? ?? false,
+      createdAt: DateTime.tryParse(data['createdAt'] as String? ?? ''),
+      updatedAt: DateTime.tryParse(data['updatedAt'] as String? ?? ''),
+      trackCount: data['trackCount'] as int? ?? songs.length,
+      totalDuration: Duration(milliseconds: data['totalDurationMs'] as int? ?? 0),
+      songs: songs,
+    );
+  }
 
   // ============ LIKED SONGS ============
 
@@ -227,25 +276,37 @@ class LocalDataSourceImpl implements LocalDataSource {
 
   @override
   Future<List<Playlist>> getPlaylists() async {
-    // TODO: Implement with Isar
-    return [];
+    final box = await _getPlaylistsBox();
+    final playlists = <Playlist>[];
+    for (final key in box.keys) {
+      final data = box.get(key);
+      if (data is Map) {
+        playlists.add(_mapToPlaylist(Map<String, dynamic>.from(data)));
+      }
+    }
+    return playlists;
   }
 
   @override
   Future<Playlist> createPlaylist(String name, {String? description}) async {
-    // TODO: Implement with Isar
-    return Playlist(
+    final box = await _getPlaylistsBox();
+    final playlist = Playlist(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: name,
       description: description,
       isUserCreated: true,
       createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      songs: [],
     );
+    await box.put(playlist.id, _playlistToMap(playlist));
+    return playlist;
   }
 
   @override
   Future<void> deletePlaylist(String playlistId) async {
-    // TODO: Implement with Isar
+    final box = await _getPlaylistsBox();
+    await box.delete(playlistId);
   }
 
   @override
@@ -254,24 +315,67 @@ class LocalDataSourceImpl implements LocalDataSource {
     String? name,
     String? description,
   }) async {
-    // TODO: Implement with Isar
-    return Playlist(id: playlistId, name: name ?? '');
+    final box = await _getPlaylistsBox();
+    final data = box.get(playlistId);
+    if (data == null) {
+      throw Exception('Playlist not found: $playlistId');
+    }
+    final existing = _mapToPlaylist(Map<String, dynamic>.from(data));
+    final updated = existing.copyWith(
+      name: name ?? existing.name,
+      description: description ?? existing.description,
+    );
+    await box.put(playlistId, _playlistToMap(updated));
+    return updated;
   }
 
   @override
   Future<void> addSongToPlaylist(String playlistId, Song song) async {
-    // TODO: Implement with Isar
+    final box = await _getPlaylistsBox();
+    final data = box.get(playlistId);
+    if (data == null) {
+      throw Exception('Playlist not found: $playlistId');
+    }
+    final existing = _mapToPlaylist(Map<String, dynamic>.from(data));
+    final updatedSongs = [...?existing.songs, song];
+    final updated = existing.copyWith(
+      songs: updatedSongs,
+      trackCount: updatedSongs.length,
+      totalDuration: Duration(
+        milliseconds: updatedSongs.fold(0, (sum, s) => sum + s.duration.inMilliseconds),
+      ),
+      updatedAt: DateTime.now(),
+    );
+    await box.put(playlistId, _playlistToMap(updated));
   }
 
   @override
   Future<void> removeSongFromPlaylist(String playlistId, String songId) async {
-    // TODO: Implement with Isar
+    final box = await _getPlaylistsBox();
+    final data = box.get(playlistId);
+    if (data == null) {
+      throw Exception('Playlist not found: $playlistId');
+    }
+    final existing = _mapToPlaylist(Map<String, dynamic>.from(data));
+    final existingSongs = existing.songs ?? [];
+    final updatedSongs = existingSongs.where((s) => s.playableId != songId).toList();
+    final updated = existing.copyWith(
+      songs: updatedSongs,
+      trackCount: updatedSongs.length,
+      totalDuration: Duration(
+        milliseconds: updatedSongs.fold(0, (sum, s) => sum + s.duration.inMilliseconds),
+      ),
+      updatedAt: DateTime.now(),
+    );
+    await box.put(playlistId, _playlistToMap(updated));
   }
 
   @override
   Future<Playlist?> getPlaylist(String playlistId) async {
-    // TODO: Implement with Isar
-    return null;
+    final box = await _getPlaylistsBox();
+    final data = box.get(playlistId);
+    if (data == null) return null;
+    return _mapToPlaylist(Map<String, dynamic>.from(data));
   }
 
   // ============ LISTENING HISTORY ============

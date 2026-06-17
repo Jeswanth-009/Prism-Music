@@ -842,6 +842,18 @@ class RecommendationService {
     }
   }
 
+  /// Dispose of resources and clear caches
+  Future<void> dispose() async {
+    if (_settingsBox?.isOpen ?? false) {
+      await _settingsBox?.close();
+    }
+    if (_profileBox?.isOpen ?? false) {
+      await _profileBox?.close();
+    }
+    _settingsBox = null;
+    _profileBox = null;
+  }
+
   /// Get a summary of the user's taste profile (for debugging or display)
   Map<String, dynamic> getTasteProfileSummary() {
     return {

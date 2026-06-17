@@ -65,7 +65,15 @@ class AudioPlayerService {
   }
 
   void _init() {
-    _player = AudioPlayer();
+    _player = AudioPlayer(
+      audioLoadConfiguration: AudioLoadConfiguration(
+        androidLoadControl: AndroidLoadControl(
+          minBufferDuration: const Duration(seconds: 30),
+          maxBufferDuration: const Duration(seconds: 60),
+          bufferForPlaybackDuration: const Duration(seconds: 5),
+        ),
+      ),
+    );
     _equalizerService = EqualizerService();
     _initialized = true;
     _initStreams();
@@ -406,11 +414,23 @@ class AudioPlayerService {
       final currentIndex = _player.currentIndex;
       final currentPosition = _player.position;
 
-      await _player.setAudioSources(
-        _queueSources,
-        initialIndex: currentIndex ?? (_queueSources.length - 1),
-        initialPosition: currentIndex != null ? currentPosition : null,
-      );
+      if (_playlist != null) {
+        await _playlist!.add(source);
+        _queueSources.add(source);
+      } else {
+        _queueSources.add(source);
+        _playlist = ConcatenatingAudioSource(
+          useLazyPreparation: true,
+          shuffleOrder: DefaultShuffleOrder(),
+          children: _queueSources,
+        );
+
+        await _player.setAudioSource(
+          _playlist!,
+          initialIndex: currentIndex ?? (_queueSources.length - 1),
+          initialPosition: currentIndex != null ? currentPosition : null,
+        );
+      }
 
       debugPrint(
         'AudioPlayerService: ✓ Added song to queue (Queue length: ${_queueSources.length})',

@@ -51,8 +51,8 @@ void main() async {
   // Initialize dependencies
   await initializeDependencies();
   
-  // Request permissions
-  await PermissionService.requestAllPermissions();
+// Request permissions (non-blocking to avoid hot restart issues)
+  PermissionService.requestAllPermissions().catchError((_) {});
   
   runApp(const PrismMusicApp());
 }

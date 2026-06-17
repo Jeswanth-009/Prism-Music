@@ -50,7 +50,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
     if (kDebugMode) debugPrint(message);
   }
 
-  PlayerBloc({
+PlayerBloc({
     required MusicRepository musicRepository,
     required LibraryRepository libraryRepository,
     required AudioPlayerService audioPlayerService,
@@ -60,15 +60,16 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
     required StreamLoaderService streamLoader,
     required DownloadService downloadService,
   }) : _musicRepository = musicRepository,
-       _libraryRepository = libraryRepository,
-       _audioPlayer = audioPlayerService,
-       _audioFocus = audioFocus,
-       _mediaResolver = mediaResolver,
-       _reliability = reliability,
-       _streamLoader = streamLoader,
-       _downloadService = downloadService,
-       super(const PlayerState()) {
-    // Initialize recommendation service — pass library repo for history-based recs
+        _libraryRepository = libraryRepository,
+        _audioPlayer = audioPlayerService,
+        _audioFocus = audioFocus,
+        _mediaResolver = mediaResolver,
+        _reliability = reliability,
+        _streamLoader = streamLoader,
+        _downloadService = downloadService,
+        super(const PlayerState()) {
+    // Recommendation service will be injected via DI in production
+    // For now, create it here for backward compatibility
     _recommendationService = RecommendationService(
       _musicRepository,
       _libraryRepository,
@@ -1134,6 +1135,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
     await _completedSubscription?.cancel();
     await _errorSubscription?.cancel();
     await _indexSubscription?.cancel();
+    await _recommendationService?.dispose();
     await _audioFocus.dispose();
     await super.close();
   }

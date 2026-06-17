@@ -51,6 +51,7 @@ class DownloadService {
   static const int _minValidAudioBytes = 16 * 1024;
   final MusicRepository _musicRepository;
   final Dio _dio = Dio();
+  final Map<String, CancelToken> _cancelTokens = {};
   
   Box? _downloadBox;
   final Map<String, DownloadInfo> _downloadProgress = {};
@@ -208,12 +209,17 @@ class DownloadService {
       // Remove failed downloads to allow retry
       if (currentStatus == DownloadStatus.failed) {
         _downloadProgress.remove(song.playableId);
+        _cancelTokens.remove(song.playableId);
       }
     }
 
+    // Create cancel token for this download
+    final cancelToken = CancelToken();
+    _cancelTokens[song.playableId] = cancelToken;
+
     try {
       // Update status to downloading
-      final downloadInfo = DownloadInfo(
+      var downloadInfo = DownloadInfo(
         songId: song.playableId,
         status: DownloadStatus.downloading,
         progress: 0.0,
@@ -239,12 +245,13 @@ class DownloadService {
       );
 
       if (streamUrl == null) {
-        final errorInfo = downloadInfo.copyWith(
+        downloadInfo = downloadInfo.copyWith(
           status: DownloadStatus.failed,
           error: 'Failed to get stream URL',
         );
-        _downloadProgress[song.playableId] = errorInfo;
-        _notifyListeners(errorInfo);
+        _downloadProgress[song.playableId] = downloadInfo;
+        _notifyListeners(downloadInfo);
+        _cancelTokens.remove(song.playableId);
         return false;
       }
 
@@ -260,6 +267,7 @@ class DownloadService {
       final response = await _dio.download(
         streamUrl!,
         filePath,
+        cancelToken: cancelToken,
         options: Options(
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -274,9 +282,9 @@ class DownloadService {
         onReceiveProgress: (received, total) {
           if (total > 0) {
             final progress = received / total;
-            final progressInfo = downloadInfo.copyWith(progress: progress);
-            _downloadProgress[song.playableId] = progressInfo;
-            _notifyListeners(progressInfo);
+            final progressInf = downloadInfo.copyWith(progress: progress);
+            _downloadProgress[song.playableId] = progressInf;
+            _notifyListeners(progressInf);
           }
         },
       );
@@ -314,26 +322,35 @@ class DownloadService {
       });
 
       // Update status to completed
-      final completedInfo = downloadInfo.copyWith(
+      downloadInfo = downloadInfo.copyWith(
         status: DownloadStatus.completed,
         progress: 1.0,
         localPath: filePath,
       );
-      _downloadProgress[song.playableId] = completedInfo;
-      _notifyListeners(completedInfo);
+      _downloadProgress[song.playableId] = downloadInfo;
+      _notifyListeners(downloadInfo);
+      _cancelTokens.remove(song.playableId);
 
       logDebug('Successfully downloaded: ${song.title} to $filePath');
       return true;
     } catch (e, stack) {
+      // Check if download was cancelled
+      if (e is DioException && e.type == DioExceptionType.cancel) {
+        logDebug('Download cancelled for: ${song.title}');
+        _downloadProgress.remove(song.playableId);
+        return false;
+      }
+      
       logError('Error downloading song', e, stack);
       
-      final errorInfo = DownloadInfo(
+      var errorInfo = DownloadInfo(
         songId: song.playableId,
         status: DownloadStatus.failed,
         error: e.toString(),
       );
       _downloadProgress[song.playableId] = errorInfo;
       _notifyListeners(errorInfo);
+      _cancelTokens.remove(song.playableId);
       
       return false;
     }
@@ -411,9 +428,9 @@ class DownloadService {
 
   /// Cancel download
   void cancelDownload(String songId) {
+    _cancelTokens[songId]?.cancel();
+    _cancelTokens.remove(songId);
     _downloadProgress.remove(songId);
-    // Note: Dio doesn't easily support cancellation without CancelToken
-    // This is a simplified version
   }
 
   bool _isLikelyAudioContentType(String value) {

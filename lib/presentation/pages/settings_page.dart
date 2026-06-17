@@ -53,10 +53,8 @@ class _SettingsPageState extends State<SettingsPage> {
       await _settingsService.initialize();
       _fastStartEnabled = _settingsService.fastStartEnabled;
       _prefetchLookahead = _settingsService.prefetchLookahead;
-      final musicRepository = getIt<MusicRepository>();
-      final libraryRepository = getIt<LibraryRepository>();
-      _recommendationService = RecommendationService(musicRepository, libraryRepository);
-      await _recommendationService?.initialize();
+      // Use RecommendationService from DI (registered as singleton)
+      _recommendationService = getIt<RecommendationService>();
       if (kDebugMode) {
         debugPrint('RecommendationService initialized successfully');
       }

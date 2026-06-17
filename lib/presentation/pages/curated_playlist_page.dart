@@ -32,7 +32,7 @@ class _CuratedPlaylistPageState extends State<CuratedPlaylistPage> {
     _loadPlaylist();
   }
 
-  Future<void> _loadPlaylist() async {
+      Future<void> _loadPlaylist() async {
     if (!mounted) return;
     setState(() {
       _isLoading = true;
@@ -41,23 +41,26 @@ class _CuratedPlaylistPageState extends State<CuratedPlaylistPage> {
 
     try {
       final repo = getIt<MusicRepository>();
-      final result =
-          await repo.getPlaylistDetails(widget.playlist.playlistId);
+      final result = await repo.getPlaylistDetails(widget.playlist.playlistId);
 
       if (!mounted) return;
       result.fold(
         (failure) {
-          // If direct playlist fetch fails (e.g. RDCLAK radio IDs),
-          // fall back to searching by the playlist name.
+          // If official fetch fails (RD/OLAK IDs), go to fallback
           _fallbackSearch();
         },
         (playlist) {
-          setState(() {
-            _songs = playlist.songs ?? [];
-            _playlistAuthor = playlist.author;
-            _totalDuration = playlist.totalDuration;
-            _isLoading = false;
-          });
+          // Even if it "succeeds", check if the list is actually empty
+          if (playlist.songs == null || playlist.songs!.isEmpty) {
+            _fallbackSearch();
+          } else {
+            setState(() {
+              _songs = playlist.songs!;
+              _playlistAuthor = playlist.author;
+              _totalDuration = playlist.totalDuration;
+              _isLoading = false;
+            });
+          }
         },
       );
     } catch (_) {
@@ -66,23 +69,40 @@ class _CuratedPlaylistPageState extends State<CuratedPlaylistPage> {
     }
   }
 
-  Future<void> _fallbackSearch() async {
+      Future<void> _fallbackSearch() async {
     try {
       final repo = getIt<MusicRepository>();
+      
+      // We add "Official" and "Playlist" to the query. 
+      // This prevents the app from showing random user-uploaded videos.
+      final query = '"${widget.playlist.name}" official playlist'; 
+      
       final result = await repo.searchSongs(
-        widget.playlist.name,
+        query,
         limit: 30,
       );
+      
       if (!mounted) return;
       result.fold(
         (failure) => setState(() {
           _error = failure.message;
           _isLoading = false;
         }),
-        (songs) => setState(() {
-          _songs = songs;
-          _isLoading = false;
-        }),
+        (songs) {
+          // ONLY show songs if the API actually found a good number of them.
+          // If it only found 1 or 2, they are probably unrelated.
+          if (songs.length < 3) {
+            setState(() {
+              _error = "Official playlist tracks are currently unavailable.";
+              _isLoading = false;
+            });
+          } else {
+            setState(() {
+              _songs = songs;
+              _isLoading = false;
+            });
+          }
+        },
       );
     } catch (e) {
       if (!mounted) return;

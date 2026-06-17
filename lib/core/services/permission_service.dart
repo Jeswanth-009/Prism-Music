@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 
 /// Service for handling runtime permissions
 class PermissionService {
-  /// Request all required permissions for the app
-  static Future<Map<Permission, PermissionStatus>> requestAllPermissions() async {
+   /// Request all required permissions for the app
+   static Future<Map<Permission, PermissionStatus>> requestAllPermissions() async {
     final permissions = <Permission>[];
     
     if (Platform.isAndroid) {
@@ -37,7 +39,14 @@ class PermissionService {
       return {};
     }
     
-    return await permissions.request();
+    try {
+      return await permissions.request();
+    } on PlatformException catch (e) {
+      if (e.message?.contains('already running') ?? false) {
+        return {};
+      }
+      rethrow;
+    }
   }
   
   /// Request notification permission (required for Android 13+)
@@ -112,16 +121,16 @@ class PermissionService {
     return await openAppSettings();
   }
   
-  /// Get Android SDK version
-  static Future<int> _getAndroidVersion() async {
-    try {
-      // Use device_info_plus to get accurate version
-      // For now, assume Android 13+ for safety
-      return 33;
-    } catch (e) {
-      return 33; // Default to newer behavior
-    }
-  }
+/// Get Android SDK version
+   static Future<int> _getAndroidVersion() async {
+     try {
+       final deviceInfo = DeviceInfoPlugin();
+       final androidInfo = await deviceInfo.androidInfo;
+       return androidInfo.version.sdkInt;
+     } catch (e) {
+       return 33; // Default to newer behavior on failure
+     }
+   }
   
   /// Check all permission statuses
   static Future<PermissionSummary> checkPermissions() async {

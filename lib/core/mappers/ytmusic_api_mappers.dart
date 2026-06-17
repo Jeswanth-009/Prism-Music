@@ -63,12 +63,23 @@ Album albumFromYtMusicApi(Map<String, dynamic> item) {
 
 Playlist playlistFromYtMusicApi(Map<String, dynamic> item) {
   final id = _readString(item, const ['playlistId', 'browseId', 'id']);
+  
+  // Extract and map tracks if they exist
+  final rawTracks = item['tracks'];
+  List<Song> songs = [];
+  if (rawTracks is List) {
+    songs = rawTracks
+        .map((t) => songFromYtMusicApi(t as Map<String, dynamic>))
+        .toList();
+  }
+
   return Playlist(
     id: id,
     name: _readString(item, const ['title', 'name']),
-    trackCount: int.tryParse(_readString(item, const ['trackCount', 'count'])) ?? 0,
+    trackCount: int.tryParse(_readString(item, const ['trackCount', 'count'])) ?? songs.length,
     thumbnails: Thumbnails.fromUrl(_extractThumbnailUrl(item) ?? ''),
     youtubePlaylistId: id,
+    songs: songs, // Now passing the actual songs!
   );
 }
 

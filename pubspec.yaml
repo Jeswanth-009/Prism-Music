@@ -24,6 +24,8 @@ dependencies:
   rxdart: ^0.28.0
   
   # Audio Player & Background Service
+  just_audio: ^0.9.38
+  audio_service: ^0.18.13
   
   # YouTube & Music Sources
   youtube_explode_dart: ^2.2.3
@@ -71,9 +73,7 @@ dependencies:
   # JSON Serialization
   json_annotation: ^4.9.0
   freezed_annotation: ^2.4.4
-  just_audio: ^0.10.5
   audio_session: ^0.1.21
-  audio_service: ^0.18.18
   just_audio_background: ^0.0.1-beta.17
   shadcn_ui: 0.46.1
 

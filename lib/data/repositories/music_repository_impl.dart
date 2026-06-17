@@ -295,16 +295,44 @@ class MusicRepositoryImpl implements MusicRepository {
     }
   }
 
-  @override
+      @override
   Future<Either<Failure, Playlist>> getPlaylistDetails(String playlistId) async {
     try {
-      final playlist = await _youtubeMusicDataSource.getPlaylistDetails(playlistId);
-      return Right(playlist);
+      if (playlistId.startsWith('RD')) {
+        // 1. Radio Mixes (RDCLAK) -> Use native YT Music 'next' endpoint
+        final playlistData = await _ytMusicApiService.getRadioPlaylist(playlistId);
+        
+        if (playlistData.isNotEmpty && playlistData['tracks'] != null) {
+          final playlist = playlistFromYtMusicApi(playlistData);
+          if (playlist.songs != null && playlist.songs!.isNotEmpty) {
+             return Right(playlist);
+          }
+        }
+      } else {
+        // 2. Static Playlists (PL, OLAK) -> Use standard browse endpoint
+        final playlistData = await _ytMusicApiService.getPlaylist(playlistId);
+        
+        if (playlistData.isNotEmpty) {
+          final playlist = playlistFromYtMusicApi(playlistData);
+          if (playlist.songs != null && playlist.songs!.isNotEmpty) {
+             return Right(playlist);
+          }
+        }
+      }
+
+      // 3. Fallback (Only fires if the official API is down)
+      final cleanedId = playlistId.startsWith('RDCLAK') ? playlistId.substring(2) : playlistId;
+      final playlist = await _youtubeMusicDataSource.getPlaylistDetails(cleanedId);
+      
+      if (playlist.songs != null && playlist.songs!.isNotEmpty) {
+        return Right(playlist);
+      }
+
+      return const Left(SearchFailure(message: 'Playlist not found or empty'));
     } catch (e) {
       return Left(UnknownFailure(message: e.toString()));
     }
   }
-
   @override
   Future<Either<Failure, List<Song>>> getRelatedSongs(
     String songId, {
@@ -475,8 +503,29 @@ class MusicRepositoryImpl implements MusicRepository {
     int limit = 50,
   }) async {
     try {
-      final songs = await _youtubeMusicDataSource.getCharts(region: region, limit: limit);
-      return Right(songs);
+      // 1. Exclusively use YT Music API.
+      // We are completely bypassing _youtubeMusicDataSource.getCharts() 
+      // because it has a known bug parsing "Streamed" durations and gets stuck in redirect loops.
+      
+      final currentYear = DateTime.now().year;
+      final query = region.toLowerCase() == 'in' || region.toLowerCase() == 'india'
+          ? 'trending music india $currentYear'
+          : 'top hits $region $currentYear';
+
+      final items = await _ytMusicApiService.searchSongs(query);
+      
+      final songs = items
+          .map((item) => songFromYtMusicApi(item))
+          // Filter out invalid IDs and weird 0-second live streams
+          .where((song) => song.playableId.isNotEmpty && song.duration.inSeconds > 30)
+          .take(limit)
+          .toList();
+          
+      if (songs.isNotEmpty) {
+        return Right(songs);
+      }
+
+      return const Left(SearchFailure(message: 'No trending songs found.'));
     } catch (e) {
       return Left(UnknownFailure(message: e.toString()));
     }

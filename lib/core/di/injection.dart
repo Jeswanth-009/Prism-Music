@@ -22,6 +22,7 @@ import '../services/media_resolver_service.dart';
 import '../services/playback_reliability_service.dart';
 import '../services/download_service.dart';
 import '../services/ytmusic_api_service.dart';
+import '../services/recommendation_service.dart';
 
 /// Global service locator instance
 final GetIt getIt = GetIt.instance;
@@ -114,36 +115,46 @@ Future<void> initializeDependencies() async {
     ),
   );
 
-  // Download Service (singleton) depends on MusicRepository
-  {
-    final downloadService = DownloadService(getIt<MusicRepository>());
-    await downloadService.initialize();
-    getIt.registerSingleton<DownloadService>(downloadService);
-  }
+// Audio focus orchestration for interruptions/noisy events
+   getIt.registerLazySingleton<AudioFocusOrchestratorService>(
+     () => AudioFocusOrchestratorService(
+       audioPlayer: getIt<AudioPlayerService>(),
+       pausePlayback: () => getIt<AudioPlayerService>().pause(),
+     ),
+   );
 
-  // Media Resolver Service - central playback resolver (offline/local/online)
-  getIt.registerLazySingleton<MediaResolverService>(
-    () => MediaResolverService(
-      streamLoader: getIt<StreamLoaderService>(),
-      downloadService: getIt<DownloadService>(),
-    ),
-  );
+   getIt.registerLazySingleton<LibraryRepository>(
+     () => LibraryRepositoryImpl(
+       localDataSource: getIt<LocalDataSource>(),
+     ),
+   );
 
-  // Audio focus orchestration for interruptions/noisy events
-  getIt.registerLazySingleton<AudioFocusOrchestratorService>(
-    () => AudioFocusOrchestratorService(
-      audioPlayer: getIt<AudioPlayerService>(),
-      pausePlayback: () => getIt<AudioPlayerService>().pause(),
-    ),
-  );
-  
-  getIt.registerLazySingleton<LibraryRepository>(
-    () => LibraryRepositoryImpl(
-      localDataSource: getIt<LocalDataSource>(),
-    ),
-  );
+   // Download Service (singleton) depends on MusicRepository
+   {
+     final downloadService = DownloadService(getIt<MusicRepository>());
+     await downloadService.initialize();
+     getIt.registerSingleton<DownloadService>(downloadService);
+   }
 
-  // ============ BLOCS ============
+// Recommendation Service (singleton) depends on MusicRepository and LibraryRepository
+    {
+      final recommendationService = RecommendationService(
+        getIt<MusicRepository>(),
+        getIt<LibraryRepository>(),
+      );
+      await recommendationService.initialize();
+      getIt.registerSingleton<RecommendationService>(recommendationService);
+    }
+
+    // Media Resolver Service - central playback resolver (offline/local/online)
+    getIt.registerLazySingleton<MediaResolverService>(
+      () => MediaResolverService(
+        streamLoader: getIt<StreamLoaderService>(),
+        downloadService: getIt<DownloadService>(),
+      ),
+    );
+
+    // ============ BLOCS ============
   
   getIt.registerFactory<PlayerBloc>(
     () => PlayerBloc(

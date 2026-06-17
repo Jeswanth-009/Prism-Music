@@ -103,7 +103,9 @@ class _PlayerPageState extends State<PlayerPage>
         _animationController.forward(from: 0);
       }
     } catch (e) {
-      if (mounted) setState(() => _dominantColor = null);
+      if (mounted) {
+        setState(() => _dominantColor = null);
+      }
     }
   }
 

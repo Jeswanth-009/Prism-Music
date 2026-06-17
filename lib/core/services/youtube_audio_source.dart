@@ -74,16 +74,11 @@ class YouTubeAudioSource extends StreamAudioSource {
       
       StreamManifest manifest;
       try {
-        // Use AndroidVr client for better reliability (learned from BloomeeTunes)
-        manifest = await _ytExplode.videos.streams.getManifest(
-          videoId,
-          requireWatchPage: true,
-          ytClients: [YoutubeApiClient.androidVr],
-        );
+        // Fetch manifest without deprecated parameters
+        manifest = await _ytExplode.videos.streams.getManifest(videoId);
       } catch (e) {
-        debugPrint('YouTubeAudioSource: AndroidVr client failed, trying default clients: $e');
-        // Fallback to default clients
-        manifest = await _ytExplode.videos.streamsClient.getManifest(videoId);
+        debugPrint('YouTubeAudioSource: Default client failed: $e');
+        manifest = await _ytExplode.videos.streams.getManifest(videoId);
       }
 
       final supportedStreams = manifest.audioOnly.sortByBitrate();
@@ -222,14 +217,10 @@ class YouTubeAudioSource extends StreamAudioSource {
       
       StreamManifest manifest;
       try {
-        manifest = await _ytExplode.videos.streams.getManifest(
-          videoId,
-          requireWatchPage: true,
-          ytClients: [YoutubeApiClient.androidVr],
-        );
-      } catch (e) {
-        manifest = await _ytExplode.videos.streamsClient.getManifest(videoId);
-      }
+      manifest = await _ytExplode.videos.streams.getManifest(videoId);
+    } catch (e) {
+      manifest = await _ytExplode.videos.streams.getManifest(videoId);
+    }
 
       final supportedStreams = manifest.audioOnly.sortByBitrate();
       if (supportedStreams.isEmpty) return;
