@@ -78,6 +78,9 @@ abstract class LibraryRepository {
     int limit = 20,
   });
 
+  /// Compute aggregated listening statistics from the full play history.
+  Future<Either<Failure, ListeningStats>> getListeningStats();
+
   // ============ DOWNLOADS ============
 
   /// Get all downloaded songs

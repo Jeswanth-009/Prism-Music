@@ -226,6 +226,88 @@ class LibraryRepositoryImpl implements LibraryRepository {
     return getListeningHistory(limit: limit);
   }
 
+  @override
+  Future<Either<Failure, ListeningStats>> getListeningStats() async {
+    try {
+      final entries = await _localDataSource.getFullHistory();
+      if (entries.isEmpty) {
+        return const Right(ListeningStats());
+      }
+
+      final Map<String, int> playCounts = <String, int>{};
+      final Map<String, int> genreCounts = <String, int>{};
+      final Map<String, int> artistCounts = <String, int>{};
+      final Set<String> uniqueIds = <String>{};
+      int totalListeningSeconds = 0;
+      DateTime? firstPlayed = entries.last.playedAt;
+      DateTime? lastPlayed = entries.first.playedAt;
+
+      for (final entry in entries) {
+        final song = entry.song;
+        final id = song.playableId;
+        playCounts[id] = (playCounts[id] ?? 0) + 1;
+        uniqueIds.add(id);
+        totalListeningSeconds += song.duration.inSeconds;
+
+        final genre = song.genre;
+        if (genre != null && genre.trim().isNotEmpty) {
+          final key = genre.trim().toLowerCase();
+          genreCounts[key] = (genreCounts[key] ?? 0) + 1;
+        }
+        final artistKey = song.artist.toLowerCase().trim();
+        artistCounts[artistKey] = (artistCounts[artistKey] ?? 0) + 1;
+      }
+
+      Song? mostPlayedSong;
+      int mostPlayedCount = 0;
+      for (final entry in entries) {
+        final count = playCounts[entry.song.playableId] ?? 0;
+        if (count > mostPlayedCount) {
+          mostPlayedCount = count;
+          mostPlayedSong = entry.song;
+        }
+      }
+
+      String? topGenre;
+      int topGenreCount = 0;
+      genreCounts.forEach((genre, count) {
+        if (count > topGenreCount) {
+          topGenreCount = count;
+          topGenre = genre;
+        }
+      });
+
+      String? topArtist;
+      int topArtistCount = 0;
+      artistCounts.forEach((artist, count) {
+        if (count > topArtistCount) {
+          topArtistCount = count;
+          topArtist = artist;
+        }
+      });
+
+      return Right(
+        ListeningStats(
+          totalPlays: entries.length,
+          totalListeningTime: Duration(seconds: totalListeningSeconds),
+          mostPlayedSong: mostPlayedSong,
+          mostPlayedCount: mostPlayedCount,
+          topGenre: topGenre,
+          topGenreCount: topGenreCount,
+          topArtist: topArtist,
+          topArtistCount: topArtistCount,
+          uniqueSongs: uniqueIds.length,
+          firstPlayed: firstPlayed,
+          lastPlayed: lastPlayed,
+        ),
+      );
+    } on CacheException catch (e) {
+      return Left(CacheFailure(message: e.message));
+    } catch (e) {
+      return Left(UnknownFailure(message: e.toString()));
+    }
+  }
+
   // ============ DOWNLOADS ============
 
   @override

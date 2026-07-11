@@ -41,6 +41,7 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
       final historyResult = await _libraryRepository.getListeningHistory(limit: _libraryHistoryLimit);
       final recentResult = await _libraryRepository.getRecentlyPlayed(limit: _libraryHistoryLimit);
       final downloadsResult = await _libraryRepository.getDownloadedSongs();
+      final statsResult = await _libraryRepository.getListeningStats();
 
       likedResult.fold(
         (failure) => emit(state.copyWith(
@@ -71,6 +72,10 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
                             playlists: playlists,
                             history: history,
                             recentlyPlayed: recent,
+                            stats: statsResult.fold(
+                              (_) => state.stats,
+                              (s) => s,
+                            ),
                             downloads: downloads,
                             downloadedSongIds: downloadIds,
                           ));

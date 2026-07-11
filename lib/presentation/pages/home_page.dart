@@ -20,6 +20,7 @@ import '../widgets/player/mini_player.dart';
 import '../widgets/lastfm_login_dialog.dart';
 import '../../domain/repositories/library_repository.dart';
 import 'downloads_page.dart';
+import 'recently_played_page.dart';
 import 'search_page.dart';
 import 'settings_page.dart';
 import 'curated_playlist_page.dart';
@@ -415,6 +416,12 @@ class _HomeTabState extends State<_HomeTab> with AutomaticKeepAliveClientMixin {
                 child: _SectionHeader(
                   title: 'Keep listening',
                   subtitle: 'Jump back into your latest sessions',
+                  actionLabel: 'View all',
+                  onAction: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const RecentlyPlayedPage(),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -841,6 +848,175 @@ class _RecentlyPlayedList extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// LISTENING STATS
+// ─────────────────────────────────────────────
+
+String _capitalize(String s) =>
+    s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+class _ListeningStatsCard extends StatelessWidget {
+  const _ListeningStatsCard();
+
+  static String _formatDuration(Duration d) {
+    if (d.inDays >= 1) {
+      return '${d.inDays}d ${d.inHours.remainder(24)}h';
+    }
+    if (d.inHours >= 1) {
+      return '${d.inHours}h ${d.inMinutes.remainder(60)}m';
+    }
+    if (d.inMinutes >= 1) {
+      return '${d.inMinutes}m';
+    }
+    return '${d.inSeconds}s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shadTheme = ShadTheme.of(context);
+    return BlocBuilder<LibraryBloc, LibraryState>(
+      builder: (context, state) {
+        final stats = state.stats;
+        if (stats == null || stats.isEmpty) return const SizedBox.shrink();
+
+        final s = stats;
+        final tiles = <_StatTile>[
+          _StatTile(
+            icon: LucideIcons.clock,
+            label: 'Time listened',
+            value: _formatDuration(s.totalListeningTime),
+          ),
+          _StatTile(
+            icon: LucideIcons.play,
+            label: 'Plays',
+            value: s.totalPlays.toString(),
+          ),
+          if (s.topGenre != null)
+            _StatTile(
+              icon: LucideIcons.disc3,
+              label: 'Top genre',
+              value: _capitalize(s.topGenre!.trim()),
+            ),
+          if (s.topArtist != null)
+            _StatTile(
+              icon: LucideIcons.audioLines,
+              label: 'Top artist',
+              value: _capitalize(s.topArtist!.trim()),
+            ),
+        ];
+
+        return ShadCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Your listening',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: shadTheme.colorScheme.foreground,
+                ),
+              ),
+              const SizedBox(height: 12),
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 2.6,
+                children: tiles,
+              ),
+              if (s.mostPlayedSong != null) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(
+                      LucideIcons.trophy,
+                      size: 16,
+                      color: shadTheme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                'Most played: ${s.mostPlayedSong!.title}'
+                '${s.mostPlayedCount > 1 ? ' (${s.mostPlayedCount}x)' : ''}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: shadTheme.colorScheme.mutedForeground,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _StatTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _StatTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final shadTheme = ShadTheme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: shadTheme.colorScheme.muted.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: shadTheme.colorScheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: shadTheme.colorScheme.mutedForeground,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2089,6 +2265,10 @@ class _LibraryTabState extends State<_LibraryTab>
 
                   return Column(
                     children: [
+                      // Listening stats (shown above Recently Played)
+                      const _ListeningStatsCard(),
+                      const SizedBox(height: 16),
+
                       // Library items as cards
                       _LibraryItemCard(
                         icon: LucideIcons.clock,
@@ -2103,11 +2283,9 @@ class _LibraryTabState extends State<_LibraryTab>
                               ),
                             );
                           } else {
-                            context.read<PlayerBloc>().add(
-                              PlaySongEvent(
-                                song: state.recentlyPlayed.first,
-                                queue: state.recentlyPlayed,
-                                queueIndex: 0,
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const RecentlyPlayedPage(),
                               ),
                             );
                           }

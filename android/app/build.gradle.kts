@@ -1,5 +1,20 @@
 import java.util.Properties
 
+// Auto-generate versionCode from the number of git commits so local `flutter run`
+// and CI builds share one monotonic, ever-increasing number. This removes the
+// need to manually bump the build number in pubspec.yaml and prevents Android
+// "downgrade" install errors. pubspec's versionCode is kept only as a safe floor.
+fun computeGitVersionCode(): Int {
+    return try {
+        val process = Runtime.getRuntime().exec(arrayOf("git", "rev-list", "--count", "HEAD"))
+        val output = process.inputStream.bufferedReader().readText().trim()
+        process.waitFor()
+        output.toIntOrNull() ?: 1
+    } catch (e: Exception) {
+        1
+    }
+}
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -33,7 +48,7 @@ android {
         // Minimum SDK 24 for proper audio/permission handling
         minSdk = 24
         targetSdk = 34
-        versionCode = flutter.versionCode
+        versionCode = maxOf(computeGitVersionCode(), flutter.versionCode ?: 1)
         versionName = flutter.versionName
         
         // Enable multidex for large app

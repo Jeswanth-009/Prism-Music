@@ -34,7 +34,9 @@
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"
         android:requestLegacyExternalStorage="true"
-        android:enableOnBackInvokedCallback="true">
+        android:enableOnBackInvokedCallback="true"
+        android:allowBackup="false"
+        tools:ignore="AllowBackup">
         <activity
             android:name=".MainActivity"
             android:exported="true"

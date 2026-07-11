@@ -8,6 +8,7 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 
 import 'core/di/injection.dart';
 import 'core/services/permission_service.dart';
+import 'core/services/local_backup_service.dart';
 import 'presentation/blocs/player/player.dart';
 import 'presentation/blocs/search/search.dart';
 import 'presentation/blocs/library/library.dart';
@@ -41,6 +42,9 @@ void main() async {
   
   // Initialize Hive
   await Hive.initFlutter();
+
+  // Restore user library from the on-device backup (survives uninstall).
+  await LocalBackupService.instance.restoreIfNeeded();
   
   // Set preferred orientations
   await SystemChrome.setPreferredOrientations([

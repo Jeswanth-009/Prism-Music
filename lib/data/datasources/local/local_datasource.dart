@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:hive_flutter/hive_flutter.dart';
+import '../../../../core/services/local_backup_service.dart';
 import '../../../../domain/entities/entities.dart';
 
 /// Data source for local storage operations
@@ -53,7 +54,10 @@ abstract class LocalDataSource {
   
   /// Add song to listening history
   Future<void> addToHistory(Song song);
-  
+
+  /// Get every recorded play (not de-duplicated) with timestamps, newest first.
+  Future<List<HistoryEntry>> getFullHistory();
+
   /// Clear listening history
   Future<void> clearHistory();
 
@@ -155,6 +159,9 @@ class LocalDataSourceImpl implements LocalDataSource {
     _playlistsBox = await Hive.openBox(_playlistsBoxName);
     return _playlistsBox!;
   }
+
+  /// Persist user data to the on-device backup file (debounced).
+  void _triggerBackup() => LocalBackupService.instance.scheduleBackup();
 
   Map<String, dynamic> _songToMap(Song song) => {
     'id': song.id,
@@ -258,12 +265,14 @@ class LocalDataSourceImpl implements LocalDataSource {
   Future<void> likeSong(Song song) async {
     final box = await _getLikedBox();
     await box.put(song.playableId, _songToMap(song));
+    _triggerBackup();
   }
 
   @override
   Future<void> unlikeSong(String songId) async {
     final box = await _getLikedBox();
     await box.delete(songId);
+    _triggerBackup();
   }
 
   @override
@@ -300,6 +309,7 @@ class LocalDataSourceImpl implements LocalDataSource {
       songs: [],
     );
     await box.put(playlist.id, _playlistToMap(playlist));
+    _triggerBackup();
     return playlist;
   }
 
@@ -307,6 +317,7 @@ class LocalDataSourceImpl implements LocalDataSource {
   Future<void> deletePlaylist(String playlistId) async {
     final box = await _getPlaylistsBox();
     await box.delete(playlistId);
+    _triggerBackup();
   }
 
   @override
@@ -326,6 +337,7 @@ class LocalDataSourceImpl implements LocalDataSource {
       description: description ?? existing.description,
     );
     await box.put(playlistId, _playlistToMap(updated));
+    _triggerBackup();
     return updated;
   }
 
@@ -347,6 +359,7 @@ class LocalDataSourceImpl implements LocalDataSource {
       updatedAt: DateTime.now(),
     );
     await box.put(playlistId, _playlistToMap(updated));
+    _triggerBackup();
   }
 
   @override
@@ -368,6 +381,7 @@ class LocalDataSourceImpl implements LocalDataSource {
       updatedAt: DateTime.now(),
     );
     await box.put(playlistId, _playlistToMap(updated));
+    _triggerBackup();
   }
 
   @override
@@ -410,6 +424,7 @@ class LocalDataSourceImpl implements LocalDataSource {
     final box = await _getHistoryBox();
     final key = '${DateTime.now().millisecondsSinceEpoch}_${song.playableId}';
     await box.put(key, _songToMap(song));
+    _triggerBackup();
     // Cap history at 500 entries
     if (box.length > 500) {
       final allKeys = box.keys.toList()..sort((a, b) => a.toString().compareTo(b.toString()));
@@ -424,6 +439,25 @@ class LocalDataSourceImpl implements LocalDataSource {
   Future<void> clearHistory() async {
     final box = await _getHistoryBox();
     await box.clear();
+    _triggerBackup();
+  }
+
+  @override
+  Future<List<HistoryEntry>> getFullHistory() async {
+    final box = await _getHistoryBox();
+    final entries = <HistoryEntry>[];
+    for (final dynamic key in box.keys) {
+      final dynamic data = box.get(key);
+      if (data is! Map) continue;
+      final Song song = _mapToSong(data);
+      final int? ts = int.tryParse(key.toString().split('_').first);
+      final DateTime playedAt = ts != null
+          ? DateTime.fromMillisecondsSinceEpoch(ts)
+          : DateTime.now();
+      entries.add(HistoryEntry(song: song, playedAt: playedAt));
+    }
+    entries.sort((a, b) => b.playedAt.compareTo(a.playedAt));
+    return entries;
   }
 
   // ============ DOWNLOADS ============
@@ -493,6 +527,7 @@ class LocalDataSourceImpl implements LocalDataSource {
       'localPath': filePath,
       'downloadedAt': DateTime.now().toIso8601String(),
     });
+    _triggerBackup();
   }
 
   @override
@@ -509,6 +544,7 @@ class LocalDataSourceImpl implements LocalDataSource {
       }
     }
     await box.delete(songId);
+    _triggerBackup();
   }
 
   @override

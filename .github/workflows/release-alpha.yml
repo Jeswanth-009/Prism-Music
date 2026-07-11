@@ -23,6 +23,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -67,15 +69,19 @@ jobs:
         run: |
           VERSION_LINE="$(grep '^version:' pubspec.yaml | awk '{print $2}')"
           BUILD_NAME="${VERSION_LINE%%+*}"
-          BUILD_NUMBER="${VERSION_LINE##*+}"
 
-          if [[ -z "$BUILD_NAME" || -z "$BUILD_NUMBER" ]]; then
+          if [[ -z "$BUILD_NAME" ]]; then
             echo "Could not parse version from pubspec.yaml"
             exit 1
           fi
 
+          # versionCode is derived from the git commit count in build.gradle.kts,
+          # so it is monotonic for both local and CI builds. Mirror that here so
+          # the release tag matches the actual APK versionCode.
+          GIT_BUILD="$(git rev-list --count HEAD)"
+
           echo "build_name=$BUILD_NAME" >> "$GITHUB_OUTPUT"
-          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "build_number=$GIT_BUILD" >> "$GITHUB_OUTPUT"
 
       - name: Resolve release tag
         id: release_tag
@@ -94,13 +100,11 @@ jobs:
         run: >
           flutter build apk --release
           --build-name "${{ steps.app_version.outputs.build_name }}"
-          --build-number "${{ steps.app_version.outputs.build_number }}"
 
       - name: Build release App Bundle
         run: >
           flutter build appbundle --release
           --build-name "${{ steps.app_version.outputs.build_name }}"
-          --build-number "${{ steps.app_version.outputs.build_number }}"
 
       - name: Prepare release assets
         id: assets
