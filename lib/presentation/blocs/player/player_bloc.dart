@@ -1,14 +1,15 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/services/audio_player_service.dart';
 import '../../../core/services/lastfm_service.dart';
 import '../../../core/services/recommendation_service.dart';
-import '../../../core/services/download_service.dart';
 import '../../../core/services/audio_focus_orchestrator_service.dart';
 import '../../../core/services/media_resolver_service.dart';
 import '../../../core/services/playback_reliability_service.dart';
 import '../../../core/services/stream_loader_service.dart';
+import '../../../core/services/download_service.dart';
 import '../../../core/services/settings_service.dart';
 import '../../../domain/entities/entities.dart';
 import '../../../domain/repositories/repositories.dart';
@@ -16,7 +17,7 @@ import 'player_event.dart';
 import 'player_state.dart';
 
 /// BLoC for managing audio player state
-class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
+class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObserver {
   final MusicRepository _musicRepository;
   final LibraryRepository _libraryRepository;
   final AudioPlayerService _audioPlayer;
@@ -45,6 +46,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
   // Scrobbling tracking
   bool _hasScrobbled = false;
   bool _hasUpdatedNowPlaying = false;
+  AppLifecycleState _lastLifecycleState = AppLifecycleState.resumed;
 
   void _log(String message) {
     if (kDebugMode) debugPrint(message);
@@ -76,7 +78,7 @@ PlayerBloc({
     );
     _recommendationService?.initialize();
 
-    // Register event handlers
+// Register event handlers
     on<PlaySongEvent>(_onPlaySong);
     on<DownloadSongEvent>(_onDownloadSong);
     on<ResumeEvent>(_onResume);
@@ -111,6 +113,9 @@ PlayerBloc({
     // Initialize audio player stream listeners
     _initAudioPlayerStreams();
     unawaited(_audioFocus.initialize());
+
+    // Add app lifecycle observer to keep audio session active in background
+    WidgetsBinding.instance.addObserver(this);
 
     // Load persisted performance-related settings
     _loadSettings();
@@ -155,6 +160,33 @@ PlayerBloc({
     _indexSubscription = _audioPlayer.currentIndexStream.listen((index) {
       add(_IndexChangedEvent(index));
     });
+
+    // Add lifecycle observer to handle background/foreground transitions
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _log('PlayerBloc: App lifecycle state changed: $state (was: $_lastLifecycleState)');
+    _lastLifecycleState = state;
+
+    final isPlaying = _audioPlayer.playing;
+
+    // When app goes to background, ensure audio session stays active for playback
+    // When app comes to foreground, re-activate audio session if playing
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      // App going to background - keep audio session active if playing
+      if (isPlaying) {
+        _log('PlayerBloc: App backgrounded while playing, keeping audio session active');
+        unawaited(_audioFocus.activateForPlayback());
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      // App coming to foreground - re-activate audio session if we were playing
+      if (isPlaying) {
+        _log('PlayerBloc: App resumed, re-activating audio session');
+        unawaited(_audioFocus.activateForPlayback());
+      }
+    }
   }
 
   void _loadSettings() {
@@ -1127,6 +1159,7 @@ PlayerBloc({
 
   @override
   Future<void> close() async {
+    WidgetsBinding.instance.removeObserver(this);
     await _positionSubscription?.cancel();
     await _bufferedSubscription?.cancel();
     await _durationSubscription?.cancel();

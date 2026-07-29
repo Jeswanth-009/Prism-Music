@@ -68,11 +68,14 @@ class AudioPlayerService {
     _player = AudioPlayer(
       audioLoadConfiguration: AudioLoadConfiguration(
         androidLoadControl: AndroidLoadControl(
-          minBufferDuration: const Duration(seconds: 30),
-          maxBufferDuration: const Duration(seconds: 60),
-          bufferForPlaybackDuration: const Duration(seconds: 5),
+          minBufferDuration: const Duration(seconds: 60),
+          maxBufferDuration: const Duration(seconds: 120),
+          bufferForPlaybackDuration: const Duration(seconds: 10),
+          bufferForPlaybackAfterRebufferDuration: const Duration(seconds: 10),
         ),
       ),
+      // Enable background playback and handle interruptions
+      handleInterruptions: true,
     );
     _equalizerService = EqualizerService();
     _initialized = true;

@@ -53,7 +53,7 @@ class AudioFocusOrchestratorService {
 
     await session.configure(const AudioSessionConfiguration(
       avAudioSessionCategory: AVAudioSessionCategory.playback,
-      avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.none,
+      avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.mixWithOthers,
       avAudioSessionMode: AVAudioSessionMode.defaultMode,
       avAudioSessionRouteSharingPolicy: AVAudioSessionRouteSharingPolicy.defaultPolicy,
       avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,
@@ -79,6 +79,16 @@ class AudioFocusOrchestratorService {
     } catch (e) {
       debugPrint('AudioFocus: Failed to activate: $e');
       return false;
+    }
+  }
+
+  /// Ensure audio session stays active for background playback
+  Future<void> keepAlive() async {
+    try {
+      final session = _session ?? await AudioSession.instance;
+      await session.setActive(true);
+    } catch (e) {
+      debugPrint('AudioFocus: Failed to keep alive: $e');
     }
   }
 

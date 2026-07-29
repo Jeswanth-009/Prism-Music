@@ -27,6 +27,9 @@
     
     <!-- Receive boot completed for restoring playback -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    
+    <!-- Foreground service type for media playback (Android 14+) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
 
     <application
         android:label="Prism Music"

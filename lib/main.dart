@@ -37,7 +37,7 @@ void main() async {
     androidNotificationChannelId: 'com.prismmusic.app.channel.audio',
     androidNotificationChannelName: 'Prism Music',
     androidNotificationOngoing: true,
-    androidStopForegroundOnPause: true,
+    androidStopForegroundOnPause: false,
   );
   
   // Initialize Hive
