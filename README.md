@@ -11,7 +11,7 @@ Prism Music is in a very early alpha stage. Current work is focused on building 
 ## Alpha Status
 
 - Stage: Early alpha
-- Current version: 0.1.0+6
+- Current version: 0.1.1+7
 - Primary target: Android
 - Stability: Experimental, breaking changes may happen between alpha builds
 
@@ -38,6 +38,7 @@ Prism Music is intentionally engineered with a different set of priorities.
 ### Core differentiators
 
 - Privacy-first usage model with no mandatory login for core flow
+- Local-first data backup: your library and history are backed up on-device and survive reinstall without any cloud account
 - Fallback-first reliability for search, recommendations, and playback
 - Performance-first playback path with cache and pre-resolve strategies
 - Open architecture and public release automation from early alpha stage
@@ -61,6 +62,7 @@ Prism Music is intentionally engineered with a different set of priorities.
 | Search | YT Music focused service and mapper pipeline with fallback handling | Better resilience on parser edge cases |
 | Recommendations | Multi-path recommendation flow with fallback logic | Reduced empty-state queue failures |
 | Playback | Stream loader plus cache strategy and reliability hardening | Faster repeat play and improved stability |
+| Library & data | On-device library (likes, playlists, history), listening stats, and a local backup that survives uninstall without cloud sync | Private, durable library across updates and reinstalls |
 | Open source | CI/CD workflows, changelog, license, contributing docs | Public, reproducible alpha delivery |
 
 ## Public Roadmap
@@ -189,33 +191,47 @@ When secrets are missing, workflow still builds using debug signing fallback.
 
 ## Versioning Strategy
 
-Prism Music uses Flutter version format:
+Prism Music uses the Flutter version format:
 
 ```text
 version: MAJOR.MINOR.PATCH+BUILD_NUMBER
 ```
 
+The `BUILD_NUMBER` (Android `versionCode`) is **generated automatically** from the
+number of git commits (`git rev-list --count HEAD`) in `android/app/build.gradle.kts`.
+It is monotonic for both local `flutter run` and CI builds, which means:
+
+- You do **not** need to manually bump the build number.
+- Every push to `main` produces a new, higher `versionCode`, so updates install
+  in-place instead of forcing an uninstall.
+- The `+BUILD_NUMBER` in `pubspec.yaml` is only kept as a safety floor and is
+  otherwise ignored for the Android build number.
+
 Alpha guidance:
 
-- Keep MAJOR at 0 during unstable phase
-- Increase BUILD_NUMBER for each distributable build
-- Automated releases use tag format: alpha-v<version>-build<build>-run<workflow run>
-- Optional manual releases can use tags like: alpha-v0.1.0-build6
+- Keep `MAJOR` at 0 during the unstable phase.
+- Bump `MAJOR.MINOR.PATCH` (the visible version name) only when you want a new
+  release label.
+- Automated releases use the tag format:
+  `alpha-v<version>-build<git-commit-count>-run<workflow-run>`.
 
 ## Publish Next Alpha
 
-1. Update version in pubspec.yaml.
-2. Commit and push to main branch.
-3. Release is created automatically with APK and AAB assets.
+1. (Optional) Bump the `MAJOR.MINOR.PATCH` version name in `pubspec.yaml` if you
+   want a new visible release label. Do **not** edit the `+BUILD_NUMBER` part —
+   it is derived from git history automatically.
+2. Commit and push to `main`.
+3. The release-alpha workflow runs automatically and publishes a GitHub
+   prerelease with APK and AAB assets. The build number increments on its own.
 
-Optional manual trigger via tag:
+Optional manual trigger via tag (the build number is still auto-derived from git):
 
 ```bash
-git tag alpha-v0.1.0-build6
-git push origin alpha-v0.1.0-build6
+git tag alpha-v0.1.1
+git push origin alpha-v0.1.1
 ```
 
-4. Wait for release-alpha workflow to publish prerelease artifacts.
+4. Wait for the release-alpha workflow to publish the prerelease artifacts.
 
 ## Collaboration Workflow
 

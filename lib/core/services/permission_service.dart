@@ -7,47 +7,50 @@ import 'package:device_info_plus/device_info_plus.dart';
 class PermissionService {
    /// Request all required permissions for the app
    static Future<Map<Permission, PermissionStatus>> requestAllPermissions() async {
-    final permissions = <Permission>[];
-    
-    if (Platform.isAndroid) {
-      // Check Android version for appropriate permissions
-      final androidInfo = await _getAndroidVersion();
-      
-      if (androidInfo >= 33) {
-        // Android 13+ uses granular media permissions
-        permissions.addAll([
-          Permission.audio,
-          Permission.notification,
-        ]);
-      } else if (androidInfo >= 30) {
-        // Android 11-12
-        permissions.add(Permission.storage);
-      } else {
-        // Android 10 and below
-        permissions.addAll([
-          Permission.storage,
-        ]);
-      }
-    } else if (Platform.isIOS) {
-      permissions.addAll([
-        Permission.mediaLibrary,
-        Permission.notification,
-      ]);
-    }
-    
-    if (permissions.isEmpty) {
-      return {};
-    }
-    
-    try {
-      return await permissions.request();
-    } on PlatformException catch (e) {
-      if (e.message?.contains('already running') ?? false) {
-        return {};
-      }
-      rethrow;
-    }
-  }
+     final permissions = <Permission>[];
+     
+     if (Platform.isAndroid) {
+       // Check Android version for appropriate permissions
+       final androidInfo = await _getAndroidVersion();
+       
+       if (androidInfo >= 33) {
+         // Android 13+ uses granular media permissions
+         permissions.addAll([
+           Permission.audio,
+           Permission.notification,
+         ]);
+       } else if (androidInfo >= 30) {
+         // Android 11-12
+         permissions.add(Permission.storage);
+       } else {
+         // Android 10 and below
+         permissions.addAll([
+           Permission.storage,
+         ]);
+       }
+       
+       // Request ignore battery optimizations for background audio playback
+       permissions.add(Permission.ignoreBatteryOptimizations);
+     } else if (Platform.isIOS) {
+       permissions.addAll([
+         Permission.mediaLibrary,
+         Permission.notification,
+       ]);
+     }
+     
+     if (permissions.isEmpty) {
+       return {};
+     }
+     
+     try {
+       return await permissions.request();
+     } on PlatformException catch (e) {
+       if (e.message?.contains('already running') ?? false) {
+         return {};
+       }
+       rethrow;
+     }
+   }
   
   /// Request notification permission (required for Android 13+)
   static Future<bool> requestNotificationPermission() async {
@@ -116,6 +119,23 @@ class PermissionService {
     return true;
   }
   
+  /// Check if battery optimization is ignored (critical for background audio)
+  static Future<bool> hasIgnoreBatteryOptimizations() async {
+    if (Platform.isAndroid) {
+      return await Permission.ignoreBatteryOptimizations.isGranted;
+    }
+    return true;
+  }
+  
+  /// Request ignore battery optimizations for background audio playback
+  static Future<bool> requestIgnoreBatteryOptimizations() async {
+    if (Platform.isAndroid) {
+      final status = await Permission.ignoreBatteryOptimizations.request();
+      return status.isGranted;
+    }
+    return true;
+  }
+
   /// Open app settings if permissions are permanently denied
   static Future<bool> openSettings() async {
     return await openAppSettings();
@@ -136,11 +156,13 @@ class PermissionService {
   static Future<PermissionSummary> checkPermissions() async {
     final hasNotification = await hasNotificationPermission();
     final hasStorage = await hasStoragePermission();
+    final hasBatteryOptimization = await hasIgnoreBatteryOptimizations();
     
     return PermissionSummary(
       notificationGranted: hasNotification,
       storageGranted: hasStorage,
-      allGranted: hasNotification && hasStorage,
+      batteryOptimizationIgnored: hasBatteryOptimization,
+      allGranted: hasNotification && hasStorage && hasBatteryOptimization,
     );
   }
 }
@@ -149,11 +171,13 @@ class PermissionService {
 class PermissionSummary {
   final bool notificationGranted;
   final bool storageGranted;
+  final bool batteryOptimizationIgnored;
   final bool allGranted;
   
   const PermissionSummary({
     required this.notificationGranted,
     required this.storageGranted,
+    required this.batteryOptimizationIgnored,
     required this.allGranted,
   });
 }
