@@ -51,10 +51,8 @@ jobs:
             exit 1
           fi
           echo "version_line=$VERSION_LINE" >> $GITHUB_OUTPUT
-          # Extract version name (before +)
           VERSION_NAME="${VERSION_LINE%%+*}"
           echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
-          # Extract build number (after +)
           BUILD_NUMBER="${VERSION_LINE##*+}"
           echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
 
@@ -64,7 +62,6 @@ jobs:
           CURRENT_VERSION="${{ steps.current_version.outputs.version_name }}"
           CURRENT_BUILD="${{ steps.current_version.outputs.build_number }}"
           
-          # Parse MAJOR.MINOR.PATCH
           MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
           MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
           PATCH=$(echo $CURRENT_VERSION | cut -d. -f3)
@@ -73,23 +70,8 @@ jobs:
           if [[ "${{ github.event.inputs.version_type }}" != "" ]]; then
             BUMP_TYPE="${{ github.event.inputs.version_type }}"
           else
-            # Auto-determine based on commit messages since last version tag
-            LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-            if [[ -n "$LAST_TAG" ]]; then
-              COMMITS=$(git log --oneline $LAST_TAG..HEAD --grep="BREAKING\|major" | wc -l)
-              if [[ $COMMITS -gt 0 ]]; then
-                BUMP_TYPE="major"
-              else
-                COMMITS=$(git log --oneline $LAST_TAG..HEAD --grep="feat\|feature" | wc -l)
-                if [[ $COMMITS -gt 0 ]]; then
-                  BUMP_TYPE="minor"
-                else
-                  BUMP_TYPE="patch"
-                fi
-              fi
-            else
-              BUMP_TYPE="patch"
-            fi
+            # Default to patch for automated pushes
+            BUMP_TYPE="patch"
           fi
           
           echo "Bump type: $BUMP_TYPE"
@@ -125,7 +107,6 @@ jobs:
 
       - name: Update README.md version
         run: |
-          # Update the "Current version" line in README
           sed -i "s/Current version: .*/Current version: ${{ steps.next_version.outputs.next_version_line }}/" README.md
           echo "Updated README.md version"
 
@@ -136,6 +117,7 @@ jobs:
           git push origin main
 
       - name: Create git tag
+        id: create_tag
         run: |
           TAG="alpha-v${{ steps.next_version.outputs.next_version }}-build${{ steps.next_version.outputs.next_build }}-run${{ github.run_number }}"
           git tag -a "$TAG" -m "Release $TAG"
@@ -145,8 +127,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.create_git_tag.outputs.tag }}
-          name: Prism Music ${{ steps.create_git_tag.outputs.tag }}
+          tag_name: ${{ steps.create_tag.outputs.tag }}
+          name: Prism Music ${{ steps.create_tag.outputs.tag }}
           prerelease: true
           generate_release_notes: true
           body: |
@@ -162,18 +144,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Trigger Alpha Build Workflow
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          event-type: alpha-build-trigger
-          client-payload: '{"version": "${{ steps.next_version.outputs.next_version_line }}", "tag": "${{ steps.create_git_tag.outputs.tag }}"}'
-
-  trigger-alpha-build:
-    name: Trigger Alpha Build
-    needs: auto-version
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger release-alpha workflow
         uses: actions/github-script@v7
         with:
           script: |
