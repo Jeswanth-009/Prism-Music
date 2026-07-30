@@ -12,6 +12,7 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 import '../../core/di/injection.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/settings_service.dart';
+import '../../domain/entities/song.dart';
 import 'package:share_plus/share_plus.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
@@ -1430,6 +1431,146 @@ class _PlayerPageState extends State<PlayerPage>
     return null;
   }
 
+  void _showSongInfoDialog(BuildContext context) {
+    final playerState = context.read<PlayerBloc>().state;
+    final song = playerState.currentSong;
+    final streamInfo = playerState.currentStreamInfo;
+    
+    if (song == null) return;
+
+    showShadDialog(
+      context: context,
+      builder: (ctx) {
+        return ShadDialog(
+          title: Text('Song Info: ${song.title}'),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Basic Info
+                  _buildInfoRow('Title', song.title),
+                  _buildInfoRow('Artist', song.artist),
+                  if (song.album != null && song.album!.isNotEmpty)
+                    _buildInfoRow('Album', song.album!),
+                  if (song.genre != null && song.genre!.isNotEmpty)
+                    _buildInfoRow('Genre', song.genre!),
+                  if (song.year != null)
+                    _buildInfoRow('Year', song.year.toString()),
+                  _buildInfoRow('Duration', song.durationFormatted),
+                  _buildInfoRow('Source', song.source.name.toUpperCase()),
+                  if (song.youtubeId != null)
+                    _buildInfoRow('YouTube ID', song.youtubeId!),
+                  if (song.spotifyId != null)
+                    _buildInfoRow('Spotify ID', song.spotifyId!),
+                  if (song.isExplicit)
+                    _buildInfoRow('Explicit', 'Yes'),
+                  const Divider(),
+                  
+                  // Stream Quality Info
+                  Text(
+                    'Stream Quality',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (streamInfo != null) ...[
+                    _buildInfoRow('Bitrate', '${streamInfo.bitrate} kbps'),
+                    _buildInfoRow('Quality', streamInfo.quality.name.toUpperCase()),
+                    _buildInfoRow('Codec', streamInfo.codec.toUpperCase()),
+                    _buildInfoRow('Container', streamInfo.container.toUpperCase()),
+                    if (streamInfo.contentLength != null)
+                      _buildInfoRow('Size', _formatBytes(streamInfo.contentLength!)),
+                    if (streamInfo.expiresAt != null)
+                      _buildInfoRow('Expires', _formatDateTime(streamInfo.expiresAt!)),
+                    if (streamInfo.isAudioOnly)
+                      _buildInfoRow('Audio Only', 'Yes'),
+                  ] else ...[
+                    _buildInfoRow('Quality', playerState.audioQuality.name.toUpperCase()),
+                    _buildInfoRow('Status', 'Loading...'),
+                  ],
+                  const Divider(),
+                  
+                  // File Info
+                  if (song.source == MusicSource.local) ...[
+                    Text(
+                      'File Info',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('Local File', 'Yes'),
+                    if (song.streamUrl != null)
+                      _buildInfoRow('Path', song.streamUrl!),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            ShadButton.ghost(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+    if (difference.inDays > 0) {
+      return '${difference.inDays}d ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m ago';
+    } else {
+      return 'Just now';
+    }
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showEqualizerSheet(BuildContext context) {
     final audioPlayerService = getIt<AudioPlayerService>();
 
@@ -1505,10 +1646,7 @@ class _PlayerPageState extends State<PlayerPage>
                 label: 'Song info',
                 onTap: () {
                   Navigator.pop(ctx);
-                  ShadToaster.of(context).show(
-                    ShadToast(
-                        title: const Text('Coming soon!')),
-                  );
+                  _showSongInfoDialog(context);
                 },
               ),
             ],

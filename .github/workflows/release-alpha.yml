@@ -7,6 +7,8 @@ on:
     tags:
       - "alpha-v*"
   workflow_dispatch:
+  repository_dispatch:
+    types: [alpha-build-trigger]
 
 permissions:
   contents: write

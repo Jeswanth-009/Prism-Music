@@ -2,7 +2,10 @@
 
 [![CI](https://github.com/Jeswanth-009/Prism-Music/actions/workflows/ci.yml/badge.svg)](https://github.com/Jeswanth-009/Prism-Music/actions/workflows/ci.yml)
 [![Alpha Release](https://github.com/Jeswanth-009/Prism-Music/actions/workflows/release-alpha.yml/badge.svg)](https://github.com/Jeswanth-009/Prism-Music/actions/workflows/release-alpha.yml)
+[![Auto Version](https://github.com/Jeswanth-009/Prism-Music/actions/workflows/auto-version.yml/badge.svg)](https://github.com/Jeswanth-009/Prism-Music/actions/workflows/auto-version.yml)
+[![Latest Alpha](https://img.shields.io/github/v/release/Jeswanth-009/Prism-Music?include_prereleases&label=latest%20alpha&color=purple)](https://github.com/Jeswanth-009/Prism-Music/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
+[![Version](https://img.shields.io/github/v/release/Jeswanth-009/Prism-Music?include_prereleases&label=version)](https://github.com/Jeswanth-009/Prism-Music/releases)
 
 Open-source, privacy-first music streaming app built with Flutter.
 

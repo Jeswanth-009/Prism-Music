@@ -123,11 +123,12 @@ Future<void> initializeDependencies() async {
      ),
    );
 
-   getIt.registerLazySingleton<LibraryRepository>(
-     () => LibraryRepositoryImpl(
-       localDataSource: getIt<LocalDataSource>(),
-     ),
-   );
+getIt.registerLazySingleton<LibraryRepository>(
+      () => LibraryRepositoryImpl(
+        localDataSource: getIt<LocalDataSource>(),
+        downloadService: getIt<DownloadService>(),
+      ),
+    );
 
    // Download Service (singleton) depends on MusicRepository
    {

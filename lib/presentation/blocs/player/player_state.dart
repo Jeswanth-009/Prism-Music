@@ -46,8 +46,11 @@ class PlayerState extends Equatable {
   /// Playback speed
   final double playbackSpeed;
 
-  /// Current audio quality
+  /// Current audio quality setting
   final AudioQuality audioQuality;
+
+  /// Current stream info (bitrate, quality, codec, etc.)
+  final StreamInfo? currentStreamInfo;
 
   /// Queue of songs
   final List<Song> queue;
@@ -73,6 +76,7 @@ class PlayerState extends Equatable {
     this.repeatMode = RepeatMode.off,
     this.playbackSpeed = 1.0,
     this.audioQuality = AudioQuality.medium,
+    this.currentStreamInfo,
     this.queue = const [],
     this.originalQueue = const [],
     this.queueIndex = 0,
@@ -137,6 +141,7 @@ class PlayerState extends Equatable {
     RepeatMode? repeatMode,
     double? playbackSpeed,
     AudioQuality? audioQuality,
+    StreamInfo? currentStreamInfo,
     List<Song>? queue,
     List<Song>? originalQueue,
     int? queueIndex,
@@ -154,6 +159,7 @@ class PlayerState extends Equatable {
       repeatMode: repeatMode ?? this.repeatMode,
       playbackSpeed: playbackSpeed ?? this.playbackSpeed,
       audioQuality: audioQuality ?? this.audioQuality,
+      currentStreamInfo: currentStreamInfo ?? this.currentStreamInfo,
       queue: queue ?? this.queue,
       originalQueue: originalQueue ?? this.originalQueue,
       queueIndex: queueIndex ?? this.queueIndex,
@@ -174,6 +180,7 @@ class PlayerState extends Equatable {
         repeatMode,
         playbackSpeed,
         audioQuality,
+        currentStreamInfo,
         queue,
         originalQueue,
         queueIndex,

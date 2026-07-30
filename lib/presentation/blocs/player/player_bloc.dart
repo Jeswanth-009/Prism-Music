@@ -468,6 +468,7 @@ PlayerBloc({
           state.copyWith(
             status: PlayerStatus.playing,
             currentSong: event.song,
+            currentStreamInfo: resolvedSource.streamInfo,
             originalQueue: state.queue,
             queueIndex: queueIndex,
             position: Duration.zero,

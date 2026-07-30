@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import '../../core/error/error.dart';
+import '../../core/services/download_service.dart';
 import '../../domain/entities/entities.dart';
 import '../../domain/repositories/library_repository.dart';
 import '../datasources/local/local_datasource.dart';
@@ -7,10 +8,13 @@ import '../datasources/local/local_datasource.dart';
 /// Implementation of LibraryRepository using local storage
 class LibraryRepositoryImpl implements LibraryRepository {
   final LocalDataSource _localDataSource;
+  final DownloadService _downloadService;
 
   LibraryRepositoryImpl({
     required LocalDataSource localDataSource,
-  }) : _localDataSource = localDataSource;
+    required DownloadService downloadService,
+  }) : _localDataSource = localDataSource,
+       _downloadService = downloadService;
 
   // ============ LIKED SONGS ============
 
@@ -167,8 +171,9 @@ class LibraryRepositoryImpl implements LibraryRepository {
       final song = songs.removeAt(oldIndex);
       songs.insert(newIndex, song);
 
-      // Update playlist
-      // Note: This would need proper implementation to persist the order
+      // Update playlist with reordered songs
+      await _localDataSource.updatePlaylistSongs(playlistId, songs);
+
       return const Right(null);
     } on CacheException catch (e) {
       return Left(CacheFailure(message: e.message));
@@ -329,11 +334,21 @@ class LibraryRepositoryImpl implements LibraryRepository {
     void Function(double progress)? onProgress,
   }) async {
     try {
-      // TODO: Implement actual download with dio
-      // For now, just save the metadata
-      final filePath = '/downloads/${song.id}.opus';
-      await _localDataSource.saveDownload(song, filePath);
-      return Right(filePath);
+      // Use DownloadService to download the song
+      final success = await _downloadService.downloadSong(song);
+      
+      if (!success) {
+        return Left(DownloadFailure(message: 'Failed to download song: ${song.title}'));
+      }
+      
+      // Get the local path
+      final localPath = _downloadService.getLocalPath(song.playableId);
+      
+      if (localPath == null) {
+        return Left(DownloadFailure(message: 'Download completed but file path not found'));
+      }
+      
+      return Right(localPath);
     } on CacheException catch (e) {
       return Left(CacheFailure(message: e.message));
     } catch (e) {

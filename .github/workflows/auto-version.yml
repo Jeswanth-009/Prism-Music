@@ -1,0 +1,186 @@
+name: Auto Version Bump
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/workflows/auto-version.yml'
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-version:
+    name: Auto Version Bump & Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Get current version from pubspec.yaml
+        id: current_version
+        run: |
+          VERSION_LINE=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          if [[ -z "$VERSION_LINE" ]]; then
+            echo "Could not parse version from pubspec.yaml"
+            exit 1
+          fi
+          echo "version_line=$VERSION_LINE" >> $GITHUB_OUTPUT
+          # Extract version name (before +)
+          VERSION_NAME="${VERSION_LINE%%+*}"
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+          # Extract build number (after +)
+          BUILD_NUMBER="${VERSION_LINE##*+}"
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+
+      - name: Calculate next version
+        id: next_version
+        run: |
+          CURRENT_VERSION="${{ steps.current_version.outputs.version_name }}"
+          CURRENT_BUILD="${{ steps.current_version.outputs.build_number }}"
+          
+          # Parse MAJOR.MINOR.PATCH
+          MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
+          MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
+          PATCH=$(echo $CURRENT_VERSION | cut -d. -f3)
+          
+          # Determine bump type
+          if [[ "${{ github.event.inputs.version_type }}" != "" ]]; then
+            BUMP_TYPE="${{ github.event.inputs.version_type }}"
+          else
+            # Auto-determine based on commit messages since last version tag
+            LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            if [[ -n "$LAST_TAG" ]]; then
+              COMMITS=$(git log --oneline $LAST_TAG..HEAD --grep="BREAKING\|major" | wc -l)
+              if [[ $COMMITS -gt 0 ]]; then
+                BUMP_TYPE="major"
+              else
+                COMMITS=$(git log --oneline $LAST_TAG..HEAD --grep="feat\|feature" | wc -l)
+                if [[ $COMMITS -gt 0 ]]; then
+                  BUMP_TYPE="minor"
+                else
+                  BUMP_TYPE="patch"
+                fi
+              fi
+            else
+              BUMP_TYPE="patch"
+            fi
+          fi
+          
+          echo "Bump type: $BUMP_TYPE"
+          
+          case $BUMP_TYPE in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+          
+          NEXT_VERSION="$MAJOR.$MINOR.$PATCH"
+          NEXT_BUILD=$((CURRENT_BUILD + 1))
+          NEXT_VERSION_LINE="$NEXT_VERSION+$NEXT_BUILD"
+          
+          echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          echo "next_build=$NEXT_BUILD" >> $GITHUB_OUTPUT
+          echo "next_version_line=$NEXT_VERSION_LINE" >> $GITHUB_OUTPUT
+          echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+
+      - name: Update pubspec.yaml
+        run: |
+          sed -i "s/^version: .*/version: ${{ steps.next_version.outputs.next_version_line }}/" pubspec.yaml
+          echo "Updated pubspec.yaml to version ${{ steps.next_version.outputs.next_version_line }}"
+
+      - name: Update README.md version
+        run: |
+          # Update the "Current version" line in README
+          sed -i "s/Current version: .*/Current version: ${{ steps.next_version.outputs.next_version_line }}/" README.md
+          echo "Updated README.md version"
+
+      - name: Commit version bump
+        run: |
+          git add pubspec.yaml README.md
+          git commit -m "chore: bump version to ${{ steps.next_version.outputs.next_version_line }} [${{ steps.next_version.outputs.bump_type }}]"
+          git push origin main
+
+      - name: Create git tag
+        run: |
+          TAG="alpha-v${{ steps.next_version.outputs.next_version }}-build${{ steps.next_version.outputs.next_build }}-run${{ github.run_number }}"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.create_git_tag.outputs.tag }}
+          name: Prism Music ${{ steps.create_git_tag.outputs.tag }}
+          prerelease: true
+          generate_release_notes: true
+          body: |
+            Automated alpha release from CI.
+
+            **Version:** ${{ steps.next_version.outputs.next_version_line }}
+            **Bump type:** ${{ steps.next_version.outputs.bump_type }}
+            **Build:** ${{ steps.next_version.outputs.next_build }}
+            **Run:** ${{ github.run_number }}
+
+            This release is experimental and may contain breaking changes.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Trigger Alpha Build Workflow
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: alpha-build-trigger
+          client-payload: '{"version": "${{ steps.next_version.outputs.next_version_line }}", "tag": "${{ steps.create_git_tag.outputs.tag }}"}'
+
+  trigger-alpha-build:
+    name: Trigger Alpha Build
+    needs: auto-version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger release-alpha workflow
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'release-alpha.yml',
+              ref: 'main',
+              inputs: {}
+            })

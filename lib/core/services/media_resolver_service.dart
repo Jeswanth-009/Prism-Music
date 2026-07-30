@@ -12,12 +12,14 @@ class ResolvedMediaSource {
   final Map<String, String>? headers;
   final bool isOffline;
   final String? videoId;
+  final StreamInfo? streamInfo;
 
   const ResolvedMediaSource({
     required this.uri,
     this.headers,
     required this.isOffline,
     this.videoId,
+    this.streamInfo,
   });
 }
 
@@ -80,6 +82,7 @@ class MediaResolverService {
       headers: streamInfo.headers,
       isOffline: false,
       videoId: songId,
+      streamInfo: streamInfo,
     );
   }
 

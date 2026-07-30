@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:hive_flutter/hive_flutter.dart';
+import '../../../../core/error/error.dart';
 import '../../../../core/services/local_backup_service.dart';
 import '../../../../domain/entities/entities.dart';
 
@@ -41,6 +42,9 @@ abstract class LocalDataSource {
   /// Add song to playlist
   Future<void> addSongToPlaylist(String playlistId, Song song);
   
+  /// Update playlist songs (for reordering)
+  Future<void> updatePlaylistSongs(String playlistId, List<Song> songs);
+
   /// Remove song from playlist
   Future<void> removeSongFromPlaylist(String playlistId, String songId);
   
@@ -122,11 +126,13 @@ class LocalDataSourceImpl implements LocalDataSource {
   static const String _searchHistoryBoxName = 'search_history';
   static const String _downloadsBoxName = 'downloads';
   static const String _playlistsBoxName = 'playlists';
+  static const String _cacheBoxName = 'song_cache';
   Box? _historyBox;
   Box? _likedBox;
   Box? _searchHistoryBox;
   Box? _downloadsBox;
   Box? _playlistsBox;
+  Box? _cacheBox;
 
   LocalDataSourceImpl();
 
@@ -158,6 +164,12 @@ class LocalDataSourceImpl implements LocalDataSource {
     if (_playlistsBox != null && _playlistsBox!.isOpen) return _playlistsBox!;
     _playlistsBox = await Hive.openBox(_playlistsBoxName);
     return _playlistsBox!;
+  }
+
+  Future<Box> _getCacheBox() async {
+    if (_cacheBox != null && _cacheBox!.isOpen) return _cacheBox!;
+    _cacheBox = await Hive.openBox(_cacheBoxName);
+    return _cacheBox!;
   }
 
   /// Persist user data to the on-device backup file (debounced).
@@ -385,6 +397,26 @@ class LocalDataSourceImpl implements LocalDataSource {
   }
 
   @override
+  Future<void> updatePlaylistSongs(String playlistId, List<Song> songs) async {
+    final box = await _getPlaylistsBox();
+    final data = box.get(playlistId);
+    if (data == null) {
+      throw Exception('Playlist not found: $playlistId');
+    }
+    final existing = _mapToPlaylist(Map<String, dynamic>.from(data));
+    final updated = existing.copyWith(
+      songs: songs,
+      trackCount: songs.length,
+      totalDuration: Duration(
+        milliseconds: songs.fold(0, (sum, s) => sum + s.duration.inMilliseconds),
+      ),
+      updatedAt: DateTime.now(),
+    );
+    await box.put(playlistId, _playlistToMap(updated));
+    _triggerBackup();
+  }
+
+  @override
   Future<Playlist?> getPlaylist(String playlistId) async {
     final box = await _getPlaylistsBox();
     final data = box.get(playlistId);
@@ -571,31 +603,70 @@ class LocalDataSourceImpl implements LocalDataSource {
 
   @override
   Future<void> cacheSong(Song song) async {
-    // TODO: Implement with Isar
+    try {
+      final box = await _getCacheBox();
+      await box.put(song.playableId, _songToMap(song));
+    } on CacheException {
+      rethrow;
+    } catch (e) {
+      throw CacheException(message: e.toString());
+    }
   }
 
   @override
   Future<Song?> getCachedSong(String songId) async {
-    // TODO: Implement with Isar
-    return null;
+    try {
+      final box = await _getCacheBox();
+      final data = box.get(songId);
+      if (data is Map) {
+        return _mapToSong(data);
+      }
+      return null;
+    } on CacheException {
+      rethrow;
+    } catch (e) {
+      throw CacheException(message: e.toString());
+    }
   }
 
   @override
   Future<void> clearCache() async {
-    // TODO: Implement with Isar
+    try {
+      final box = await _getCacheBox();
+      await box.clear();
+    } on CacheException {
+      rethrow;
+    } catch (e) {
+      throw CacheException(message: e.toString());
+    }
   }
 
   // ============ SETTINGS ============
 
   @override
   Future<T?> getSetting<T>(String key) async {
-    // TODO: Implement with Hive
-    return null;
+    try {
+      final box = await _getSettingsBox();
+      final value = box.get(key);
+      return value as T?;
+    } catch (e) {
+      return null;
+    }
   }
 
   @override
   Future<void> saveSetting<T>(String key, T value) async {
-    // TODO: Implement with Hive
+    try {
+      final box = await _getSettingsBox();
+      await box.put(key, value);
+    } catch (e) {
+      throw CacheException(message: e.toString());
+    }
+  }
+
+  Future<Box> _getSettingsBox() async {
+    // Reuse the cache box for settings as well, or create a dedicated one
+    return _getCacheBox();
   }
 
   // ============ SEARCH HISTORY ============
