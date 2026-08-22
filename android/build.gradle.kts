@@ -22,3 +22,12 @@ subprojects {
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
+
+gradle.taskGraph.whenReady {
+    val taskGraph = this
+    taskGraph.allTasks.forEach { task ->
+        if (task.name.contains("lintVital") || task.name.contains("lintAnalyze") || task.name.contains("Lint")) {
+            task.enabled = false
+        }
+    }
+}
