@@ -7,10 +7,10 @@ import '../../../../domain/entities/song.dart';
 class PipedInstances {
   static const List<String> apiInstances = [
     'https://pipedapi.kavin.rocks',
+    'https://api.piped.privacydev.net',
+    'https://piped-api.lunar.icu',
+    'https://pipedapi.drgns.space',
     'https://pipedapi.tokhmi.xyz',
-    'https://pipedapi.moomoo.me',
-    'https://pipedapi.syncpundit.io',
-    'https://api.piped.yt',
   ];
   
   /// Piped proxy instances for streaming audio

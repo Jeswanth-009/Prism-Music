@@ -33,6 +33,7 @@ abstract class YouTubeMusicDataSource {
 class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
   final yt.YoutubeExplode _youtube = yt.YoutubeExplode();
   final InvidiousDataSource _invidious = InvidiousDataSource();
+  final PipedDataSource _piped = PipedDataSource();
 
   // Lightweight rate limiting + caching to keep fetches snappy without hitting limits
   DateTime? _lastRequestTime;
@@ -116,8 +117,10 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
       final manifestStopwatch = Stopwatch()..start();
       final manifest = await _youtube.videos.streamsClient.getManifest(
         videoId,
-        requireWatchPage: true,
-        ytClients: [yt.YoutubeApiClient.ios],
+        ytClients: [
+          yt.YoutubeApiClient.androidSdkless,
+          yt.YoutubeApiClient.tv,
+        ],
       );
       manifestStopwatch.stop();
 
@@ -218,8 +221,10 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
         try {
           final manifest = await _youtube.videos.streamsClient.getManifest(
             videoId,
-            requireWatchPage: true,
-            ytClients: [yt.YoutubeApiClient.ios],
+            ytClients: [
+              yt.YoutubeApiClient.androidSdkless,
+              yt.YoutubeApiClient.tv,
+            ],
           );
            final audioStreams = manifest.audioOnly.toList()
              ..sort(
@@ -262,7 +267,28 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
       }
     }
 
-    // Fallback: Try Invidious as backup option
+    // Fallback 1: Try Piped API
+    try {
+      final fallbackStopwatch = Stopwatch()..start();
+      debugPrint('YouTubeDataSource: Trying Piped API fallback...');
+      final pipedStream = await _piped.getStreamUrl(videoId);
+      fallbackStopwatch.stop();
+      if (pipedStream != null) {
+        totalStopwatch.stop();
+        debugPrint(
+          'YouTubeDataSource: ✓ Piped SUCCESS '
+          '(fallback ${fallbackStopwatch.elapsedMilliseconds}ms, '
+          'total ${totalStopwatch.elapsedMilliseconds}ms)',
+        );
+        _cacheStream(cacheKey, pipedStream);
+        return pipedStream;
+      }
+      debugPrint('YouTubeDataSource: ✗ Piped returned null');
+    } catch (e) {
+      debugPrint('YouTubeDataSource: ✗ Piped failed: $e');
+    }
+
+    // Fallback 2: Try Invidious as secondary backup
     try {
       final fallbackStopwatch = Stopwatch()..start();
       debugPrint('YouTubeDataSource: Trying Invidious...');
@@ -307,8 +333,10 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
   Future<List<domain.StreamInfo>> getAvailableStreams(String videoId) async {
     final manifest = await _youtube.videos.streamsClient.getManifest(
       videoId,
-      requireWatchPage: true,
-      ytClients: [yt.YoutubeApiClient.ios],
+      ytClients: [
+        yt.YoutubeApiClient.androidSdkless,
+        yt.YoutubeApiClient.tv,
+      ],
     );
 
     return manifest.audioOnly

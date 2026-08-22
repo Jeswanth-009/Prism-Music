@@ -6,15 +6,13 @@ import '../../../../domain/entities/song.dart';
 /// Invidious instance URLs (public proxies for YouTube)
 class InvidiousInstances {
   static const List<String> instances = [
-    // More reliable instances (updated November 2024)
-    'https://invidious.io',
-    'https://iv.ggtyler.dev',
-    'https://invidious.projectsegfau.lt',
-    'https://inv.riverside.rocks',
-    'https://y.com.sb',
-    // Fallback instances
+    'https://inv.tux.pizza',
+    'https://invidious.nerdvpn.de',
+    'https://invidious.private.coffee',
     'https://inv.nadeko.net',
-    'https://invidious.snopyta.org',
+    'https://invidious.drgns.space',
+    'https://yt.artemislena.eu',
+    'https://invidious.jing.rocks',
   ];
   
   static String _currentInstance = instances[0];

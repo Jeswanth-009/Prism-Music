@@ -30,7 +30,7 @@ class StreamLoaderService {
   final YouTubeMusicDataSource _datasource;
   final StreamCacheService _cache;
 
-  static const Duration _streamFetchTimeout = Duration(seconds: 6);
+  static const Duration _streamFetchTimeout = Duration(seconds: 15);
 
   // Prefetch queue to load next songs in background
   final Map<String, Future<StreamInfo?>> _prefetchQueue = {};
