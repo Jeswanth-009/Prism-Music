@@ -93,27 +93,27 @@ class _SongCardState extends State<SongCard>
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(widget.compact ? 12 : 16),
                 color: isCurrentlyPlaying
-                    ? accentColor.withOpacity(isDark ? 0.15 : 0.1)
+                    ? accentColor.withValues(alpha: isDark ? 0.15 : 0.1)
                     : (isDark
-                        ? Colors.white.withOpacity(0.05)
-                        : Colors.white.withOpacity(0.8)),
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.white.withValues(alpha: 0.8)),
                 border: Border.all(
                   color: isCurrentlyPlaying
-                      ? accentColor.withOpacity(0.3)
+                      ? accentColor.withValues(alpha: 0.3)
                       : (isDark
-                          ? Colors.white.withOpacity(0.08)
-                          : Colors.black.withOpacity(0.05)),
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : Colors.black.withValues(alpha: 0.05)),
                   width: isCurrentlyPlaying ? 1.5 : 1,
                 ),
                 boxShadow: [
                   if (isCurrentlyPlaying)
                     BoxShadow(
-                      color: accentColor.withOpacity(0.15),
+                      color: accentColor.withValues(alpha: 0.15),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
                   BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -157,7 +157,7 @@ class _SongCardState extends State<SongCard>
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: isCurrentlyPlaying
-                                ? accentColor.withOpacity(0.8)
+                                ? accentColor.withValues(alpha: 0.8)
                                 : theme.colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.w500,
                           ),
@@ -181,8 +181,8 @@ class _SongCardState extends State<SongCard>
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(6),
                               color: isDark
-                                  ? Colors.white.withOpacity(0.08)
-                                  : Colors.black.withOpacity(0.05),
+                                  ? Colors.white.withValues(alpha: 0.08)
+                                  : Colors.black.withValues(alpha: 0.05),
                             ),
                             child: Text(
                               widget.song.durationFormatted,
@@ -202,7 +202,7 @@ class _SongCardState extends State<SongCard>
                               size: 18,
                               color: isCurrentlyPlaying
                                   ? accentColor
-                                  : theme.colorScheme.primary.withOpacity(0.7),
+                                  : theme.colorScheme.primary.withValues(alpha: 0.7),
                             ),
                         ],
                       ],
@@ -245,7 +245,7 @@ class _AlbumArtThumbnail extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: accentColor.withOpacity(0.4),
+                    color: accentColor.withValues(alpha: 0.4),
                     blurRadius: 12,
                     spreadRadius: 0,
                   ),
@@ -261,7 +261,7 @@ class _AlbumArtThumbnail extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isPlaying
-                  ? accentColor.withOpacity(0.3)
+                  ? accentColor.withValues(alpha: 0.3)
                   : Colors.transparent,
               width: 2,
             ),
@@ -291,7 +291,7 @@ class _AlbumArtThumbnail extends StatelessWidget {
       child: Icon(
         LucideIcons.music,
         size: size * 0.4,
-        color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
       ),
     );
   }
@@ -434,7 +434,7 @@ class _SongCardHorizontalState extends State<SongCardHorizontal>
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(isDark ? 0.4 : 0.15),
+                      color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.15),
                       blurRadius: 12,
                       offset: const Offset(0, 6),
                     ),
@@ -464,7 +464,7 @@ class _SongCardHorizontalState extends State<SongCardHorizontal>
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: theme.colorScheme.primary.withOpacity(0.4),
+                                color: theme.colorScheme.primary.withValues(alpha: 0.4),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -515,7 +515,7 @@ class _SongCardHorizontalState extends State<SongCardHorizontal>
       child: Icon(
         LucideIcons.music,
         size: widget.width * 0.3,
-        color: theme.colorScheme.onSurfaceVariant.withOpacity(0.4),
+        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
       ),
     );
   }

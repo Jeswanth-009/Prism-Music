@@ -125,30 +125,30 @@ class _MiniPlayerState extends State<MiniPlayer>
                         end: Alignment.bottomRight,
                         colors: isDark
                             ? [
-                                Colors.white.withOpacity(0.12),
-                                Colors.white.withOpacity(0.05),
+                                Colors.white.withValues(alpha: 0.12),
+                                Colors.white.withValues(alpha: 0.05),
                               ]
                             : [
-                                Colors.white.withOpacity(0.85),
-                                Colors.white.withOpacity(0.65),
+                                Colors.white.withValues(alpha: 0.85),
+                                Colors.white.withValues(alpha: 0.65),
                               ],
                       ),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: isDark
-                            ? Colors.white.withOpacity(0.15)
-                            : Colors.white.withOpacity(0.5),
+                            ? Colors.white.withValues(alpha: 0.15)
+                            : Colors.white.withValues(alpha: 0.5),
                         width: 1,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: accentColor.withOpacity(0.2),
+                          color: accentColor.withValues(alpha: 0.2),
                           blurRadius: 20,
                           spreadRadius: -2,
                           offset: const Offset(0, 8),
                         ),
                         BoxShadow(
-                          color: Colors.black.withOpacity(isDark ? 0.4 : 0.1),
+                          color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.1),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -167,7 +167,7 @@ class _MiniPlayerState extends State<MiniPlayer>
                               borderRadius: BorderRadius.circular(14),
                               boxShadow: [
                                 BoxShadow(
-                                  color: accentColor.withOpacity(0.4),
+                                  color: accentColor.withValues(alpha: 0.4),
                                   blurRadius: 16,
                                   spreadRadius: 0,
                                 ),
@@ -194,8 +194,8 @@ class _MiniPlayerState extends State<MiniPlayer>
                                     // Background track
                                     Container(
                                       color: isDark
-                                          ? Colors.white.withOpacity(0.1)
-                                          : Colors.black.withOpacity(0.08),
+                                          ? Colors.white.withValues(alpha: 0.1)
+                                          : Colors.black.withValues(alpha: 0.08),
                                     ),
                                     // Progress
                                     FractionallySizedBox(
@@ -205,7 +205,7 @@ class _MiniPlayerState extends State<MiniPlayer>
                                           gradient: LinearGradient(
                                             colors: [
                                               accentColor,
-                                              accentColor.withOpacity(0.7),
+                                              accentColor.withValues(alpha: 0.7),
                                             ],
                                           ),
                                           borderRadius:
@@ -213,7 +213,7 @@ class _MiniPlayerState extends State<MiniPlayer>
                                           boxShadow: [
                                             BoxShadow(
                                               color:
-                                                  accentColor.withOpacity(0.5),
+                                                  accentColor.withValues(alpha: 0.5),
                                               blurRadius: 4,
                                             ),
                                           ],
@@ -393,7 +393,7 @@ class _AlbumArtWidgetState extends State<_AlbumArtWidget>
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: widget.accentColor.withOpacity(0.3),
+            color: widget.accentColor.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -418,7 +418,7 @@ class _AlbumArtWidgetState extends State<_AlbumArtWidget>
 
   Widget _placeholder() {
     return Container(
-      color: widget.accentColor.withOpacity(0.2),
+      color: widget.accentColor.withValues(alpha: 0.2),
       child: Icon(
         LucideIcons.music,
         color: widget.accentColor,
@@ -497,13 +497,13 @@ class _PlayPauseButtonState extends State<_PlayPauseButton>
               end: Alignment.bottomRight,
               colors: [
                 widget.accentColor,
-                widget.accentColor.withOpacity(0.8),
+                widget.accentColor.withValues(alpha: 0.8),
               ],
             ),
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: widget.accentColor.withOpacity(0.4),
+                color: widget.accentColor.withValues(alpha: 0.4),
                 blurRadius: 10,
                 offset: const Offset(0, 3),
               ),

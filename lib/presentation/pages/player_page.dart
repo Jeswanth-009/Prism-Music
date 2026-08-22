@@ -268,13 +268,13 @@ class _PlayerPageState extends State<PlayerPage>
               colors: isDark
                   ? [
                       (_dominantColor ?? theme.colorScheme.primary)
-                          .withOpacity(0.25),
+                          .withValues(alpha: 0.25),
                       theme.colorScheme.surface,
                       theme.colorScheme.surfaceContainerLowest,
                     ]
                   : [
                       (_dominantColor ?? theme.colorScheme.primary)
-                          .withOpacity(0.15),
+                          .withValues(alpha: 0.15),
                       theme.colorScheme.surface,
                       theme.colorScheme.surfaceContainerLowest,
                     ],
@@ -296,7 +296,7 @@ class _PlayerPageState extends State<PlayerPage>
                       radius: 1.2,
                       colors: [
                         (_dominantColor ?? theme.colorScheme.primary)
-                            .withOpacity(0.08 * _fadeAnimation.value),
+                            .withValues(alpha: 0.08 * _fadeAnimation.value),
                         Colors.transparent,
                       ],
                     ),
@@ -315,9 +315,9 @@ class _PlayerPageState extends State<PlayerPage>
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(isDark ? 0.05 : 0.02),
+                    Colors.black.withValues(alpha: isDark ? 0.05 : 0.02),
                     Colors.transparent,
-                    Colors.black.withOpacity(isDark ? 0.08 : 0.03),
+                    Colors.black.withValues(alpha: isDark ? 0.08 : 0.03),
                   ],
                 ),
               ),
@@ -350,7 +350,7 @@ class _PlayerPageState extends State<PlayerPage>
                 style: theme.textTheme.labelSmall?.copyWith(
                   letterSpacing: 1.5,
                   fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.onSurface.withOpacity(0.5),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
               ),
               const SizedBox(height: 2),
@@ -403,21 +403,21 @@ class _PlayerPageState extends State<PlayerPage>
           boxShadow: [
             // Primary glow shadow
             BoxShadow(
-              color: accentColor.withOpacity(0.5),
+              color: accentColor.withValues(alpha: 0.5),
               blurRadius: 50,
               spreadRadius: 5,
               offset: const Offset(0, 15),
             ),
             // Secondary ambient shadow
             BoxShadow(
-              color: accentColor.withOpacity(0.3),
+              color: accentColor.withValues(alpha: 0.3),
               blurRadius: 80,
               spreadRadius: 0,
               offset: const Offset(0, 30),
             ),
             // Dark shadow for depth
             BoxShadow(
-              color: Colors.black.withOpacity(0.35),
+              color: Colors.black.withValues(alpha: 0.35),
               blurRadius: 25,
               offset: const Offset(0, 12),
             ),
@@ -448,7 +448,7 @@ class _PlayerPageState extends State<PlayerPage>
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(28),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withValues(alpha: 0.1),
                   width: 1,
                 ),
               ),
@@ -468,7 +468,7 @@ class _PlayerPageState extends State<PlayerPage>
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.white.withOpacity(0.15),
+                      Colors.white.withValues(alpha: 0.15),
                       Colors.transparent,
                     ],
                   ),
@@ -500,7 +500,7 @@ class _PlayerPageState extends State<PlayerPage>
           child: CircularProgressIndicator(
             strokeWidth: 3,
             valueColor: AlwaysStoppedAnimation<Color>(
-              theme.colorScheme.primary.withOpacity(0.7),
+              theme.colorScheme.primary.withValues(alpha: 0.7),
             ),
           ),
         ),
@@ -523,7 +523,7 @@ class _PlayerPageState extends State<PlayerPage>
       child: Icon(
         LucideIcons.music,
         size: artSize * 0.45,
-        color: theme.colorScheme.onPrimaryContainer.withOpacity(0.5),
+        color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.5),
       ),
     );
   }
@@ -553,7 +553,7 @@ class _PlayerPageState extends State<PlayerPage>
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceContainerHighest
-                      .withOpacity(0.5),
+                      .withValues(alpha: 0.5),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(LucideIcons.user,
@@ -565,7 +565,7 @@ class _PlayerPageState extends State<PlayerPage>
                   artistString: song.artist,
                   style: theme.textTheme.titleLarge?.copyWith(
                     color:
-                        theme.colorScheme.onSurface.withOpacity(0.8),
+                        theme.colorScheme.onSurface.withValues(alpha: 0.8),
                     fontWeight: FontWeight.w600,
                     letterSpacing: -0.2,
                     decoration: TextDecoration.underline,
@@ -608,9 +608,9 @@ class _PlayerPageState extends State<PlayerPage>
               overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
               activeTrackColor: accentColor,
               inactiveTrackColor: isDark
-                  ? Colors.white.withOpacity(0.15)
-                  : Colors.black.withOpacity(0.1),
-              overlayColor: accentColor.withOpacity(0.2),
+                  ? Colors.white.withValues(alpha: 0.15)
+                  : Colors.black.withValues(alpha: 0.1),
+              overlayColor: accentColor.withValues(alpha: 0.2),
             ),
             child: Slider(
               value: progress.clamp(0.0, 1.0),
@@ -779,7 +779,7 @@ class _PlayerPageState extends State<PlayerPage>
             end: Alignment.bottomCenter,
             colors: [
               (_dominantColor ?? const Color(0xFF7C4DFF))
-                  .withOpacity(0.9),
+                  .withValues(alpha: 0.9),
               Colors.black,
             ],
           ),
@@ -942,7 +942,7 @@ class _PlayerPageState extends State<PlayerPage>
               shape: BoxShape.circle,
               color: active
                   ? Colors.white
-                  : Colors.white.withOpacity(0.08),
+                  : Colors.white.withValues(alpha: 0.08),
               border: Border.all(color: Colors.white24),
             ),
             child: Icon(icon,
@@ -969,7 +969,7 @@ class _PlayerPageState extends State<PlayerPage>
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.purpleAccent.withOpacity(0.45),
+                color: Colors.purpleAccent.withValues(alpha: 0.45),
                 blurRadius: 30,
                 offset: const Offset(0, 14),
               ),
@@ -1050,7 +1050,7 @@ class _PlayerPageState extends State<PlayerPage>
                           BoxShadow(
                             color:
                                 (_dominantColor ?? Colors.black)
-                                    .withOpacity(0.4),
+                                    .withValues(alpha: 0.4),
                             blurRadius: 40,
                             offset: const Offset(0, 12),
                           ),
@@ -1091,7 +1091,7 @@ class _PlayerPageState extends State<PlayerPage>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.35),
+                        color: Colors.black.withValues(alpha: 0.35),
                         borderRadius: BorderRadius.circular(999),
                         border:
                             Border.all(color: Colors.white12),
@@ -1230,10 +1230,10 @@ class _PlayerPageState extends State<PlayerPage>
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-                color: Colors.white.withOpacity(0.2), width: 2),
+                color: Colors.white.withValues(alpha: 0.2), width: 2),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.4),
+                color: Colors.black.withValues(alpha: 0.4),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -1365,14 +1365,14 @@ class _PlayerPageState extends State<PlayerPage>
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color:
-                  Colors.white.withOpacity(isEnabled ? 0.1 : 0.05),
+                  Colors.white.withValues(alpha: isEnabled ? 0.1 : 0.05),
               border: Border.all(
                 color: isEnabled ? Colors.white24 : Colors.white12,
               ),
             ),
             child: Icon(icon,
                 color:
-                    Colors.white.withOpacity(isEnabled ? 1.0 : 0.3)),
+                    Colors.white.withValues(alpha: isEnabled ? 1.0 : 0.3)),
           ),
         ),
         const SizedBox(height: 6),
@@ -1380,7 +1380,7 @@ class _PlayerPageState extends State<PlayerPage>
           label,
           style: TextStyle(
             color:
-                Colors.white70.withOpacity(isEnabled ? 1.0 : 0.5),
+                Colors.white70.withValues(alpha: isEnabled ? 1.0 : 0.5),
             fontSize: 12,
           ),
         ),
@@ -1923,7 +1923,7 @@ class _ModernRingPainter extends CustomPainter {
     final basePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
-      ..color = Colors.white.withOpacity(0.08);
+      ..color = Colors.white.withValues(alpha: 0.08);
 
     canvas.drawArc(
         rect.deflate(strokeWidth / 2), 0, math.pi * 2, false, basePaint);
@@ -1949,7 +1949,7 @@ class _ModernRingPainter extends CustomPainter {
     final innerPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4
-      ..color = Colors.white.withOpacity(0.05);
+      ..color = Colors.white.withValues(alpha: 0.05);
 
     canvas.drawArc(
         rect.deflate(22), 0, math.pi * 2, false, innerPaint);
@@ -2031,20 +2031,20 @@ class _GlassButtonState extends State<_GlassButton>
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 color: widget.isDark
-                    ? Colors.white.withOpacity(0.1)
-                    : Colors.black.withOpacity(0.05),
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.black.withValues(alpha: 0.05),
                 border: Border.all(
                   color: widget.isDark
-                      ? Colors.white.withOpacity(0.1)
-                      : Colors.black.withOpacity(0.08),
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.black.withValues(alpha: 0.08),
                 ),
               ),
               child: Icon(
                 widget.icon,
                 size: 20,
                 color: widget.isDark
-                    ? Colors.white.withOpacity(0.8)
-                    : Colors.black.withOpacity(0.7),
+                    ? Colors.white.withValues(alpha: 0.8)
+                    : Colors.black.withValues(alpha: 0.7),
               ),
             ),
           ),
@@ -2070,12 +2070,12 @@ class _TimeLabel extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
-        color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
       ),
       child: Text(
         time,
         style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurface.withOpacity(0.7),
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
           fontWeight: FontWeight.w600,
           fontFeatures: [const FontFeature.tabularFigures()],
         ),
@@ -2121,7 +2121,7 @@ class _GlowingThumbShape extends SliderComponentShape {
 
     // Glow effect
     final glowPaint = Paint()
-      ..color = color.withOpacity(0.4)
+      ..color = color.withValues(alpha: 0.4)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
     canvas.drawCircle(center, thumbRadius + 4, glowPaint);
 
@@ -2210,12 +2210,12 @@ class _AnimatedControlButtonState extends State<_AnimatedControlButton>
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: widget.isDark
-                ? Colors.white.withOpacity(0.08)
-                : Colors.black.withOpacity(0.05),
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.05),
             border: Border.all(
               color: widget.isDark
-                  ? Colors.white.withOpacity(0.12)
-                  : Colors.black.withOpacity(0.1),
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.black.withValues(alpha: 0.1),
             ),
           ),
           child: Icon(
@@ -2303,19 +2303,19 @@ class _PlayPauseMainButtonState extends State<_PlayPauseMainButton>
               end: Alignment.bottomRight,
               colors: [
                 widget.accentColor,
-                widget.accentColor.withOpacity(0.85),
+                widget.accentColor.withValues(alpha: 0.85),
               ],
             ),
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: widget.accentColor.withOpacity(0.5),
+                color: widget.accentColor.withValues(alpha: 0.5),
                 blurRadius: 30,
                 spreadRadius: 0,
                 offset: const Offset(0, 12),
               ),
               BoxShadow(
-                color: widget.accentColor.withOpacity(0.3),
+                color: widget.accentColor.withValues(alpha: 0.3),
                 blurRadius: 50,
                 spreadRadius: -5,
                 offset: const Offset(0, 20),
@@ -2340,7 +2340,7 @@ class _PlayPauseMainButtonState extends State<_PlayPauseMainButton>
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.white.withOpacity(0.25),
+                        Colors.white.withValues(alpha: 0.25),
                         Colors.transparent,
                       ],
                     ),
@@ -2447,13 +2447,13 @@ class _PillButtonState extends State<_PillButton>
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
             color: widget.active
-                ? widget.accentColor.withOpacity(0.2)
+                ? widget.accentColor.withValues(alpha: 0.2)
                 : (widget.isDark
-                    ? Colors.white.withOpacity(0.08)
-                    : Colors.black.withOpacity(0.05)),
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.05)),
             border: Border.all(
               color: widget.active
-                  ? widget.accentColor.withOpacity(0.4)
+                  ? widget.accentColor.withValues(alpha: 0.4)
                   : Colors.transparent,
               width: 1.5,
             ),

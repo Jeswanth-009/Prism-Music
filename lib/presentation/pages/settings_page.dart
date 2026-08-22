@@ -63,7 +63,7 @@ class _SettingsPageState extends State<SettingsPage> {
       }
       _recommendationService = null;
     }
-    if (mounted) {
+    if (context.mounted) {
       setState(() => _isInitialized = true);
     }
   }
@@ -79,7 +79,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
           if (success) {
             Navigator.pop(context);
-            if (!mounted) return;
+            if (!context.mounted) return;
             ShadToaster.of(context).show(
               ShadToast(
                   title: const Text('Successfully logged in to Last.fm!')),
@@ -87,7 +87,7 @@ class _SettingsPageState extends State<SettingsPage> {
             setState(() {});
           } else {
             Navigator.pop(context);
-            if (!mounted) return;
+            if (!context.mounted) return;
             ShadToaster.of(context).show(
               ShadToast.destructive(
                 title: const Text(
@@ -282,7 +282,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     value: _fastStartEnabled,
                     onChanged: (value) async {
                       await _settingsService.setFastStartEnabled(value);
-                      if (!mounted) return;
+                      if (!context.mounted) return;
                       setState(() => _fastStartEnabled = value);
                       ShadToaster.of(context).show(
                         ShadToast(
@@ -308,7 +308,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       if (value == null) return;
                       await _settingsService
                           .setPrefetchLookahead(value);
-                      if (!mounted) return;
+                      if (!context.mounted) return;
                       setState(() => _prefetchLookahead = value);
                     },
                     options: const [0, 1, 2]
@@ -690,7 +690,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: theme.colorScheme.primary
-                          .withOpacity(0.12),
+                          .withValues(alpha: 0.12),
                     ),
                     child: Icon(icon,
                         color: theme.colorScheme.primary, size: 20),
@@ -1091,7 +1091,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ShadButton.outline(
             onPressed: () async {
               await _settingsService.setDownloadFolderPath(null);
-              if (!mounted) return;
+              if (!context.mounted) return;
               Navigator.pop(dialogContext);
               setState(() {});
               ShadToaster.of(context).show(
@@ -1117,7 +1117,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   await _settingsService
                       .setDownloadFolderPath(path);
                 } catch (e) {
-                  if (!mounted) return;
+                  if (!context.mounted) return;
                   ShadToaster.of(context).show(
                     ShadToast.destructive(
                       title: Text('Invalid folder path: $e'),
@@ -1126,7 +1126,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   return;
                 }
               }
-              if (!mounted) return;
+              if (!context.mounted) return;
               Navigator.pop(dialogContext);
               setState(() {});
               ShadToaster.of(context).show(
@@ -1214,11 +1214,10 @@ class _SettingsPageState extends State<SettingsPage> {
                             onPressed: () async {
                               await _settingsService
                                   .setCountryCode(country.code);
-                              if (!context.mounted ||
-                                  !mounted) return;
+                              if (!context.mounted) return;
                               Navigator.pop(sheetContext);
                               setState(() {});
-                              if (mounted) {
+                              if (context.mounted) {
                                 ShadToaster.of(context).show(
                                   ShadToast(
                                     title: Text(

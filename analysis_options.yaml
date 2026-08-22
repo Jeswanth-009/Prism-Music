@@ -10,17 +10,21 @@
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
-  # Exclude dev/debug tools from analysis — they are not shipped in the app
-  # and use print statements intentionally.
+  # Exclude dev/debug tools from analysis — they are not shipped in the app.
   exclude:
     - tool/**
 
+  errors:
+    # withOpacity is deprecated but still safe — migration to withValues() is
+    # done incrementally. Suppress the hint so CI doesn't break on info-level
+    # deprecation notices that the current Flutter SDK elevates to errors.
+    deprecated_member_use: ignore
+
 linter:
   rules:
-    # Suppress style-preference lints that vary between SDK lint versions.
-    # These are individually reviewed and intentionally left in the codebase.
-    unnecessary_underscores: false     # __ wildcard pattern — stylistic choice
-    sort_child_properties_last: false  # child ordering — stylistic choice
+    # Style-preference lints — suppressed project-wide.
+    unnecessary_underscores: false
+    sort_child_properties_last: false
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

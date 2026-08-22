@@ -96,7 +96,7 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
               height: 4,
               decoration: BoxDecoration(
                 color: theme.colorScheme.onSurfaceVariant
-                    .withOpacity(0.4),
+                    .withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -207,7 +207,7 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
                     ? BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
                         color: theme.colorScheme.primaryContainer
-                            .withOpacity(0.3),
+                            .withValues(alpha: 0.3),
                       )
                     : null,
                 child: Column(
@@ -508,9 +508,9 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
         height: height,
         decoration: BoxDecoration(
           color: isSelected
-              ? theme.colorScheme.primary.withOpacity(0.7)
+              ? theme.colorScheme.primary.withValues(alpha: 0.7)
               : theme.colorScheme.onSurfaceVariant
-                  .withOpacity(0.35),
+                  .withValues(alpha: 0.35),
           borderRadius: BorderRadius.circular(2),
         ),
       ),

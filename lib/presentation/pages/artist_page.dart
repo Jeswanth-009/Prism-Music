@@ -267,8 +267,8 @@ class _ArtistPageState extends State<ArtistPage> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.25),
-                    Colors.black.withOpacity(0.65),
+                    Colors.black.withValues(alpha: 0.25),
+                    Colors.black.withValues(alpha: 0.65),
                   ],
                 ),
               ),
@@ -539,7 +539,7 @@ class _StatBubble extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: theme.colorScheme.surfaceContainerHighest
-                  .withOpacity(0.4),
+                  .withValues(alpha: 0.4),
             ),
             child: Icon(icon,
                 size: 26,
