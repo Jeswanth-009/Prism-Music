@@ -362,7 +362,7 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
       // Fallback: search by author + title
       final video = await _youtube.videos.get(videoId);
       final query = '${video.author} ${video.title.split('-').first.trim()}';
-      return _searchSongsByQuery(query, limit: limit);
+      return await _searchSongsByQuery(query, limit: limit);
     } catch (e) {
       debugPrint('YouTubeDataSource: getRelatedSongs error: $e');
       return [];

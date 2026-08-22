@@ -1,30 +1,26 @@
 # This file configures the analyzer, which statically analyzes Dart code to
 # check for errors, warnings, and lints.
-#
-# The issues identified by the analyzer are surfaced in the UI of Dart-enabled
-# IDEs (https://dart.dev/tools#ides-and-editors). The analyzer can also be
-# invoked from the command line by running `flutter analyze`.
 
-# The following line activates a set of recommended lints for Flutter apps,
-# packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
-  # Exclude dev/debug tools from analysis — they are not shipped in the app.
   exclude:
     - tool/**
 
   errors:
-    # withOpacity is deprecated but still safe — migration to withValues() is
-    # done incrementally. Suppress the hint so CI doesn't break on info-level
-    # deprecation notices that the current Flutter SDK elevates to errors.
+    # Suppress diagnostics that vary between Flutter SDK versions.
     deprecated_member_use: ignore
+    experimental_member_use: ignore
+    # The 'hide RepeatMode' is needed on CI's latest stable Flutter where
+    # flutter/widgets.dart exports its own RepeatMode. On older local SDKs
+    # this causes a harmless 'undefined_hidden_name' warning — suppress it.
+    undefined_hidden_name: ignore
 
 linter:
   rules:
-    # Style-preference lints — suppressed project-wide.
     unnecessary_underscores: false
     sort_child_properties_last: false
+    use_super_parameters: false
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

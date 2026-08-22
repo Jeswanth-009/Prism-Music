@@ -3,7 +3,7 @@ import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter/gestures.dart'; // Added for TapGestureRecognizer
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:palette_generator/palette_generator.dart';
@@ -1410,8 +1410,8 @@ class _PlayerPageState extends State<PlayerPage>
     const startAngle = -math.pi / 2;
     double angle = math.atan2(vector.dy, vector.dx);
     double normalized = angle - startAngle;
-    while (normalized < 0) normalized += math.pi * 2;
-    while (normalized > math.pi * 2) normalized -= math.pi * 2;
+    while (normalized < 0) { normalized += math.pi * 2; }
+    while (normalized > math.pi * 2) { normalized -= math.pi * 2; }
 
     final progress =
         (normalized / (math.pi * 2)).clamp(0.0, 1.0);

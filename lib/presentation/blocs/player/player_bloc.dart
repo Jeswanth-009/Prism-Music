@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/widgets.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/services/audio_player_service.dart';
 import '../../../core/services/lastfm_service.dart';

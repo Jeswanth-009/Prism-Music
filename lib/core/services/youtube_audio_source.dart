@@ -1,3 +1,4 @@
+// ignore_for_file: experimental_member_use
 import 'dart:async';
 import 'dart:developer' as dev;
 import 'package:flutter/foundation.dart';
@@ -38,8 +39,8 @@ class YouTubeAudioSource extends StreamAudioSource {
   YouTubeAudioSource({
     required this.videoId,
     this.quality = 'high',
-    dynamic tag,
-  }) : super(tag: tag);
+    super.tag,
+  });
 
   /// Get stream info with global + instance caching
   Future<AudioOnlyStreamInfo> _getStreamInfo({bool forceRefresh = false}) async {

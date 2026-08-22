@@ -185,11 +185,11 @@ class ChartService {
   Future<List<Song>> _searchMultipleSongs(String query, {int limit = 10}) async {
     try {
       final musicRepository = getIt<MusicRepository>();
-      final result = await musicRepository.searchSongs(query, limit: limit);
-      
-      return result.fold(
-        (failure) => <Song>[],
-        (songs) => songs.where(_isValidSong).toList(),
+      return await musicRepository.searchSongs(query, limit: limit).then(
+        (result) => result.fold(
+          (failure) => <Song>[],
+          (songs) => songs.where(_isValidSong).toList(),
+        ),
       );
     } catch (e) {
       debugPrint('ChartService: Search error: $e');

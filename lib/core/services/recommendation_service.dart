@@ -613,7 +613,7 @@ class RecommendationService {
 
       if (filtered.isEmpty) {
         logDebug('Discovery empty after filtering, falling back to similar mode');
-        return _getSimilarSongs(song, limit);
+        return await _getSimilarSongs(song, limit);
       }
 
       // ── Score: favor official, ideal duration, true discovery, language ──
@@ -672,7 +672,7 @@ class RecommendationService {
       final output = topPool.take(limit).toList();
       if (output.isEmpty) {
         logDebug('Discovery scored output empty, falling back to similar mode');
-        return _getSimilarSongs(song, limit);
+        return await _getSimilarSongs(song, limit);
       }
 
       logDebug('Returning ${output.length} discovery songs');

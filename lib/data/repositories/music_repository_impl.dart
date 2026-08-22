@@ -403,7 +403,7 @@ class MusicRepositoryImpl implements MusicRepository {
       if (history.isEmpty) {
         // If no history, return trending
         Logger.root.info('MusicRepository.getRecommendations: history empty, using trending fallback');
-        return getTrending(limit: limit);
+        return await getTrending(limit: limit);
       }
 
       final historyIds = history.map((s) => s.playableId).toSet();
@@ -415,7 +415,7 @@ class MusicRepositoryImpl implements MusicRepository {
 
       if (seedIds.isEmpty) {
         Logger.root.info('MusicRepository.getRecommendations: no valid history playableIds, using trending fallback');
-        return getTrending(limit: limit);
+        return await getTrending(limit: limit);
       }
 
       final recommendationPool = <Song>[];
@@ -453,7 +453,7 @@ class MusicRepositoryImpl implements MusicRepository {
       }
 
       Logger.root.info('MusicRepository.getRecommendations: related empty, using trending fallback');
-      return getTrending(limit: limit);
+      return await getTrending(limit: limit);
     } catch (e) {
       return Left(UnknownFailure(message: e.toString()));
     }
