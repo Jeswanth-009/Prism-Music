@@ -44,6 +44,12 @@ class StreamCacheService {
     debugPrint('StreamCache: Cached $videoId (TTL: ${(ttl ?? _defaultTTL).inHours}h)');
   }
   
+  /// Invalidate cached stream for a specific videoId
+  void invalidate(String videoId) {
+    _cache.remove(videoId);
+    debugPrint('StreamCache: Invalidated $videoId');
+  }
+
   /// Check if stream is cached and valid
   bool isCached(String videoId) {
     final entry = _cache[videoId];

@@ -113,6 +113,11 @@ class MediaResolverService {
     return _preResolved.remove(songId);
   }
 
+  void invalidate(String songId) {
+    _preResolved.remove(songId);
+    _streamLoader.invalidateCache(songId);
+  }
+
   bool _hasDirectStream(Song song) {
     final url = song.streamUrl?.trim();
     if (url == null || url.isEmpty) return false;

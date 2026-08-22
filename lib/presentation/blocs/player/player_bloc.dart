@@ -440,7 +440,7 @@ PlayerBloc({
                 artist: event.song.artist,
                 album: event.song.album,
                 artworkUrl: event.song.thumbnailUrl,
-                allowYouTubeFallbackOnDirectFailure: false,
+                allowYouTubeFallbackOnDirectFailure: true,
               );
         setSourceStopwatch.stop();
 
@@ -481,6 +481,7 @@ PlayerBloc({
         _updateNowPlaying(event.song);
       } catch (playbackError, stackTrace) {
         _reliability.registerFailure(event.song.playableId);
+        _mediaResolver.invalidate(event.song.playableId);
 
         final isVideoStream403 = _isVideoStream403(playbackError);
         if (isVideoStream403) {

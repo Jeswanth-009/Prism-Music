@@ -161,6 +161,13 @@ class StreamLoaderService {
         });
   }
 
+  /// Invalidate cached stream for a song
+  void invalidateCache(String videoId) {
+    _cache.invalidate(videoId);
+    _prefetchQueue.remove(videoId);
+    debugPrint('StreamLoader: Invalidated cache and prefetch for $videoId');
+  }
+
   /// Fetch from a specific source with timeout
   Future<_FetchResult> _fetchFromSource(
     String videoId,
