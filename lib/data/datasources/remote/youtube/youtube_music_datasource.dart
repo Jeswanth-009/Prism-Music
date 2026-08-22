@@ -117,7 +117,7 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
       final manifest = await _youtube.videos.streamsClient.getManifest(
         videoId,
         requireWatchPage: true,
-        ytClients: [yt.YoutubeApiClient.androidVr],
+        ytClients: [yt.YoutubeApiClient.ios, yt.YoutubeApiClient.android, yt.YoutubeApiClient.web],
       );
       manifestStopwatch.stop();
 
@@ -219,7 +219,7 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
           final manifest = await _youtube.videos.streamsClient.getManifest(
             videoId,
             requireWatchPage: true,
-            ytClients: [yt.YoutubeApiClient.androidVr],
+            ytClients: [yt.YoutubeApiClient.ios, yt.YoutubeApiClient.android, yt.YoutubeApiClient.web],
           );
            final audioStreams = manifest.audioOnly.toList()
              ..sort(
@@ -308,7 +308,7 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
     final manifest = await _youtube.videos.streamsClient.getManifest(
       videoId,
       requireWatchPage: true,
-      ytClients: [yt.YoutubeApiClient.androidVr],
+      ytClients: [yt.YoutubeApiClient.ios, yt.YoutubeApiClient.android, yt.YoutubeApiClient.web],
     );
 
     return manifest.audioOnly
