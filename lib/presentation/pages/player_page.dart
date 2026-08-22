@@ -2360,15 +2360,19 @@ class _PlayPauseMainButtonState extends State<_PlayPauseMainButton>
                     )
                   : AnimatedSwitcher(
                       duration: const Duration(milliseconds: 200),
-                      child: Icon(
-                        widget.isPlaying
-                            ? LucideIcons.pause
-                            : LucideIcons.play,
-                        // FIX: Use a string key to prevent duplicate key clashes
-                        key: ValueKey(widget.isPlaying ? 'pause_btn' : 'play_btn'),
-                        size: 40,
-                        color: Colors.white,
-                      ),
+                      child: widget.isPlaying
+                          ? const Icon(
+                              LucideIcons.pause,
+                              key: ValueKey('pause_icon_state'),
+                              size: 40,
+                              color: Colors.white,
+                            )
+                          : const Icon(
+                              LucideIcons.play,
+                              key: ValueKey('play_icon_state'),
+                              size: 40,
+                              color: Colors.white,
+                            ),
                     ),
             ],
           ),

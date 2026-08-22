@@ -242,21 +242,21 @@ PlayerBloc({
   }) {
     _refreshRuntimeSettings();
     if (_prefetchLookahead <= 0) return;
-    if (queue.isEmpty || currentIndex < 0 || currentIndex >= queue.length) {
+    if (queue.isEmpty || currentIndex < 0 || currentIndex + 1 >= queue.length) {
       return;
     }
 
     final preferredQuality = quality ?? _startupQuality(state.audioQuality);
-    for (
-      int i = 1;
-      i <= _prefetchLookahead && currentIndex + i < queue.length;
-      i++
-    ) {
-      _mediaResolver.preResolveSong(
-        queue[currentIndex + i],
-        preferredQuality: preferredQuality,
-      );
-    }
+    // Prefetch only the single immediately next song with a slight delay to avoid rate limiting
+    final nextSong = queue[currentIndex + 1];
+    Future.delayed(const Duration(seconds: 3), () {
+      if (state.queueIndex == currentIndex && state.status == PlayerStatus.playing) {
+        _mediaResolver.preResolveSong(
+          nextSong,
+          preferredQuality: preferredQuality,
+        );
+      }
+    });
   }
 
   void _maybePrefetchUpcomingNearEnd(Duration position) {
@@ -1063,13 +1063,6 @@ PlayerBloc({
       emit(state.copyWith(queue: updatedQueue));
       _log(
         'Added ${uniqueSongs.length} recommendations to queue (total: ${updatedQueue.length})',
-      );
-
-      // Prefetch first new song
-      final quality = _startupQuality(state.audioQuality);
-      _mediaResolver.preResolveSong(
-        uniqueSongs.first,
-        preferredQuality: quality,
       );
     }
   }
