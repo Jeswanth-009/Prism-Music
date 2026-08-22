@@ -140,3 +140,6 @@ flutter_launcher_icons:
   image_path: "assets/icon/dark.png"
   adaptive_icon_background: "#000000"
   adaptive_icon_foreground: "assets/icon/dark.png"
+
+dependency_overrides:
+  permission_handler_android: <14.0.0
