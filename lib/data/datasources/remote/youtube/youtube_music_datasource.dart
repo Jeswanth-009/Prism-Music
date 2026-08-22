@@ -126,10 +126,36 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
       manifestStopwatch.stop();
 
       final selectStopwatch = Stopwatch()..start();
+      
+      // Prefer unthrottled muxed stream (itag 18 has ratebypass=yes and plays in ExoPlayer without 403)
+      final muxedStreams = manifest.muxed.toList();
       final audioStreams = manifest.audioOnly.toList()
         ..sort(
           (a, b) => b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond),
         );
+
+      if (muxedStreams.isNotEmpty) {
+        final selectedStream = muxedStreams.first;
+        selectStopwatch.stop();
+        final directUrl = selectedStream.url.toString();
+        totalStopwatch.stop();
+
+        debugPrint('YouTubeDataSource: ✓ YouTube Explode SUCCESS (unthrottled itag ${selectedStream.tag})');
+
+        final streamInfo = domain.StreamInfo(
+          url: directUrl,
+          codec: selectedStream.audioCodec,
+          bitrate: selectedStream.bitrate.kiloBitsPerSecond.toInt(),
+          container: selectedStream.container.name,
+          quality: AudioQuality.high,
+          contentLength: selectedStream.size.totalBytes,
+          expiresAt: _extractExpiryFromUrl(directUrl),
+          isAudioOnly: false,
+        );
+
+        _cacheStream(cacheKey, streamInfo);
+        return streamInfo;
+      }
 
       if (audioStreams.isNotEmpty) {
         yt.AudioOnlyStreamInfo selectedStream;
@@ -163,23 +189,6 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
           '  - ${selectedStream.container.name} ${selectedStream.codec.subtype} '
           '${selectedStream.bitrate.kiloBitsPerSecond}kbps',
         );
-        debugPrint(
-          '  - manifest: ${manifestStopwatch.elapsedMilliseconds}ms, '
-          'selection: ${selectStopwatch.elapsedMilliseconds}ms, '
-          'total: ${totalStopwatch.elapsedMilliseconds}ms',
-        );
-
-        final streamHeaders = {
-          'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-          'Accept': '*/*',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Referer': 'https://www.youtube.com/',
-          'Origin': 'https://www.youtube.com',
-          'DNT': '1',
-          'Connection': 'keep-alive',
-          'Range': 'bytes=0-',
-        };
 
         final streamInfo = domain.StreamInfo(
           url: directUrl,
@@ -189,18 +198,16 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
           quality: _bitrateToQuality(
             selectedStream.bitrate.kiloBitsPerSecond.toInt(),
           ),
-          // Avoid extra probe calls here; size is optional for playback startup.
-          contentLength: null,
+          contentLength: selectedStream.size.totalBytes,
           expiresAt: _extractExpiryFromUrl(directUrl),
           isAudioOnly: true,
-          headers: streamHeaders,
         );
 
         _cacheStream(cacheKey, streamInfo);
         return streamInfo;
       }
 
-      throw Exception('No audio-only streams available for video $videoId');
+      throw Exception('No streams available for video $videoId');
     } catch (e) {
       debugPrint('YouTubeDataSource: ✗ YouTube Explode failed: $e');
       final errorText = e.toString();
@@ -227,11 +234,29 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
               yt.YoutubeApiClient.tv,
             ],
           );
-           final audioStreams = manifest.audioOnly.toList()
-             ..sort(
-               (a, b) =>
-                   b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond),
-             );
+          
+          final muxedStreams = manifest.muxed.toList();
+          if (muxedStreams.isNotEmpty) {
+            final selectedStream = muxedStreams.first;
+            final streamInfo = domain.StreamInfo(
+              url: selectedStream.url.toString(),
+              codec: selectedStream.audioCodec,
+              bitrate: selectedStream.bitrate.kiloBitsPerSecond.toInt(),
+              container: selectedStream.container.name,
+              quality: AudioQuality.high,
+              contentLength: selectedStream.size.totalBytes,
+              expiresAt: _extractExpiryFromUrl(selectedStream.url.toString()),
+              isAudioOnly: false,
+            );
+            _cacheStream(cacheKey, streamInfo);
+            return streamInfo;
+          }
+
+          final audioStreams = manifest.audioOnly.toList()
+            ..sort(
+              (a, b) =>
+                  b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond),
+            );
 
           if (audioStreams.isNotEmpty) {
             final selectedStream = _selectBestAudioStream(
@@ -249,14 +274,9 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
               quality: _bitrateToQuality(
                 selectedStream.bitrate.kiloBitsPerSecond.toInt(),
               ),
-              contentLength: null,
+              contentLength: selectedStream.size.totalBytes,
               expiresAt: _extractExpiryFromUrl(selectedStream.url.toString()),
               isAudioOnly: true,
-              headers: {
-                'User-Agent':
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Referer': 'https://www.youtube.com/',
-              },
             );
 
             _cacheStream(cacheKey, streamInfo);

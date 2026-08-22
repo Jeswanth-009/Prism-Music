@@ -16,8 +16,6 @@ class AudioPlayerService {
   ConcatenatingAudioSource? _playlist;
   final List<AudioSource> _queueSources = [];
   bool _initialized = false;
-  static const _defaultUserAgent =
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36';
 
   AudioPlayer get player => _player; 
   // Stream controllers for player events
@@ -688,22 +686,21 @@ class AudioPlayerService {
   }
 
   /// Prepare headers for ExoPlayer-friendly requests
-  Map<String, String> _prepareHeaders(Map<String, String>? headers) {
-    final sanitized = <String, String>{};
-    if (headers != null) {
-      headers.forEach((key, value) {
-        final lower = key.toLowerCase();
-        if (lower == 'range' || lower == 'connection') {
-          return;
-        }
-        sanitized[key] = value;
-      });
+  Map<String, String>? _prepareHeaders(Map<String, String>? headers) {
+    if (headers == null || headers.isEmpty) {
+      return null;
     }
-    sanitized.putIfAbsent('User-Agent', () => _defaultUserAgent);
-    sanitized.putIfAbsent('Accept', () => '*/*');
-    sanitized.putIfAbsent('Accept-Language', () => 'en-US,en;q=0.9');
-    sanitized.putIfAbsent('Referer', () => 'https://www.youtube.com/');
-    sanitized.putIfAbsent('Origin', () => 'https://www.youtube.com');
-    return sanitized;
+    final sanitized = <String, String>{};
+    headers.forEach((key, value) {
+      final lower = key.toLowerCase();
+      if (lower == 'range' ||
+          lower == 'connection' ||
+          lower == 'referer' ||
+          lower == 'origin') {
+        return;
+      }
+      sanitized[key] = value;
+    });
+    return sanitized.isEmpty ? null : sanitized;
   }
 }
