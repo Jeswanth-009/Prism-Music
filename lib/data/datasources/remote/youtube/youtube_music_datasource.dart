@@ -128,11 +128,34 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
 
       final selectStopwatch = Stopwatch()..start();
       
+      final muxedStreams = manifest.muxed.toList();
       final audioStreams = manifest.audioOnly.toList()
         ..sort(
           (a, b) => b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond),
         );
-      final muxedStreams = manifest.muxed.toList();
+
+      if (muxedStreams.isNotEmpty) {
+        final selectedStream = muxedStreams.first;
+        selectStopwatch.stop();
+        final directUrl = selectedStream.url.toString();
+        totalStopwatch.stop();
+
+        debugPrint('YouTubeDataSource: ✓ YouTube Explode SUCCESS (unthrottled itag ${selectedStream.tag})');
+
+        final streamInfo = domain.StreamInfo(
+          url: directUrl,
+          codec: selectedStream.audioCodec,
+          bitrate: selectedStream.bitrate.kiloBitsPerSecond.toInt(),
+          container: selectedStream.container.name,
+          quality: AudioQuality.high,
+          contentLength: selectedStream.size.totalBytes,
+          expiresAt: _extractExpiryFromUrl(directUrl),
+          isAudioOnly: false,
+        );
+
+        _cacheStream(cacheKey, streamInfo);
+        return streamInfo;
+      }
 
       if (audioStreams.isNotEmpty) {
         yt.AudioOnlyStreamInfo selectedStream;
@@ -184,29 +207,6 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
         return streamInfo;
       }
 
-      if (muxedStreams.isNotEmpty) {
-        final selectedStream = muxedStreams.first;
-        selectStopwatch.stop();
-        final directUrl = selectedStream.url.toString();
-        totalStopwatch.stop();
-
-        debugPrint('YouTubeDataSource: ✓ Fallback to muxed stream (itag ${selectedStream.tag})');
-
-        final streamInfo = domain.StreamInfo(
-          url: directUrl,
-          codec: selectedStream.audioCodec,
-          bitrate: selectedStream.bitrate.kiloBitsPerSecond.toInt(),
-          container: selectedStream.container.name,
-          quality: AudioQuality.medium,
-          contentLength: selectedStream.size.totalBytes,
-          expiresAt: _extractExpiryFromUrl(directUrl),
-          isAudioOnly: false,
-        );
-
-        _cacheStream(cacheKey, streamInfo);
-        return streamInfo;
-      }
-
       throw Exception('No streams available for video $videoId');
     } catch (e) {
       debugPrint('YouTubeDataSource: ✗ YouTube Explode failed: $e');
@@ -236,12 +236,28 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
             requireWatchPage: false,
           );
           
+          final muxedStreams = manifest.muxed.toList();
           final audioStreams = manifest.audioOnly.toList()
             ..sort(
               (a, b) =>
                   b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond),
             );
-          final muxedStreams = manifest.muxed.toList();
+
+          if (muxedStreams.isNotEmpty) {
+            final selectedStream = muxedStreams.first;
+            final streamInfo = domain.StreamInfo(
+              url: selectedStream.url.toString(),
+              codec: selectedStream.audioCodec,
+              bitrate: selectedStream.bitrate.kiloBitsPerSecond.toInt(),
+              container: selectedStream.container.name,
+              quality: AudioQuality.high,
+              contentLength: selectedStream.size.totalBytes,
+              expiresAt: _extractExpiryFromUrl(selectedStream.url.toString()),
+              isAudioOnly: false,
+            );
+            _cacheStream(cacheKey, streamInfo);
+            return streamInfo;
+          }
 
           if (audioStreams.isNotEmpty) {
             final selectedStream = _selectBestAudioStream(
@@ -264,22 +280,6 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
               isAudioOnly: true,
             );
 
-            _cacheStream(cacheKey, streamInfo);
-            return streamInfo;
-          }
-
-          if (muxedStreams.isNotEmpty) {
-            final selectedStream = muxedStreams.first;
-            final streamInfo = domain.StreamInfo(
-              url: selectedStream.url.toString(),
-              codec: selectedStream.audioCodec,
-              bitrate: selectedStream.bitrate.kiloBitsPerSecond.toInt(),
-              container: selectedStream.container.name,
-              quality: AudioQuality.medium,
-              contentLength: selectedStream.size.totalBytes,
-              expiresAt: _extractExpiryFromUrl(selectedStream.url.toString()),
-              isAudioOnly: false,
-            );
             _cacheStream(cacheKey, streamInfo);
             return streamInfo;
           }
