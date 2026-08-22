@@ -63,6 +63,7 @@ void main() async {
   ]);
   
   // Request permissions (non-blocking to avoid hot restart issues)
+  // ignore: body_might_complete_normally_catch_error
   PermissionService.requestAllPermissions().catchError((_) {});
   
   runApp(const PrismMusicApp());

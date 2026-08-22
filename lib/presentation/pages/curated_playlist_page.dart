@@ -23,6 +23,7 @@ class _CuratedPlaylistPageState extends State<CuratedPlaylistPage> {
   List<Song> _songs = [];
   bool _isLoading = true;
   String? _error;
+  // ignore: unused_field
   String? _playlistAuthor;
   Duration? _totalDuration;
 

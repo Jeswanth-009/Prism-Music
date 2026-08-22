@@ -9,8 +9,6 @@ import '../../core/di/injection.dart';
 import '../../core/services/lastfm_service.dart';
 import '../../core/services/recommendation_service.dart';
 import '../../core/services/settings_service.dart';
-import '../../domain/repositories/music_repository.dart';
-import '../../domain/repositories/library_repository.dart';
 import '../blocs/theme/theme_bloc.dart';
 import '../blocs/theme/theme_event.dart';
 import '../blocs/theme/theme_state.dart';

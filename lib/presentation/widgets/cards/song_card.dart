@@ -33,6 +33,7 @@ class _SongCardState extends State<SongCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
+  // ignore: unused_field
   bool _isPressed = false;
 
   @override

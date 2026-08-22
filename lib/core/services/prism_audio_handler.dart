@@ -10,7 +10,7 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
     
     // Update notification metadata (title, artist, artwork)
     player.sequenceStateStream.listen((sequenceState) {
-      if (sequenceState != null && sequenceState.currentSource != null) {
+      if (sequenceState.currentSource != null) {
         final tag = sequenceState.currentSource!.tag;
         if (tag is MediaItem) {
           mediaItem.add(tag);
@@ -20,13 +20,11 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
 
     // Update queue metadata
     player.sequenceStream.listen((sequence) {
-      if (sequence != null) {
-        final items = sequence
-            .where((s) => s.tag is MediaItem)
-            .map((s) => s.tag as MediaItem)
-            .toList();
-        queue.add(items);
-      }
+      final items = sequence
+          .where((s) => s.tag is MediaItem)
+          .map((s) => s.tag as MediaItem)
+          .toList();
+      queue.add(items);
     });
   }
 

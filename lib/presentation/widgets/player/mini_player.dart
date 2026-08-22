@@ -19,7 +19,7 @@ class _MiniPlayerState extends State<MiniPlayer>
     with SingleTickerProviderStateMixin {
   late AnimationController _animController;
   late Animation<double> _scaleAnimation;
-  late Animation<double> _slideAnimation;
+  // ignore: unused_field
   bool _isPressed = false;
 
   @override
@@ -31,9 +31,6 @@ class _MiniPlayerState extends State<MiniPlayer>
     );
     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.98).animate(
       CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
-    );
-    _slideAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeOut),
     );
   }
 
