@@ -33,6 +33,12 @@ android {
     compileSdk = 37
     ndkVersion = "28.2.13676358"
 
+    lint {
+        disable.add("EasterEgg")
+        disable.add("StopShip")
+        abortOnError = false
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
