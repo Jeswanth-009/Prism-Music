@@ -29,8 +29,8 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.prismmusic.prism_music"
-    compileSdk = 37
+    namespace = "com.prismmusic.app"
+    compileSdk = 36
     ndkVersion = "28.2.13676358"
 
     lint {
