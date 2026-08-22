@@ -2364,7 +2364,8 @@ class _PlayPauseMainButtonState extends State<_PlayPauseMainButton>
                         widget.isPlaying
                             ? LucideIcons.pause
                             : LucideIcons.play,
-                        key: ValueKey(widget.isPlaying),
+                        // FIX: Use a string key to prevent duplicate key clashes
+                        key: ValueKey(widget.isPlaying ? 'pause_btn' : 'play_btn'),
                         size: 40,
                         color: Colors.white,
                       ),

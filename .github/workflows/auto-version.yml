@@ -1,156 +1,275 @@
-name: Auto Version Bump
+name: Auto Version + Release
 
+# ─────────────────────────────────────────────────────────────────
+# Trigger: every push to main EXCEPT
+#   • pushes made by the GitHub Actions bot itself (loop guard)
+#   • pure-documentation changes (.md / docs/**)
+# Manual dispatch lets you choose the bump type.
+# ─────────────────────────────────────────────────────────────────
 on:
   push:
     branches:
       - main
     paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.github/workflows/auto-version.yml'
+      - "**.md"
+      - "docs/**"
   workflow_dispatch:
     inputs:
       version_type:
-        description: 'Version bump type'
+        description: "Version bump type (patch / minor / major)"
         required: true
-        default: 'patch'
+        default: patch
         type: choice
         options:
           - patch
           - minor
           - major
 
+# ─────────────────────────────────────────────────────────────────
+# Permissions needed to push commits/tags and create releases
+# ─────────────────────────────────────────────────────────────────
 permissions:
   contents: write
-  pull-requests: write
+
+# Only one release at a time; never cancel an in-flight release.
+concurrency:
+  group: auto-version-release
+  cancel-in-progress: false
 
 jobs:
-  auto-version:
-    name: Auto Version Bump & Release
+  release:
+    name: Bump Version → Build APK → Publish Release
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
+
+    # ── Loop guard ───────────────────────────────────────────────
+    # Skip if the commit that triggered this run was already made by
+    # the bot (i.e. the version-bump commit from a previous run).
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.actor != 'github-actions[bot]' &&
+        !startsWith(github.event.head_commit.message, 'chore: bump version')
+      )
 
     steps:
+      # ── 1. Checkout ──────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # Use a PAT or the built-in token; the bot token cannot
+          # trigger other workflows but that is fine here.
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # ── 2. Git identity ──────────────────────────────────────────
       - name: Configure Git
         run: |
-          git config user.name "github-actions[bot]"
+          git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Get current version from pubspec.yaml
+      # ── 3. Read current version ──────────────────────────────────
+      - name: Read current version from pubspec.yaml
         id: current_version
         run: |
           VERSION_LINE=$(grep '^version:' pubspec.yaml | awk '{print $2}')
           if [[ -z "$VERSION_LINE" ]]; then
-            echo "Could not parse version from pubspec.yaml"
+            echo "ERROR: Could not parse version from pubspec.yaml"
             exit 1
           fi
-          echo "version_line=$VERSION_LINE" >> $GITHUB_OUTPUT
           VERSION_NAME="${VERSION_LINE%%+*}"
-          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
           BUILD_NUMBER="${VERSION_LINE##*+}"
-          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "version_line=$VERSION_LINE"   >> "$GITHUB_OUTPUT"
+          echo "version_name=$VERSION_NAME"   >> "$GITHUB_OUTPUT"
+          echo "build_number=$BUILD_NUMBER"   >> "$GITHUB_OUTPUT"
+          echo "Current version: $VERSION_LINE (name=$VERSION_NAME, build=$BUILD_NUMBER)"
 
+      # ── 4. Calculate next version ─────────────────────────────────
       - name: Calculate next version
         id: next_version
         run: |
           CURRENT_VERSION="${{ steps.current_version.outputs.version_name }}"
           CURRENT_BUILD="${{ steps.current_version.outputs.build_number }}"
-          
-          MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
-          MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
-          PATCH=$(echo $CURRENT_VERSION | cut -d. -f3)
-          
-          # Determine bump type
-          if [[ "${{ github.event.inputs.version_type }}" != "" ]]; then
-            BUMP_TYPE="${{ github.event.inputs.version_type }}"
-          else
-            # Default to patch for automated pushes
+
+          MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
+          MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+          PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
+
+          BUMP_TYPE="${{ github.event.inputs.version_type }}"
+          if [[ -z "$BUMP_TYPE" ]]; then
             BUMP_TYPE="patch"
           fi
-          
           echo "Bump type: $BUMP_TYPE"
-          
-          case $BUMP_TYPE in
+
+          case "$BUMP_TYPE" in
             major)
-              MAJOR=$((MAJOR + 1))
-              MINOR=0
-              PATCH=0
-              ;;
+              MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
             minor)
-              MINOR=$((MINOR + 1))
-              PATCH=0
-              ;;
+              MINOR=$((MINOR + 1)); PATCH=0 ;;
             patch)
-              PATCH=$((PATCH + 1))
-              ;;
+              PATCH=$((PATCH + 1)) ;;
           esac
-          
+
           NEXT_VERSION="$MAJOR.$MINOR.$PATCH"
           NEXT_BUILD=$((CURRENT_BUILD + 1))
           NEXT_VERSION_LINE="$NEXT_VERSION+$NEXT_BUILD"
-          
-          echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
-          echo "next_build=$NEXT_BUILD" >> $GITHUB_OUTPUT
-          echo "next_version_line=$NEXT_VERSION_LINE" >> $GITHUB_OUTPUT
-          echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
 
+          echo "next_version=$NEXT_VERSION"           >> "$GITHUB_OUTPUT"
+          echo "next_build=$NEXT_BUILD"               >> "$GITHUB_OUTPUT"
+          echo "next_version_line=$NEXT_VERSION_LINE" >> "$GITHUB_OUTPUT"
+          echo "bump_type=$BUMP_TYPE"                 >> "$GITHUB_OUTPUT"
+          echo "Next version: $NEXT_VERSION_LINE"
+
+      # ── 5. Patch pubspec.yaml ─────────────────────────────────────
       - name: Update pubspec.yaml
         run: |
           sed -i "s/^version: .*/version: ${{ steps.next_version.outputs.next_version_line }}/" pubspec.yaml
-          echo "Updated pubspec.yaml to version ${{ steps.next_version.outputs.next_version_line }}"
+          echo "pubspec.yaml updated to ${{ steps.next_version.outputs.next_version_line }}"
 
-      - name: Update README.md version
+      # ── 6. Commit & push the version bump ────────────────────────
+      - name: Commit and push version bump
         run: |
-          sed -i "s/Current version: .*/Current version: ${{ steps.next_version.outputs.next_version_line }}/" README.md
-          echo "Updated README.md version"
-
-      - name: Commit version bump
-        run: |
-          git add pubspec.yaml README.md
+          git add pubspec.yaml
           git commit -m "chore: bump version to ${{ steps.next_version.outputs.next_version_line }} [${{ steps.next_version.outputs.bump_type }}]"
           git push origin main
 
-      - name: Create git tag
-        id: create_tag
+      # ── 7. Create & push the release tag ─────────────────────────
+      - name: Create release tag
+        id: tag
         run: |
-          TAG="alpha-v${{ steps.next_version.outputs.next_version }}-build${{ steps.next_version.outputs.next_build }}-run${{ github.run_number }}"
+          TAG="alpha-v${{ steps.next_version.outputs.next_version }}-build${{ steps.next_version.outputs.next_build }}"
           git tag -a "$TAG" -m "Release $TAG"
           git push origin "$TAG"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "tag=$TAG"                                >> "$GITHUB_OUTPUT"
+          echo "release_name=Prism Music $TAG"           >> "$GITHUB_OUTPUT"
 
-      - name: Create GitHub Release
+      # ── 8. Java & Flutter setup ───────────────────────────────────
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      # ── 9. Optional release signing ───────────────────────────────
+      - name: Configure Android signing (optional)
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64:    ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS:          ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD:  ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD:       ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [[ -n "$ANDROID_KEYSTORE_BASE64" && -n "$ANDROID_KEY_ALIAS" \
+             && -n "$ANDROID_KEYSTORE_PASSWORD" && -n "$ANDROID_KEY_PASSWORD" ]]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release-keystore.jks
+            {
+              echo "storePassword=$ANDROID_KEYSTORE_PASSWORD"
+              echo "keyPassword=$ANDROID_KEY_PASSWORD"
+              echo "keyAlias=$ANDROID_KEY_ALIAS"
+              echo "storeFile=release-keystore.jks"
+            } > android/key.properties
+            echo "SIGNED_BUILD=true" >> "$GITHUB_ENV"
+            echo "Release signing configured from secrets."
+          else
+            echo "SIGNED_BUILD=false" >> "$GITHUB_ENV"
+            echo "No signing secrets found — using debug signing fallback."
+          fi
+
+      # ── 10. Build release APK ────────────────────────────────────
+      # Pass BOTH --build-name and --build-number so Flutter writes the
+      # correct versionName and versionCode into the APK manifest.
+      # This is the fix for the "install conflict / downgrade" error.
+      - name: Build release APK
+        run: |
+          flutter build apk --release \
+            --build-name "${{ steps.next_version.outputs.next_version }}" \
+            --build-number "${{ steps.next_version.outputs.next_build }}"
+
+      # ── 11. Build release App Bundle ──────────────────────────────
+      - name: Build release App Bundle (AAB)
+        run: |
+          flutter build appbundle --release \
+            --build-name "${{ steps.next_version.outputs.next_version }}" \
+            --build-number "${{ steps.next_version.outputs.next_build }}"
+
+      # ── 12. Stage release assets with descriptive names ──────────
+      - name: Prepare release assets
+        id: assets
+        shell: bash
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          APK_SRC="build/app/outputs/flutter-apk/app-release.apk"
+          AAB_SRC="build/app/outputs/bundle/release/app-release.aab"
+          APK_OUT="prism-music-${TAG}.apk"
+          AAB_OUT="prism-music-${TAG}.aab"
+
+          if [[ ! -f "$APK_SRC" ]]; then
+            echo "ERROR: Release APK not found at $APK_SRC"; exit 1
+          fi
+          if [[ ! -f "$AAB_SRC" ]]; then
+            echo "ERROR: Release AAB not found at $AAB_SRC"; exit 1
+          fi
+
+          cp "$APK_SRC" "$APK_OUT"
+          cp "$AAB_SRC" "$AAB_OUT"
+          sha256sum "$APK_OUT" > "${APK_OUT}.sha256"
+          sha256sum "$AAB_OUT" > "${AAB_OUT}.sha256"
+
+          echo "apk=$APK_OUT"                   >> "$GITHUB_OUTPUT"
+          echo "aab=$AAB_OUT"                   >> "$GITHUB_OUTPUT"
+          echo "apk_sha=${APK_OUT}.sha256"       >> "$GITHUB_OUTPUT"
+          echo "aab_sha=${AAB_OUT}.sha256"       >> "$GITHUB_OUTPUT"
+
+      # ── 13. Upload artifacts (downloadable from Actions UI) ───────
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-music-${{ steps.tag.outputs.tag }}
+          path: |
+            ${{ steps.assets.outputs.apk }}
+            ${{ steps.assets.outputs.aab }}
+            ${{ steps.assets.outputs.apk_sha }}
+            ${{ steps.assets.outputs.aab_sha }}
+          if-no-files-found: error
+
+      # ── 14. Publish ONE GitHub Release with APK/AAB attached ──────
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.create_tag.outputs.tag }}
-          name: Prism Music ${{ steps.create_tag.outputs.tag }}
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name:     ${{ steps.tag.outputs.release_name }}
           prerelease: true
           generate_release_notes: true
           body: |
-            Automated alpha release from CI.
+            ## Prism Music — Automated Alpha Release
 
-            **Version:** ${{ steps.next_version.outputs.next_version_line }}
-            **Bump type:** ${{ steps.next_version.outputs.bump_type }}
-            **Build:** ${{ steps.next_version.outputs.next_build }}
-            **Run:** ${{ github.run_number }}
+            | Field | Value |
+            |-------|-------|
+            | **Version** | `${{ steps.next_version.outputs.next_version_line }}` |
+            | **Bump type** | `${{ steps.next_version.outputs.bump_type }}` |
+            | **versionCode** | `${{ steps.next_version.outputs.next_build }}` |
+            | **Signed APK** | `${{ env.SIGNED_BUILD }}` |
+            | **Source ref** | `${{ github.sha }}` |
 
-            This release is experimental and may contain breaking changes.
+            > ⚠️ This is an automated pre-release and may contain breaking changes.
+
+            ### Install
+            Download `prism-music-${{ steps.tag.outputs.tag }}.apk` and sideload it.
+            Each release has a strictly increasing `versionCode`, so Android will
+            always accept the upgrade without a conflict.
+          files: |
+            ${{ steps.assets.outputs.apk }}
+            ${{ steps.assets.outputs.aab }}
+            ${{ steps.assets.outputs.apk_sha }}
+            ${{ steps.assets.outputs.aab_sha }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Trigger Alpha Build Workflow
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'release-alpha.yml',
-              ref: 'main',
-              inputs: {}
-            })

@@ -1,14 +1,18 @@
-name: Android Alpha Release
+name: Android Alpha Release (Manual / Tag)
 
+# ─────────────────────────────────────────────────────────────────
+# This workflow is for MANUAL re-runs or tag-based re-builds only.
+# Automatic releases are handled entirely by auto-version.yml.
+#
+# Triggers:
+#   • Push of an "alpha-v*" tag  (e.g. re-tag and push to re-build)
+#   • Manual workflow_dispatch
+# ─────────────────────────────────────────────────────────────────
 on:
   push:
-    branches:
-      - main
     tags:
       - "alpha-v*"
   workflow_dispatch:
-  repository_dispatch:
-    types: [alpha-build-trigger]
 
 permissions:
   contents: write
@@ -19,72 +23,52 @@ concurrency:
 
 jobs:
   release:
-    name: Build and Publish Alpha Artifacts
+    name: Build and Publish Alpha APK
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
+      # ── 1. Checkout ───────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up Java
+      # ── 2. Java & Flutter setup ───────────────────────────────────
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Flutter
+      - name: Set up Flutter (stable)
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: "3.38.4"
           cache: true
 
-      - name: Install dependencies
+      - name: Install Flutter dependencies
         run: flutter pub get
 
-      - name: Configure Android signing (optional)
-        shell: bash
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          if [[ -n "$ANDROID_KEYSTORE_BASE64" && -n "$ANDROID_KEY_ALIAS" && -n "$ANDROID_KEYSTORE_PASSWORD" && -n "$ANDROID_KEY_PASSWORD" ]]; then
-            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release-keystore.jks
-            {
-              echo "storePassword=$ANDROID_KEYSTORE_PASSWORD"
-              echo "keyPassword=$ANDROID_KEY_PASSWORD"
-              echo "keyAlias=$ANDROID_KEY_ALIAS"
-              echo "storeFile=release-keystore.jks"
-            } > android/key.properties
-            echo "Signing configured from repository secrets."
-          else
-            echo "Signing secrets not configured. Using debug signing fallback."
-          fi
-
+      # ── 3. Read version from pubspec.yaml ─────────────────────────
       - name: Read app version
         id: app_version
         shell: bash
         run: |
           VERSION_LINE="$(grep '^version:' pubspec.yaml | awk '{print $2}')"
           BUILD_NAME="${VERSION_LINE%%+*}"
+          BUILD_NUMBER="${VERSION_LINE##*+}"
 
           if [[ -z "$BUILD_NAME" ]]; then
-            echo "Could not parse version from pubspec.yaml"
+            echo "ERROR: Could not parse version from pubspec.yaml"
             exit 1
           fi
 
-          # versionCode is derived from the git commit count in build.gradle.kts,
-          # so it is monotonic for both local and CI builds. Mirror that here so
-          # the release tag matches the actual APK versionCode.
-          GIT_BUILD="$(git rev-list --count HEAD)"
+          echo "build_name=$BUILD_NAME"     >> "$GITHUB_OUTPUT"
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "Version: $BUILD_NAME+$BUILD_NUMBER"
 
-          echo "build_name=$BUILD_NAME" >> "$GITHUB_OUTPUT"
-          echo "build_number=$GIT_BUILD" >> "$GITHUB_OUTPUT"
-
+      # ── 4. Resolve the release tag ────────────────────────────────
       - name: Resolve release tag
         id: release_tag
         shell: bash
@@ -94,88 +78,113 @@ jobs:
           else
             TAG="alpha-v${{ steps.app_version.outputs.build_name }}-build${{ steps.app_version.outputs.build_number }}-run${GITHUB_RUN_NUMBER}"
           fi
+          echo "tag=$TAG"                            >> "$GITHUB_OUTPUT"
+          echo "release_name=Prism Music $TAG"        >> "$GITHUB_OUTPUT"
 
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "name=Prism Music $TAG" >> "$GITHUB_OUTPUT"
+      # ── 5. Optional release signing ───────────────────────────────
+      - name: Configure Android signing (optional)
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64:    ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS:          ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD:  ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD:       ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [[ -n "$ANDROID_KEYSTORE_BASE64" && -n "$ANDROID_KEY_ALIAS" \
+             && -n "$ANDROID_KEYSTORE_PASSWORD" && -n "$ANDROID_KEY_PASSWORD" ]]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release-keystore.jks
+            {
+              echo "storePassword=$ANDROID_KEYSTORE_PASSWORD"
+              echo "keyPassword=$ANDROID_KEY_PASSWORD"
+              echo "keyAlias=$ANDROID_KEY_ALIAS"
+              echo "storeFile=release-keystore.jks"
+            } > android/key.properties
+            echo "SIGNED_BUILD=true" >> "$GITHUB_ENV"
+            echo "Release signing configured."
+          else
+            echo "SIGNED_BUILD=false" >> "$GITHUB_ENV"
+            echo "No signing secrets — using debug signing fallback."
+          fi
 
+      # ── 6. Build release APK ──────────────────────────────────────
+      # Both --build-name and --build-number are passed so the APK's
+      # versionName and versionCode match the release tag exactly.
       - name: Build release APK
-        run: >
-          flutter build apk --release
-          --build-name "${{ steps.app_version.outputs.build_name }}"
+        run: |
+          flutter build apk --release \
+            --build-name "${{ steps.app_version.outputs.build_name }}" \
+            --build-number "${{ steps.app_version.outputs.build_number }}"
 
-      - name: Build release App Bundle
-        run: >
-          flutter build appbundle --release
-          --build-name "${{ steps.app_version.outputs.build_name }}"
+      # ── 7. Build release App Bundle ───────────────────────────────
+      - name: Build release App Bundle (AAB)
+        run: |
+          flutter build appbundle --release \
+            --build-name "${{ steps.app_version.outputs.build_name }}" \
+            --build-number "${{ steps.app_version.outputs.build_number }}"
 
+      # ── 8. Stage assets ───────────────────────────────────────────
       - name: Prepare release assets
         id: assets
         shell: bash
         run: |
           TAG="${{ steps.release_tag.outputs.tag }}"
-          APK_SOURCE="build/app/outputs/flutter-apk/app-release.apk"
-          AAB_SOURCE="build/app/outputs/bundle/release/app-release.aab"
-          APK_TARGET="prism-music-${TAG}-android.apk"
-          AAB_TARGET="prism-music-${TAG}-android.aab"
-          SHA_TARGET="${APK_TARGET}.sha256"
-          SHA_AAB_TARGET="${AAB_TARGET}.sha256"
+          APK_SRC="build/app/outputs/flutter-apk/app-release.apk"
+          AAB_SRC="build/app/outputs/bundle/release/app-release.aab"
+          APK_OUT="prism-music-${TAG}.apk"
+          AAB_OUT="prism-music-${TAG}.aab"
 
-          SIGNED_BUILD="false"
-          if [[ -f "android/key.properties" ]]; then
-            SIGNED_BUILD="true"
+          if [[ ! -f "$APK_SRC" ]]; then
+            echo "ERROR: Release APK not found at $APK_SRC"; exit 1
+          fi
+          if [[ ! -f "$AAB_SRC" ]]; then
+            echo "ERROR: Release AAB not found at $AAB_SRC"; exit 1
           fi
 
-          if [[ ! -f "$APK_SOURCE" ]]; then
-            echo "Expected APK not found at $APK_SOURCE"
-            exit 1
-          fi
+          cp "$APK_SRC" "$APK_OUT"
+          cp "$AAB_SRC" "$AAB_OUT"
+          sha256sum "$APK_OUT" > "${APK_OUT}.sha256"
+          sha256sum "$AAB_OUT" > "${AAB_OUT}.sha256"
 
-          if [[ ! -f "$AAB_SOURCE" ]]; then
-            echo "Expected AAB not found at $AAB_SOURCE"
-            exit 1
-          fi
+          echo "apk=$APK_OUT"             >> "$GITHUB_OUTPUT"
+          echo "aab=$AAB_OUT"             >> "$GITHUB_OUTPUT"
+          echo "apk_sha=${APK_OUT}.sha256" >> "$GITHUB_OUTPUT"
+          echo "aab_sha=${AAB_OUT}.sha256" >> "$GITHUB_OUTPUT"
 
-          cp "$APK_SOURCE" "$APK_TARGET"
-          cp "$AAB_SOURCE" "$AAB_TARGET"
-          sha256sum "$APK_TARGET" > "$SHA_TARGET"
-          sha256sum "$AAB_TARGET" > "$SHA_AAB_TARGET"
-
-          echo "apk_path=$APK_TARGET" >> "$GITHUB_OUTPUT"
-          echo "aab_path=$AAB_TARGET" >> "$GITHUB_OUTPUT"
-          echo "sha_path=$SHA_TARGET" >> "$GITHUB_OUTPUT"
-          echo "sha_aab_path=$SHA_AAB_TARGET" >> "$GITHUB_OUTPUT"
-          echo "signed_build=$SIGNED_BUILD" >> "$GITHUB_OUTPUT"
-
-      - name: Upload APK and AAB artifacts
+      # ── 9. Upload artifacts ────────────────────────────────────────
+      - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: prism-music-alpha-${{ steps.release_tag.outputs.tag }}
+          name: prism-music-${{ steps.release_tag.outputs.tag }}
           path: |
-            ${{ steps.assets.outputs.apk_path }}
-            ${{ steps.assets.outputs.aab_path }}
-            ${{ steps.assets.outputs.sha_path }}
-            ${{ steps.assets.outputs.sha_aab_path }}
+            ${{ steps.assets.outputs.apk }}
+            ${{ steps.assets.outputs.aab }}
+            ${{ steps.assets.outputs.apk_sha }}
+            ${{ steps.assets.outputs.aab_sha }}
           if-no-files-found: error
 
-      - name: Publish prerelease
+      # ── 10. Publish / update GitHub Release ───────────────────────
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.release_tag.outputs.tag }}
-          target_commitish: ${{ github.sha }}
-          prerelease: true
+          tag_name:    ${{ steps.release_tag.outputs.tag }}
+          name:        ${{ steps.release_tag.outputs.release_name }}
+          prerelease:  true
           generate_release_notes: true
-          name: ${{ steps.release_tag.outputs.name }}
           body: |
-            Automated alpha release from CI.
+            ## Prism Music — Manual / Tag Re-Build
 
-            Build name: ${{ steps.app_version.outputs.build_name }}
-            Build number: ${{ steps.app_version.outputs.build_number }}
-            Signed with custom keystore: ${{ steps.assets.outputs.signed_build }}
-            Source ref: ${{ github.ref_name }}
+            | Field | Value |
+            |-------|-------|
+            | **Version** | `${{ steps.app_version.outputs.build_name }}+${{ steps.app_version.outputs.build_number }}` |
+            | **versionCode** | `${{ steps.app_version.outputs.build_number }}` |
+            | **Signed APK** | `${{ env.SIGNED_BUILD }}` |
+            | **Source ref** | `${{ github.ref_name }}` |
 
-            This release is experimental and may contain breaking changes.
+            > ⚠️ This is a pre-release build.
           files: |
-            ${{ steps.assets.outputs.apk_path }}
-            ${{ steps.assets.outputs.aab_path }}
-            ${{ steps.assets.outputs.sha_path }}
-            ${{ steps.assets.outputs.sha_aab_path }}
+            ${{ steps.assets.outputs.apk }}
+            ${{ steps.assets.outputs.aab }}
+            ${{ steps.assets.outputs.apk_sha }}
+            ${{ steps.assets.outputs.aab_sha }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

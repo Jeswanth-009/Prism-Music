@@ -1,12 +1,19 @@
 name: Flutter CI
 
+# ─────────────────────────────────────────────────────────────────
+# Runs on:
+#   • Every pull request (all branches)
+#   • Pushes to main / develop — but NOT bot version-bump commits
+# ─────────────────────────────────────────────────────────────────
 on:
   pull_request:
   push:
     branches:
       - main
-      - master
       - develop
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   workflow_dispatch:
 
 permissions:
@@ -20,28 +27,40 @@ jobs:
   quality:
     name: Analyze, Test, Build Debug APK
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # ── Loop guard ────────────────────────────────────────────────
+    # Skip jobs triggered by the auto-version bot commit so CI time
+    # is not wasted on a pure version-bump with no code changes.
+    if: >
+      github.event_name != 'push' ||
+      (
+        github.actor != 'github-actions[bot]' &&
+        !startsWith(github.event.head_commit.message, 'chore: bump version')
+      )
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Flutter
+      # Use stable channel without a pinned version so the workflow
+      # works regardless of which Flutter version is currently latest.
+      - name: Set up Flutter (stable)
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: "3.38.4"
           cache: true
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Analyze (alpha mode)
+      - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Run tests

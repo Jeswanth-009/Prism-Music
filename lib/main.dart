@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:just_audio_background/just_audio_background.dart';
+import 'package:audio_service/audio_service.dart';
 import 'package:logging/logging.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import 'core/di/injection.dart';
+import 'core/services/audio_player_service.dart';
 import 'core/services/permission_service.dart';
 import 'core/services/local_backup_service.dart';
+import 'core/services/prism_audio_handler.dart';
 import 'presentation/blocs/player/player.dart';
 import 'presentation/blocs/search/search.dart';
 import 'presentation/blocs/library/library.dart';
@@ -31,18 +33,26 @@ void main() async {
     }
   });
   
-  // Initialize JustAudioBackground for background playback
-  // Combined with ConcatenatingAudioSource, this enables auto-advance in background
-  await JustAudioBackground.init(
-    androidNotificationChannelId: 'com.prismmusic.app.channel.audio',
-    androidNotificationChannelName: 'Prism Music',
-    androidNotificationOngoing: true,
-    androidStopForegroundOnPause: false,
-  );
-  
-  // Initialize Hive
+  // Initialize Hive FIRST, before any services that depend on it
   await Hive.initFlutter();
 
+  // 1. Initialize dependencies so we can access AudioPlayerService
+  await initializeDependencies();
+
+  // 2. Get the AudioPlayerService instance
+  final audioPlayerService = getIt<AudioPlayerService>();
+  
+  // 3. Initialize AudioService with our custom handler, passing the existing player
+  await AudioService.init(
+    builder: () => PrismAudioHandler(audioPlayerService.player),
+    config: const AudioServiceConfig(
+      androidNotificationChannelId: 'com.prismmusic.app.channel.audio',
+      androidNotificationChannelName: 'Prism Music',
+      androidNotificationOngoing: true,
+      androidStopForegroundOnPause: true,
+    ),
+  );
+  
   // Restore user library from the on-device backup (survives uninstall).
   await LocalBackupService.instance.restoreIfNeeded();
   
@@ -52,10 +62,7 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
   
-  // Initialize dependencies
-  await initializeDependencies();
-  
-// Request permissions (non-blocking to avoid hot restart issues)
+  // Request permissions (non-blocking to avoid hot restart issues)
   PermissionService.requestAllPermissions().catchError((_) {});
   
   runApp(const PrismMusicApp());

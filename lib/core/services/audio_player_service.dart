@@ -8,18 +8,18 @@ import 'youtube_audio_source.dart';
 import 'equalizer_service.dart';
 
 /// Audio player service using just_audio with direct YouTube streaming
-/// No external proxy server needed - streams directly from YouTube in Flutter
 class AudioPlayerService {
   late AudioPlayer _player;
   late EqualizerService _equalizerService;
 
-  /// Concatenating audio source for queue management - handles auto-advance in background
+  /// Concatenating audio source for queue management
   ConcatenatingAudioSource? _playlist;
   final List<AudioSource> _queueSources = [];
   bool _initialized = false;
   static const _defaultUserAgent =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36';
 
+  AudioPlayer get player => _player; 
   // Stream controllers for player events
   final _positionController = StreamController<Duration>.broadcast();
   final _bufferedPositionController = StreamController<Duration>.broadcast();
