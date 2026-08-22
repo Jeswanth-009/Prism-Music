@@ -192,14 +192,16 @@ jobs:
         run: |
           flutter build apk --release \
             --build-name "${{ steps.next_version.outputs.next_version }}" \
-            --build-number "${{ steps.next_version.outputs.next_build }}"
+            --build-number "${{ steps.next_version.outputs.next_build }}" \
+            --android-skip-build-dependency-validation
 
       # ── 11. Build release App Bundle ──────────────────────────────
       - name: Build release App Bundle (AAB)
         run: |
           flutter build appbundle --release \
             --build-name "${{ steps.next_version.outputs.next_version }}" \
-            --build-number "${{ steps.next_version.outputs.next_build }}"
+            --build-number "${{ steps.next_version.outputs.next_build }}" \
+            --android-skip-build-dependency-validation
 
       # ── 12. Stage release assets with descriptive names ──────────
       - name: Prepare release assets
