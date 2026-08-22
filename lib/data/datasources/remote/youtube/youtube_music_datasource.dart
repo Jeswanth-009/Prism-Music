@@ -122,6 +122,7 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
           yt.YoutubeApiClient.androidSdkless,
           yt.YoutubeApiClient.tv,
         ],
+        requireWatchPage: false,
       );
       manifestStopwatch.stop();
 
@@ -232,6 +233,7 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
               yt.YoutubeApiClient.androidSdkless,
               yt.YoutubeApiClient.tv,
             ],
+            requireWatchPage: false,
           );
           
           final audioStreams = manifest.audioOnly.toList()
@@ -357,6 +359,7 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
         yt.YoutubeApiClient.androidSdkless,
         yt.YoutubeApiClient.tv,
       ],
+      requireWatchPage: false,
     );
 
     return manifest.audioOnly

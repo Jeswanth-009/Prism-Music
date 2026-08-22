@@ -75,11 +75,21 @@ class YouTubeAudioSource extends StreamAudioSource {
       
       StreamManifest manifest;
       try {
-        // Fetch manifest without deprecated parameters
-        manifest = await _ytExplode.videos.streams.getManifest(videoId);
+        manifest = await _ytExplode.videos.streamsClient.getManifest(
+          videoId,
+          ytClients: [
+            YoutubeApiClient.androidSdkless,
+            YoutubeApiClient.tv,
+          ],
+          requireWatchPage: false,
+        );
       } catch (e) {
-        debugPrint('YouTubeAudioSource: Default client failed: $e');
-        manifest = await _ytExplode.videos.streams.getManifest(videoId);
+        debugPrint('YouTubeAudioSource: Primary client failed: $e');
+        manifest = await _ytExplode.videos.streamsClient.getManifest(
+          videoId,
+          ytClients: [YoutubeApiClient.tv],
+          requireWatchPage: false,
+        );
       }
 
       final supportedStreams = manifest.audioOnly.sortByBitrate();
@@ -218,10 +228,21 @@ class YouTubeAudioSource extends StreamAudioSource {
       
       StreamManifest manifest;
       try {
-      manifest = await _ytExplode.videos.streams.getManifest(videoId);
-    } catch (e) {
-      manifest = await _ytExplode.videos.streams.getManifest(videoId);
-    }
+        manifest = await _ytExplode.videos.streamsClient.getManifest(
+          videoId,
+          ytClients: [
+            YoutubeApiClient.androidSdkless,
+            YoutubeApiClient.tv,
+          ],
+          requireWatchPage: false,
+        );
+      } catch (e) {
+        manifest = await _ytExplode.videos.streamsClient.getManifest(
+          videoId,
+          ytClients: [YoutubeApiClient.tv],
+          requireWatchPage: false,
+        );
+      }
 
       final supportedStreams = manifest.audioOnly.sortByBitrate();
       if (supportedStreams.isEmpty) return;
