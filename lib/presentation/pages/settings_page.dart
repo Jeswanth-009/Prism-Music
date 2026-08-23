@@ -15,7 +15,11 @@ import '../blocs/theme/theme_state.dart';
 import '../widgets/common/bouncing_tap_widget.dart';
 import '../widgets/common/glassmorphic_container.dart';
 import '../widgets/lastfm_login_dialog.dart';
-
+import '../widgets/equalizer/equalizer_bottom_sheet.dart';
+import '../../core/services/audio_player_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'downloads_page.dart';
 /// Comprehensive settings page for Prism Music
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -32,6 +36,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _hasInitialized = false;
   bool _fastStartEnabled = true;
   int _prefetchLookahead = 1;
+  String _appVersion = 'Loading...';
 
   @override
   void initState() {
@@ -55,6 +60,11 @@ class _SettingsPageState extends State<SettingsPage> {
       _prefetchLookahead = _settingsService.prefetchLookahead;
       // Use RecommendationService from DI (registered as singleton)
       _recommendationService = getIt<RecommendationService>();
+      
+      final packageInfo = await PackageInfo.fromPlatform();
+      _appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
+      
+      if (mounted) setState(() {});
       if (kDebugMode) {
         debugPrint('RecommendationService initialized successfully');
       }
@@ -442,10 +452,12 @@ class _SettingsPageState extends State<SettingsPage> {
                   title: 'Equalizer',
                   subtitle: 'Customize audio output',
                   onTap: () {
-                    ShadToaster.of(context).show(
-                      ShadToast(
-                        title: const Text(
-                            'Open equalizer from the player screen'),
+                    final audioPlayerService = getIt<AudioPlayerService>();
+                    showShadSheet(
+                      context: context,
+                      side: ShadSheetSide.bottom,
+                      builder: (context) => EqualizerBottomSheet(
+                        equalizerService: audioPlayerService.equalizer,
                       ),
                     );
                   },
@@ -455,8 +467,12 @@ class _SettingsPageState extends State<SettingsPage> {
                   title: 'Bass Boost',
                   subtitle: 'Enhanced low frequencies',
                   trailing: ShadSwitch(
-                    value: true,
-                    onChanged: (value) {},
+                    value: _settingsService.bassBoostEnabled,
+                    onChanged: (value) async {
+                      await _settingsService.setBassBoost(value);
+                      getIt<AudioPlayerService>().equalizer.setBassBoost(1.0, value);
+                      if (context.mounted) setState(() {});
+                    },
                   ),
                 ),
               ],
@@ -477,8 +493,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   title: 'Auto Shuffle',
                   subtitle: 'Shuffle queue automatically',
                   trailing: ShadSwitch(
-                    value: false,
-                    onChanged: (value) {},
+                    value: _settingsService.autoShuffle,
+                    onChanged: (value) async {
+                      await _settingsService.setAutoShuffle(value);
+                      if (context.mounted) setState(() {});
+                    },
                   ),
                 ),
                 _SettingRow(
@@ -507,9 +526,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   title: 'Downloads',
                   subtitle: 'Manage downloaded songs',
                   onTap: () {
-                    ShadToaster.of(context).show(
-                      ShadToast(
-                          title: const Text('Coming soon!')),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const DownloadsPage(),
+                      ),
                     );
                   },
                 ),
@@ -530,27 +551,27 @@ class _SettingsPageState extends State<SettingsPage> {
                   leading:
                       const Icon(LucideIcons.smartphone, size: 20),
                   title: 'Version',
-                  subtitle: 'Prism Music 1.0.0',
+                  subtitle: 'Prism Music $_appVersion',
                 ),
                 _SettingRow(
                   leading: const Icon(LucideIcons.code, size: 20),
                   title: 'Open Source',
                   subtitle: 'View on GitHub',
-                  onTap: () {
-                    ShadToaster.of(context).show(
-                      ShadToast(
-                          title: const Text('Coming soon!')),
-                    );
+                  onTap: () async {
+                    final url = Uri.parse('https://github.com/Jeswanth-009/Prism-Music');
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(url);
+                    }
                   },
                 ),
                 _SettingRow(
                   leading: const Icon(LucideIcons.shield, size: 20),
                   title: 'Privacy Policy',
-                  onTap: () {
-                    ShadToaster.of(context).show(
-                      ShadToast(
-                          title: const Text('Coming soon!')),
-                    );
+                  onTap: () async {
+                    final url = Uri.parse('https://github.com/Jeswanth-009/Prism-Music#privacy-policy');
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(url);
+                    }
                   },
                 ),
               ],

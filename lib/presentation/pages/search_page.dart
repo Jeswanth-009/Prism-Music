@@ -7,7 +7,6 @@ import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
 import '../blocs/search/search_bloc.dart';
 import '../blocs/search/search_event.dart';
-import '../blocs/search/search_event.dart';
 import '../blocs/search/search_state.dart';
 import '../widgets/common/bouncing_tap_widget.dart';
 import '../widgets/common/glassmorphic_container.dart';

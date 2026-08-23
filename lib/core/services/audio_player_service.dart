@@ -388,7 +388,7 @@ class AudioPlayerService {
     try {
       AudioSource source;
 
-      if (url != null && url.isNotEmpty) {
+      if (url.isNotEmpty) {
         debugPrint('AudioPlayerService: Adding regular URL to queue');
         source = AudioSource.uri(
           Uri.parse(url),

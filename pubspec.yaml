@@ -38,6 +38,7 @@ dependencies:
   logging: ^1.2.0
   crypto: ^3.0.5
   html: ^0.15.4
+  pointycastle: ^3.9.1
   
   # Last.fm Integration
   lastfm: ^0.0.6

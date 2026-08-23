@@ -181,11 +181,13 @@ class MusicRepositoryImpl implements MusicRepository {
   Future<Either<Failure, StreamInfo>> getStreamUrl(
     String videoId, {
     AudioQuality preferredQuality = AudioQuality.high,
+    bool forceRefresh = false,
   }) async {
     try {
       final streamInfo = await _youtubeMusicDataSource.getStreamUrl(
         videoId,
         preferredQuality: preferredQuality,
+        forceRefresh: forceRefresh,
       );
       return Right(streamInfo);
     } on StreamNotFoundException {

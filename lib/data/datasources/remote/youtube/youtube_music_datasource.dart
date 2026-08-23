@@ -12,6 +12,7 @@ abstract class YouTubeMusicDataSource {
   Future<domain.StreamInfo> getStreamUrl(
     String videoId, {
     AudioQuality preferredQuality = AudioQuality.high,
+    bool forceRefresh = false,
   });
 
   /// Get all available streams for a video
@@ -94,19 +95,26 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
   Future<domain.StreamInfo> getStreamUrl(
     String videoId, {
     AudioQuality preferredQuality = AudioQuality.high,
+    bool forceRefresh = false,
   }) async {
     final totalStopwatch = Stopwatch()..start();
     debugPrint('YouTubeDataSource: Getting stream URL for $videoId');
 
     final cacheKey = _streamCacheKey(videoId, preferredQuality);
-    final cached = _streamCache[cacheKey];
-    if (cached != null && _isStreamCacheEntryValid(cached)) {
-      totalStopwatch.stop();
-      debugPrint(
-        'YouTubeDataSource: Stream cache HIT for $videoId ($preferredQuality) '
-        'in ${totalStopwatch.elapsedMilliseconds}ms',
-      );
-      return cached.streamInfo;
+    
+    if (forceRefresh) {
+      debugPrint('YouTubeDataSource: Bypassing cache for $videoId (forceRefresh: true)');
+      _streamCache.remove(cacheKey);
+    } else {
+      final cached = _streamCache[cacheKey];
+      if (cached != null && _isStreamCacheEntryValid(cached)) {
+        totalStopwatch.stop();
+        debugPrint(
+          'YouTubeDataSource: Stream cache HIT for $videoId ($preferredQuality) '
+          'in ${totalStopwatch.elapsedMilliseconds}ms',
+        );
+        return cached.streamInfo;
+      }
     }
 
     // Primary approach: YouTube Explode (direct streams - most reliable)

@@ -4,6 +4,9 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../domain/entities/song.dart';
 import '../../domain/repositories/music_repository.dart';
+import 'stream_loader_service.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import '../utils/logger.dart';
 import 'settings_service.dart';
 
@@ -49,7 +52,7 @@ class DownloadInfo {
 class DownloadService {
   static const String _downloadBoxName = 'downloads';
   static const int _minValidAudioBytes = 16 * 1024;
-  final MusicRepository _musicRepository;
+  final StreamLoaderService _streamLoaderService;
   final Dio _dio = Dio();
   final Map<String, CancelToken> _cancelTokens = {};
   
@@ -57,7 +60,7 @@ class DownloadService {
   final Map<String, DownloadInfo> _downloadProgress = {};
   final List<Function(DownloadInfo)> _listeners = [];
 
-  DownloadService(this._musicRepository);
+  DownloadService(this._streamLoaderService);
 
   Future<void> initialize() async {
     try {
@@ -199,6 +202,31 @@ class DownloadService {
       return true;
     }
 
+    try {
+      if (Platform.isAndroid) {
+        final plugin = DeviceInfoPlugin();
+        final androidInfo = await plugin.androidInfo;
+        if (androidInfo.version.sdkInt >= 30) {
+          if (!await Permission.manageExternalStorage.isGranted) {
+            final status = await Permission.manageExternalStorage.request();
+            if (!status.isGranted) {
+              logError('Manage external storage permission denied');
+              // Proceed anyway, fallback dir might work
+            }
+          }
+        } else {
+          if (!await Permission.storage.isGranted) {
+            final status = await Permission.storage.request();
+            if (!status.isGranted) {
+              logError('Storage permission denied');
+            }
+          }
+        }
+      }
+    } catch (e) {
+      logError('Permission check failed: $e');
+    }
+
     // Check if currently downloading (but allow retry if failed)
     if (_downloadProgress.containsKey(song.playableId)) {
       final currentStatus = _downloadProgress[song.playableId]!.status;
@@ -227,22 +255,18 @@ class DownloadService {
       _downloadProgress[song.playableId] = downloadInfo;
       _notifyListeners(downloadInfo);
 
-      // Get stream URL
-      final streamResult = await _musicRepository.getStreamUrl(
-        song.playableId,
-        preferredQuality: AudioQuality.high,
-      );
-
       String? streamUrl;
-      streamResult.fold(
-        (failure) {
-          logError('Failed to get stream URL: ${failure.message}');
-          streamUrl = null;
-        },
-        (streamInfo) {
-          streamUrl = streamInfo.url;
-        },
-      );
+      try {
+        final streamInfo = await _streamLoaderService.loadStream(
+          song,
+          useCache: false, // Force fresh stream URL for downloading
+          preferredQuality: AudioQuality.high,
+        );
+        streamUrl = streamInfo.url;
+      } catch (e) {
+        logError('Failed to get stream URL: $e');
+        streamUrl = null;
+      }
 
       if (streamUrl == null) {
         downloadInfo = downloadInfo.copyWith(
@@ -269,12 +293,6 @@ class DownloadService {
         filePath,
         cancelToken: cancelToken,
         options: Options(
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': '*/*',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Range': 'bytes=0-',
-          },
           responseType: ResponseType.stream,
           followRedirects: true,
           validateStatus: (status) => status != null && (status == 200 || status == 206),

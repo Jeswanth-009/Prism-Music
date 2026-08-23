@@ -74,18 +74,20 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
           ),
         );
       },
-      child: Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.75,
-        ),
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius:
-              const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.75,
+          ),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -159,6 +161,7 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -1,16 +1,17 @@
-import 'package:flutter/material.dart' hide RepeatMode;
+
+
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/di/injection.dart';
 import '../../core/services/download_service.dart';
 import '../../domain/entities/song.dart';
-import '../blocs/library/library_bloc.dart';
-import '../blocs/library/library_event.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
+import '../widgets/common/bouncing_tap_widget.dart';
 
-/// Downloads page showing all downloaded songs
 class DownloadsPage extends StatefulWidget {
   const DownloadsPage({super.key});
 
@@ -19,9 +20,10 @@ class DownloadsPage extends StatefulWidget {
 }
 
 class _DownloadsPageState extends State<DownloadsPage> {
-  List<Song> _downloadedSongs = [];
+  final DownloadService _downloadService = getIt<DownloadService>();
+  List<Map<String, dynamic>> _downloadedSongs = [];
   bool _isLoading = true;
-  String? _downloadPath;
+  int _totalSize = 0;
 
   @override
   void initState() {
@@ -31,274 +33,231 @@ class _DownloadsPageState extends State<DownloadsPage> {
 
   Future<void> _loadDownloads() async {
     setState(() => _isLoading = true);
-
-    try {
-      final downloadService = getIt<DownloadService>();
-      await downloadService.initialize();
-
-      final downloadedMaps = downloadService.getAllDownloadedSongs();
-      final songs = downloadedMaps.map((map) {
-        final thumbnailUrl = map['thumbnailUrl'] as String? ?? '';
-        return Song(
-          id: map['songId'] as String,
-          title: map['title'] as String,
-          artist: map['artist'] as String,
-          artists: [map['artist'] as String],
-          duration: Duration(seconds: map['duration'] as int),
-          thumbnails: Thumbnails(
-            low: thumbnailUrl,
-            medium: thumbnailUrl,
-            high: thumbnailUrl,
-          ),
-        );
-      }).toList();
-
-      final downloadPath =
-          await downloadService.getDownloadDirectoryPath();
-
-      if (mounted) {
-        setState(() {
-          _downloadedSongs = songs;
-          _downloadPath = downloadPath;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+    final songs = _downloadService.getAllDownloadedSongs();
+    final size = await _downloadService.getTotalDownloadSize();
+    
+    if (mounted) {
+      setState(() {
+        _downloadedSongs = songs;
+        _totalSize = size;
+        _isLoading = false;
+      });
     }
+  }
+
+  Future<void> _deleteSong(String songId, String title) async {
+    final success = await _downloadService.deleteSong(songId);
+    if (success && mounted) {
+      ShadToaster.of(context).show(
+        ShadToast(title: Text('Deleted $title')),
+      );
+      _loadDownloads();
+    }
+  }
+
+  void _playSong(Map<String, dynamic> songData) {
+    final song = Song(
+      id: songData['songId'],
+      title: songData['title'],
+      artist: songData['artist'],
+      duration: Duration(seconds: songData['duration'] ?? 0),
+      thumbnails: songData['thumbnailUrl'] != null 
+          ? Thumbnails.fromUrl(songData['thumbnailUrl'])
+          : Thumbnails.empty(),
+      album: songData['album'],
+      streamUrl: songData['localPath'],
+      source: MusicSource.local,
+    );
+
+    context.read<PlayerBloc>().add(PlaySongEvent(song: song));
+    ShadToaster.of(context).show(
+      ShadToast(title: Text('Playing ${song.title}')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Downloads'),
-        leading: ShadIconButton.ghost(
-          icon: const Icon(LucideIcons.arrowLeft, size: 20),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        actions: [
-          if (_downloadedSongs.isNotEmpty)
-            ShadIconButton.ghost(
-              icon: const Icon(LucideIcons.folderOpen, size: 20),
-              onPressed: () {
-                showShadDialog(
-                  context: context,
-                  builder: (ctx) => ShadDialog(
-                    title: const Text('Download Location'),
-                    child: SelectableText(
-                      _downloadPath ?? 'Unknown',
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                    actions: [
-                      ShadButton.ghost(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Close'),
-                      ),
-                    ],
-                  ),
-                );
-              },
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _downloadedSongs.isEmpty
+              ? _buildEmptyState(theme)
+              : _buildList(theme),
+    );
+  }
+
+  Widget _buildEmptyState(ThemeData theme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            LucideIcons.download,
+            size: 64,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No downloads yet',
+            style: theme.textTheme.titleLarge?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
-          ShadIconButton.ghost(
-            icon: const Icon(LucideIcons.refreshCw, size: 20),
-            onPressed: _loadDownloads,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Songs you download will appear here',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: ShadProgress())
-          : _downloadedSongs.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+    );
+  }
+
+  Widget _buildList(ThemeData theme) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${_downloadedSongs.length} songs',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                _downloadService.formatBytes(_totalSize),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: _downloadedSongs.length,
+            itemBuilder: (context, index) {
+              final songData = _downloadedSongs[index];
+              return _buildSongItem(context, theme, songData);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSongItem(BuildContext context, ThemeData theme, Map<String, dynamic> songData) {
+    final title = songData['title'] ?? 'Unknown';
+    final artist = songData['artist'] ?? 'Unknown Artist';
+    final thumbnailUrl = songData['thumbnailUrl'];
+    final size = songData['fileSize'] as int?;
+
+    return BouncingTapWidget(
+      onTap: () => _playSong(songData),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            // Thumbnail
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 56,
+                height: 56,
+                child: thumbnailUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: thumbnailUrl,
+                        fit: BoxFit.cover,
+                        errorWidget: (context, url, error) => _buildPlaceholder(),
+                      )
+                    : _buildPlaceholder(),
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
                     children: [
-                      Icon(LucideIcons.download,
-                          size: 64,
-                          color: theme.colorScheme.outline),
-                      const SizedBox(height: 16),
-                      Text('No downloads yet',
-                          style: theme.textTheme.titleLarge),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Downloaded songs will appear here',
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurfaceVariant,
+                      const Icon(LucideIcons.hardDriveDownload, size: 12, color: Colors.green),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          '$artist${size != null ? ' • ${_downloadService.formatBytes(size)}' : ''}',
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontSize: 13,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
-                )
-              : Column(
-                  children: [
-                    // Download info header
-                    ShadCard(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      child: Row(
-                        children: [
-                          const Icon(LucideIcons.folderOpen, size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _downloadPath ?? 'Default location',
-                              style: theme.textTheme.bodySmall,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          ShadBadge.secondary(
-                            child: Text(
-                                '${_downloadedSongs.length} songs'),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Songs list
-                    Expanded(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        itemCount: _downloadedSongs.length,
-                        itemBuilder: (context, index) {
-                          final song = _downloadedSongs[index];
-                          return Padding(
-                            padding:
-                                const EdgeInsets.only(bottom: 6),
-                            child: GestureDetector(
-                              onTap: () {
-                                context
-                                    .read<PlayerBloc>()
-                                    .add(PlaySongEvent(
-                                      song: song,
-                                      queue: _downloadedSongs,
-                                      queueIndex: index,
-                                    ));
-                              },
-                              child: ShadCard(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 10),
-                              child: Row(
-                                children: [
-                                  ClipRRect(
-                                    borderRadius:
-                                        BorderRadius.circular(8),
-                                    child: SizedBox(
-                                      width: 52,
-                                      height: 52,
-                                      child: song.thumbnailUrl
-                                              .isNotEmpty
-                                          ? Image.network(
-                                              song.thumbnailUrl,
-                                              fit: BoxFit.cover,
-                                            )
-                                          : Container(
-                                              color: theme
-                                                  .colorScheme
-                                                  .surfaceContainerHighest,
-                                              child: const Icon(
-                                                  LucideIcons
-                                                      .music),
-                                            ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          song.title,
-                                          maxLines: 1,
-                                          overflow:
-                                              TextOverflow.ellipsis,
-                                          style: theme.textTheme
-                                              .bodyMedium
-                                              ?.copyWith(
-                                            fontWeight:
-                                                FontWeight.w600,
-                                          ),
-                                        ),
-                                        Text(
-                                          song.artist,
-                                          maxLines: 1,
-                                          overflow:
-                                              TextOverflow.ellipsis,
-                                          style: theme
-                                              .textTheme.bodySmall,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Icon(LucideIcons.circleCheck,
-                                      color:
-                                          Colors.green.shade600,
-                                      size: 18),
-                                  const SizedBox(width: 4),
-                                  ShadIconButton.ghost(
-                                    icon: Icon(LucideIcons.trash2,
-                                        size: 18,
-                                        color: theme.colorScheme
-                                            .error),
-                                    onPressed: () =>
-                                        _confirmDelete(song),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
+                ],
+              ),
+            ),
+            // Options
+            ShadIconButton.ghost(
+              icon: const Icon(LucideIcons.trash2, size: 20),
+              onPressed: () => _showDeleteDialog(songData['songId'], title),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Future<void> _confirmDelete(Song song) async {
-    final confirmed = await showShadDialog<bool>(
+  Widget _buildPlaceholder() {
+    return Container(
+      color: Colors.grey.withValues(alpha: 0.2),
+      child: const Center(
+        child: Icon(LucideIcons.music, color: Colors.grey),
+      ),
+    );
+  }
+
+  void _showDeleteDialog(String songId, String title) {
+    showShadDialog(
       context: context,
       builder: (ctx) => ShadDialog(
         title: const Text('Delete Download'),
-        description:
-            Text('Remove "${song.title}" from offline storage?'),
+        description: Text('Are you sure you want to delete "$title" from your device?'),
         actions: [
           ShadButton.ghost(
-            onPressed: () => Navigator.pop(ctx, false),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel'),
           ),
           ShadButton.destructive(
-            onPressed: () => Navigator.pop(ctx, true),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _deleteSong(songId, title);
+            },
             child: const Text('Delete'),
           ),
         ],
       ),
     );
-
-    if (confirmed == true && mounted) {
-      try {
-        final downloadService = getIt<DownloadService>();
-        final success = await downloadService.deleteSong(song.id);
-
-        if (success && mounted) {
-          ShadToaster.of(context).show(
-            ShadToast(title: const Text('Download deleted')),
-          );
-          context.read<LibraryBloc>().add(const LoadLibraryEvent());
-          _loadDownloads();
-        }
-      } catch (e) {
-        if (mounted) {
-          ShadToaster.of(context).show(
-            ShadToast.destructive(
-                title: Text('Failed to delete: $e')),
-          );
-        }
-      }
-    }
   }
 }

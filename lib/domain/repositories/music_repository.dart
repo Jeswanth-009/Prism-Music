@@ -48,6 +48,7 @@ abstract class MusicRepository {
   Future<Either<Failure, StreamInfo>> getStreamUrl(
     String videoId, {
     AudioQuality preferredQuality = AudioQuality.high,
+    bool forceRefresh = false,
   });
 
   /// Get multiple stream options for a song (for quality selection)

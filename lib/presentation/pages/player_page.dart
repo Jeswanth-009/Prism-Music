@@ -1317,15 +1317,13 @@ class _PlayerPageState extends State<PlayerPage>
                           );
                       final downloadPath =
                           SettingsService.instance.downloadFolderPath;
-                      final displayPath = downloadPath ??
-                          'App Documents/downloads';
 
                       ShadToaster.of(context).show(
                         ShadToast(
                           title: Text(
                               'Downloading "${currentSong.title}"...'),
                           description:
-                              Text('Location: $displayPath'),
+                              Text('Check the Downloads tab in Settings.'),
                         ),
                       );
 
@@ -1603,10 +1601,7 @@ class _PlayerPageState extends State<PlayerPage>
                 label: 'Add to playlist',
                 onTap: () {
                   Navigator.pop(ctx);
-                  ShadToaster.of(context).show(
-                    ShadToast(
-                        title: const Text('Coming soon!')),
-                  );
+                  // TODO: Implement actual playlist addition
                 },
               ),
               BlocBuilder<PlayerBloc, PlayerState>(

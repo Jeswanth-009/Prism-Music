@@ -66,8 +66,10 @@ Prism Music is intentionally engineered with a different set of priorities.
 | Recommendations | Multi-path recommendation flow with fallback logic | Reduced empty-state queue failures |
 | Playback | Stream loader plus cache strategy and reliability hardening | Faster repeat play and improved stability |
 | Streaming Backend | Custom JioSaavn API bridge with 3DES decryption and dynamic CDN bypass (anti-block) | Reliable high-quality 320kbps streams without bot-detection issues |
+| Offline/Downloads | Refactored DownloadService to leverage StreamLoaderService and JioSaavn CDNs | Bypassed YouTube bot protections (403 Forbidden), enabling flawless high-speed downloads |
 | Library & data | On-device library (likes, playlists, history), listening stats, and a local backup that survives uninstall without cloud sync | Private, durable library across updates and reinstalls |
 | User Interface | App-wide Glassmorphic overhaul featuring bouncy physics, edge-to-edge cards, and premium frosted blur effects | A "wow" aesthetic that feels modern, tactile, and fast |
+| Audio/Equalizer | Material wrapper added for EqualizerBottomSheet TabBar | Fixed crash assertion in Equalizer UI |
 | Open source | CI/CD workflows, changelog, license, contributing docs | Public, reproducible alpha delivery |
 
 ## Public Roadmap

@@ -132,7 +132,7 @@ getIt.registerLazySingleton<LibraryRepository>(
 
    // Download Service (singleton) depends on MusicRepository
    {
-     final downloadService = DownloadService(getIt<MusicRepository>());
+     final downloadService = DownloadService(getIt<StreamLoaderService>());
      await downloadService.initialize();
      getIt.registerSingleton<DownloadService>(downloadService);
    }
