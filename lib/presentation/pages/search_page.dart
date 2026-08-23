@@ -7,7 +7,10 @@ import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
 import '../blocs/search/search_bloc.dart';
 import '../blocs/search/search_event.dart';
+import '../blocs/search/search_event.dart';
 import '../blocs/search/search_state.dart';
+import '../widgets/common/bouncing_tap_widget.dart';
+import '../widgets/common/glassmorphic_container.dart';
 import 'artist_page.dart';
 
 /// Full search page with tabbed interface for different content types
@@ -217,31 +220,67 @@ class _SearchPageState extends State<SearchPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Search input
-        ShadInput(
-          controller: _searchController,
-          focusNode: _focusNode,
-          placeholder: const Text('Artists, songs, podcasts...'),
-          leading: const Padding(
-            padding: EdgeInsets.only(right: 8),
-            child: Icon(LucideIcons.search, size: 18),
+        Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          trailing: ValueListenableBuilder<TextEditingValue>(
-            valueListenable: _searchController,
-            builder: (_, value, __) {
-              if (value.text.isEmpty) return const SizedBox.shrink();
-              return ShadIconButton.ghost(
-                icon: const Icon(LucideIcons.x, size: 16),
-                width: 28,
-                height: 28,
-                onPressed: _clearSearch,
-              );
-            },
+          child: GlassmorphicContainer(
+            blur: 15,
+            opacity: 0.15,
+            borderRadius: BorderRadius.circular(20),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            child: Row(
+              children: [
+                Icon(LucideIcons.search, size: 20, color: theme.colorScheme.onSurfaceVariant),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    focusNode: _focusNode,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                    decoration: InputDecoration(
+                      hintText: 'Artists, songs, podcasts...',
+                      hintStyle: TextStyle(color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onChanged: (value) {
+                      setState(() {});
+                      if (value.trim().length >= 2) _onSearch(value);
+                    },
+                    onSubmitted: _onSearch,
+                  ),
+                ),
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _searchController,
+                  builder: (_, value, __) {
+                    if (value.text.isEmpty) return const SizedBox.shrink();
+                    return GestureDetector(
+                      onTap: _clearSearch,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                        ),
+                        child: const Icon(LucideIcons.x, size: 16),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
-          onChanged: (value) {
-            setState(() {});
-            if (value.trim().length >= 2) _onSearch(value);
-          },
-          onSubmitted: _onSearch,
         ),
 
         // Filter row
@@ -354,72 +393,93 @@ class _SearchPageState extends State<SearchPage> {
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final song = state.results.songs[index];
-        return GestureDetector(
+        return BouncingTapWidget(
           onTap: () {
             context
                 .read<PlayerBloc>()
                 .add(PlaySongEvent(song: song));
             Navigator.pop(context);
           },
-          child: ShadCard(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: SizedBox(
-                  width: 52,
-                  height: 52,
-                  child: song.thumbnailUrl.isNotEmpty
-                      ? Image.network(
-                          song.thumbnailUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            color: theme.colorScheme.surface,
-                            child: const Icon(LucideIcons.music, size: 20),
-                          ),
-                        )
-                      : Container(
-                          color: theme.colorScheme.surface,
-                          child: const Icon(LucideIcons.music, size: 20),
-                        ),
+          scaleFactor: 0.97,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: SizedBox(
+                      width: 52,
+                      height: 52,
+                      child: song.thumbnailUrl.isNotEmpty
+                          ? Image.network(
+                              song.thumbnailUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                color: theme.colorScheme.surface,
+                                child: const Icon(LucideIcons.music, size: 20),
+                              ),
+                            )
+                          : Container(
+                              color: theme.colorScheme.surface,
+                              child: const Icon(LucideIcons.music, size: 20),
+                            ),
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        song.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        song.artist,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(
-                      song.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      song.artist,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall,
-                    ),
+                    Text(song.durationFormatted,
+                        style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
+                    const SizedBox(height: 4),
+                    Icon(LucideIcons.play,
+                        size: 18, color: theme.colorScheme.primary),
                   ],
                 ),
-              ),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(song.durationFormatted,
-                      style: theme.textTheme.labelSmall),
-                  const SizedBox(height: 4),
-                  Icon(LucideIcons.play,
-                      size: 18, color: theme.colorScheme.primary),
-                ],
-              ),
-            ],
-          ),
+              ],
+            ),
           ),
         );
       },
@@ -780,15 +840,30 @@ class _ChipsWrap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 10,
+      runSpacing: 10,
       children: items
           .map(
-            (item) => ShadButton.outline(
-              onPressed: () => onTap(item),
-              size: ShadButtonSize.sm,
-              child: Text(item),
+            (item) => BouncingTapWidget(
+              onTap: () => onTap(item),
+              scaleFactor: 0.9,
+              child: GlassmorphicContainer(
+                blur: 10,
+                opacity: 0.2,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(
+                  item,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ),
             ),
           )
           .toList(),

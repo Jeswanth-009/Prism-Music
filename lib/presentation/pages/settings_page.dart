@@ -12,6 +12,8 @@ import '../../core/services/settings_service.dart';
 import '../blocs/theme/theme_bloc.dart';
 import '../blocs/theme/theme_event.dart';
 import '../blocs/theme/theme_state.dart';
+import '../widgets/common/bouncing_tap_widget.dart';
+import '../widgets/common/glassmorphic_container.dart';
 import '../widgets/lastfm_login_dialog.dart';
 
 /// Comprehensive settings page for Prism Music
@@ -677,7 +679,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: ShadCard(
+      child: GlassmorphicContainer(
+        blur: 15,
+        opacity: 0.2,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
         padding: EdgeInsets.zero,
         child: Column(
           children: [
@@ -689,24 +695,23 @@ class _SettingsPageState extends State<SettingsPage> {
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: theme.colorScheme.primary
-                          .withValues(alpha: 0.12),
+                      color: theme.colorScheme.primary.withValues(alpha: 0.2),
                     ),
-                    child: Icon(icon,
-                        color: theme.colorScheme.primary, size: 20),
+                    child: Icon(icon, color: theme.colorScheme.primary, size: 20),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         title,
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600),
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
                       ),
                       Text(
                         'Customize ${title.toLowerCase()}',
-                        style: theme.textTheme.bodySmall?.copyWith(
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
@@ -715,16 +720,21 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
               ),
             ),
-            ShadSeparator.horizontal(),
+            const SizedBox(height: 8),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              height: 1,
+              color: Colors.white.withValues(alpha: 0.1),
+            ),
             Column(
               children: [
                 for (int i = 0; i < children.length; i++) ...[
                   children[i],
                   if (i != children.length - 1)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20),
-                      child: ShadSeparator.horizontal(),
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      height: 1,
+                      color: Colors.white.withValues(alpha: 0.05),
                     ),
                 ],
               ],
@@ -1305,42 +1315,54 @@ class _SettingRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        child: Row(
-          children: [
-            if (leading != null) ...[
-              leading!,
-              const SizedBox(width: 14),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: theme.textTheme.bodyLarge
-                          ?.copyWith(fontWeight: FontWeight.w500)),
-                  if (subtitle != null)
-                    Text(
-                      subtitle!,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
-              ),
-            ),
-            if (trailing != null) ...[
-              const SizedBox(width: 8),
-              trailing!,
-            ],
+    Widget content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      child: Row(
+        children: [
+          if (leading != null) ...[
+            leading!,
+            const SizedBox(width: 16),
           ],
-        ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (trailing != null) ...[
+            const SizedBox(width: 12),
+            trailing!,
+          ],
+        ],
       ),
     );
+
+    if (onTap != null) {
+      return BouncingTapWidget(
+        onTap: onTap!,
+        scaleFactor: 0.98,
+        child: content,
+      );
+    }
+
+    return content;
   }
 }

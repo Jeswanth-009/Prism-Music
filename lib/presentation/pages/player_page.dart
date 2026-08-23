@@ -19,6 +19,7 @@ import '../blocs/player/player_event.dart';
 import '../blocs/player/player_state.dart';
 import '../blocs/library/library_bloc.dart';
 import '../blocs/library/library_event.dart' hide DownloadSongEvent;
+import '../widgets/common/bouncing_tap_widget.dart';
 import '../widgets/equalizer/equalizer_bottom_sheet.dart';
 import 'artist_page.dart';
 
@@ -933,8 +934,9 @@ class _PlayerPageState extends State<PlayerPage>
     }) {
       return Opacity(
         opacity: enabled ? 1 : 0.35,
-        child: GestureDetector(
-          onTap: enabled ? onTap : null,
+        child: BouncingTapWidget(
+          onTap: (enabled && onTap != null) ? onTap : () {},
+          scaleFactor: 0.92,
           child: Container(
             width: 56,
             height: 56,
@@ -957,8 +959,9 @@ class _PlayerPageState extends State<PlayerPage>
       required VoidCallback? onTap,
       bool isBuffering = false,
     }) {
-      return GestureDetector(
-        onTap: isBuffering ? null : onTap,
+      return BouncingTapWidget(
+        onTap: isBuffering || onTap == null ? () {} : onTap,
+        scaleFactor: 0.92,
         child: Container(
           width: 84,
           height: 84,
@@ -1027,9 +1030,10 @@ class _PlayerPageState extends State<PlayerPage>
                           theme.colorScheme.primary,
                     ),
                   ),
-                  GestureDetector(
+                  BouncingTapWidget(
+                    scaleFactor: 0.95,
                     onTap: state.isBuffering
-                        ? null
+                        ? () {}
                         : () {
                             if (state.isPlaying) {
                               context
@@ -1357,8 +1361,9 @@ class _PlayerPageState extends State<PlayerPage>
     final isEnabled = onTap != null;
     return Column(
       children: [
-        GestureDetector(
-          onTap: onTap,
+        BouncingTapWidget(
+          onTap: onTap ?? () {},
+          scaleFactor: 0.90,
           child: Container(
             width: 48,
             height: 48,

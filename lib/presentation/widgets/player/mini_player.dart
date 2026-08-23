@@ -29,7 +29,7 @@ class _MiniPlayerState extends State<MiniPlayer>
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.98).animate(
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
       CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
     );
   }
@@ -113,11 +113,11 @@ class _MiniPlayerState extends State<MiniPlayer>
             },
             child: Container(
               height: 76,
-              margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(20),
                 child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
                   child: Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -142,10 +142,10 @@ class _MiniPlayerState extends State<MiniPlayer>
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: accentColor.withValues(alpha: 0.2),
-                          blurRadius: 20,
-                          spreadRadius: -2,
-                          offset: const Offset(0, 8),
+                          color: accentColor.withValues(alpha: 0.3),
+                          blurRadius: 32,
+                          spreadRadius: 2,
+                          offset: const Offset(0, 12),
                         ),
                         BoxShadow(
                           color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.1),

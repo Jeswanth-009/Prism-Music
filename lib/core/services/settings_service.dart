@@ -72,7 +72,7 @@ extension PlayerUiStyleX on PlayerUiStyle {
   static PlayerUiStyle fromValue(String? value) {
     return PlayerUiStyle.values.firstWhere(
       (style) => style.name == value,
-      orElse: () => PlayerUiStyle.classic,
+      orElse: () => PlayerUiStyle.modern,
     );
   }
 }
@@ -228,7 +228,7 @@ class SettingsService {
   PlayerUiStyle get playerUiStyle {
     final stored = _settingsBox?.get(
       _playerUiStyleKey,
-      defaultValue: PlayerUiStyle.classic.name,
+      defaultValue: PlayerUiStyle.modern.name,
     );
     return PlayerUiStyleX.fromValue(stored as String?);
   }

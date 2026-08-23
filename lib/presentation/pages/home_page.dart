@@ -24,6 +24,8 @@ import 'recently_played_page.dart';
 import 'search_page.dart';
 import 'settings_page.dart';
 import 'curated_playlist_page.dart';
+import '../widgets/common/bouncing_tap_widget.dart';
+import '../widgets/common/glassmorphic_container.dart';
 
 const double _kNavBarHeight = 64;
 const double _kNavBarBottomPadding = 16;
@@ -42,34 +44,40 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final shadTheme = ShadTheme.of(context);
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
       extendBody: true,
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(
-            child: IndexedStack(
-              index: _currentIndex,
-              children: const [_DiscoverTab(), _HomeTab(), _LibraryTab()],
+          // 1. Main Content (Scrolls behind the floating elements)
+          IndexedStack(
+            index: _currentIndex,
+            children: const [_DiscoverTab(), _HomeTab(), _LibraryTab()],
+          ),
+          
+          // 2. Floating Mini Player
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: bottomPadding + _kNavBarHeight + 12,
+            child: BlocBuilder<PlayerBloc, PlayerState>(
+              builder: (context, state) {
+                if (state.currentSong == null) return const SizedBox.shrink();
+                return const MiniPlayer();
+              },
             ),
           ),
-          BlocBuilder<PlayerBloc, PlayerState>(
-            builder: (context, state) {
-              if (state.currentSong == null) return const SizedBox.shrink();
-              return Padding(
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  0,
-                  16,
-                  _kNavBarHeight + _kNavBarBottomPadding + 8,
-                ),
-                child: const MiniPlayer(),
-              );
-            },
+
+          // 3. Floating Bottom Navigation Bar
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: bottomPadding > 0 ? bottomPadding : 12,
+            child: _buildNavBar(shadTheme),
           ),
         ],
       ),
-      bottomNavigationBar: _buildNavBar(shadTheme),
     );
   }
 
@@ -81,47 +89,50 @@ class _HomePageState extends State<HomePage> {
       _NavItem(icon: LucideIcons.settings, label: 'Settings'),
     ];
 
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, _kNavBarBottomPadding),
-        child: ShadCard(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    return GlassmorphicContainer(
+      blur: 20,
+      opacity: 0.7,
+      borderRadius: BorderRadius.circular(32),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: List.generate(items.length, (i) {
               final item = items[i];
               final isSelected = i == _currentIndex;
-              return Expanded(
-                child: ShadButton.ghost(
-                  size: ShadButtonSize.sm,
-                  onPressed: () {
-                    if (i == 3) {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const SettingsPage()),
-                      );
-                      return;
-                    }
-                    setState(() => _currentIndex = i);
-                  },
+              return BouncingTapWidget(
+                onTap: () {
+                  if (i == 3) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SettingsPage()),
+                    );
+                    return;
+                  }
+                  setState(() => _currentIndex = i);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected 
+                        ? shadTheme.colorScheme.primary.withValues(alpha: 0.15) 
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         item.icon,
-                        size: 18,
+                        size: 20,
                         color: isSelected
                             ? shadTheme.colorScheme.primary
                             : shadTheme.colorScheme.mutedForeground,
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
                         item.label,
                         style: TextStyle(
                           fontSize: 10,
-                          fontWeight: isSelected
-                              ? FontWeight.w600
-                              : FontWeight.w400,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                           color: isSelected
                               ? shadTheme.colorScheme.primary
                               : shadTheme.colorScheme.mutedForeground,
@@ -133,11 +144,9 @@ class _HomePageState extends State<HomePage> {
               );
             }),
           ),
-        ),
-      ),
-    );
-  }
-}
+        );
+      }
+    }
 
 class _NavItem {
   final IconData icon;
@@ -340,11 +349,12 @@ class _HomeTabState extends State<_HomeTab> with AutomaticKeepAliveClientMixin {
             // Header + Search
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Expanded(
                           child: Column(
@@ -353,51 +363,68 @@ class _HomeTabState extends State<_HomeTab> with AutomaticKeepAliveClientMixin {
                               Text(
                                 _getGreeting(),
                                 style: TextStyle(
-                                  fontSize: 13,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
                                   color: shadTheme.colorScheme.mutedForeground,
                                 ),
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 2),
                               Text(
                                 'Prism Music',
                                 style: TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -1,
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -1.2,
                                   color: shadTheme.colorScheme.foreground,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        ShadIconButton.outline(
-                          icon: const Icon(LucideIcons.search, size: 18),
-                          onPressed: _openSearch,
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [
+                                shadTheme.colorScheme.primary.withValues(alpha: 0.8),
+                                shadTheme.colorScheme.primary,
+                              ],
+                            ),
+                          ),
+                          child: const Icon(LucideIcons.user, color: Colors.white, size: 20),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 20),
                     // Search shortcut
-                    GestureDetector(
+                    BouncingTapWidget(
                       onTap: _openSearch,
-                      child: ShadCard(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
+                      scaleFactor: 0.95,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: shadTheme.colorScheme.muted.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.05),
+                          ),
                         ),
                         child: Row(
                           children: [
                             Icon(
                               LucideIcons.search,
-                              size: 18,
+                              size: 20,
                               color: shadTheme.colorScheme.mutedForeground,
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 12),
                             Text(
-                              'Search Prism Music',
+                              'Search artists, songs, or podcasts...',
                               style: TextStyle(
                                 color: shadTheme.colorScheme.mutedForeground,
                                 fontWeight: FontWeight.w500,
+                                fontSize: 14,
                               ),
                             ),
                           ],
@@ -1035,36 +1062,44 @@ class _SongCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final shadTheme = ShadTheme.of(context);
 
-    return GestureDetector(
+    return BouncingTapWidget(
       onTap: onTap,
+      scaleFactor: 0.95,
       child: SizedBox(
-        width: 148,
+        width: 150,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ShadCard(
-              padding: EdgeInsets.zero,
+            Container(
+              width: 150,
+              height: 150,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 148,
-                  height: 148,
-                  child: song.thumbnailUrl.isNotEmpty
-                      ? Image.network(
-                          song.thumbnailUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _fallbackArt(shadTheme),
-                        )
-                      : _fallbackArt(shadTheme),
-                ),
+                borderRadius: BorderRadius.circular(20),
+                child: song.thumbnailUrl.isNotEmpty
+                    ? Image.network(
+                        song.thumbnailUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _fallbackArt(shadTheme),
+                      )
+                    : _fallbackArt(shadTheme),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
               song.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
             ),
             const SizedBox(height: 2),
             Text(
@@ -1073,6 +1108,7 @@ class _SongCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 12,
+                fontWeight: FontWeight.w500,
                 color: shadTheme.colorScheme.mutedForeground,
               ),
             ),
@@ -1111,79 +1147,97 @@ class _TrendingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shadTheme = ShadTheme.of(context);
-
-    return GestureDetector(
+    return BouncingTapWidget(
       onTap: onTap,
+      scaleFactor: 0.94,
       child: Container(
-        width: 168,
+        width: 180,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [shadTheme.colorScheme.primary, shadTheme.colorScheme.ring],
-          ),
+          borderRadius: BorderRadius.circular(16),
+          color: Colors.black26,
         ),
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            Row(
-              children: [
-                ShadBadge(child: Text(index.toString().padLeft(2, '0'))),
-                const Spacer(),
-                Icon(
-                  LucideIcons.trendingUp,
-                  color: Colors.white.withValues(alpha: 0.7),
-                  size: 16,
+            if (song.thumbnailUrl.isNotEmpty)
+              Image.network(
+                song.thumbnailUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Icon(
+                  LucideIcons.music,
+                  color: Colors.white54,
+                  size: 40,
                 ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: song.thumbnailUrl.isNotEmpty
-                    ? Image.network(
-                        song.thumbnailUrl,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: Colors.black26,
-                          child: const Icon(
-                            LucideIcons.music,
-                            color: Colors.white54,
-                          ),
-                        ),
-                      )
-                    : Container(
-                        color: Colors.black26,
-                        child: const Icon(
-                          LucideIcons.music,
-                          color: Colors.white54,
-                        ),
+              )
+            else
+              const Icon(
+                LucideIcons.music,
+                color: Colors.white54,
+                size: 40,
+              ),
+            Positioned(
+              top: 12,
+              left: 12,
+              child: GlassmorphicContainer(
+                blur: 15,
+                opacity: 0.3,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                borderRadius: BorderRadius.circular(20),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '#$index',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
                       ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(LucideIcons.trendingUp, size: 12, color: Colors.white),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 10),
-            Text(
-              song.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
-            ),
-            Text(
-              song.artist,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 12,
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: GlassmorphicContainer(
+                blur: 25,
+                opacity: 0.4,
+                borderRadius: BorderRadius.zero,
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      song.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      song.artist,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -1214,11 +1268,17 @@ class _SongListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final shadTheme = ShadTheme.of(context);
 
-    return GestureDetector(
+    return BouncingTapWidget(
       onTap: onTap,
       onLongPress: onLongPress,
-      child: ShadCard(
+      scaleFactor: 0.97,
+      child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: shadTheme.colorScheme.muted.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        ),
         child: Row(
           children: [
             SizedBox(
@@ -1226,42 +1286,40 @@ class _SongListTile extends StatelessWidget {
               child: Text(
                 index.toString().padLeft(2, '0'),
                 style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                  color: shadTheme.colorScheme.mutedForeground,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  color: shadTheme.colorScheme.mutedForeground.withValues(alpha: 0.6),
                 ),
               ),
             ),
             const SizedBox(width: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: SizedBox(
-                width: 48,
-                height: 48,
-                child: song.thumbnailUrl.isNotEmpty
-                    ? Image.network(
-                        song.thumbnailUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: shadTheme.colorScheme.muted,
-                          child: Icon(
-                            LucideIcons.music,
-                            size: 20,
-                            color: shadTheme.colorScheme.mutedForeground,
-                          ),
-                        ),
-                      )
-                    : Container(
-                        color: shadTheme.colorScheme.muted,
-                        child: Icon(
-                          LucideIcons.music,
-                          size: 20,
-                          color: shadTheme.colorScheme.mutedForeground,
-                        ),
-                      ),
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox(
+                  width: 52,
+                  height: 52,
+                  child: song.thumbnailUrl.isNotEmpty
+                      ? Image.network(
+                          song.thumbnailUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _fallbackArt(shadTheme),
+                        )
+                      : _fallbackArt(shadTheme),
+                ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1270,17 +1328,16 @@ class _SongListTile extends StatelessWidget {
                     song.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                   ),
+                  const SizedBox(height: 4),
                   Text(
                     song.artist,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
                       color: shadTheme.colorScheme.mutedForeground,
                     ),
                   ),
@@ -1288,26 +1345,20 @@ class _SongListTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  song.durationFormatted,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: shadTheme.colorScheme.mutedForeground,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Icon(
-                  LucideIcons.play,
-                  size: 18,
-                  color: shadTheme.colorScheme.primary,
-                ),
-              ],
-            ),
+            Icon(LucideIcons.moreVertical, size: 16, color: shadTheme.colorScheme.mutedForeground),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _fallbackArt(ShadThemeData shadTheme) {
+    return Container(
+      color: shadTheme.colorScheme.muted,
+      child: Icon(
+        LucideIcons.music,
+        size: 20,
+        color: shadTheme.colorScheme.mutedForeground,
       ),
     );
   }
@@ -1644,27 +1695,34 @@ class _DiscoverTabState extends State<_DiscoverTab>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Search shortcut
-                  GestureDetector(
+                  BouncingTapWidget(
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const SearchPage()),
                     ),
-                    child: ShadCard(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
+                    scaleFactor: 0.95,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: shadTheme.colorScheme.muted.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.05),
+                        ),
                       ),
                       child: Row(
                         children: [
                           Icon(
                             LucideIcons.search,
-                            size: 18,
+                            size: 20,
                             color: shadTheme.colorScheme.mutedForeground,
                           ),
                           const SizedBox(width: 12),
                           Text(
-                            'Songs, artists, albums...',
+                            'Search artists, songs, or podcasts...',
                             style: TextStyle(
                               color: shadTheme.colorScheme.mutedForeground,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
                             ),
                           ),
                         ],
@@ -1994,62 +2052,69 @@ class _LastFmTrackCard extends StatelessWidget {
     final shadTheme = ShadTheme.of(context);
     final imageUrl = track['image'] as String?;
 
-    return GestureDetector(
+    return BouncingTapWidget(
       onTap: onTap,
+      scaleFactor: 0.95,
       child: SizedBox(
-        width: 148,
+        width: 150,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ShadCard(
-              padding: EdgeInsets.zero,
+            Container(
+              width: 150,
+              height: 150,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 148,
-                  height: 148,
-                  child: (imageUrl != null && imageUrl.isNotEmpty)
-                      ? Image.network(
-                          imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            color: shadTheme.colorScheme.muted,
-                            child: Icon(
-                              LucideIcons.music,
-                              size: 40,
-                              color: shadTheme.colorScheme.mutedForeground,
-                            ),
-                          ),
-                        )
-                      : Container(
-                          color: shadTheme.colorScheme.muted,
-                          child: Icon(
-                            LucideIcons.music,
-                            size: 40,
-                            color: shadTheme.colorScheme.mutedForeground,
-                          ),
-                        ),
-                ),
+                borderRadius: BorderRadius.circular(20),
+                child: (imageUrl != null && imageUrl.isNotEmpty)
+                    ? Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _fallbackArt(shadTheme),
+                      )
+                    : _fallbackArt(shadTheme),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
               track['name'] as String? ?? 'Unknown Track',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
             ),
+            const SizedBox(height: 2),
             Text(
               track['artist'] as String? ?? 'Unknown Artist',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 12,
+                fontWeight: FontWeight.w500,
                 color: shadTheme.colorScheme.mutedForeground,
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _fallbackArt(ShadThemeData shadTheme) {
+    return Container(
+      color: shadTheme.colorScheme.muted,
+      child: Icon(
+        LucideIcons.music,
+        size: 40,
+        color: shadTheme.colorScheme.mutedForeground,
       ),
     );
   }
@@ -2349,66 +2414,84 @@ class _LibraryTabState extends State<_LibraryTab>
                         ...state.playlists.map(
                           (playlist) => Padding(
                             padding: const EdgeInsets.only(bottom: 8),
-                            child: ShadCard(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 12,
-                              ),
-                              child: Row(
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: SizedBox(
-                                      width: 48,
-                                      height: 48,
-                                      child: playlist.thumbnailUrl != null
-                                          ? Image.network(
-                                              playlist.thumbnailUrl!,
-                                              fit: BoxFit.cover,
-                                            )
-                                          : Container(
-                                              color:
-                                                  shadTheme.colorScheme.muted,
-                                              child: Icon(
-                                                LucideIcons.listMusic,
-                                                color: shadTheme
-                                                    .colorScheme
-                                                    .mutedForeground,
-                                              ),
+                            child: BouncingTapWidget(
+                              onTap: () {
+                                // TODO: Handle playlist tap
+                              },
+                              scaleFactor: 0.97,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: shadTheme.colorScheme.muted.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(10),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.1),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(10),
+                                        child: SizedBox(
+                                          width: 48,
+                                          height: 48,
+                                          child: playlist.thumbnailUrl != null
+                                              ? Image.network(
+                                                  playlist.thumbnailUrl!,
+                                                  fit: BoxFit.cover,
+                                                )
+                                              : Container(
+                                                  color: shadTheme.colorScheme.muted,
+                                                  child: Icon(
+                                                    LucideIcons.listMusic,
+                                                    color: shadTheme.colorScheme.mutedForeground,
+                                                  ),
+                                                ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            playlist.name,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 15,
                                             ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          playlist.name,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
                                           ),
-                                        ),
-                                        Text(
-                                          '${playlist.trackCount} songs',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: shadTheme
-                                                .colorScheme
-                                                .mutedForeground,
+                                          Text(
+                                            '${playlist.trackCount} songs',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                              color: shadTheme.colorScheme.mutedForeground,
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  Icon(
-                                    LucideIcons.chevronRight,
-                                    size: 18,
-                                    color:
-                                        shadTheme.colorScheme.mutedForeground,
-                                  ),
-                                ],
+                                    Icon(
+                                      LucideIcons.chevronRight,
+                                      size: 18,
+                                      color: shadTheme.colorScheme.mutedForeground,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -2450,10 +2533,16 @@ class _LibraryItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shadTheme = ShadTheme.of(context);
-    return GestureDetector(
+    return BouncingTapWidget(
       onTap: onTap,
-      child: ShadCard(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      scaleFactor: 0.97,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: shadTheme.colorScheme.muted.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        ),
         child: Row(
           children: [
             Container(
@@ -2461,23 +2550,32 @@ class _LibraryItemCard extends StatelessWidget {
               height: 48,
               decoration: BoxDecoration(
                 gradient: LinearGradient(colors: gradient),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: gradient.first.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Icon(icon, color: Colors.white, size: 22),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                   ),
+                  const SizedBox(height: 2),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
                       color: shadTheme.colorScheme.mutedForeground,
                     ),
                   ),
