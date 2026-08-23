@@ -160,6 +160,16 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
     return results.map((item) => _parseAlbum(item as Map<String, dynamic>)).whereType<Album>().toList();
   }
 
+  // Static cache for the known working CDN host across instances
+  static String? _workingCdnHost;
+  
+  static const List<String> _cdnHosts = [
+    'jiosaavn.cdn.jio.com',
+    'aac.saavncdn.com',
+    'jiotune.saavncdn.com',
+    'snz.saavncdn.com',
+  ];
+
   @override
   Future<StreamInfo?> getStreamUrl(Song song) async {
     try {
@@ -183,26 +193,44 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
             String encryptedUrl = moreInfo['encrypted_media_url'];
             String decryptedUrl = _decryptUrl(encryptedUrl);
             decryptedUrl = decryptedUrl.replaceAll('_96.mp4', '_320.mp4');
-            // Some ISPs block aac.saavncdn.com, so we use the unblocked jiosaavn.cdn.jio.com alias
-            decryptedUrl = decryptedUrl.replaceAll('aac.saavncdn.com', 'jiosaavn.cdn.jio.com');
-            debugPrint('JioSaavnDataSource: Successfully extracted 320kbps stream');
+            
+            final uri = Uri.parse(decryptedUrl);
+            final originalHost = uri.host;
+            
+            // Try to find a working CDN host
+            String? finalUrl;
+            
+            // Re-order CDNs to try the cached working one first
+            final hostsToTry = _workingCdnHost != null 
+                ? [_workingCdnHost!, ..._cdnHosts.where((h) => h != _workingCdnHost)]
+                : _cdnHosts;
 
-            // Pre-validate the stream URL to ensure the CDN is reachable (not blocked/timed out)
-            try {
-              final headResponse = await _client
-                  .head(Uri.parse(decryptedUrl))
-                  .timeout(const Duration(milliseconds: 1500));
-              if (headResponse.statusCode != 200 && headResponse.statusCode != 206) {
-                debugPrint('JioSaavnDataSource: Stream URL validation failed (Status ${headResponse.statusCode})');
-                return null;
+            for (final host in hostsToTry) {
+              final testUrl = decryptedUrl.replaceFirst(originalHost, host);
+              try {
+                debugPrint('JioSaavnDataSource: Testing CDN $host');
+                final headResponse = await _client
+                    .head(Uri.parse(testUrl))
+                    .timeout(const Duration(milliseconds: 1500));
+                
+                if (headResponse.statusCode == 200 || headResponse.statusCode == 206) {
+                  _workingCdnHost = host;
+                  finalUrl = testUrl;
+                  debugPrint('JioSaavnDataSource: Found working CDN: $host');
+                  break; // Found a working CDN
+                }
+              } catch (e) {
+                debugPrint('JioSaavnDataSource: CDN $host unreachable/timed out');
               }
-            } catch (e) {
-              debugPrint('JioSaavnDataSource: Stream URL validation failed (Unreachable/Timeout): $e');
+            }
+
+            if (finalUrl == null) {
+              debugPrint('JioSaavnDataSource: All CDNs failed validation (Unreachable/Timeout)');
               return null; // Fallback to YouTube Explode
             }
 
             return StreamInfo(
-              url: decryptedUrl,
+              url: finalUrl,
               quality: AudioQuality.high,
               codec: 'mp4a',
               container: 'mp4',
