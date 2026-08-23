@@ -18,8 +18,8 @@ class _CacheEntry {
 class StreamCacheService {
   final Map<String, _CacheEntry> _cache = {};
   
-  // YouTube streams typically expire in 6 hours, we use 5 hours to be safe
-  static const Duration _defaultTTL = Duration(hours: 5);
+  // YouTube streams expire unpredictably (signature rotation); use conservative TTL
+  static const Duration _defaultTTL = Duration(minutes: 45);
   
   /// Get cached stream if available and not expired
   StreamInfo? getCached(String videoId) {

@@ -1,10 +1,15 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:pointycastle/block/desede_engine.dart';
+import 'package:pointycastle/block/modes/ecb.dart';
+import 'package:pointycastle/api.dart';
 import '../../../../domain/entities/song.dart';
 import '../../../../domain/entities/artist.dart';
 import '../../../../domain/entities/album.dart';
 import '../../../../domain/entities/playlist.dart';
+import '../../../../domain/entities/stream_info.dart';
 
 /// Data source for JioSaavn API operations
 /// Using working JioSaavn API endpoint
@@ -29,6 +34,9 @@ abstract class JioSaavnDataSource {
 
   /// Get artist's albums
   Future<List<Album>> getArtistAlbums(String artistId, {int page = 1, int limit = 20});
+  
+  /// Generates a 320kbps MP4 stream URL using JioSaavn's official API
+  Future<StreamInfo?> getStreamUrl(Song song);
 }
 
 /// Implementation of JioSaavn data source using HTTP API
@@ -150,6 +158,84 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
 
     final results = data['results'] as List? ?? [];
     return results.map((item) => _parseAlbum(item as Map<String, dynamic>)).whereType<Album>().toList();
+  }
+
+  @override
+  Future<StreamInfo?> getStreamUrl(Song song) async {
+    try {
+      final query = Uri.encodeComponent('${song.title} ${song.artist}');
+      final searchUrl = 'https://www.jiosaavn.com/api.php?__call=search.getResults&q=$query&_format=json&_marker=0&api_version=4&ctx=web6dot0';
+
+      debugPrint('JioSaavnDataSource: Searching for ${song.title} - ${song.artist}');
+      final response = await _client.get(Uri.parse(searchUrl));
+      
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        dynamic data = response.body;
+        if (data is String) {
+          data = jsonDecode(data.trim());
+        }
+
+        if (data['results'] != null && data['results'].isNotEmpty) {
+          final result = data['results'][0];
+          final moreInfo = result['more_info'];
+
+          if (moreInfo != null && moreInfo['encrypted_media_url'] != null) {
+            String encryptedUrl = moreInfo['encrypted_media_url'];
+            String decryptedUrl = _decryptUrl(encryptedUrl);
+            decryptedUrl = decryptedUrl.replaceAll('_96.mp4', '_320.mp4');
+            // Some ISPs block aac.saavncdn.com, so we use the unblocked jiosaavn.cdn.jio.com alias
+            decryptedUrl = decryptedUrl.replaceAll('aac.saavncdn.com', 'jiosaavn.cdn.jio.com');
+            debugPrint('JioSaavnDataSource: Successfully extracted 320kbps stream');
+
+            // Pre-validate the stream URL to ensure the CDN is reachable (not blocked/timed out)
+            try {
+              final headResponse = await _client
+                  .head(Uri.parse(decryptedUrl))
+                  .timeout(const Duration(milliseconds: 1500));
+              if (headResponse.statusCode != 200 && headResponse.statusCode != 206) {
+                debugPrint('JioSaavnDataSource: Stream URL validation failed (Status ${headResponse.statusCode})');
+                return null;
+              }
+            } catch (e) {
+              debugPrint('JioSaavnDataSource: Stream URL validation failed (Unreachable/Timeout): $e');
+              return null; // Fallback to YouTube Explode
+            }
+
+            return StreamInfo(
+              url: decryptedUrl,
+              quality: AudioQuality.high,
+              codec: 'mp4a',
+              container: 'mp4',
+              bitrate: 320,
+              isAudioOnly: true,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('JioSaavnDataSource Error: $e');
+    }
+    return null;
+  }
+
+  String _decryptUrl(String encryptedText) {
+    final keyStr = '38346591';
+    final keyStr3 = keyStr + keyStr + keyStr; // 3DES with K1=K2=K3 is equivalent to DES
+    final key = utf8.encode(keyStr3);
+    final cipher = DESedeEngine()..init(false, KeyParameter(Uint8List.fromList(key)));
+    final ecb = ECBBlockCipher(cipher);
+    
+    final encryptedBytes = base64Decode(encryptedText);
+    final decryptedBytes = Uint8List(encryptedBytes.length);
+    
+    for (var i = 0; i < encryptedBytes.length; i += ecb.blockSize) {
+      ecb.processBlock(encryptedBytes, i, decryptedBytes, i);
+    }
+    
+    final paddingLength = decryptedBytes.last;
+    final unpadded = decryptedBytes.sublist(0, decryptedBytes.length - paddingLength);
+    
+    return utf8.decode(unpadded);
   }
 
   // ─────────────────────────────────────────────────────────────────────────────

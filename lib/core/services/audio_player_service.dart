@@ -66,10 +66,10 @@ class AudioPlayerService {
     _player = AudioPlayer(
       audioLoadConfiguration: AudioLoadConfiguration(
         androidLoadControl: AndroidLoadControl(
-          minBufferDuration: const Duration(seconds: 60),
+          minBufferDuration: const Duration(seconds: 30),
           maxBufferDuration: const Duration(seconds: 120),
-          bufferForPlaybackDuration: const Duration(seconds: 10),
-          bufferForPlaybackAfterRebufferDuration: const Duration(seconds: 10),
+          bufferForPlaybackDuration: const Duration(seconds: 2),
+          bufferForPlaybackAfterRebufferDuration: const Duration(seconds: 3),
         ),
       ),
       // Enable background playback and handle interruptions
@@ -388,7 +388,14 @@ class AudioPlayerService {
     try {
       AudioSource source;
 
-      if (videoId != null && videoId.isNotEmpty) {
+      if (url != null && url.isNotEmpty) {
+        debugPrint('AudioPlayerService: Adding regular URL to queue');
+        source = AudioSource.uri(
+          Uri.parse(url),
+          headers: sanitizedHeaders,
+          tag: MediaItem(id: url, title: 'Loading...', album: 'Prism Music'),
+        );
+      } else if (videoId != null && videoId.isNotEmpty) {
         debugPrint(
           'AudioPlayerService: Adding YouTube song to queue: $videoId',
         );
@@ -402,12 +409,7 @@ class AudioPlayerService {
           ),
         );
       } else {
-        debugPrint('AudioPlayerService: Adding regular URL to queue');
-        source = AudioSource.uri(
-          Uri.parse(url),
-          headers: sanitizedHeaders,
-          tag: MediaItem(id: url, title: 'Loading...', album: 'Prism Music'),
-        );
+        throw Exception('No URL or videoId provided');
       }
 
       _queueSources.add(source);
@@ -492,22 +494,22 @@ class AudioPlayerService {
 
         AudioSource source;
 
-        // PRIORITY: Use YouTubeAudioSource if videoId is available (more reliable)
-        if (videoId != null && videoId.isNotEmpty) {
+        // PRIORITY: Use direct stream URL if available (faster, avoids bot checks)
+        if (url != null && url.isNotEmpty) {
+          debugPrint('AudioPlayerService: Using pre-loaded URL directly');
+          source = AudioSource.uri(
+            Uri.parse(url),
+            headers: sanitizedHeaders,
+            tag: mediaItem,
+          );
+        } else if (videoId != null && videoId.isNotEmpty) {
+          // Fallback: Use YouTubeAudioSource
           debugPrint(
             'AudioPlayerService: Using YouTubeAudioSource for videoId: $videoId',
           );
           source = YouTubeAudioSource(
             videoId: videoId,
             quality: quality,
-            tag: mediaItem,
-          );
-        } else if (url != null && url.isNotEmpty) {
-          // Fallback: Use pre-loaded URL directly
-          debugPrint('AudioPlayerService: Using pre-loaded URL directly');
-          source = AudioSource.uri(
-            Uri.parse(url),
-            headers: sanitizedHeaders,
             tag: mediaItem,
           );
         } else {
@@ -593,16 +595,16 @@ class AudioPlayerService {
         );
 
         AudioSource source;
-        if (videoId != null && videoId.isNotEmpty) {
-          source = YouTubeAudioSource(
-            videoId: videoId,
-            quality: quality,
-            tag: mediaItem,
-          );
-        } else if (url != null && url.isNotEmpty) {
+        if (url != null && url.isNotEmpty) {
           source = AudioSource.uri(
             Uri.parse(url),
             headers: sanitizedHeaders,
+            tag: mediaItem,
+          );
+        } else if (videoId != null && videoId.isNotEmpty) {
+          source = YouTubeAudioSource(
+            videoId: videoId,
+            quality: quality,
             tag: mediaItem,
           );
         } else {

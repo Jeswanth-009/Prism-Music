@@ -10,9 +10,7 @@ class InvidiousInstances {
     'https://invidious.nerdvpn.de',
     'https://invidious.private.coffee',
     'https://inv.nadeko.net',
-    'https://invidious.drgns.space',
-    'https://yt.artemislena.eu',
-    'https://invidious.jing.rocks',
+    'https://yewtu.be',
   ];
   
   static String _currentInstance = instances[0];
@@ -36,9 +34,9 @@ class InvidiousDataSource {
   final Dio _dio;
   
   InvidiousDataSource({Dio? dio}) : _dio = dio ?? Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 15),
-    sendTimeout: const Duration(seconds: 15),
+    connectTimeout: const Duration(seconds: 8),
+    receiveTimeout: const Duration(seconds: 8),
+    sendTimeout: const Duration(seconds: 8),
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'Accept': 'application/json',
@@ -52,8 +50,9 @@ class InvidiousDataSource {
     debugPrint('InvidiousDataSource: Getting stream for $videoId');
     debugPrint('InvidiousDataSource: Available instances: ${InvidiousInstances.instances}');
     
-    // Try each instance until one works
-    for (int attempt = 0; attempt < InvidiousInstances.instances.length; attempt++) {
+    // Try up to 3 instances (not all) to fail fast
+    final maxAttempts = InvidiousInstances.instances.length.clamp(0, 3);
+    for (int attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         final instance = InvidiousInstances.currentInstance;
         debugPrint('InvidiousDataSource: Trying $instance');

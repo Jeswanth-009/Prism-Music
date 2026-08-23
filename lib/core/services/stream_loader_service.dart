@@ -3,10 +3,13 @@ import 'package:flutter/foundation.dart';
 import '../../domain/entities/stream_info.dart';
 import '../../domain/entities/song.dart';
 import '../../data/datasources/remote/youtube/youtube_music_datasource.dart';
+import '../../data/datasources/remote/youtube/piped_datasource.dart';
+import '../../data/datasources/remote/youtube/invidious_datasource.dart';
+import '../../data/datasources/remote/jiosaavn/jiosaavn_datasource.dart';
 import 'stream_cache_service.dart';
 
 /// Strategy for fetching stream URLs
-enum StreamSource { youtubeExplode, invidious, alternative }
+enum StreamSource { jioSaavn, youtubeExplode, invidious, alternative }
 
 /// Result from a stream fetch attempt
 class _FetchResult {
@@ -29,8 +32,9 @@ class _FetchResult {
 class StreamLoaderService {
   final YouTubeMusicDataSource _datasource;
   final StreamCacheService _cache;
+  final JioSaavnDataSource _jioSaavn = JioSaavnDataSourceImpl();
 
-  static const Duration _streamFetchTimeout = Duration(seconds: 15);
+  static const Duration _streamFetchTimeout = Duration(seconds: 10);
 
   // Prefetch queue to load next songs in background
   final Map<String, Future<StreamInfo?>> _prefetchQueue = {};
@@ -85,7 +89,7 @@ class StreamLoaderService {
 
     // Fetch with optimized strategy (primary source only to reduce latency)
     debugPrint('StreamLoader: Loading stream for ${song.title}');
-    final streamInfo = await _fetchOptimized(videoId, preferredQuality);
+    final streamInfo = await _fetchOptimized(song, preferredQuality);
 
     // Cache the result
     _cache.cache(videoId, streamInfo);
@@ -101,33 +105,69 @@ class StreamLoaderService {
 
   /// Optimized fetch - use primary source once and fail fast on errors.
   Future<StreamInfo> _fetchOptimized(
-    String videoId,
+    Song song,
     AudioQuality preferredQuality,
   ) async {
+    final videoId = song.playableId;
     final stopwatch = Stopwatch()..start();
 
-    final result = await _fetchFromSource(
+    // Primary: JioSaavn
+    debugPrint('StreamLoader: Trying JioSaavn primary...');
+    final jioStream = await _jioSaavn.getStreamUrl(song);
+    
+    if (jioStream != null) {
+      debugPrint('StreamLoader: JioSaavn succeeded in ${stopwatch.elapsedMilliseconds}ms');
+      _recordAttempt(_FetchResult(source: StreamSource.jioSaavn, streamInfo: jioStream, error: null, fetchTime: stopwatch.elapsed));
+      return jioStream;
+    }
+
+    debugPrint('StreamLoader: JioSaavn failed, trying YouTube Explode fallback...');
+
+    // Fallback 1: YouTube Explode
+    final ytResult = await _fetchFromSource(
       videoId,
       StreamSource.youtubeExplode,
       preferredQuality,
     );
+    _recordAttempt(ytResult);
 
-    _recordAttempt(result);
-    stopwatch.stop();
+    if (ytResult.isSuccess) {
+      debugPrint('StreamLoader: YouTube Explode succeeded in ${stopwatch.elapsedMilliseconds}ms');
+      return ytResult.streamInfo!;
+    }
+    
+    debugPrint('StreamLoader: YouTube Explode failed, trying Piped fallback...');
 
-    if (result.isSuccess) {
-      debugPrint(
-        'StreamLoader: Source ${result.source.name} succeeded '
-        'in ${stopwatch.elapsedMilliseconds}ms',
-      );
-      return result.streamInfo!;
+    // Fallback 1: Piped (Alternative)
+    final pipedResult = await _fetchFromSource(
+      videoId,
+      StreamSource.alternative,
+      preferredQuality,
+    );
+    _recordAttempt(pipedResult);
+
+    if (pipedResult.isSuccess) {
+      debugPrint('StreamLoader: Piped fallback succeeded in ${stopwatch.elapsedMilliseconds}ms');
+      return pipedResult.streamInfo!;
     }
 
-    debugPrint(
-      'StreamLoader: Source ${result.source.name} failed '
-      'in ${stopwatch.elapsedMilliseconds}ms: ${result.error}',
+    debugPrint('StreamLoader: Piped failed, trying Invidious fallback...');
+
+    // Fallback 2: Invidious
+    final invResult = await _fetchFromSource(
+      videoId,
+      StreamSource.invidious,
+      preferredQuality,
     );
-    throw Exception('Stream fetch failed: ${result.error}');
+    _recordAttempt(invResult);
+
+    if (invResult.isSuccess) {
+      debugPrint('StreamLoader: Invidious fallback succeeded in ${stopwatch.elapsedMilliseconds}ms');
+      return invResult.streamInfo!;
+    }
+
+    stopwatch.stop();
+    throw Exception('All stream sources failed to fetch $videoId');
   }
 
   /// Prefetch stream for a song (non-blocking, background task)
@@ -146,7 +186,7 @@ class StreamLoaderService {
     }
 
     debugPrint('StreamLoader: Prefetching ${song.title}');
-    _prefetchQueue[videoId] = _fetchOptimized(videoId, preferredQuality)
+    _prefetchQueue[videoId] = _fetchOptimized(song, preferredQuality)
         .then<StreamInfo?>((streamInfo) {
           _cache.cache(videoId, streamInfo);
           debugPrint('StreamLoader: Prefetch complete for ${song.title}');
@@ -191,14 +231,20 @@ class StreamLoaderService {
           break;
 
         case StreamSource.invidious:
-          // Add Invidious implementation here
-          await Future.delayed(const Duration(milliseconds: 100));
-          throw UnimplementedError('Invidious not implemented yet');
+          final invidious = InvidiousDataSource();
+          streamInfo = await invidious.getStreamUrl(videoId)
+              .timeout(_streamFetchTimeout);
+          break;
 
         case StreamSource.alternative:
-          // Add alternative source implementation here
-          await Future.delayed(const Duration(milliseconds: 100));
-          throw UnimplementedError('Alternative source not implemented yet');
+          final piped = PipedDataSource();
+          streamInfo = await piped.getStreamUrl(videoId)
+              .timeout(_streamFetchTimeout);
+          break;
+
+        case StreamSource.jioSaavn:
+          // Handled directly in _fetchOptimized
+          break;
       }
 
       stopwatch.stop();

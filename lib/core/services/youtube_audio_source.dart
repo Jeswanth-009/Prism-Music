@@ -80,6 +80,7 @@ class YouTubeAudioSource extends StreamAudioSource {
           ytClients: [
             YoutubeApiClient.androidSdkless,
             YoutubeApiClient.tv,
+            YoutubeApiClient.ios,
           ],
           requireWatchPage: false,
         );
@@ -87,7 +88,10 @@ class YouTubeAudioSource extends StreamAudioSource {
         debugPrint('YouTubeAudioSource: Primary client failed: $e');
         manifest = await _ytExplode.videos.streamsClient.getManifest(
           videoId,
-          ytClients: [YoutubeApiClient.tv],
+          ytClients: [
+            YoutubeApiClient.tv,
+            YoutubeApiClient.ios,
+          ],
           requireWatchPage: false,
         );
       }
@@ -170,9 +174,11 @@ class YouTubeAudioSource extends StreamAudioSource {
         
         // Add range header for seeking support
         request.headers['range'] = 'bytes=$start-${rangeEnd - 1}';
-        request.headers['user-agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
         
-        final response = await request.send();
+        final response = await request.send().timeout(
+          const Duration(seconds: 15),
+          onTimeout: () => throw Exception('HTTP stream request timed out'),
+        );
         debugPrint('YouTubeAudioSource: Response status: ${response.statusCode}');
         debugPrint('YouTubeAudioSource: Response headers: ${response.headers}');
         
@@ -233,13 +239,17 @@ class YouTubeAudioSource extends StreamAudioSource {
           ytClients: [
             YoutubeApiClient.androidSdkless,
             YoutubeApiClient.tv,
+            YoutubeApiClient.ios,
           ],
           requireWatchPage: false,
         );
       } catch (e) {
         manifest = await _ytExplode.videos.streamsClient.getManifest(
           videoId,
-          ytClients: [YoutubeApiClient.tv],
+          ytClients: [
+            YoutubeApiClient.tv,
+            YoutubeApiClient.ios,
+          ],
           requireWatchPage: false,
         );
       }

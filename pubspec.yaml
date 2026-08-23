@@ -76,6 +76,8 @@ dependencies:
   audio_session: ^0.2.4
   just_audio_background: ^0.0.1-beta.17
   shadcn_ui: ^0.53.6
+  darttubefix: ^1.0.1
+  encrypt: ^5.0.3
 
 dev_dependencies:
   flutter_test:

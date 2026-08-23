@@ -7,10 +7,9 @@ import '../../../../domain/entities/song.dart';
 class PipedInstances {
   static const List<String> apiInstances = [
     'https://pipedapi.kavin.rocks',
+    'https://pipedapi.adminforge.de',
     'https://api.piped.privacydev.net',
-    'https://piped-api.lunar.icu',
-    'https://pipedapi.drgns.space',
-    'https://pipedapi.tokhmi.xyz',
+    'https://pipedapi.r4fo.com',
   ];
   
   /// Piped proxy instances for streaming audio
@@ -48,8 +47,8 @@ class PipedDataSource {
   final Dio _dio;
   
   PipedDataSource({Dio? dio}) : _dio = dio ?? Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 15),
+    connectTimeout: const Duration(seconds: 8),
+    receiveTimeout: const Duration(seconds: 8),
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     },
@@ -85,8 +84,9 @@ class PipedDataSource {
   Future<StreamInfo?> getStreamUrl(String videoId) async {
     debugPrint('PipedDataSource: Getting stream for $videoId');
     
-    // Try each instance until one works
-    for (int attempt = 0; attempt < PipedInstances.apiInstances.length; attempt++) {
+    // Try up to 3 instances (not all) to fail fast
+    final maxAttempts = PipedInstances.apiInstances.length.clamp(0, 3);
+    for (int attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         final instance = PipedInstances.currentApiInstance;
         debugPrint('PipedDataSource: Trying $instance');

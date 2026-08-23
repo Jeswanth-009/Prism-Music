@@ -132,7 +132,7 @@ class ChartService {
   Future<List<Song>> _fetchYouTubeNewReleases(String region) async {
     // Single search for new releases
     try {
-      final results = await _searchMultipleSongs('new music releases 2024', limit: 25);
+      final results = await _searchMultipleSongs('new music releases ${DateTime.now().year}', limit: 25);
       return results.where(_isValidSong).toList();
     } catch (e) {
       debugPrint('ChartService: Error fetching new releases: $e');
@@ -145,23 +145,24 @@ class ChartService {
     debugPrint('ChartService: Using search fallback for ${chart.id}');
     
     String query;
+    final currentYear = DateTime.now().year;
     
     if (chart.id.contains('hot100')) {
-      query = 'billboard hot 100 top songs 2024';
+      query = 'billboard hot 100 top songs $currentYear';
     } else if (chart.id.contains('global')) {
-      query = 'billboard global 200 top songs 2024';
+      query = 'billboard global 200 top songs $currentYear';
     } else if (chart.id.contains('tiktok')) {
-      query = 'tiktok viral songs trending 2024';
+      query = 'tiktok viral songs trending $currentYear';
     } else if (chart.id.contains('trending')) {
       final region = chart.region ?? 'global';
       final regionName = _getRegionName(region);
-      query = 'trending songs $regionName 2024';
+      query = 'trending songs $regionName $currentYear';
     } else if (chart.id.contains('top_music')) {
       final region = chart.region ?? 'global';
       final regionName = _getRegionName(region);
-      query = 'top music $regionName 2024';
+      query = 'top music $regionName $currentYear';
     } else {
-      query = 'top songs 2024';
+      query = 'top songs $currentYear';
     }
     
     final songs = <Song>[];

@@ -39,8 +39,8 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
   // Lightweight rate limiting + caching to keep fetches snappy without hitting limits
   DateTime? _lastRequestTime;
   static const _minRequestInterval = Duration(
-    milliseconds: 200,
-  ); // more responsive than 1s
+    milliseconds: 300,
+  ); // balance between responsiveness and rate-limit avoidance
 
   // Stream URL cache to avoid repeated manifest fetches for recently played tracks
   final Map<String, _StreamCacheEntry> _streamCache = {};
@@ -121,41 +121,20 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
         ytClients: [
           yt.YoutubeApiClient.androidSdkless,
           yt.YoutubeApiClient.tv,
+          yt.YoutubeApiClient.ios,
         ],
         requireWatchPage: false,
       );
       manifestStopwatch.stop();
 
       final selectStopwatch = Stopwatch()..start();
-      
-      final muxedStreams = manifest.muxed.toList();
+
+      // Audio-only streams only — muxed streams contain video data which
+      // wastes bandwidth and is more likely to be blocked by YouTube.
       final audioStreams = manifest.audioOnly.toList()
         ..sort(
           (a, b) => b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond),
         );
-
-      if (muxedStreams.isNotEmpty) {
-        final selectedStream = muxedStreams.first;
-        selectStopwatch.stop();
-        final directUrl = selectedStream.url.toString();
-        totalStopwatch.stop();
-
-        debugPrint('YouTubeDataSource: ✓ YouTube Explode SUCCESS (unthrottled itag ${selectedStream.tag})');
-
-        final streamInfo = domain.StreamInfo(
-          url: directUrl,
-          codec: selectedStream.audioCodec,
-          bitrate: selectedStream.bitrate.kiloBitsPerSecond.toInt(),
-          container: selectedStream.container.name,
-          quality: AudioQuality.high,
-          contentLength: selectedStream.size.totalBytes,
-          expiresAt: _extractExpiryFromUrl(directUrl),
-          isAudioOnly: false,
-        );
-
-        _cacheStream(cacheKey, streamInfo);
-        return streamInfo;
-      }
 
       if (audioStreams.isNotEmpty) {
         yt.AudioOnlyStreamInfo selectedStream;
@@ -232,32 +211,16 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
             ytClients: [
               yt.YoutubeApiClient.androidSdkless,
               yt.YoutubeApiClient.tv,
+              yt.YoutubeApiClient.ios,
             ],
             requireWatchPage: false,
           );
-          
-          final muxedStreams = manifest.muxed.toList();
+
           final audioStreams = manifest.audioOnly.toList()
             ..sort(
               (a, b) =>
                   b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond),
             );
-
-          if (muxedStreams.isNotEmpty) {
-            final selectedStream = muxedStreams.first;
-            final streamInfo = domain.StreamInfo(
-              url: selectedStream.url.toString(),
-              codec: selectedStream.audioCodec,
-              bitrate: selectedStream.bitrate.kiloBitsPerSecond.toInt(),
-              container: selectedStream.container.name,
-              quality: AudioQuality.high,
-              contentLength: selectedStream.size.totalBytes,
-              expiresAt: _extractExpiryFromUrl(selectedStream.url.toString()),
-              isAudioOnly: false,
-            );
-            _cacheStream(cacheKey, streamInfo);
-            return streamInfo;
-          }
 
           if (audioStreams.isNotEmpty) {
             final selectedStream = _selectBestAudioStream(
@@ -358,6 +321,7 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
       ytClients: [
         yt.YoutubeApiClient.androidSdkless,
         yt.YoutubeApiClient.tv,
+        yt.YoutubeApiClient.ios,
       ],
       requireWatchPage: false,
     );

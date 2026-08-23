@@ -55,7 +55,7 @@ android {
         applicationId = "com.prismmusic.app"
         // Minimum SDK 24 for proper audio/permission handling
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 36
         versionCode = maxOf(computeGitVersionCode(), flutter.versionCode ?: 1)
         versionName = flutter.versionName
         
