@@ -89,6 +89,9 @@ String _readString(Map<String, dynamic> item, List<String> keys) {
     if (value is String && value.trim().isNotEmpty) {
       return value.trim();
     }
+    if (value is num) {
+      return value.toString();
+    }
   }
   return '';
 }
@@ -152,6 +155,13 @@ List<String> _extractArtistNames(Map<String, dynamic> item) {
 }
 
 int _durationSeconds(Map<String, dynamic> item) {
+  for (final key in const ['durationSeconds', 'duration_seconds', 'duration']) {
+    final val = item[key];
+    if (val is num) {
+      return val.toInt();
+    }
+  }
+
   final secondsRaw = _readString(item, const ['durationSeconds']);
   final direct = int.tryParse(secondsRaw);
   if (direct != null) {
