@@ -5,6 +5,7 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 import '../../domain/entities/entities.dart';
 import '../blocs/library/library.dart';
 import '../blocs/player/player.dart';
+import '../widgets/common/bouncing_tap_widget.dart';
 
 /// Full, scrollable view of the listening history. Tapping a song plays it.
 class RecentlyPlayedPage extends StatelessWidget {
@@ -81,8 +82,9 @@ class _HistoryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final shadTheme = ShadTheme.of(context);
 
-    return GestureDetector(
+    return BouncingTapWidget(
       onTap: onTap,
+      scaleFactor: 0.96,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(

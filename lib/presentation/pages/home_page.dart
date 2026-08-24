@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../domain/entities/song.dart';
 import '../../domain/repositories/music_repository.dart';
 import '../../core/di/injection.dart';
@@ -381,19 +382,26 @@ class _HomeTabState extends State<_HomeTab> with AutomaticKeepAliveClientMixin {
                             ],
                           ),
                         ),
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              colors: [
-                                shadTheme.colorScheme.primary.withValues(alpha: 0.8),
-                                shadTheme.colorScheme.primary,
-                              ],
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const SettingsPage()),
+                            );
+                          },
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                colors: [
+                                  shadTheme.colorScheme.primary.withValues(alpha: 0.8),
+                                  shadTheme.colorScheme.primary,
+                                ],
+                              ),
                             ),
+                            child: const Icon(LucideIcons.user, color: Colors.white, size: 20),
                           ),
-                          child: const Icon(LucideIcons.user, color: Colors.white, size: 20),
                         ),
                       ],
                     ),
@@ -420,7 +428,7 @@ class _HomeTabState extends State<_HomeTab> with AutomaticKeepAliveClientMixin {
                             ),
                             const SizedBox(width: 12),
                             Text(
-                              'Search artists, songs, or podcasts...',
+                              'Search artists, songs, or albums...',
                               style: TextStyle(
                                 color: shadTheme.colorScheme.mutedForeground,
                                 fontWeight: FontWeight.w500,
@@ -634,10 +642,27 @@ class _HomeTabState extends State<_HomeTab> with AutomaticKeepAliveClientMixin {
   Widget _buildErrorCard(String message, VoidCallback retry) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: ShadAlert.destructive(
-        icon: const Icon(LucideIcons.circleAlert, size: 18),
-        title: const Text('Something went wrong'),
-        description: Text(message),
+      child: Column(
+        children: [
+          ShadAlert.destructive(
+            icon: const Icon(LucideIcons.circleAlert, size: 18),
+            title: const Text('Something went wrong'),
+            description: Text(message),
+          ),
+          const SizedBox(height: 12),
+          ShadButton.outline(
+            onPressed: retry,
+            size: ShadButtonSize.sm,
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(LucideIcons.refreshCw, size: 14),
+                SizedBox(width: 6),
+                Text('Retry'),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1086,10 +1111,10 @@ class _SongCard extends StatelessWidget {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(20),
                 child: song.thumbnailUrl.isNotEmpty
-                    ? Image.network(
-                        song.thumbnailUrl,
+                    ? CachedNetworkImage(
+                        imageUrl: song.thumbnailUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _fallbackArt(shadTheme),
+                        errorWidget: (_, __, ___) => _fallbackArt(shadTheme),
                       )
                     : _fallbackArt(shadTheme),
               ),
@@ -1161,10 +1186,10 @@ class _TrendingCard extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             if (song.thumbnailUrl.isNotEmpty)
-              Image.network(
-                song.thumbnailUrl,
+              CachedNetworkImage(
+                imageUrl: song.thumbnailUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const Icon(
+                errorWidget: (_, __, ___) => const Icon(
                   LucideIcons.music,
                   color: Colors.white54,
                   size: 40,
@@ -1310,10 +1335,10 @@ class _SongListTile extends StatelessWidget {
                   width: 52,
                   height: 52,
                   child: song.thumbnailUrl.isNotEmpty
-                      ? Image.network(
-                          song.thumbnailUrl,
+                      ? CachedNetworkImage(
+                          imageUrl: song.thumbnailUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _fallbackArt(shadTheme),
+                          errorWidget: (_, __, ___) => _fallbackArt(shadTheme),
                         )
                       : _fallbackArt(shadTheme),
                 ),
@@ -1345,7 +1370,13 @@ class _SongListTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Icon(LucideIcons.moreVertical, size: 16, color: shadTheme.colorScheme.mutedForeground),
+            GestureDetector(
+              onTap: onLongPress,
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(LucideIcons.moreVertical, size: 16, color: shadTheme.colorScheme.mutedForeground),
+              ),
+            ),
           ],
         ),
       ),
@@ -1669,7 +1700,7 @@ class _DiscoverTabState extends State<_DiscoverTab>
                     ShadTooltip(
                       builder: (_) =>
                           Text('Last.fm: ${_lastFmService.username}'),
-                      child: ShadBadge.destructive(
+                      child: ShadBadge.secondary(
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -1718,7 +1749,7 @@ class _DiscoverTabState extends State<_DiscoverTab>
                           ),
                           const SizedBox(width: 12),
                           Text(
-                            'Search artists, songs, or podcasts...',
+                            'Search artists, songs, or albums...',
                             style: TextStyle(
                               color: shadTheme.colorScheme.mutedForeground,
                               fontWeight: FontWeight.w500,
@@ -1823,36 +1854,42 @@ class _DiscoverTabState extends State<_DiscoverTab>
                   Row(
                     children: [
                       Expanded(
-                        child: ShadButton.outline(
-                          onPressed: () => _setRecommendationMode(
-                            RecommendationMode.similar,
-                          ),
-                          child: Text(
-                            _activeMode == RecommendationMode.similar
-                                ? 'Similar (Active)'
-                                : 'Similar',
-                          ),
-                        ),
+                        child: _activeMode == RecommendationMode.similar
+                          ? ShadButton(
+                              onPressed: () => _setRecommendationMode(
+                                RecommendationMode.similar,
+                              ),
+                              child: const Text('Similar'),
+                            )
+                          : ShadButton.outline(
+                              onPressed: () => _setRecommendationMode(
+                                RecommendationMode.similar,
+                              ),
+                              child: const Text('Similar'),
+                            ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: ShadButton.outline(
-                          onPressed: () => _setRecommendationMode(
-                            RecommendationMode.discover,
-                          ),
-                          child: Text(
-                            _activeMode == RecommendationMode.discover
-                                ? 'Discover (Active)'
-                                : 'Discover',
-                          ),
-                        ),
+                        child: _activeMode == RecommendationMode.discover
+                          ? ShadButton(
+                              onPressed: () => _setRecommendationMode(
+                                RecommendationMode.discover,
+                              ),
+                              child: const Text('Discover'),
+                            )
+                          : ShadButton.outline(
+                              onPressed: () => _setRecommendationMode(
+                                RecommendationMode.discover,
+                              ),
+                              child: const Text('Discover'),
+                            ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 10),
                   if (_recommendationSeedSong != null)
                     Text(
-                      'Seed: ${_recommendationSeedSong!.artist} - ${_recommendationSeedSong!.title}',
+                      'Based on: ${_recommendationSeedSong!.title} by ${_recommendationSeedSong!.artist}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -2076,10 +2113,10 @@ class _LastFmTrackCard extends StatelessWidget {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(20),
                 child: (imageUrl != null && imageUrl.isNotEmpty)
-                    ? Image.network(
-                        imageUrl,
+                    ? CachedNetworkImage(
+                        imageUrl: imageUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _fallbackArt(shadTheme),
+                        errorWidget: (_, __, ___) => _fallbackArt(shadTheme),
                       )
                     : _fallbackArt(shadTheme),
               ),
@@ -2340,6 +2377,7 @@ class _LibraryTabState extends State<_LibraryTab>
                         title: 'Recently Played',
                         subtitle: '${state.recentlyPlayed.length} songs',
                         gradient: const [Color(0xFFFF6B6B), Color(0xFFFFE66D)],
+                        showArrow: true,
                         onTap: () {
                           if (state.recentlyPlayed.isEmpty) {
                             ShadToaster.of(context).show(
@@ -2362,10 +2400,11 @@ class _LibraryTabState extends State<_LibraryTab>
                         title: 'Liked Songs',
                         subtitle: '${state.likedSongs.length} songs',
                         gradient: const [Color(0xFF614385), Color(0xFF516395)],
+                        showArrow: true,
                         onTap: () {
                           ShadToaster.of(
                             context,
-                          ).show(const ShadToast(title: Text('Liked Songs')));
+                          ).show(const ShadToast(title: Text('Liked Songs — coming soon!')));
                         },
                       ),
                       const SizedBox(height: 10),
@@ -2448,8 +2487,8 @@ class _LibraryTabState extends State<_LibraryTab>
                                           width: 48,
                                           height: 48,
                                           child: playlist.thumbnailUrl != null
-                                              ? Image.network(
-                                                  playlist.thumbnailUrl!,
+                                              ? CachedNetworkImage(
+                                                  imageUrl: playlist.thumbnailUrl!,
                                                   fit: BoxFit.cover,
                                                 )
                                               : Container(

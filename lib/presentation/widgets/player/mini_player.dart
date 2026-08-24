@@ -19,8 +19,7 @@ class _MiniPlayerState extends State<MiniPlayer>
     with SingleTickerProviderStateMixin {
   late AnimationController _animController;
   late Animation<double> _scaleAnimation;
-  // ignore: unused_field
-  bool _isPressed = false;
+
 
   @override
   void initState() {
@@ -99,16 +98,13 @@ class _MiniPlayerState extends State<MiniPlayer>
               }
             },
             onTapDown: (_) {
-              setState(() => _isPressed = true);
               _animController.forward();
             },
             onTapUp: (_) {
-              setState(() => _isPressed = false);
               _animController.reverse();
               _openFullPlayer(context);
             },
             onTapCancel: () {
-              setState(() => _isPressed = false);
               _animController.reverse();
             },
             child: Container(
@@ -233,7 +229,7 @@ class _MiniPlayerState extends State<MiniPlayer>
                                   children: [
                                     // Album art with animation
                                     Hero(
-                                      tag: 'album_art_${song.id}',
+                                      tag: 'album_art_${song.youtubeId ?? song.id}',
                                       child: _AlbumArtWidget(
                                         thumbnailUrl: song.thumbnailUrl,
                                         isPlaying: state.isPlaying,

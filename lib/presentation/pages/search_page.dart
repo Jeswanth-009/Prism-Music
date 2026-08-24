@@ -504,7 +504,11 @@ class _SearchPageState extends State<SearchPage> {
       itemBuilder: (context, index) {
         final album = state.results.albums[index];
         return GestureDetector(
-          onTap: () {},
+          onTap: () {
+            ShadToaster.of(context).show(
+              const ShadToast(title: Text('Album view coming soon!')),
+            );
+          },
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -640,7 +644,13 @@ class _SearchPageState extends State<SearchPage> {
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final playlist = state.results.playlists[index];
-        return ShadCard(
+        return GestureDetector(
+          onTap: () {
+            ShadToaster.of(context).show(
+              const ShadToast(title: Text('Playlist view coming soon!')),
+            );
+          },
+          child: ShadCard(
           padding:
               const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
@@ -687,6 +697,7 @@ class _SearchPageState extends State<SearchPage> {
                   size: 18,
                   color: theme.colorScheme.onSurfaceVariant),
             ],
+          ),
           ),
         );
       },

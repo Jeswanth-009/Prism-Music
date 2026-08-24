@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -20,6 +20,10 @@ import '../../core/services/audio_player_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'downloads_page.dart';
+import '../blocs/player/player_bloc.dart';
+import '../blocs/player/player_state.dart';
+import '../blocs/player/player_event.dart';
+import '../../domain/entities/entities.dart';
 /// Comprehensive settings page for Prism Music
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -440,12 +444,22 @@ class _SettingsPageState extends State<SettingsPage> {
               title: 'Audio',
               icon: LucideIcons.audioLines,
               children: [
-                _SettingRow(
-                  leading:
-                      const Icon(LucideIcons.audioWaveform, size: 20),
-                  title: 'Audio Quality',
-                  subtitle: 'High (192 kbps)',
-                  onTap: () => _showAudioQualityDialog(context),
+                BlocBuilder<PlayerBloc, PlayerState>(
+                  builder: (context, state) {
+                    final quality = state.audioQuality;
+                    final subtitle = switch (quality) {
+                      AudioQuality.low => 'Low (96 kbps)',
+                      AudioQuality.medium => 'Medium (128 kbps)',
+                      AudioQuality.high => 'High (192 kbps)',
+                      AudioQuality.lossless => 'Lossless (FLAC/ALAC)',
+                    };
+                    return _SettingRow(
+                      leading: const Icon(LucideIcons.audioWaveform, size: 20),
+                      title: 'Audio Quality',
+                      subtitle: subtitle,
+                      onTap: () => _showAudioQualityDialog(context),
+                    );
+                  },
                 ),
                 _SettingRow(
                   leading: Icon(LucideIcons.slidersHorizontal, size: 20),
@@ -482,11 +496,21 @@ class _SettingsPageState extends State<SettingsPage> {
               title: 'Playback',
               icon: LucideIcons.circlePlay,
               children: [
-                _SettingRow(
-                  leading: const Icon(LucideIcons.repeat, size: 20),
-                  title: 'Default Repeat Mode',
-                  subtitle: 'Off',
-                  onTap: () => _showRepeatModeDialog(context),
+                BlocBuilder<PlayerBloc, PlayerState>(
+                  builder: (context, state) {
+                    final mode = state.repeatMode;
+                    final subtitle = switch (mode) {
+                      RepeatMode.off => 'Off',
+                      RepeatMode.all => 'Repeat All',
+                      RepeatMode.one => 'Repeat One',
+                    };
+                    return _SettingRow(
+                      leading: const Icon(LucideIcons.repeat, size: 20),
+                      title: 'Default Repeat Mode',
+                      subtitle: subtitle,
+                      onTap: () => _showRepeatModeDialog(context),
+                    );
+                  },
                 ),
                 _SettingRow(
                   leading: const Icon(LucideIcons.shuffle, size: 20),

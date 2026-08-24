@@ -1323,7 +1323,7 @@ class _PlayerPageState extends State<PlayerPage>
                           title: Text(
                               'Downloading "${currentSong.title}"...'),
                           description:
-                              Text('Check the Downloads tab in Settings.'),
+                              Text('Check Downloads in your Library.'),
                         ),
                       );
 
@@ -1535,6 +1535,19 @@ class _PlayerPageState extends State<PlayerPage>
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
+    if (difference.isNegative) {
+      // Future date (e.g. stream expiry)
+      final remaining = dateTime.difference(now);
+      if (remaining.inDays > 0) {
+        return 'in ${remaining.inDays}d ${remaining.inHours.remainder(24)}h';
+      } else if (remaining.inHours > 0) {
+        return 'in ${remaining.inHours}h ${remaining.inMinutes.remainder(60)}m';
+      } else if (remaining.inMinutes > 0) {
+        return 'in ${remaining.inMinutes}m';
+      } else {
+        return 'in <1m';
+      }
+    }
     if (difference.inDays > 0) {
       return '${difference.inDays}d ago';
     } else if (difference.inHours > 0) {
