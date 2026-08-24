@@ -3,7 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../domain/entities/song.dart';
-import '../../domain/repositories/music_repository.dart';
+
 import 'stream_loader_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
