@@ -32,12 +32,9 @@ jobs:
     # ── Loop guard ────────────────────────────────────────────────
     # Skip jobs triggered by the auto-version bot commit so CI time
     # is not wasted on a pure version-bump with no code changes.
-    if: >
-      github.event_name != 'push' ||
-      (
-        github.actor != 'github-actions[bot]' &&
-        !startsWith(github.event.head_commit.message, 'chore: bump version')
-      )
+    if: >-
+      github.event_name == 'pull_request' || 
+      (github.actor != 'github-actions[bot]' && !startsWith(github.event.head_commit.message, 'chore: bump version'))
 
     steps:
       - name: Checkout
