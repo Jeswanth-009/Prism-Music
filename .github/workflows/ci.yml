@@ -29,12 +29,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    # ── Loop guard ────────────────────────────────────────────────
-    # Skip jobs triggered by the auto-version bot commit so CI time
-    # is not wasted on a pure version-bump with no code changes.
-    if: >-
-      github.event_name == 'pull_request' || 
-      (github.actor != 'github-actions[bot]' && !startsWith(github.event.head_commit.message, 'chore: bump version'))
+    # ── Clean Bot Filter ──────────────────────────────────────────
+    # Simply ignore any actions triggered directly by the automated bot
+    if: github.actor != 'github-actions[bot]'
 
     steps:
       - name: Checkout
