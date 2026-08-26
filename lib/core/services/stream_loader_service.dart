@@ -113,7 +113,12 @@ class StreamLoaderService {
 
     // Primary: JioSaavn
     debugPrint('StreamLoader: Trying JioSaavn primary...');
-    final jioStream = await _jioSaavn.getStreamUrl(song);
+    StreamInfo? jioStream;
+    try {
+      jioStream = await _jioSaavn.getStreamUrl(song).timeout(_streamFetchTimeout);
+    } catch (e) {
+      debugPrint('StreamLoader: JioSaavn timed out or failed: $e');
+    }
     
     if (jioStream != null) {
       debugPrint('StreamLoader: JioSaavn succeeded in ${stopwatch.elapsedMilliseconds}ms');

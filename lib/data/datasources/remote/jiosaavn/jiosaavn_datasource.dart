@@ -176,7 +176,7 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
       final searchUrl = 'https://www.jiosaavn.com/api.php?__call=search.getResults&q=$query&_format=json&_marker=0&api_version=4&ctx=web6dot0';
 
       debugPrint('JioSaavnDataSource: Searching for ${song.title} - ${song.artist}');
-      final response = await _client.get(Uri.parse(searchUrl));
+      final response = await _client.get(Uri.parse(searchUrl)).timeout(const Duration(seconds: 5));
       
       if (response.statusCode == 200 && response.body.isNotEmpty) {
         dynamic data = response.body;
