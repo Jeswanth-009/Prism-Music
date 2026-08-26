@@ -21,6 +21,7 @@ import '../blocs/library/library_bloc.dart';
 import '../blocs/library/library_event.dart' hide DownloadSongEvent;
 import '../widgets/common/bouncing_tap_widget.dart';
 import '../widgets/equalizer/equalizer_bottom_sheet.dart';
+import '../widgets/player/player_queue_sheet.dart';
 import 'artist_page.dart';
 
 /// Full screen player page with modern, animated blur background
@@ -1673,118 +1674,7 @@ class _PlayerPageState extends State<PlayerPage>
     showShadSheet(
       context: context,
       side: ShadSheetSide.bottom,
-      builder: (ctx) {
-        return ShadSheet(
-          title: const Text('Queue'),
-          actions: [
-            ShadButton.ghost(
-              onPressed: () {
-                context
-                    .read<PlayerBloc>()
-                    .add(const ClearQueueEvent());
-                Navigator.pop(ctx);
-              },
-              size: ShadButtonSize.sm,
-              child: const Text('Clear'),
-            ),
-          ],
-          child: SizedBox(
-            height: MediaQuery.of(context).size.height * 0.5,
-            child: ListView.builder(
-              itemCount: state.queue.length,
-              itemBuilder: (context, index) {
-                final song = state.queue[index];
-                final isPlaying = index == state.queueIndex;
-
-                return GestureDetector(
-                  onTap: isPlaying
-                      ? null
-                      : () {
-                          Navigator.pop(ctx);
-                          context.read<PlayerBloc>().add(
-                                PlaySongEvent(
-                                  song: song,
-                                  queue: state.queue,
-                                  queueIndex: index,
-                                ),
-                              );
-                        },
-                  child: ShadCard(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 8),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: SizedBox(
-                          width: 44,
-                          height: 44,
-                          child: song.thumbnailUrl.isNotEmpty
-                              ? Image.network(
-                                  song.thumbnailUrl,
-                                  fit: BoxFit.cover)
-                              : const Icon(LucideIcons.music),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              song.title,
-                              style: TextStyle(
-                                fontWeight: isPlaying
-                                    ? FontWeight.bold
-                                    : null,
-                                color: isPlaying
-                                    ? Theme.of(context)
-                                        .colorScheme
-                                        .primary
-                                    : null,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              song.artist,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (isPlaying)
-                        Icon(LucideIcons.audioLines,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .primary,
-                            size: 18)
-                      else
-                        ShadIconButton.ghost(
-                          icon: const Icon(LucideIcons.x,
-                              size: 16),
-                          width: 32,
-                          height: 32,
-                          onPressed: () {
-                            context.read<PlayerBloc>().add(
-                                  RemoveFromQueueEvent(index),
-                                );
-                          },
-                        ),
-                    ],
-                  ),
-                  ),
-                );
-              },
-            ),
-          ),
-        );
-      },
+      builder: (ctx) => const PlayerQueueSheet(),
     );
   }
 
