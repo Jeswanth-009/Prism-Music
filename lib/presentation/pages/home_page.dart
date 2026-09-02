@@ -1525,13 +1525,7 @@ class _DiscoverTabState extends State<_DiscoverTab>
 
   Future<void> _initialize() async {
     await _lastFmService.initialize();
-    final musicRepository = getIt<MusicRepository>();
-    final libraryRepository = getIt<LibraryRepository>();
-    _recommendationService = RecommendationService(
-      musicRepository,
-      libraryRepository,
-    );
-    await _recommendationService?.initialize();
+    _recommendationService = getIt<RecommendationService>();
     _activeMode = _recommendationService?.mode ?? RecommendationMode.discover;
 
     setState(() => _isInitialized = true);
@@ -1619,7 +1613,7 @@ class _DiscoverTabState extends State<_DiscoverTab>
         seedSong = await _resolveRecommendationSeedSong();
       }
 
-      if (seedSong == null) {
+      if (_activeMode == RecommendationMode.similar && seedSong == null) {
         if (!mounted) return;
         setState(() {
           _recommendationSeedSong = null;
@@ -1641,6 +1635,11 @@ class _DiscoverTabState extends State<_DiscoverTab>
         _recommendationSeedSong = seedSong;
         _modeRecommendations = songs;
         _isLoadingModeRecommendations = false;
+        _modeRecommendationError = songs.isEmpty
+            ? (_activeMode == RecommendationMode.similar
+                ? 'No similar songs found for this track. Try another song.'
+                : 'No discovery songs found yet. Try refreshing after a few plays.')
+            : null;
       });
     } catch (e) {
       if (!mounted) return;
@@ -1887,9 +1886,19 @@ class _DiscoverTabState extends State<_DiscoverTab>
                     ],
                   ),
                   const SizedBox(height: 10),
-                  if (_recommendationSeedSong != null)
+                  if (_activeMode == RecommendationMode.similar && _recommendationSeedSong != null)
                     Text(
                       'Based on: ${_recommendationSeedSong!.title} by ${_recommendationSeedSong!.artist}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: shadTheme.colorScheme.mutedForeground,
+                      ),
+                    )
+                  else if (_activeMode == RecommendationMode.discover)
+                    Text(
+                      'Curated based on your listening taste & regional trends',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(

@@ -11,6 +11,7 @@ import '../../../core/services/playback_reliability_service.dart';
 import '../../../core/services/stream_loader_service.dart';
 import '../../../core/services/download_service.dart';
 import '../../../core/services/settings_service.dart';
+import '../../../core/di/injection.dart';
 import '../../../domain/entities/entities.dart';
 import '../../../domain/repositories/repositories.dart';
 import 'player_event.dart';
@@ -52,7 +53,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
     if (kDebugMode) debugPrint(message);
   }
 
-PlayerBloc({
+  PlayerBloc({
     required MusicRepository musicRepository,
     required LibraryRepository libraryRepository,
     required AudioPlayerService audioPlayerService,
@@ -61,7 +62,8 @@ PlayerBloc({
     required PlaybackReliabilityService reliability,
     required StreamLoaderService streamLoader,
     required DownloadService downloadService,
-  }) : _musicRepository = musicRepository,
+    RecommendationService? recommendationService,
+  })  : _musicRepository = musicRepository,
         _libraryRepository = libraryRepository,
         _audioPlayer = audioPlayerService,
         _audioFocus = audioFocus,
@@ -69,14 +71,11 @@ PlayerBloc({
         _reliability = reliability,
         _streamLoader = streamLoader,
         _downloadService = downloadService,
+        _recommendationService = recommendationService,
         super(const PlayerState()) {
-    // Recommendation service will be injected via DI in production
-    // For now, create it here for backward compatibility
-    _recommendationService = RecommendationService(
-      _musicRepository,
-      _libraryRepository,
-    );
-    _recommendationService?.initialize();
+    if (_recommendationService == null && getIt.isRegistered<RecommendationService>()) {
+      _recommendationService = getIt<RecommendationService>();
+    }
 
 // Register event handlers
     on<PlaySongEvent>(_onPlaySong);

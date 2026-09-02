@@ -167,6 +167,7 @@ getIt.registerLazySingleton<LibraryRepository>(
       reliability: getIt<PlaybackReliabilityService>(),
       streamLoader: getIt<StreamLoaderService>(),
       downloadService: getIt<DownloadService>(),
+      recommendationService: getIt<RecommendationService>(),
     ),
   );
   

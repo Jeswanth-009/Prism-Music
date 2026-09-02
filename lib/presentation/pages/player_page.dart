@@ -1316,8 +1316,6 @@ class _PlayerPageState extends State<PlayerPage>
                       context.read<PlayerBloc>().add(
                             DownloadSongEvent(currentSong),
                           );
-                      final downloadPath =
-                          SettingsService.instance.downloadFolderPath;
 
                       ShadToaster.of(context).show(
                         ShadToast(

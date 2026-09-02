@@ -369,6 +369,28 @@ class MusicRepositoryImpl implements MusicRepository {
         return Right(upNextSongs);
       }
 
+      // Try YouTube Music Radio Mix queue (RDAMVM / RDMM)
+      try {
+        final radioData = await _ytMusicApiService.getRadioPlaylist('RDAMVM$songId');
+        if (radioData.isNotEmpty &&
+            radioData['tracks'] is List &&
+            (radioData['tracks'] as List).isNotEmpty) {
+          final radioPlaylist = playlistFromYtMusicApi(radioData);
+          if (radioPlaylist.songs != null && radioPlaylist.songs!.isNotEmpty) {
+            final validSongs = radioPlaylist.songs!
+                .where((s) => s.playableId.isNotEmpty && s.playableId != songId)
+                .take(limit)
+                .toList();
+            if (validSongs.isNotEmpty) {
+              Logger.root.info(
+                'MusicRepository.getRelatedSongs("$songId"): radio mix = ${validSongs.length}',
+              );
+              return Right(validSongs);
+            }
+          }
+        }
+      } catch (_) {}
+
       final songs = await _youtubeMusicDataSource.getRelatedSongs(songId, limit: limit);
       Logger.root.info(
         'MusicRepository.getRelatedSongs("$songId"): youtube fallback = ${songs.length}',

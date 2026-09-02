@@ -289,7 +289,7 @@ class DownloadService {
 
       // Download file with progress tracking and proper headers
       final response = await _dio.download(
-        streamUrl!,
+        streamUrl,
         filePath,
         cancelToken: cancelToken,
         options: Options(
