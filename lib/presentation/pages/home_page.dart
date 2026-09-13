@@ -10,6 +10,7 @@ import '../../core/services/recommendation_service.dart';
 import '../../core/services/settings_service.dart';
 import '../../core/services/curated_playlists.dart';
 import '../../core/services/download_service.dart';
+import '../../core/services/chart_service.dart';
 import 'package:share_plus/share_plus.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
@@ -27,6 +28,8 @@ import 'recently_played_page.dart';
 import 'search_page.dart';
 import 'settings_page.dart';
 import 'curated_playlist_page.dart';
+import 'chart_page.dart';
+import 'charts_hub_page.dart';
 import '../widgets/common/bouncing_tap_widget.dart';
 import '../widgets/common/glassmorphic_container.dart';
 import '../theme/prism_theme.dart';
@@ -78,6 +81,7 @@ class _HomePageState extends State<HomePage> {
             children: const [
               _HomeTab(),
               SearchPage(embedded: true),
+              ChartsHubPage(),
               _LibraryTab(),
             ],
           ),
@@ -111,6 +115,7 @@ class _HomePageState extends State<HomePage> {
     final items = [
       _NavItem(icon: LucideIcons.house, label: 'Home'),
       _NavItem(icon: LucideIcons.search, label: 'Search'),
+      _NavItem(icon: LucideIcons.chartNoAxesColumnIncreasing, label: 'Charts'),
       _NavItem(icon: LucideIcons.libraryBig, label: 'Library'),
     ];
 
@@ -139,9 +144,9 @@ class _HomePageState extends State<HomePage> {
             onTap: () {
               setState(() => _currentIndex = i);
             },
-            child: Container(
-              constraints: const BoxConstraints(minWidth: 88),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+          child: Container(
+              constraints: const BoxConstraints(minWidth: 70),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
               decoration: BoxDecoration(
                 color: isSelected
                     ? shadTheme.colorScheme.primary.withValues(alpha: 0.12)
@@ -372,7 +377,7 @@ class _HomeTabState extends State<_HomeTab> with AutomaticKeepAliveClientMixin {
 
     return SafeArea(
       bottom: false,
-      child: RefreshIndicator(
+      child: AuroraBackdrop(child: RefreshIndicator(
         edgeOffset: 120,
         onRefresh: _refreshAll,
         child: CustomScrollView(
@@ -506,6 +511,17 @@ class _HomeTabState extends State<_HomeTab> with AutomaticKeepAliveClientMixin {
               ),
             ),
 
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+                child: _SectionHeader(
+                  title: 'Charts',
+                  subtitle: 'Official charts and regional rankings',
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(child: _buildChartsSection()),
+
             // Recently Played
             SliverToBoxAdapter(
               child: Padding(
@@ -562,49 +578,44 @@ class _HomeTabState extends State<_HomeTab> with AutomaticKeepAliveClientMixin {
             ),
 
             // Curated Playlists – one horizontal section per category
-            ...CuratedPlaylists.categories
-                .take(3)
-                .expand(
-                  (category) => [
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
-                        child: _SectionHeader(
-                          title: category,
-                          subtitle: _curatedSubtitle(category),
-                        ),
-                      ),
+            ...CuratedPlaylists.categories.expand(
+              (category) => [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+                    child: _SectionHeader(
+                      title: category,
+                      subtitle: _curatedSubtitle(category),
                     ),
-                    SliverToBoxAdapter(
-                      child: SizedBox(
-                        height: 160,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          itemCount: CuratedPlaylists.forCategory(
-                            category,
-                          ).length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(width: 14),
-                          itemBuilder: (context, index) {
-                            final playlist = CuratedPlaylists.forCategory(
-                              category,
-                            )[index];
-                            return _CuratedPlaylistCard(
-                              playlist: playlist,
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      CuratedPlaylistPage(playlist: playlist),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: 160,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: CuratedPlaylists.forCategory(category).length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 14),
+                      itemBuilder: (context, index) {
+                        final playlist = CuratedPlaylists.forCategory(
+                          category,
+                        )[index];
+                        return _CuratedPlaylistCard(
+                          playlist: playlist,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  CuratedPlaylistPage(playlist: playlist),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
 
             const SliverToBoxAdapter(
               child: SizedBox(
@@ -613,7 +624,7 @@ class _HomeTabState extends State<_HomeTab> with AutomaticKeepAliveClientMixin {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 
@@ -638,6 +649,31 @@ class _HomeTabState extends State<_HomeTab> with AutomaticKeepAliveClientMixin {
             song: song,
             index: index + 1,
             onTap: () => _playSong(song, queue: songs, queueIndex: index),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildChartsSection() {
+    final charts = ChartService.getAvailableCharts(
+      _settingsService.countryCode,
+      _settingsService.selectedCountry.name,
+    );
+    return SizedBox(
+      height: 126,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: charts.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final chart = charts[index];
+          return _ChartCard(
+            chart: chart,
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => ChartPage(chart: chart))),
           );
         },
       ),
@@ -1225,6 +1261,83 @@ class _SongCard extends StatelessWidget {
 // ─────────────────────────────────────────────
 // TRENDING CARD
 // ─────────────────────────────────────────────
+
+class _ChartCard extends StatelessWidget {
+  const _ChartCard({required this.chart, required this.onTap});
+
+  final ChartDefinition chart;
+  final VoidCallback onTap;
+
+  IconData get _icon => switch (chart.iconType) {
+    ChartIconType.global => LucideIcons.globe2,
+    ChartIconType.viral => LucideIcons.flame,
+    ChartIconType.trending => LucideIcons.trendingUp,
+    ChartIconType.top => LucideIcons.trophy,
+    ChartIconType.chart => LucideIcons.chartNoAxesColumnIncreasing,
+    ChartIconType.newRelease => LucideIcons.sparkles,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: 210,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Ink(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainer,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: theme.colorScheme.outlineVariant),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    gradient: PrismColors.spectrum,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(_icon, color: PrismColors.ink, size: 22),
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        chart.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Open chart',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _TrendingCard extends StatelessWidget {
   final Song song;

@@ -6,7 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../../blocs/player/player.dart';
-import '../../pages/prism_player_page.dart';
+import '../../pages/player_page.dart';
 import '../../theme/prism_theme.dart';
 
 /// Prism's persistent playback surface. It is intentionally the only frosted
@@ -17,7 +17,7 @@ class MiniPlayer extends StatelessWidget {
   void _openPlayer(BuildContext context) {
     Navigator.of(context).push(
       PageRouteBuilder<void>(
-        pageBuilder: (_, animation, __) => const PrismPlayerPage(),
+        pageBuilder: (_, animation, __) => const PlayerPage(),
         transitionsBuilder: (_, animation, __, child) => SlideTransition(
           position: Tween(begin: const Offset(0, 0.08), end: Offset.zero)
               .animate(
@@ -61,6 +61,14 @@ class MiniPlayer extends StatelessWidget {
                     child: Container(
                       height: 72,
                       decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            scheme.surfaceContainer.withValues(alpha: .98),
+                            PrismColors.violet.withValues(alpha: .16),
+                          ],
+                        ),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: scheme.outlineVariant),
                         boxShadow: [
@@ -80,7 +88,7 @@ class MiniPlayer extends StatelessWidget {
                             child: LinearProgressIndicator(
                               minHeight: 2,
                               value: progress,
-                              color: PrismColors.cyan,
+                              color: PrismColors.magenta,
                               backgroundColor: Colors.transparent,
                             ),
                           ),

@@ -10,6 +10,7 @@ import '../blocs/search/search_event.dart';
 import '../blocs/search/search_state.dart';
 import '../widgets/common/bouncing_tap_widget.dart';
 import '../widgets/common/glassmorphic_container.dart';
+import '../theme/prism_theme.dart';
 import 'artist_page.dart';
 
 /// Full search page with tabbed interface for different content types
@@ -126,7 +127,7 @@ class _SearchPageState extends State<SearchPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      body: SafeArea(
+      body: AuroraBackdrop(child: SafeArea(
         bottom: !widget.embedded,
         child: BlocBuilder<SearchBloc, SearchState>(
           builder: (context, state) {
@@ -172,7 +173,7 @@ class _SearchPageState extends State<SearchPage> {
             );
           },
         ),
-      ),
+      )),
     );
   }
 
@@ -194,12 +195,7 @@ class _SearchPageState extends State<SearchPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Search',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              Text('Search', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -1)),
               Text(
                 'Find your next favourite',
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -270,10 +266,10 @@ class _SearchPageState extends State<SearchPage> {
           ),
           child: GlassmorphicContainer(
             blur: 15,
-            opacity: 0.15,
+            opacity: 0.28,
             borderRadius: BorderRadius.circular(20),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            border: Border.all(color: PrismColors.violet.withValues(alpha: 0.35)),
             child: Row(
               children: [
                 Icon(

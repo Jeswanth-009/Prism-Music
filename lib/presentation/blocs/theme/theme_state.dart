@@ -57,7 +57,7 @@ class ThemeState extends Equatable {
     );
 
     return base.copyWith(
-      primary: isDark ? PrismColors.cyan : const Color(0xFF007E73),
+      primary: isDark ? PrismColors.magenta : const Color(0xFF6841D9),
       onPrimary: isDark ? PrismColors.ink : Colors.white,
       surface: surface,
       surfaceContainerLowest: surface,
@@ -74,7 +74,7 @@ class ThemeState extends Equatable {
           ? const Color(0xFF202735)
           : const Color(0xFFE3E0D9),
       surfaceTint: Colors.transparent,
-      secondary: PrismColors.lime,
+      secondary: PrismColors.cyan,
       tertiary: PrismColors.coral,
       outline: isDark ? const Color(0xFF414958) : const Color(0xFFBBB8B0),
       outlineVariant: isDark

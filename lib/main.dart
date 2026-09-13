@@ -15,7 +15,7 @@ import 'presentation/blocs/player/player.dart';
 import 'presentation/blocs/search/search.dart';
 import 'presentation/blocs/library/library.dart';
 import 'presentation/blocs/theme/theme.dart';
-import 'presentation/pages/prism_shell.dart';
+import 'presentation/pages/home_page.dart';
 import 'presentation/theme/prism_theme.dart';
 
 void main() async {
@@ -125,7 +125,7 @@ class PrismMusicApp extends StatelessWidget {
                 cardForeground: Color(0xFFF4F2ED),
                 popover: PrismColors.inkRaised,
                 popoverForeground: Color(0xFFF4F2ED),
-                primary: PrismColors.cyan,
+                primary: PrismColors.magenta,
                 primaryForeground: PrismColors.ink,
                 secondary: PrismColors.inkSoft,
                 secondaryForeground: Color(0xFFF4F2ED),
@@ -137,7 +137,7 @@ class PrismMusicApp extends StatelessWidget {
                 destructiveForeground: Colors.white,
                 border: Color(0xFF252C38),
                 input: Color(0xFF252C38),
-                ring: PrismColors.cyan,
+                ring: PrismColors.magenta,
                 selection: Color(0xFF174B45),
               ),
             ),
@@ -151,7 +151,7 @@ class PrismMusicApp extends StatelessWidget {
                 builder: (context, child) {
                   return ShadAppBuilder(child: child!);
                 },
-                home: const PrismShell(),
+                home: const HomePage(),
               );
             },
           );

@@ -242,11 +242,9 @@ class _PlayerPageState extends State<PlayerPage>
               end: Alignment.bottomRight,
               colors: isDark
                   ? [
-                      (_dominantColor ?? theme.colorScheme.primary).withValues(
-                        alpha: 0.25,
-                      ),
-                      theme.colorScheme.surface,
-                      theme.colorScheme.surfaceContainerLowest,
+                      (_dominantColor ?? PrismColors.magenta).withValues(alpha: 0.42),
+                      PrismColors.violet.withValues(alpha: 0.22),
+                      PrismColors.ink,
                     ]
                   : [
                       (_dominantColor ?? theme.colorScheme.primary).withValues(
