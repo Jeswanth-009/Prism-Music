@@ -354,48 +354,77 @@ class MusicRepositoryImpl implements MusicRepository {
     int limit = 20,
   }) async {
     try {
-      final upNextItems = await _ytMusicApiService.getUpNexts(songId, limit: limit);
-      final upNextSongs = upNextItems
-          .map((item) => songFromYtMusicApi(item))
-          .where((song) => song.playableId.isNotEmpty)
-          .take(limit)
-          .toList();
+      final combinedSongs = <Song>[];
+      final seenIds = <String>{songId};
 
-      Logger.root.info(
-        'MusicRepository.getRelatedSongs("$songId"): upNext = ${upNextSongs.length}',
-      );
-
-      if (upNextSongs.isNotEmpty) {
-        return Right(upNextSongs);
+      void addSongs(List<Song> songs) {
+        for (final s in songs) {
+          final pid = s.playableId;
+          if (pid.isNotEmpty && seenIds.add(pid)) {
+            combinedSongs.add(s);
+            if (combinedSongs.length >= limit) break;
+          }
+        }
       }
 
-      // Try YouTube Music Radio Mix queue (RDAMVM / RDMM)
+      // 1. Try YouTube Music UpNext
       try {
-        final radioData = await _ytMusicApiService.getRadioPlaylist('RDAMVM$songId');
-        if (radioData.isNotEmpty &&
-            radioData['tracks'] is List &&
-            (radioData['tracks'] as List).isNotEmpty) {
-          final radioPlaylist = playlistFromYtMusicApi(radioData);
-          if (radioPlaylist.songs != null && radioPlaylist.songs!.isNotEmpty) {
-            final validSongs = radioPlaylist.songs!
-                .where((s) => s.playableId.isNotEmpty && s.playableId != songId)
-                .take(limit)
-                .toList();
-            if (validSongs.isNotEmpty) {
+        final upNextItems = await _ytMusicApiService.getUpNexts(songId, limit: limit);
+        final upNextSongs = upNextItems
+            .map((item) => songFromYtMusicApi(item))
+            .where((song) => song.playableId.isNotEmpty)
+            .toList();
+
+        Logger.root.info(
+          'MusicRepository.getRelatedSongs("$songId"): upNext = ${upNextSongs.length}',
+        );
+        addSongs(upNextSongs);
+      } catch (e) {
+        Logger.root.warning('MusicRepository.getRelatedSongs("$songId"): upNext error: $e');
+      }
+
+      // 2. If we still need more songs, query YouTube Music Radio Mix (RDAMVM)
+      if (combinedSongs.length < limit) {
+        try {
+          final radioData = await _ytMusicApiService.getRadioPlaylist('RDAMVM$songId');
+          if (radioData.isNotEmpty &&
+              radioData['tracks'] is List &&
+              (radioData['tracks'] as List).isNotEmpty) {
+            final radioPlaylist = playlistFromYtMusicApi(radioData);
+            if (radioPlaylist.songs != null && radioPlaylist.songs!.isNotEmpty) {
+              final validSongs = radioPlaylist.songs!
+                  .where((s) => s.playableId.isNotEmpty && s.playableId != songId)
+                  .toList();
               Logger.root.info(
                 'MusicRepository.getRelatedSongs("$songId"): radio mix = ${validSongs.length}',
               );
-              return Right(validSongs);
+              addSongs(validSongs);
             }
           }
+        } catch (e) {
+          Logger.root.warning('MusicRepository.getRelatedSongs("$songId"): radio mix error: $e');
         }
-      } catch (_) {}
+      }
 
-      final songs = await _youtubeMusicDataSource.getRelatedSongs(songId, limit: limit);
-      Logger.root.info(
-        'MusicRepository.getRelatedSongs("$songId"): youtube fallback = ${songs.length}',
-      );
-      return Right(songs);
+      // 3. If still under limit, use YouTube Mix (RDMM) / search fallback
+      if (combinedSongs.length < limit) {
+        try {
+          final songs = await _youtubeMusicDataSource.getRelatedSongs(songId, limit: limit);
+          Logger.root.info(
+            'MusicRepository.getRelatedSongs("$songId"): youtube fallback = ${songs.length}',
+          );
+          addSongs(songs);
+        } catch (e) {
+          Logger.root.warning('MusicRepository.getRelatedSongs("$songId"): youtube fallback error: $e');
+        }
+      }
+
+      if (combinedSongs.isNotEmpty) {
+        return Right(combinedSongs.take(limit).toList());
+      }
+
+      Logger.root.info('MusicRepository.getRelatedSongs("$songId"): no songs found from any source');
+      return const Right([]);
     } catch (e) {
       return Left(UnknownFailure(message: e.toString()));
     }
@@ -471,6 +500,26 @@ class MusicRepositoryImpl implements MusicRepository {
       Logger.root.info(
         'MusicRepository.getRecommendations: candidate related songs = ${recommendationPool.length}',
       );
+
+      // If we still haven't reached the requested limit, supplement with trending
+      if (recommendationPool.length < limit) {
+        Logger.root.info(
+          'MusicRepository.getRecommendations: supplementing ${limit - recommendationPool.length} tracks from trending',
+        );
+        final trendingResult = await getTrending(limit: limit);
+        trendingResult.fold(
+          (_) {},
+          (songs) {
+            for (final song in songs) {
+              final playableId = song.playableId;
+              if (playableId.isNotEmpty && !historyIds.contains(playableId) && seen.add(playableId)) {
+                recommendationPool.add(song);
+                if (recommendationPool.length >= limit) break;
+              }
+            }
+          },
+        );
+      }
 
       if (recommendationPool.isNotEmpty) {
         return Right(recommendationPool.take(limit).toList());

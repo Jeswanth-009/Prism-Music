@@ -411,6 +411,24 @@ class RecommendationService {
         ).then((r) => r.fold((_) => null, (songs) => candidatePool.addAll(songs))),
       );
 
+      if (songGenre != null && songGenre.isNotEmpty) {
+        futures.add(
+          _musicRepository.searchSongs(
+            'best $songGenre songs',
+            limit: 10,
+          ).then((r) => r.fold((_) => null, (songs) => candidatePool.addAll(songs))),
+        );
+      }
+
+      if (songLanguage != null && songLanguage.isNotEmpty && songLanguage != 'English') {
+        futures.add(
+          _musicRepository.searchSongs(
+            'trending $songLanguage songs',
+            limit: 10,
+          ).then((r) => r.fold((_) => null, (songs) => candidatePool.addAll(songs))),
+        );
+      }
+
       await Future.wait(futures);
 
       // Filter out seed song, invalid lengths, and junk
@@ -429,6 +447,25 @@ class RecommendationService {
         directKeys: directAlgorithmicKeys,
         limit: limit,
       );
+
+      // If still under limit, supplement with discovery/trending fallback
+      if (ranked.length < limit) {
+        logDebug('Similar songs (${ranked.length}) under limit ($limit); supplementing with discovery');
+        try {
+          final discoveryFallback = await _getDiscoverySongs(song, limit - ranked.length);
+          final filteredDiscovery = _filterCandidates(discoveryFallback, seedSong: song);
+          final existingKeys = ranked
+              .map((s) => '${s.title.toLowerCase().trim()}|${s.artist.toLowerCase().trim()}')
+              .toSet();
+          for (final s in filteredDiscovery) {
+            final k = '${s.title.toLowerCase().trim()}|${s.artist.toLowerCase().trim()}';
+            if (existingKeys.add(k)) {
+              ranked.add(s);
+              if (ranked.length >= limit) break;
+            }
+          }
+        } catch (_) {}
+      }
 
       logDebug('Returning ${ranked.length} similar songs (${candidatePool.length} raw → ${filtered.length} filtered)');
       return ranked;
@@ -510,9 +547,10 @@ class RecommendationService {
 
     scored.sort((a, b) => b.score.compareTo(a.score));
 
-    // Cap same artist to at most 3 in the final output
+    // Pass 1: Cap same artist to at most 3 in the final output
     final finalSongs = <Song>[];
     final finalArtistCounts = <String, int>{};
+    final seenIds = <String>{};
 
     for (final item in scored) {
       final aKey = item.song.artist.toLowerCase().trim();
@@ -520,8 +558,25 @@ class RecommendationService {
       if (count >= 3) continue;
 
       finalArtistCounts[aKey] = count + 1;
+      seenIds.add(item.song.playableId);
       finalSongs.add(item.song);
       if (finalSongs.length >= limit) break;
+    }
+
+    // Pass 2: If we haven't reached limit, relax artist cap to 6
+    // so we never starve the user with only 2 tracks
+    if (finalSongs.length < limit) {
+      for (final item in scored) {
+        if (seenIds.contains(item.song.playableId)) continue;
+        final aKey = item.song.artist.toLowerCase().trim();
+        final count = finalArtistCounts[aKey] ?? 0;
+        if (count >= 6) continue;
+
+        finalArtistCounts[aKey] = count + 1;
+        seenIds.add(item.song.playableId);
+        finalSongs.add(item.song);
+        if (finalSongs.length >= limit) break;
+      }
     }
 
     return finalSongs;
@@ -658,9 +713,12 @@ class RecommendationService {
       logDebug('Filtered to ${filtered.length} unique discovery candidates');
 
       if (filtered.isEmpty) {
-        // Fallback to trending
-        final trendingResult = await _musicRepository.getTrending(region: countryCode, limit: limit);
-        return trendingResult.fold((_) => [], (songs) => songs.take(limit).toList());
+        // Fallback to trending with validation
+        final trendingResult = await _musicRepository.getTrending(region: countryCode, limit: limit * 2);
+        return trendingResult.fold(
+          (_) => [],
+          (songs) => _filterCandidates(songs, seedSong: seedSong).take(limit).toList(),
+        );
       }
 
       // Score discovery candidates
@@ -706,6 +764,7 @@ class RecommendationService {
       // Diversity cap: Max 2 songs per artist in Discover mode
       final output = <Song>[];
       final artistCounts = <String, int>{};
+      final seenIds = <String>{};
 
       for (final item in scored) {
         final aKey = item.song.artist.toLowerCase().trim();
@@ -713,8 +772,32 @@ class RecommendationService {
         if (count >= 2) continue;
 
         artistCounts[aKey] = count + 1;
+        seenIds.add(item.song.playableId);
         output.add(item.song);
         if (output.length >= limit) break;
+      }
+
+      // If under limit, supplement with regional trending, respecting diversity cap and filters
+      if (output.length < limit) {
+        try {
+          final trendingResult = await _musicRepository.getTrending(
+            region: countryCode,
+            limit: limit * 2,
+          );
+          trendingResult.fold((_) {}, (songs) {
+            final validTrending = _filterCandidates(songs, seedSong: seedSong);
+            for (final s in validTrending) {
+              final aKey = s.artist.toLowerCase().trim();
+              final count = artistCounts[aKey] ?? 0;
+              if (count >= 2) continue;
+
+              artistCounts[aKey] = count + 1;
+              seenIds.add(s.playableId);
+              output.add(s);
+              if (output.length >= limit) break;
+            }
+          });
+        } catch (_) {}
       }
 
       logDebug('Returning ${output.length} discovery songs');

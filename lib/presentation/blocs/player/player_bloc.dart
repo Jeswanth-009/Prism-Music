@@ -48,6 +48,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
   bool _hasScrobbled = false;
   bool _hasUpdatedNowPlaying = false;
   AppLifecycleState _lastLifecycleState = AppLifecycleState.resumed;
+  int _consecutiveFailureSkips = 0;
 
   void _log(String message) {
     if (kDebugMode) debugPrint(message);
@@ -477,74 +478,28 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
         await _libraryRepository.addToHistory(event.song);
         _recommendationService?.recordPlay(event.song);
         _reliability.registerSuccess(event.song.playableId);
+        _consecutiveFailureSkips = 0;
         _updateNowPlaying(event.song);
       } catch (playbackError, stackTrace) {
-        _reliability.registerFailure(event.song.playableId);
-        _mediaResolver.invalidate(event.song.playableId);
-
-        final isVideoStream403 = _isVideoStream403(playbackError);
-        if (isVideoStream403) {
-          _log(
-            'PlayerBloc: Non-audio stream 403 detected for ${event.song.title}; '
-            'skipping retry.',
-          );
-        }
-
-        final canRetry =
-            !isVideoStream403 &&
-            _reliability.shouldRetry(
-              event.song.playableId,
-              isOffline: resolvedSource.isOffline,
-            );
-
-        if (canRetry) {
-          _reliability.registerRetry(event.song.playableId);
-          final waitFor = _reliability.nextRetryDelay(event.song.playableId);
-          _log(
-            'PlayerBloc: Retry ${_reliability.attemptsForSong(event.song.playableId)} '
-            'for ${event.song.title} in ${waitFor.inMilliseconds}ms',
-          );
-          emit(state.copyWith(status: PlayerStatus.loading));
-          Future.delayed(waitFor, () {
-            add(
-              PlaySongEvent(
-                song: event.song,
-                queue: event.queue,
-                queueIndex: event.queueIndex,
-              ),
-            );
-          });
-          return;
-        }
-
-        if (resolvedSource.isOffline) {
-          try {
-            await _downloadService.deleteSong(event.song.playableId);
-            _log(
-              'PlayerBloc: Removed invalid local download entry for ${event.song.playableId}',
-            );
-          } catch (_) {}
-        }
-
-        _log('!!! PlayerBloc: PLAYBACK ERROR !!!');
-        _log('Error: $playbackError');
-        _log('Stack trace: $stackTrace');
-        emit(
-          state.copyWith(
-            status: PlayerStatus.error,
-            errorMessage: 'Playback error: $playbackError',
-          ),
+        _handlePlaybackError(
+          emit,
+          failedSong: event.song,
+          error: playbackError,
+          queue: event.queue ?? state.queue,
+          queueIndex: event.queueIndex ?? state.queueIndex,
+          isOffline: resolvedSource.isOffline,
+          stackTrace: stackTrace,
         );
       }
     } catch (e, stackTrace) {
-      _log('!!! PlayerBloc: STREAM LOADING ERROR !!!');
-      _log('Error: $e');
-      _log('Stack trace: $stackTrace');
-      emit(
-        state.copyWith(
-          status: PlayerStatus.error,
-          errorMessage: 'Failed to load stream: $e',
-        ),
+      _handlePlaybackError(
+        emit,
+        failedSong: event.song,
+        error: e,
+        queue: event.queue ?? state.queue,
+        queueIndex: event.queueIndex ?? state.queueIndex,
+        isOffline: false,
+        stackTrace: stackTrace,
       );
     }
   }
@@ -907,16 +862,29 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
   void _onCompleted(_CompletedEvent event, Emitter<PlayerState> emit) async {
     // Auto-play next song if available
     if (state.repeatMode == RepeatMode.one) {
-      // Repeat current song - seek and play without full event chain
-      await _audioPlayer.seek(Duration.zero);
-      await _audioPlayer.play();
-      emit(
-        state.copyWith(position: Duration.zero, status: PlayerStatus.playing),
-      );
+      // Repeat current song - BUT only if it actually played (not an immediate 0-duration abort)
+      if (state.duration > const Duration(seconds: 2) && state.position > Duration.zero) {
+        await _audioPlayer.seek(Duration.zero);
+        await _audioPlayer.play();
+        emit(
+          state.copyWith(position: Duration.zero, status: PlayerStatus.playing),
+        );
+        return;
+      }
+      // If duration was 0 or never played, advance to next track or stop rather than infinite loop
+      if (state.hasNext) {
+        add(const NextEvent());
+        return;
+      }
     } else if (state.hasNext) {
       // Use NextEvent which now has optimized prefetching
       add(const NextEvent());
     } else if (state.repeatMode == RepeatMode.all && state.queue.isNotEmpty) {
+      if (_consecutiveFailureSkips >= state.queue.length) {
+        _consecutiveFailureSkips = 0;
+        emit(state.copyWith(status: PlayerStatus.paused, position: Duration.zero));
+        return;
+      }
       emit(state.copyWith(queueIndex: 0, status: PlayerStatus.loading));
       add(
         PlaySongEvent(
@@ -934,53 +902,159 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
   }
 
   void _onPlayerError(PlayerErrorEvent event, Emitter<PlayerState> emit) {
-    final currentSong = state.currentSong;
-    if (currentSong != null) {
-      _reliability.registerFailure(currentSong.playableId);
-
-      final isVideoStream403 = _isVideoStream403(event.message);
-      if (isVideoStream403) {
-        _log(
-          'PlayerBloc: Non-audio stream 403 detected for ${currentSong.title}; '
-          'skipping retry.',
-        );
-      }
-
-      final offlineCandidate = _downloadService.isDownloaded(
-        currentSong.playableId,
-      );
-      final canRetry =
-          !isVideoStream403 &&
-          _reliability.shouldRetry(
-            currentSong.playableId,
-            isOffline: offlineCandidate,
-          );
-
-      if (canRetry) {
-        _reliability.registerRetry(currentSong.playableId);
-        final retryAfter = _reliability.nextRetryDelay(currentSong.playableId);
-        emit(
-          state.copyWith(
-            status: PlayerStatus.loading,
-            errorMessage: 'Recovering playback...',
-          ),
-        );
-        Future.delayed(retryAfter, () {
-          add(
-            PlaySongEvent(
-              song: currentSong,
-              queue: state.queue,
-              queueIndex: state.queueIndex,
-            ),
-          );
-        });
-        return;
-      }
+    // If player is actively in loading state, _onPlaySong is already handling resolution,
+    // retries, and error recovery. Avoid duplicate concurrent retries and infinite loops!
+    if (state.status == PlayerStatus.loading) {
+      _log('PlayerBloc: Ignoring PlayerErrorEvent during loading (handled by _onPlaySong): ${event.message}');
+      return;
     }
 
-    emit(
-      state.copyWith(status: PlayerStatus.error, errorMessage: event.message),
+    final currentSong = state.currentSong;
+    if (currentSong == null) {
+      emit(state.copyWith(status: PlayerStatus.error, errorMessage: event.message));
+      return;
+    }
+
+    final isOffline = _downloadService.isDownloaded(currentSong.playableId);
+    _handlePlaybackError(
+      emit,
+      failedSong: currentSong,
+      error: event.message,
+      queue: state.queue,
+      queueIndex: state.queueIndex,
+      isOffline: isOffline,
     );
+  }
+
+  void _handlePlaybackError(
+    Emitter<PlayerState> emit, {
+    required Song failedSong,
+    required Object error,
+    required List<Song> queue,
+    required int queueIndex,
+    bool isOffline = false,
+    StackTrace? stackTrace,
+  }) {
+    _reliability.registerFailure(failedSong.playableId);
+    _mediaResolver.invalidate(failedSong.playableId);
+
+    if (isOffline) {
+      try {
+        _downloadService.deleteSong(failedSong.playableId);
+        _log('PlayerBloc: Removed invalid local download entry for ${failedSong.playableId}');
+      } catch (_) {}
+    }
+
+    final isFatalError = _isFatalPlaybackError(error);
+    if (isFatalError) {
+      _log('PlayerBloc: Fatal playback error detected for "${failedSong.title}"; skipping retry.');
+    }
+
+    final canRetry = !isFatalError &&
+        _reliability.shouldRetry(
+          failedSong.playableId,
+          isOffline: isOffline,
+        );
+
+    if (canRetry) {
+      _reliability.registerRetry(failedSong.playableId);
+      final waitFor = _reliability.nextRetryDelay(failedSong.playableId);
+      _log(
+        'PlayerBloc: Retry ${_reliability.attemptsForSong(failedSong.playableId)} '
+        'for "${failedSong.title}" in ${waitFor.inMilliseconds}ms',
+      );
+      emit(state.copyWith(
+        status: PlayerStatus.loading,
+        errorMessage: 'Retrying playback...',
+      ));
+      Future.delayed(waitFor, () {
+        if (!isClosed) {
+          add(
+            PlaySongEvent(
+              song: failedSong,
+              queue: queue,
+              queueIndex: queueIndex,
+            ),
+          );
+        }
+      });
+      return;
+    }
+
+    _log('!!! PlayerBloc: Terminal playback failure for "${failedSong.title}": $error');
+    if (stackTrace != null) _log('Stack trace: $stackTrace');
+
+    final effectiveQueue = queue.isNotEmpty ? queue : state.queue;
+    final effectiveIndex = queueIndex;
+    final nextIndex = effectiveIndex + 1;
+    final hasNextSong = effectiveQueue.isNotEmpty && nextIndex < effectiveQueue.length;
+
+    _consecutiveFailureSkips++;
+
+    // Auto-advance to next song if available, capped at 5 skips or queue length to prevent runaway loops
+    final shouldAutoAdvance = hasNextSong &&
+        _consecutiveFailureSkips <= 5 &&
+        _consecutiveFailureSkips < effectiveQueue.length;
+
+    if (shouldAutoAdvance) {
+      final nextSong = effectiveQueue[nextIndex];
+      _log(
+        'PlayerBloc: Auto-advancing from unplayable "${failedSong.title}" '
+        'to next track [${nextIndex + 1}/${effectiveQueue.length}]: "${nextSong.title}" '
+        '(consecutive skips: $_consecutiveFailureSkips)',
+      );
+
+      emit(
+        state.copyWith(
+          status: PlayerStatus.loading,
+          currentSong: nextSong,
+          queue: effectiveQueue,
+          queueIndex: nextIndex,
+          position: Duration.zero,
+          duration: Duration.zero,
+          errorMessage: 'Skipping unplayable track: "${failedSong.title}"',
+        ),
+      );
+
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (!isClosed) {
+          add(
+            PlaySongEvent(
+              song: nextSong,
+              queue: effectiveQueue,
+              queueIndex: nextIndex,
+            ),
+          );
+        }
+      });
+      return;
+    }
+
+    // No next track or max consecutive skips reached
+    _consecutiveFailureSkips = 0;
+    unawaited(_audioPlayer.stop());
+    emit(
+      state.copyWith(
+        status: PlayerStatus.error,
+        errorMessage: effectiveQueue.length > 1 && _consecutiveFailureSkips >= 5
+            ? 'Unable to play songs in queue. Please check your connection.'
+            : 'Playback error: $error',
+      ),
+    );
+  }
+
+  bool _isFatalPlaybackError(Object error) {
+    final message = error.toString().toLowerCase();
+    if (message.contains('403') ||
+        message.contains('404') ||
+        message.contains('forbidden') ||
+        message.contains('not found') ||
+        message.contains('unable to decode') ||
+        message.contains('no valid audio source') ||
+        message.contains('all stream sources failed')) {
+      return true;
+    }
+    return _isVideoStream403(error);
   }
 
   bool _isFetchingRecommendations = false;

@@ -10,7 +10,7 @@ class PlaybackReliabilityService {
 
   PlaybackReliabilityService({
     this.maxRetriesPerSong = 2,
-    this.circuitBreakerThreshold = 3,
+    this.circuitBreakerThreshold = 5,
     this.circuitBreakerCooldown = const Duration(seconds: 25),
   });
 
