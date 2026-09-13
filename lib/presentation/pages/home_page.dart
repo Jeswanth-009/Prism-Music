@@ -21,12 +21,15 @@ import '../widgets/player/mini_player.dart';
 import '../widgets/lastfm_login_dialog.dart';
 import '../../domain/repositories/library_repository.dart';
 import 'downloads_page.dart';
+import 'liked_songs_page.dart';
+import 'playlist_detail_page.dart';
 import 'recently_played_page.dart';
 import 'search_page.dart';
 import 'settings_page.dart';
 import 'curated_playlist_page.dart';
 import '../widgets/common/bouncing_tap_widget.dart';
 import '../widgets/common/glassmorphic_container.dart';
+import '../theme/prism_theme.dart';
 
 const double _kNavBarHeight = 64;
 const double _kNavBarBottomPadding = 16;
@@ -40,7 +43,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int _currentIndex = 1;
+  int _currentIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -51,12 +54,34 @@ class _HomePageState extends State<HomePage> {
       extendBody: true,
       body: Stack(
         children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.055),
+                    Theme.of(context).colorScheme.surface,
+                    Theme.of(context).colorScheme.surface,
+                  ],
+                  stops: const [0, 0.28, 1],
+                ),
+              ),
+            ),
+          ),
           // 1. Main Content (Scrolls behind the floating elements)
           IndexedStack(
             index: _currentIndex,
-            children: const [_DiscoverTab(), _HomeTab(), _LibraryTab()],
+            children: const [
+              _HomeTab(),
+              SearchPage(embedded: true),
+              _LibraryTab(),
+            ],
           ),
-          
+
           // 2. Floating Mini Player
           Positioned(
             left: 0,
@@ -84,70 +109,77 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildNavBar(ShadThemeData shadTheme) {
     final items = [
-      _NavItem(icon: LucideIcons.compass, label: 'Discover'),
       _NavItem(icon: LucideIcons.house, label: 'Home'),
+      _NavItem(icon: LucideIcons.search, label: 'Search'),
       _NavItem(icon: LucideIcons.libraryBig, label: 'Library'),
-      _NavItem(icon: LucideIcons.settings, label: 'Settings'),
     ];
 
-    return GlassmorphicContainer(
-      blur: 20,
-      opacity: 0.7,
-      borderRadius: BorderRadius.circular(32),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(items.length, (i) {
-              final item = items[i];
-              final isSelected = i == _currentIndex;
-              return BouncingTapWidget(
-                onTap: () {
-                  if (i == 3) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const SettingsPage()),
-                    );
-                    return;
-                  }
-                  setState(() => _currentIndex = i);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isSelected 
-                        ? shadTheme.colorScheme.primary.withValues(alpha: 0.15) 
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        item.icon,
-                        size: 20,
-                        color: isSelected
-                            ? shadTheme.colorScheme.primary
-                            : shadTheme.colorScheme.mutedForeground,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        item.label,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                          color: isSelected
-                              ? shadTheme.colorScheme.primary
-                              : shadTheme.colorScheme.mutedForeground,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainer.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
           ),
-        );
-      }
-    }
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: List.generate(items.length, (i) {
+          final item = items[i];
+          final isSelected = i == _currentIndex;
+          return BouncingTapWidget(
+            onTap: () {
+              setState(() => _currentIndex = i);
+            },
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 88),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? shadTheme.colorScheme.primary.withValues(alpha: 0.12)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(17),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    item.icon,
+                    size: 20,
+                    color: isSelected
+                        ? shadTheme.colorScheme.primary
+                        : shadTheme.colorScheme.mutedForeground,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    item.label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: isSelected
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                      color: isSelected
+                          ? shadTheme.colorScheme.primary
+                          : shadTheme.colorScheme.mutedForeground,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
 
 class _NavItem {
   final IconData icon;
@@ -357,6 +389,25 @@ class _HomeTabState extends State<_HomeTab> with AutomaticKeepAliveClientMixin {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.outlineVariant,
+                            ),
+                          ),
+                          child: const Center(
+                            child: PrismSpectrumLine(width: 22, height: 3),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -371,11 +422,11 @@ class _HomeTabState extends State<_HomeTab> with AutomaticKeepAliveClientMixin {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                'Prism Music',
+                                'What do you want to hear?',
                                 style: TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: -1.2,
+                                  fontSize: 23,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.7,
                                   color: shadTheme.colorScheme.foreground,
                                 ),
                               ),
@@ -385,22 +436,30 @@ class _HomeTabState extends State<_HomeTab> with AutomaticKeepAliveClientMixin {
                         GestureDetector(
                           onTap: () {
                             Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const SettingsPage()),
+                              MaterialPageRoute(
+                                builder: (_) => const SettingsPage(),
+                              ),
                             );
                           },
                           child: Container(
-                            width: 44,
-                            height: 44,
+                            width: 42,
+                            height: 42,
                             decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: LinearGradient(
-                                colors: [
-                                  shadTheme.colorScheme.primary.withValues(alpha: 0.8),
-                                  shadTheme.colorScheme.primary,
-                                ],
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainer,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
                               ),
                             ),
-                            child: const Icon(LucideIcons.user, color: Colors.white, size: 20),
+                            child: Icon(
+                              LucideIcons.settings2,
+                              color: Theme.of(context).colorScheme.onSurface,
+                              size: 19,
+                            ),
                           ),
                         ),
                       ],
@@ -411,12 +470,15 @@ class _HomeTabState extends State<_HomeTab> with AutomaticKeepAliveClientMixin {
                       onTap: _openSearch,
                       scaleFactor: 0.95,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 15,
+                        ),
                         decoration: BoxDecoration(
-                          color: shadTheme.colorScheme.muted.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(16),
+                          color: Theme.of(context).colorScheme.surfaceContainer,
+                          borderRadius: BorderRadius.circular(18),
                           border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.05),
+                            color: Theme.of(context).colorScheme.outlineVariant,
                           ),
                         ),
                         child: Row(
@@ -428,7 +490,7 @@ class _HomeTabState extends State<_HomeTab> with AutomaticKeepAliveClientMixin {
                             ),
                             const SizedBox(width: 12),
                             Text(
-                              'Search artists, songs, or albums...',
+                              'Search songs, artists, albums or playlists',
                               style: TextStyle(
                                 color: shadTheme.colorScheme.mutedForeground,
                                 fontWeight: FontWeight.w500,
@@ -500,44 +562,49 @@ class _HomeTabState extends State<_HomeTab> with AutomaticKeepAliveClientMixin {
             ),
 
             // Curated Playlists – one horizontal section per category
-            ...CuratedPlaylists.categories.expand(
-              (category) => [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
-                    child: _SectionHeader(
-                      title: category,
-                      subtitle: _curatedSubtitle(category),
+            ...CuratedPlaylists.categories
+                .take(3)
+                .expand(
+                  (category) => [
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+                        child: _SectionHeader(
+                          title: category,
+                          subtitle: _curatedSubtitle(category),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: 160,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: CuratedPlaylists.forCategory(category).length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 14),
-                      itemBuilder: (context, index) {
-                        final playlist = CuratedPlaylists.forCategory(
-                          category,
-                        )[index];
-                        return _CuratedPlaylistCard(
-                          playlist: playlist,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  CuratedPlaylistPage(playlist: playlist),
-                            ),
-                          ),
-                        );
-                      },
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        height: 160,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          itemCount: CuratedPlaylists.forCategory(
+                            category,
+                          ).length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 14),
+                          itemBuilder: (context, index) {
+                            final playlist = CuratedPlaylists.forCategory(
+                              category,
+                            )[index];
+                            return _CuratedPlaylistCard(
+                              playlist: playlist,
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      CuratedPlaylistPage(playlist: playlist),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
 
             const SliverToBoxAdapter(
               child: SizedBox(
@@ -996,8 +1063,8 @@ class _ListeningStatsCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                'Most played: ${s.mostPlayedSong!.title}'
-                '${s.mostPlayedCount > 1 ? ' (${s.mostPlayedCount}x)' : ''}',
+                        'Most played: ${s.mostPlayedSong!.title}'
+                        '${s.mostPlayedCount > 1 ? ' (${s.mostPlayedCount}x)' : ''}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -1196,18 +1263,17 @@ class _TrendingCard extends StatelessWidget {
                 ),
               )
             else
-              const Icon(
-                LucideIcons.music,
-                color: Colors.white54,
-                size: 40,
-              ),
+              const Icon(LucideIcons.music, color: Colors.white54, size: 40),
             Positioned(
               top: 12,
               left: 12,
               child: GlassmorphicContainer(
                 blur: 15,
                 opacity: 0.3,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 borderRadius: BorderRadius.circular(20),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1221,7 +1287,11 @@ class _TrendingCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(LucideIcons.trendingUp, size: 12, color: Colors.white),
+                    const Icon(
+                      LucideIcons.trendingUp,
+                      size: 12,
+                      color: Colors.white,
+                    ),
                   ],
                 ),
               ),
@@ -1313,7 +1383,9 @@ class _SongListTile extends StatelessWidget {
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 14,
-                  color: shadTheme.colorScheme.mutedForeground.withValues(alpha: 0.6),
+                  color: shadTheme.colorScheme.mutedForeground.withValues(
+                    alpha: 0.6,
+                  ),
                 ),
               ),
             ),
@@ -1353,7 +1425,10 @@ class _SongListTile extends StatelessWidget {
                     song.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -1374,7 +1449,11 @@ class _SongListTile extends StatelessWidget {
               onTap: onLongPress,
               child: Padding(
                 padding: const EdgeInsets.all(4),
-                child: Icon(LucideIcons.moreVertical, size: 16, color: shadTheme.colorScheme.mutedForeground),
+                child: Icon(
+                  LucideIcons.moreVertical,
+                  size: 16,
+                  color: shadTheme.colorScheme.mutedForeground,
+                ),
               ),
             ),
           ],
@@ -1637,8 +1716,8 @@ class _DiscoverTabState extends State<_DiscoverTab>
         _isLoadingModeRecommendations = false;
         _modeRecommendationError = songs.isEmpty
             ? (_activeMode == RecommendationMode.similar
-                ? 'No similar songs found for this track. Try another song.'
-                : 'No discovery songs found yet. Try refreshing after a few plays.')
+                  ? 'No similar songs found for this track. Try another song.'
+                  : 'No discovery songs found yet. Try refreshing after a few plays.')
             : null;
       });
     } catch (e) {
@@ -1731,9 +1810,14 @@ class _DiscoverTabState extends State<_DiscoverTab>
                     ),
                     scaleFactor: 0.95,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
                       decoration: BoxDecoration(
-                        color: shadTheme.colorScheme.muted.withValues(alpha: 0.3),
+                        color: shadTheme.colorScheme.muted.withValues(
+                          alpha: 0.3,
+                        ),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: Colors.white.withValues(alpha: 0.05),
@@ -1854,39 +1938,40 @@ class _DiscoverTabState extends State<_DiscoverTab>
                     children: [
                       Expanded(
                         child: _activeMode == RecommendationMode.similar
-                          ? ShadButton(
-                              onPressed: () => _setRecommendationMode(
-                                RecommendationMode.similar,
+                            ? ShadButton(
+                                onPressed: () => _setRecommendationMode(
+                                  RecommendationMode.similar,
+                                ),
+                                child: const Text('Similar'),
+                              )
+                            : ShadButton.outline(
+                                onPressed: () => _setRecommendationMode(
+                                  RecommendationMode.similar,
+                                ),
+                                child: const Text('Similar'),
                               ),
-                              child: const Text('Similar'),
-                            )
-                          : ShadButton.outline(
-                              onPressed: () => _setRecommendationMode(
-                                RecommendationMode.similar,
-                              ),
-                              child: const Text('Similar'),
-                            ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: _activeMode == RecommendationMode.discover
-                          ? ShadButton(
-                              onPressed: () => _setRecommendationMode(
-                                RecommendationMode.discover,
+                            ? ShadButton(
+                                onPressed: () => _setRecommendationMode(
+                                  RecommendationMode.discover,
+                                ),
+                                child: const Text('Discover'),
+                              )
+                            : ShadButton.outline(
+                                onPressed: () => _setRecommendationMode(
+                                  RecommendationMode.discover,
+                                ),
+                                child: const Text('Discover'),
                               ),
-                              child: const Text('Discover'),
-                            )
-                          : ShadButton.outline(
-                              onPressed: () => _setRecommendationMode(
-                                RecommendationMode.discover,
-                              ),
-                              child: const Text('Discover'),
-                            ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 10),
-                  if (_activeMode == RecommendationMode.similar && _recommendationSeedSong != null)
+                  if (_activeMode == RecommendationMode.similar &&
+                      _recommendationSeedSong != null)
                     Text(
                       'Based on: ${_recommendationSeedSong!.title} by ${_recommendationSeedSong!.artist}',
                       maxLines: 1,
@@ -2346,15 +2431,12 @@ class _LibraryTabState extends State<_LibraryTab>
                       ),
                     ),
                   ),
-                  ShadIconButton.outline(
-                    icon: const Icon(LucideIcons.plus, size: 18),
-                    onPressed: () {
-                      ShadToaster.of(context).show(
-                        const ShadToast(
-                          title: Text('Create playlist coming soon!'),
-                        ),
-                      );
-                    },
+                  IconButton(
+                    tooltip: 'Settings',
+                    icon: const Icon(LucideIcons.settings, size: 20),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SettingsPage()),
+                    ),
                   ),
                 ],
               ),
@@ -2376,16 +2458,12 @@ class _LibraryTabState extends State<_LibraryTab>
 
                   return Column(
                     children: [
-                      // Listening stats (shown above Recently Played)
-                      const _ListeningStatsCard(),
-                      const SizedBox(height: 16),
-
                       // Library items as cards
                       _LibraryItemCard(
                         icon: LucideIcons.clock,
                         title: 'Recently Played',
                         subtitle: '${state.recentlyPlayed.length} songs',
-                        gradient: const [Color(0xFFFF6B6B), Color(0xFFFFE66D)],
+                        gradient: const [PrismColors.coral, Color(0xFFFFB75E)],
                         showArrow: true,
                         onTap: () {
                           if (state.recentlyPlayed.isEmpty) {
@@ -2408,20 +2486,20 @@ class _LibraryTabState extends State<_LibraryTab>
                         icon: LucideIcons.heart,
                         title: 'Liked Songs',
                         subtitle: '${state.likedSongs.length} songs',
-                        gradient: const [Color(0xFF614385), Color(0xFF516395)],
+                        gradient: const [PrismColors.coral, Color(0xFFFF8B7A)],
                         showArrow: true,
-                        onTap: () {
-                          ShadToaster.of(
-                            context,
-                          ).show(const ShadToast(title: Text('Liked Songs — coming soon!')));
-                        },
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const LikedSongsPage(),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 10),
                       _LibraryItemCard(
                         icon: LucideIcons.download,
                         title: 'Downloads',
                         subtitle: '${state.downloads.length} songs',
-                        gradient: const [Color(0xFF11998e), Color(0xFF38ef7d)],
+                        gradient: const [PrismColors.cyan, Color(0xFF20A98F)],
                         showArrow: true,
                         onTap: () {
                           Navigator.of(context).push(
@@ -2431,6 +2509,8 @@ class _LibraryTabState extends State<_LibraryTab>
                           );
                         },
                       ),
+                      const SizedBox(height: 20),
+                      const _ListeningStatsCard(),
                       const SizedBox(height: 16),
                       const ShadSeparator.horizontal(),
                       const SizedBox(height: 16),
@@ -2463,9 +2543,12 @@ class _LibraryTabState extends State<_LibraryTab>
                           (playlist) => Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: BouncingTapWidget(
-                              onTap: () {
-                                // TODO: Handle playlist tap
-                              },
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      PlaylistDetailPage(playlist: playlist),
+                                ),
+                              ),
                               scaleFactor: 0.97,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
@@ -2473,9 +2556,13 @@ class _LibraryTabState extends State<_LibraryTab>
                                   vertical: 12,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: shadTheme.colorScheme.muted.withValues(alpha: 0.2),
+                                  color: shadTheme.colorScheme.muted.withValues(
+                                    alpha: 0.2,
+                                  ),
                                   borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.05),
+                                  ),
                                 ),
                                 child: Row(
                                   children: [
@@ -2484,7 +2571,9 @@ class _LibraryTabState extends State<_LibraryTab>
                                         borderRadius: BorderRadius.circular(10),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.1),
+                                            color: Colors.black.withValues(
+                                              alpha: 0.1,
+                                            ),
                                             blurRadius: 4,
                                             offset: const Offset(0, 2),
                                           ),
@@ -2497,14 +2586,19 @@ class _LibraryTabState extends State<_LibraryTab>
                                           height: 48,
                                           child: playlist.thumbnailUrl != null
                                               ? CachedNetworkImage(
-                                                  imageUrl: playlist.thumbnailUrl!,
+                                                  imageUrl:
+                                                      playlist.thumbnailUrl!,
                                                   fit: BoxFit.cover,
                                                 )
                                               : Container(
-                                                  color: shadTheme.colorScheme.muted,
+                                                  color: shadTheme
+                                                      .colorScheme
+                                                      .muted,
                                                   child: Icon(
                                                     LucideIcons.listMusic,
-                                                    color: shadTheme.colorScheme.mutedForeground,
+                                                    color: shadTheme
+                                                        .colorScheme
+                                                        .mutedForeground,
                                                   ),
                                                 ),
                                         ),
@@ -2513,7 +2607,8 @@ class _LibraryTabState extends State<_LibraryTab>
                                     const SizedBox(width: 14),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             playlist.name,
@@ -2527,7 +2622,9 @@ class _LibraryTabState extends State<_LibraryTab>
                                             style: TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w500,
-                                              color: shadTheme.colorScheme.mutedForeground,
+                                              color: shadTheme
+                                                  .colorScheme
+                                                  .mutedForeground,
                                             ),
                                           ),
                                         ],
@@ -2536,7 +2633,8 @@ class _LibraryTabState extends State<_LibraryTab>
                                     Icon(
                                       LucideIcons.chevronRight,
                                       size: 18,
-                                      color: shadTheme.colorScheme.mutedForeground,
+                                      color:
+                                          shadTheme.colorScheme.mutedForeground,
                                     ),
                                   ],
                                 ),
@@ -2616,7 +2714,10 @@ class _LibraryItemCard extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(

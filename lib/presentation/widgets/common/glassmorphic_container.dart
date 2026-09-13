@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 
 class GlassmorphicContainer extends StatelessWidget {
@@ -22,24 +21,16 @@ class GlassmorphicContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveBorderRadius = borderRadius ?? BorderRadius.circular(16);
-    
-    return ClipRRect(
-      borderRadius: effectiveBorderRadius,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface.withValues(alpha: opacity),
-            borderRadius: effectiveBorderRadius,
-            border: border ?? Border.all(
-              color: Colors.white.withValues(alpha: 0.1),
-              width: 1,
-            ),
-          ),
-          child: child,
-        ),
+
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainer,
+        borderRadius: effectiveBorderRadius,
+        border: border ?? Border.all(color: scheme.outlineVariant),
       ),
+      child: child,
     );
   }
 }

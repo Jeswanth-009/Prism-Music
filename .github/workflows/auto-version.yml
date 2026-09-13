@@ -91,28 +91,44 @@ jobs:
           CURRENT_VERSION="${{ steps.current_version.outputs.version_name }}"
           CURRENT_BUILD="${{ steps.current_version.outputs.build_number }}"
 
-          MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
-          MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
-          PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
+          PREV_VERSION_LINE=$(git show HEAD~1:pubspec.yaml 2>/dev/null | grep '^version:' | awk '{print $2}' || true)
+          if [[ -n "$PREV_VERSION_LINE" && "${{ steps.current_version.outputs.version_line }}" != "$PREV_VERSION_LINE" ]]; then
+            echo "Version was manually updated in this commit from $PREV_VERSION_LINE to ${{ steps.current_version.outputs.version_line }}"
+            NEXT_VERSION="$CURRENT_VERSION"
+            NEXT_BUILD="$CURRENT_BUILD"
+            NEXT_VERSION_LINE="${{ steps.current_version.outputs.version_line }}"
+            BUMP_TYPE="manual"
+          else
+            MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
+            MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+            PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
 
-          BUMP_TYPE="${{ github.event.inputs.version_type }}"
-          if [[ -z "$BUMP_TYPE" ]]; then
-            BUMP_TYPE="patch"
+            BUMP_TYPE="${{ github.event.inputs.version_type }}"
+            if [[ -z "$BUMP_TYPE" ]]; then
+              COMMIT_MSG="${{ github.event.head_commit.message }}"
+              if echo "$COMMIT_MSG" | grep -qiE "(major upgrade|make it version 0\.2|\[minor\]|type:\s*minor)"; then
+                BUMP_TYPE="minor"
+              elif echo "$COMMIT_MSG" | grep -qiE "(breaking|\[major\]|type:\s*major)"; then
+                BUMP_TYPE="major"
+              else
+                BUMP_TYPE="patch"
+              fi
+            fi
+            echo "Bump type: $BUMP_TYPE"
+
+            case "$BUMP_TYPE" in
+              major)
+                MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+              minor)
+                MINOR=$((MINOR + 1)); PATCH=0 ;;
+              patch)
+                PATCH=$((PATCH + 1)) ;;
+            esac
+
+            NEXT_VERSION="$MAJOR.$MINOR.$PATCH"
+            NEXT_BUILD=$((CURRENT_BUILD + 1))
+            NEXT_VERSION_LINE="$NEXT_VERSION+$NEXT_BUILD"
           fi
-          echo "Bump type: $BUMP_TYPE"
-
-          case "$BUMP_TYPE" in
-            major)
-              MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
-            minor)
-              MINOR=$((MINOR + 1)); PATCH=0 ;;
-            patch)
-              PATCH=$((PATCH + 1)) ;;
-          esac
-
-          NEXT_VERSION="$MAJOR.$MINOR.$PATCH"
-          NEXT_BUILD=$((CURRENT_BUILD + 1))
-          NEXT_VERSION_LINE="$NEXT_VERSION+$NEXT_BUILD"
 
           echo "next_version=$NEXT_VERSION"           >> "$GITHUB_OUTPUT"
           echo "next_build=$NEXT_BUILD"               >> "$GITHUB_OUTPUT"
@@ -129,9 +145,13 @@ jobs:
       # ── 6. Commit & push the version bump ────────────────────────
       - name: Commit and push version bump
         run: |
-          git add pubspec.yaml
-          git commit -m "chore: bump version to ${{ steps.next_version.outputs.next_version_line }} [${{ steps.next_version.outputs.bump_type }}]"
-          git push origin main
+          if git diff --quiet pubspec.yaml; then
+            echo "pubspec.yaml is already up to date; skipping bump commit"
+          else
+            git add pubspec.yaml
+            git commit -m "chore: bump version to ${{ steps.next_version.outputs.next_version_line }} [${{ steps.next_version.outputs.bump_type }}]"
+            git push origin main
+          fi
 
       # ── 7. Create & push the release tag ─────────────────────────
       - name: Create release tag

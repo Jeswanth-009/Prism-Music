@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../common/glassmorphic_container.dart';
 
 class SettingSectionCard extends StatelessWidget {
   final String title;
@@ -20,13 +19,13 @@ class SettingSectionCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: GlassmorphicContainer(
-        blur: 15,
-        opacity: 0.2,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-        padding: EdgeInsets.zero,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+        ),
         child: Column(
           children: [
             Padding(
@@ -36,10 +35,14 @@ class SettingSectionCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(12),
                       color: theme.colorScheme.primary.withValues(alpha: 0.2),
                     ),
-                    child: Icon(icon, color: theme.colorScheme.primary, size: 20),
+                    child: Icon(
+                      icon,
+                      color: theme.colorScheme.primary,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 14),
                   Column(
@@ -47,7 +50,10 @@ class SettingSectionCard extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 18,
+                        ),
                       ),
                       Text(
                         subtitle,
@@ -66,7 +72,7 @@ class SettingSectionCard extends StatelessWidget {
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
               height: 1,
-              color: Colors.white.withValues(alpha: 0.1),
+              color: theme.colorScheme.outlineVariant,
             ),
             Column(
               children: [
@@ -76,7 +82,7 @@ class SettingSectionCard extends StatelessWidget {
                     Container(
                       margin: const EdgeInsets.symmetric(horizontal: 20),
                       height: 1,
-                      color: Colors.white.withValues(alpha: 0.05),
+                      color: theme.colorScheme.outlineVariant,
                     ),
                 ],
               ],

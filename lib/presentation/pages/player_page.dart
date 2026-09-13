@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter/gestures.dart'; // Added for TapGestureRecognizer
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -11,7 +10,6 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../../core/di/injection.dart';
 import '../../core/services/audio_player_service.dart';
-import '../../core/services/settings_service.dart';
 import '../../domain/entities/song.dart';
 import 'package:share_plus/share_plus.dart';
 import '../blocs/player/player_bloc.dart';
@@ -22,6 +20,7 @@ import '../blocs/library/library_event.dart' hide DownloadSongEvent;
 import '../widgets/common/bouncing_tap_widget.dart';
 import '../widgets/equalizer/equalizer_bottom_sheet.dart';
 import '../widgets/player/player_queue_sheet.dart';
+import '../theme/prism_theme.dart';
 import 'artist_page.dart';
 
 /// Full screen player page with modern, animated blur background
@@ -34,18 +33,14 @@ class PlayerPage extends StatefulWidget {
 
 class _PlayerPageState extends State<PlayerPage>
     with SingleTickerProviderStateMixin {
-  final SettingsService _settingsService = SettingsService.instance;
   Color? _dominantColor;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   String? _lastImageUrl;
-  PlayerUiStyle _playerUiStyle = PlayerUiStyle.classic;
-  ValueListenable<dynamic>? _playerUiListenable;
 
   @override
   void initState() {
     super.initState();
-    _initializeSettingsListener();
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -58,24 +53,8 @@ class _PlayerPageState extends State<PlayerPage>
 
   @override
   void dispose() {
-    _playerUiListenable?.removeListener(_handlePlayerUiStyleChanged);
     _animationController.dispose();
     super.dispose();
-  }
-
-  Future<void> _initializeSettingsListener() async {
-    await _settingsService.initialize();
-    _playerUiStyle = _settingsService.playerUiStyle;
-    _playerUiListenable = _settingsService.playerUiStyleListenable();
-    _playerUiListenable?.addListener(_handlePlayerUiStyleChanged);
-    if (mounted) setState(() {});
-  }
-
-  void _handlePlayerUiStyleChanged() {
-    if (!mounted) return;
-    setState(() {
-      _playerUiStyle = _settingsService.playerUiStyle;
-    });
   }
 
   void _openArtistPage(String artistName) {
@@ -95,12 +74,14 @@ class _PlayerPageState extends State<PlayerPage>
 
     try {
       final imageProvider = CachedNetworkImageProvider(imageUrl);
-      final paletteGenerator =
-          await PaletteGenerator.fromImageProvider(imageProvider);
+      final paletteGenerator = await PaletteGenerator.fromImageProvider(
+        imageProvider,
+      );
 
       if (mounted) {
         setState(() {
-          _dominantColor = paletteGenerator.dominantColor?.color ??
+          _dominantColor =
+              paletteGenerator.dominantColor?.color ??
               paletteGenerator.vibrantColor?.color ??
               paletteGenerator.mutedColor?.color;
         });
@@ -126,9 +107,11 @@ class _PlayerPageState extends State<PlayerPage>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(LucideIcons.music,
-                      size: 48,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  Icon(
+                    LucideIcons.music,
+                    size: 48,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                   const SizedBox(height: 12),
                   const Text('No song playing'),
                 ],
@@ -145,17 +128,8 @@ class _PlayerPageState extends State<PlayerPage>
         final screenWidth = MediaQuery.of(context).size.width;
         final screenHeight = MediaQuery.of(context).size.height;
 
-        if (_playerUiStyle == PlayerUiStyle.modern) {
-          return _buildModernPlayer(
-            context: context,
-            theme: theme,
-            state: state,
-            song: song,
-            screenWidth: screenWidth,
-            screenHeight: screenHeight,
-          );
-        }
-
+        // One definitive player keeps playback familiar and lets the artwork
+        // carry the changing mood instead of switching interaction models.
         return _buildClassicPlayer(
           context: context,
           theme: theme,
@@ -205,8 +179,7 @@ class _PlayerPageState extends State<PlayerPage>
                   maxWidth: isTablet ? 500 : double.infinity,
                 ),
                 child: Padding(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: isTablet ? 32 : 24),
+                  padding: EdgeInsets.symmetric(horizontal: isTablet ? 32 : 24),
                   child: Column(
                     children: [
                       _buildHeader(context, theme),
@@ -216,17 +189,18 @@ class _PlayerPageState extends State<PlayerPage>
                           child: Column(
                             children: [
                               SizedBox(
-                                  height: isTablet
-                                      ? 24
-                                      : screenHeight * 0.03),
+                                height: isTablet ? 24 : screenHeight * 0.03,
+                              ),
                               _buildClassicAlbumArt(
-                                  context, theme, song, artSize),
+                                context,
+                                theme,
+                                song,
+                                artSize,
+                              ),
                               SizedBox(
-                                  height: isTablet
-                                      ? 28
-                                      : screenHeight * 0.03),
-                              _buildClassicSongInfo(
-                                  context, theme, song),
+                                height: isTablet ? 28 : screenHeight * 0.03,
+                              ),
+                              _buildClassicSongInfo(context, theme, song),
                             ],
                           ),
                         ),
@@ -238,8 +212,7 @@ class _PlayerPageState extends State<PlayerPage>
                           const SizedBox(height: 20),
                           _buildClassicControls(context, theme, state),
                           const SizedBox(height: 16),
-                          _buildClassicExtraControls(
-                              context, theme, state),
+                          _buildClassicExtraControls(context, theme, state),
                           const SizedBox(height: 16),
                         ],
                       ),
@@ -256,7 +229,7 @@ class _PlayerPageState extends State<PlayerPage>
 
   Widget _buildAnimatedBackground(dynamic song, ThemeData theme) {
     final isDark = theme.brightness == Brightness.dark;
-    
+
     return Stack(
       children: [
         // Base gradient
@@ -269,14 +242,16 @@ class _PlayerPageState extends State<PlayerPage>
               end: Alignment.bottomRight,
               colors: isDark
                   ? [
-                      (_dominantColor ?? theme.colorScheme.primary)
-                          .withValues(alpha: 0.25),
+                      (_dominantColor ?? theme.colorScheme.primary).withValues(
+                        alpha: 0.25,
+                      ),
                       theme.colorScheme.surface,
                       theme.colorScheme.surfaceContainerLowest,
                     ]
                   : [
-                      (_dominantColor ?? theme.colorScheme.primary)
-                          .withValues(alpha: 0.15),
+                      (_dominantColor ?? theme.colorScheme.primary).withValues(
+                        alpha: 0.15,
+                      ),
                       theme.colorScheme.surface,
                       theme.colorScheme.surfaceContainerLowest,
                     ],
@@ -332,7 +307,7 @@ class _PlayerPageState extends State<PlayerPage>
 
   Widget _buildHeader(BuildContext context, ThemeData theme) {
     final isDark = theme.brightness == Brightness.dark;
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
@@ -394,7 +369,7 @@ class _PlayerPageState extends State<PlayerPage>
     double artSize,
   ) {
     final accentColor = _dominantColor ?? theme.colorScheme.primary;
-    
+
     return Hero(
       tag: 'album_art_${song.youtubeId ?? song.id}',
       child: Container(
@@ -439,7 +414,8 @@ class _PlayerPageState extends State<PlayerPage>
                       fit: BoxFit.cover,
                       width: artSize,
                       height: artSize,
-                      placeholder: (context, url) => _buildLoadingArt(theme, artSize),
+                      placeholder: (context, url) =>
+                          _buildLoadingArt(theme, artSize),
                       errorWidget: (context, url, error) =>
                           _buildPlaceholderIcon(theme, artSize),
                     )
@@ -482,7 +458,7 @@ class _PlayerPageState extends State<PlayerPage>
       ),
     );
   }
-  
+
   Widget _buildLoadingArt(ThemeData theme, double artSize) {
     return Container(
       decoration: BoxDecoration(
@@ -531,7 +507,10 @@ class _PlayerPageState extends State<PlayerPage>
   }
 
   Widget _buildClassicSongInfo(
-      BuildContext context, ThemeData theme, dynamic song) {
+    BuildContext context,
+    ThemeData theme,
+    dynamic song,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -554,20 +533,23 @@ class _PlayerPageState extends State<PlayerPage>
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest
-                      .withValues(alpha: 0.5),
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.5,
+                  ),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(LucideIcons.user,
-                    size: 14, color: theme.colorScheme.onSurface),
+                child: Icon(
+                  LucideIcons.user,
+                  size: 14,
+                  color: theme.colorScheme.onSurface,
+                ),
               ),
               const SizedBox(width: 10),
               Flexible(
                 child: _ClickableArtistText(
                   artistString: song.artist,
                   style: theme.textTheme.titleLarge?.copyWith(
-                    color:
-                        theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
                     fontWeight: FontWeight.w600,
                     letterSpacing: -0.2,
                     decoration: TextDecoration.underline,
@@ -630,10 +612,7 @@ class _PlayerPageState extends State<PlayerPage>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _TimeLabel(
-                  time: _formatDuration(position),
-                  theme: theme,
-                ),
+                _TimeLabel(time: _formatDuration(position), theme: theme),
                 // Remaining time (negative)
                 _TimeLabel(
                   time: '-${_formatDuration(duration - position)}',
@@ -654,7 +633,7 @@ class _PlayerPageState extends State<PlayerPage>
   ) {
     final accentColor = _dominantColor ?? theme.colorScheme.primary;
     final isDark = theme.brightness == Brightness.dark;
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
@@ -709,7 +688,7 @@ class _PlayerPageState extends State<PlayerPage>
   ) {
     final accentColor = _dominantColor ?? theme.colorScheme.primary;
     final isDark = theme.brightness == Brightness.dark;
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
@@ -720,9 +699,8 @@ class _PlayerPageState extends State<PlayerPage>
             active: state.isShuffleEnabled,
             accentColor: accentColor,
             isDark: isDark,
-            onPressed: () => context
-                .read<PlayerBloc>()
-                .add(const ToggleShuffleEvent()),
+            onPressed: () =>
+                context.read<PlayerBloc>().add(const ToggleShuffleEvent()),
           ),
           _PillButton(
             icon: state.repeatMode == RepeatMode.one
@@ -731,9 +709,8 @@ class _PlayerPageState extends State<PlayerPage>
             active: state.repeatMode != RepeatMode.off,
             accentColor: accentColor,
             isDark: isDark,
-            onPressed: () => context
-                .read<PlayerBloc>()
-                .add(const CycleRepeatModeEvent()),
+            onPressed: () =>
+                context.read<PlayerBloc>().add(const CycleRepeatModeEvent()),
           ),
           _PillButton(
             icon: LucideIcons.listMusic,
@@ -748,11 +725,9 @@ class _PlayerPageState extends State<PlayerPage>
             accentColor: accentColor,
             isDark: isDark,
             onPressed: () {
-              ShadToaster.of(context).show(
-                ShadToast(
-                  title: const Text('Added to Liked Songs'),
-                ),
-              );
+              ShadToaster.of(
+                context,
+              ).show(ShadToast(title: const Text('Added to Liked Songs')));
             },
           ),
         ],
@@ -764,6 +739,8 @@ class _PlayerPageState extends State<PlayerPage>
   //  MODERN PLAYER
   // ════════════════════════════════════════════════════════════════════
 
+  // Kept temporarily for migration of saved routes from older alpha builds.
+  // ignore: unused_element
   Widget _buildModernPlayer({
     required BuildContext context,
     required ThemeData theme,
@@ -780,8 +757,7 @@ class _PlayerPageState extends State<PlayerPage>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              (_dominantColor ?? const Color(0xFF7C4DFF))
-                  .withValues(alpha: 0.9),
+              (_dominantColor ?? PrismColors.cyan).withValues(alpha: 0.9),
               Colors.black,
             ],
           ),
@@ -790,25 +766,26 @@ class _PlayerPageState extends State<PlayerPage>
           child: LayoutBuilder(
             builder: (context, constraints) {
               final dialSize = _computeDialSize(
-                  constraints.maxWidth, constraints.maxHeight);
+                constraints.maxWidth,
+                constraints.maxHeight,
+              );
               final progress = state.progress;
               return Column(
                 children: [
                   Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
-                    child:
-                        _buildModernHeader(context, theme, song),
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    child: _buildModernHeader(context, theme, song),
                   ),
                   Expanded(
                     child: SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20),
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Column(
-                          mainAxisAlignment:
-                              MainAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             const SizedBox(height: 24),
                             _buildModernAlbumDial(
@@ -828,8 +805,7 @@ class _PlayerPageState extends State<PlayerPage>
                     ),
                   ),
                   Padding(
-                    padding:
-                        const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                     child: _buildModernUtilityRow(context, theme),
                   ),
                 ],
@@ -849,12 +825,18 @@ class _PlayerPageState extends State<PlayerPage>
   }
 
   Widget _buildModernHeader(
-      BuildContext context, ThemeData theme, dynamic song) {
+    BuildContext context,
+    ThemeData theme,
+    dynamic song,
+  ) {
     return Row(
       children: [
         ShadIconButton.ghost(
-          icon: const Icon(LucideIcons.chevronDown,
-              color: Colors.white, size: 22),
+          icon: const Icon(
+            LucideIcons.chevronDown,
+            color: Colors.white,
+            size: 22,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         Expanded(
@@ -884,17 +866,19 @@ class _PlayerPageState extends State<PlayerPage>
           ),
         ),
         ShadIconButton.ghost(
-          icon: const Icon(LucideIcons.heart,
-              color: Colors.white, size: 20),
+          icon: const Icon(LucideIcons.heart, color: Colors.white, size: 20),
           onPressed: () {
-            ShadToaster.of(context).show(
-              ShadToast(title: const Text('Added to Liked Songs')),
-            );
+            ShadToaster.of(
+              context,
+            ).show(ShadToast(title: const Text('Added to Liked Songs')));
           },
         ),
         ShadIconButton.ghost(
-          icon: const Icon(LucideIcons.ellipsisVertical,
-              color: Colors.white, size: 20),
+          icon: const Icon(
+            LucideIcons.ellipsisVertical,
+            color: Colors.white,
+            size: 20,
+          ),
           onPressed: () => _showOptionsMenu(context),
         ),
       ],
@@ -913,10 +897,7 @@ class _PlayerPageState extends State<PlayerPage>
     final nextSong = _neighborSong(state, 1);
     final controlDistance = dialSize / 2 + 54;
 
-    Widget ringButton({
-      required double angle,
-      required Widget child,
-    }) {
+    Widget ringButton({required double angle, required Widget child}) {
       final radians = angle * math.pi / 180;
       return Transform.translate(
         offset: Offset(
@@ -948,8 +929,7 @@ class _PlayerPageState extends State<PlayerPage>
                   : Colors.white.withValues(alpha: 0.08),
               border: Border.all(color: Colors.white24),
             ),
-            child: Icon(icon,
-                color: active ? Colors.black : Colors.white),
+            child: Icon(icon, color: active ? Colors.black : Colors.white),
           ),
         ),
       );
@@ -968,12 +948,10 @@ class _PlayerPageState extends State<PlayerPage>
           height: 84,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              colors: [Color(0xFF9C27B0), Color(0xFF7C4DFF)],
-            ),
+            gradient: PrismColors.spectrum,
             boxShadow: [
               BoxShadow(
-                color: Colors.purpleAccent.withValues(alpha: 0.45),
+                color: PrismColors.cyan.withValues(alpha: 0.32),
                 blurRadius: 30,
                 offset: const Offset(0, 14),
               ),
@@ -1001,14 +979,12 @@ class _PlayerPageState extends State<PlayerPage>
           if (prevSong != null)
             Align(
               alignment: Alignment.centerLeft,
-              child: _buildOrbitingCover(
-                  theme, prevSong, dialSize * 0.45, -18),
+              child: _buildOrbitingCover(theme, prevSong, dialSize * 0.45, -18),
             ),
           if (nextSong != null)
             Align(
               alignment: Alignment.centerRight,
-              child: _buildOrbitingCover(
-                  theme, nextSong, dialSize * 0.45, 18),
+              child: _buildOrbitingCover(theme, nextSong, dialSize * 0.45, 18),
             ),
           SizedBox(
             width: dialSize,
@@ -1016,9 +992,17 @@ class _PlayerPageState extends State<PlayerPage>
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onPanDown: (details) => _seekFromDial(
-                  context, details.localPosition, dialSize, state),
+                context,
+                details.localPosition,
+                dialSize,
+                state,
+              ),
               onPanUpdate: (details) => _seekFromDial(
-                  context, details.localPosition, dialSize, state),
+                context,
+                details.localPosition,
+                dialSize,
+                state,
+              ),
               child: Stack(
                 alignment: Alignment.center,
                 clipBehavior: Clip.none,
@@ -1027,8 +1011,7 @@ class _PlayerPageState extends State<PlayerPage>
                     size: Size(dialSize, dialSize),
                     painter: _ModernRingPainter(
                       progress: progress.clamp(0.0, 1.0),
-                      color: _dominantColor ??
-                          theme.colorScheme.primary,
+                      color: _dominantColor ?? theme.colorScheme.primary,
                     ),
                   ),
                   BouncingTapWidget(
@@ -1037,13 +1020,13 @@ class _PlayerPageState extends State<PlayerPage>
                         ? () {}
                         : () {
                             if (state.isPlaying) {
-                              context
-                                  .read<PlayerBloc>()
-                                  .add(const PauseEvent());
+                              context.read<PlayerBloc>().add(
+                                const PauseEvent(),
+                              );
                             } else {
-                              context
-                                  .read<PlayerBloc>()
-                                  .add(const ResumeEvent());
+                              context.read<PlayerBloc>().add(
+                                const ResumeEvent(),
+                              );
                             }
                           },
                     child: Container(
@@ -1053,9 +1036,9 @@ class _PlayerPageState extends State<PlayerPage>
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color:
-                                (_dominantColor ?? Colors.black)
-                                    .withValues(alpha: 0.4),
+                            color: (_dominantColor ?? Colors.black).withValues(
+                              alpha: 0.4,
+                            ),
                             blurRadius: 40,
                             offset: const Offset(0, 12),
                           ),
@@ -1072,19 +1055,16 @@ class _PlayerPageState extends State<PlayerPage>
                             )
                           else
                             Container(
-                              color: theme
-                                  .colorScheme.primaryContainer,
+                              color: theme.colorScheme.primaryContainer,
                               child: Icon(
                                 LucideIcons.music,
-                                color: theme.colorScheme
-                                    .onPrimaryContainer,
+                                color: theme.colorScheme.onPrimaryContainer,
                                 size: dialSize * 0.25,
                               ),
                             ),
                           if (state.isBuffering)
                             const Center(
-                              child: ShadProgress(
-                                  color: Colors.white),
+                              child: ShadProgress(color: Colors.white),
                             ),
                         ],
                       ),
@@ -1094,29 +1074,28 @@ class _PlayerPageState extends State<PlayerPage>
                     bottom: 16,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.35),
                         borderRadius: BorderRadius.circular(999),
-                        border:
-                            Border.all(color: Colors.white12),
+                        border: Border.all(color: Colors.white12),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             state.positionFormatted,
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(
+                            style: theme.textTheme.bodyMedium?.copyWith(
                               color: Colors.white,
                               fontFeatures: const [
-                                FontFeature.tabularFigures()
+                                FontFeature.tabularFigures(),
                               ],
                             ),
                           ),
                           Container(
-                            margin: const EdgeInsets.symmetric(
-                                horizontal: 8),
+                            margin: const EdgeInsets.symmetric(horizontal: 8),
                             width: 6,
                             height: 6,
                             decoration: const BoxDecoration(
@@ -1126,11 +1105,10 @@ class _PlayerPageState extends State<PlayerPage>
                           ),
                           Text(
                             state.durationFormatted,
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(
+                            style: theme.textTheme.bodyMedium?.copyWith(
                               color: Colors.white,
                               fontFeatures: const [
-                                FontFeature.tabularFigures()
+                                FontFeature.tabularFigures(),
                               ],
                             ),
                           ),
@@ -1147,23 +1125,18 @@ class _PlayerPageState extends State<PlayerPage>
             child: controlChip(
               icon: LucideIcons.shuffle,
               active: state.isShuffleEnabled,
-              onTap: () => context
-                  .read<PlayerBloc>()
-                  .add(const ToggleShuffleEvent()),
+              onTap: () =>
+                  context.read<PlayerBloc>().add(const ToggleShuffleEvent()),
             ),
           ),
           ringButton(
             angle: -180,
             child: controlChip(
               icon: LucideIcons.skipBack,
-              enabled:
-                  state.hasPrevious || state.position.inSeconds > 3,
+              enabled: state.hasPrevious || state.position.inSeconds > 3,
               onTap: () {
-                if (state.hasPrevious ||
-                    state.position.inSeconds > 3) {
-                  context
-                      .read<PlayerBloc>()
-                      .add(const PreviousEvent());
+                if (state.hasPrevious || state.position.inSeconds > 3) {
+                  context.read<PlayerBloc>().add(const PreviousEvent());
                 }
               },
             ),
@@ -1171,19 +1144,13 @@ class _PlayerPageState extends State<PlayerPage>
           ringButton(
             angle: 90,
             child: primaryControl(
-              icon: state.isPlaying
-                  ? LucideIcons.pause
-                  : LucideIcons.play,
+              icon: state.isPlaying ? LucideIcons.pause : LucideIcons.play,
               isBuffering: state.isBuffering,
               onTap: () {
                 if (state.isPlaying) {
-                  context
-                      .read<PlayerBloc>()
-                      .add(const PauseEvent());
+                  context.read<PlayerBloc>().add(const PauseEvent());
                 } else {
-                  context
-                      .read<PlayerBloc>()
-                      .add(const ResumeEvent());
+                  context.read<PlayerBloc>().add(const ResumeEvent());
                 }
               },
             ),
@@ -1195,9 +1162,7 @@ class _PlayerPageState extends State<PlayerPage>
               enabled: state.hasNext,
               onTap: () {
                 if (state.hasNext) {
-                  context
-                      .read<PlayerBloc>()
-                      .add(const NextEvent());
+                  context.read<PlayerBloc>().add(const NextEvent());
                 }
               },
             ),
@@ -1209,9 +1174,8 @@ class _PlayerPageState extends State<PlayerPage>
                   ? LucideIcons.repeat1
                   : LucideIcons.repeat,
               active: state.repeatMode != RepeatMode.off,
-              onTap: () => context
-                  .read<PlayerBloc>()
-                  .add(const CycleRepeatModeEvent()),
+              onTap: () =>
+                  context.read<PlayerBloc>().add(const CycleRepeatModeEvent()),
             ),
           ),
         ],
@@ -1235,7 +1199,9 @@ class _PlayerPageState extends State<PlayerPage>
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-                color: Colors.white.withValues(alpha: 0.2), width: 2),
+              color: Colors.white.withValues(alpha: 0.2),
+              width: 2,
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.4),
@@ -1247,12 +1213,15 @@ class _PlayerPageState extends State<PlayerPage>
           clipBehavior: Clip.antiAlias,
           child: song.thumbnailUrl.isNotEmpty
               ? CachedNetworkImage(
-                  imageUrl: song.thumbnailUrl, fit: BoxFit.cover)
+                  imageUrl: song.thumbnailUrl,
+                  fit: BoxFit.cover,
+                )
               : Container(
                   color: theme.colorScheme.secondaryContainer,
-                  child: Icon(LucideIcons.disc,
-                      color:
-                          theme.colorScheme.onSecondaryContainer),
+                  child: Icon(
+                    LucideIcons.disc,
+                    color: theme.colorScheme.onSecondaryContainer,
+                  ),
                 ),
         ),
       ),
@@ -1286,8 +1255,7 @@ class _PlayerPageState extends State<PlayerPage>
     );
   }
 
-  Widget _buildModernUtilityRow(
-      BuildContext context, ThemeData theme) {
+  Widget _buildModernUtilityRow(BuildContext context, ThemeData theme) {
     return BlocBuilder<PlayerBloc, PlayerState>(
       builder: (context, state) {
         final currentSong = state.currentSong;
@@ -1314,21 +1282,21 @@ class _PlayerPageState extends State<PlayerPage>
                   ? null
                   : () async {
                       context.read<PlayerBloc>().add(
-                            DownloadSongEvent(currentSong),
-                          );
+                        DownloadSongEvent(currentSong),
+                      );
 
                       ShadToaster.of(context).show(
                         ShadToast(
-                          title: Text(
-                              'Downloading "${currentSong.title}"...'),
-                          description:
-                              Text('Check Downloads in your Library.'),
+                          title: Text('Downloading "${currentSong.title}"...'),
+                          description: Text('Check Downloads in your Library.'),
                         ),
                       );
 
                       Future.delayed(const Duration(seconds: 2), () {
                         if (context.mounted) {
-                          context.read<LibraryBloc>().add(const LoadLibraryEvent());
+                          context.read<LibraryBloc>().add(
+                            const LoadLibraryEvent(),
+                          );
                         }
                       });
                     },
@@ -1341,7 +1309,9 @@ class _PlayerPageState extends State<PlayerPage>
                   : () {
                       final videoId = currentSong.youtubeId ?? currentSong.id;
                       final url = 'https://music.youtube.com/watch?v=$videoId';
-                      Share.share('${currentSong.title} - ${currentSong.artist}\n$url');
+                      Share.share(
+                        '${currentSong.title} - ${currentSong.artist}\n$url',
+                      );
                     },
             ),
           ],
@@ -1366,23 +1336,22 @@ class _PlayerPageState extends State<PlayerPage>
             height: 48,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color:
-                  Colors.white.withValues(alpha: isEnabled ? 0.1 : 0.05),
+              color: Colors.white.withValues(alpha: isEnabled ? 0.1 : 0.05),
               border: Border.all(
                 color: isEnabled ? Colors.white24 : Colors.white12,
               ),
             ),
-            child: Icon(icon,
-                color:
-                    Colors.white.withValues(alpha: isEnabled ? 1.0 : 0.3)),
+            child: Icon(
+              icon,
+              color: Colors.white.withValues(alpha: isEnabled ? 1.0 : 0.3),
+            ),
           ),
         ),
         const SizedBox(height: 6),
         Text(
           label,
           style: TextStyle(
-            color:
-                Colors.white70.withValues(alpha: isEnabled ? 1.0 : 0.5),
+            color: Colors.white70.withValues(alpha: isEnabled ? 1.0 : 0.5),
             fontSize: 12,
           ),
         ),
@@ -1412,17 +1381,19 @@ class _PlayerPageState extends State<PlayerPage>
     const startAngle = -math.pi / 2;
     double angle = math.atan2(vector.dy, vector.dx);
     double normalized = angle - startAngle;
-    while (normalized < 0) { normalized += math.pi * 2; }
-    while (normalized > math.pi * 2) { normalized -= math.pi * 2; }
+    while (normalized < 0) {
+      normalized += math.pi * 2;
+    }
+    while (normalized > math.pi * 2) {
+      normalized -= math.pi * 2;
+    }
 
-    final progress =
-        (normalized / (math.pi * 2)).clamp(0.0, 1.0);
-    final targetMs =
-        (progress * totalMs).clamp(0.0, totalMs.toDouble());
+    final progress = (normalized / (math.pi * 2)).clamp(0.0, 1.0);
+    final targetMs = (progress * totalMs).clamp(0.0, totalMs.toDouble());
 
     context.read<PlayerBloc>().add(
-          SeekEvent(Duration(milliseconds: targetMs.round())),
-        );
+      SeekEvent(Duration(milliseconds: targetMs.round())),
+    );
   }
 
   dynamic _neighborSong(PlayerState state, int offset) {
@@ -1437,7 +1408,7 @@ class _PlayerPageState extends State<PlayerPage>
     final playerState = context.read<PlayerBloc>().state;
     final song = playerState.currentSong;
     final streamInfo = playerState.currentStreamInfo;
-    
+
     if (song == null) return;
 
     showShadDialog(
@@ -1467,10 +1438,9 @@ class _PlayerPageState extends State<PlayerPage>
                     _buildInfoRow('YouTube ID', song.youtubeId!),
                   if (song.spotifyId != null)
                     _buildInfoRow('Spotify ID', song.spotifyId!),
-                  if (song.isExplicit)
-                    _buildInfoRow('Explicit', 'Yes'),
+                  if (song.isExplicit) _buildInfoRow('Explicit', 'Yes'),
                   const Divider(),
-                  
+
                   // Stream Quality Info
                   Text(
                     'Stream Quality',
@@ -1481,21 +1451,36 @@ class _PlayerPageState extends State<PlayerPage>
                   const SizedBox(height: 8),
                   if (streamInfo != null) ...[
                     _buildInfoRow('Bitrate', '${streamInfo.bitrate} kbps'),
-                    _buildInfoRow('Quality', streamInfo.quality.name.toUpperCase()),
+                    _buildInfoRow(
+                      'Quality',
+                      streamInfo.quality.name.toUpperCase(),
+                    ),
                     _buildInfoRow('Codec', streamInfo.codec.toUpperCase()),
-                    _buildInfoRow('Container', streamInfo.container.toUpperCase()),
+                    _buildInfoRow(
+                      'Container',
+                      streamInfo.container.toUpperCase(),
+                    ),
                     if (streamInfo.contentLength != null)
-                      _buildInfoRow('Size', _formatBytes(streamInfo.contentLength!)),
+                      _buildInfoRow(
+                        'Size',
+                        _formatBytes(streamInfo.contentLength!),
+                      ),
                     if (streamInfo.expiresAt != null)
-                      _buildInfoRow('Expires', _formatDateTime(streamInfo.expiresAt!)),
+                      _buildInfoRow(
+                        'Expires',
+                        _formatDateTime(streamInfo.expiresAt!),
+                      ),
                     if (streamInfo.isAudioOnly)
                       _buildInfoRow('Audio Only', 'Yes'),
                   ] else ...[
-                    _buildInfoRow('Quality', playerState.audioQuality.name.toUpperCase()),
+                    _buildInfoRow(
+                      'Quality',
+                      playerState.audioQuality.name.toUpperCase(),
+                    ),
                     _buildInfoRow('Status', 'Loading...'),
                   ],
                   const Divider(),
-                  
+
                   // File Info
                   if (song.source == MusicSource.local) ...[
                     Text(
@@ -1527,7 +1512,9 @@ class _PlayerPageState extends State<PlayerPage>
   String _formatBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
@@ -1575,12 +1562,7 @@ class _PlayerPageState extends State<PlayerPage>
               ),
             ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 13),
-            ),
-          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
         ],
       ),
     );
@@ -1592,9 +1574,8 @@ class _PlayerPageState extends State<PlayerPage>
     showShadSheet(
       context: context,
       side: ShadSheetSide.bottom,
-      builder: (context) => EqualizerBottomSheet(
-        equalizerService: audioPlayerService.equalizer,
-      ),
+      builder: (context) =>
+          EqualizerBottomSheet(equalizerService: audioPlayerService.equalizer),
     );
   }
 
@@ -1627,12 +1608,13 @@ class _PlayerPageState extends State<PlayerPage>
                         : () {
                             Navigator.pop(ctx);
                             context.read<PlayerBloc>().add(
-                                  DownloadSongEvent(currentSong),
-                                );
+                              DownloadSongEvent(currentSong),
+                            );
                             ShadToaster.of(context).show(
                               ShadToast(
                                 title: Text(
-                                    'Downloading "${currentSong.title}"...'),
+                                  'Downloading "${currentSong.title}"...',
+                                ),
                               ),
                             );
                           },
@@ -1723,7 +1705,8 @@ class _ClickableArtistTextState extends State<_ClickableArtistText> {
   void _createRecognizers() {
     final artists = widget.artistString.split(RegExp(r',\s*'));
     _recognizers = artists.map((artistName) {
-      return TapGestureRecognizer()..onTap = () => widget.onArtistTap(artistName);
+      return TapGestureRecognizer()
+        ..onTap = () => widget.onArtistTap(artistName);
     }).toList();
   }
 
@@ -1742,25 +1725,24 @@ class _ClickableArtistTextState extends State<_ClickableArtistText> {
   @override
   Widget build(BuildContext context) {
     final artists = widget.artistString.split(RegExp(r',\s*'));
-    
+
     return Text.rich(
       TextSpan(
         style: widget.style,
         children: artists.asMap().entries.map((entry) {
           final isLast = entry.key == artists.length - 1;
           final artistName = entry.value;
-          
+
           return TextSpan(
             children: [
-              TextSpan(
-                text: artistName,
-                recognizer: _recognizers[entry.key],
-              ),
+              TextSpan(text: artistName, recognizer: _recognizers[entry.key]),
               if (!isLast)
                 TextSpan(
                   text: ', ',
                   // We remove the underline specifically for the comma delimiter
-                  style: widget.style?.copyWith(decoration: TextDecoration.none),
+                  style: widget.style?.copyWith(
+                    decoration: TextDecoration.none,
+                  ),
                 ),
             ],
           );
@@ -1782,11 +1764,7 @@ class _SheetAction extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
 
-  const _SheetAction({
-    required this.icon,
-    required this.label,
-    this.onTap,
-  });
+  const _SheetAction({required this.icon, required this.label, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1794,10 +1772,7 @@ class _SheetAction extends StatelessWidget {
       onPressed: onTap,
       leading: Icon(icon, size: 18),
       width: double.infinity,
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(label),
-      ),
+      child: Align(alignment: Alignment.centerLeft, child: Text(label)),
     );
   }
 }
@@ -1807,10 +1782,7 @@ class _SheetAction extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════════════
 
 class _ModernRingPainter extends CustomPainter {
-  const _ModernRingPainter({
-    required this.progress,
-    required this.color,
-  });
+  const _ModernRingPainter({required this.progress, required this.color});
 
   final double progress;
   final Color color;
@@ -1827,7 +1799,12 @@ class _ModernRingPainter extends CustomPainter {
       ..color = Colors.white.withValues(alpha: 0.08);
 
     canvas.drawArc(
-        rect.deflate(strokeWidth / 2), 0, math.pi * 2, false, basePaint);
+      rect.deflate(strokeWidth / 2),
+      0,
+      math.pi * 2,
+      false,
+      basePaint,
+    );
 
     final gradientPaint = Paint()
       ..style = PaintingStyle.stroke
@@ -1852,14 +1829,12 @@ class _ModernRingPainter extends CustomPainter {
       ..strokeWidth = 4
       ..color = Colors.white.withValues(alpha: 0.05);
 
-    canvas.drawArc(
-        rect.deflate(22), 0, math.pi * 2, false, innerPaint);
+    canvas.drawArc(rect.deflate(22), 0, math.pi * 2, false, innerPaint);
   }
 
   @override
   bool shouldRepaint(covariant _ModernRingPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.color != color;
+    return oldDelegate.progress != progress || oldDelegate.color != color;
   }
 }
 
@@ -1894,9 +1869,10 @@ class _GlassButtonState extends State<_GlassButton>
       duration: const Duration(milliseconds: 100),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.92).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.92,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -1917,10 +1893,7 @@ class _GlassButtonState extends State<_GlassButton>
       child: AnimatedBuilder(
         animation: _scaleAnimation,
         builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: child,
-          );
+          return Transform.scale(scale: _scaleAnimation.value, child: child);
         },
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
@@ -1993,10 +1966,7 @@ class _GlowingThumbShape extends SliderComponentShape {
   final Color color;
   final double thumbRadius;
 
-  const _GlowingThumbShape({
-    required this.color,
-    required this.thumbRadius,
-  });
+  const _GlowingThumbShape({required this.color, required this.thumbRadius});
 
   @override
   Size getPreferredSize(bool isEnabled, bool isDiscrete) {
@@ -2075,9 +2045,10 @@ class _AnimatedControlButtonState extends State<_AnimatedControlButton>
       duration: const Duration(milliseconds: 100),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.85).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.85,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -2100,10 +2071,7 @@ class _AnimatedControlButtonState extends State<_AnimatedControlButton>
       child: AnimatedBuilder(
         animation: _scaleAnimation,
         builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: child,
-          );
+          return Transform.scale(scale: _scaleAnimation.value, child: child);
         },
         child: Container(
           width: 56,
@@ -2165,9 +2133,10 @@ class _PlayPauseMainButtonState extends State<_PlayPauseMainButton>
       duration: const Duration(milliseconds: 100),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.92).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.92,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -2190,10 +2159,7 @@ class _PlayPauseMainButtonState extends State<_PlayPauseMainButton>
       child: AnimatedBuilder(
         animation: _scaleAnimation,
         builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: child,
-          );
+          return Transform.scale(scale: _scaleAnimation.value, child: child);
         },
         child: Container(
           width: 88,
@@ -2255,8 +2221,7 @@ class _PlayPauseMainButtonState extends State<_PlayPauseMainButton>
                       height: 40,
                       child: CircularProgressIndicator(
                         strokeWidth: 3,
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     )
                   : AnimatedSwitcher(
@@ -2318,9 +2283,10 @@ class _PillButtonState extends State<_PillButton>
       duration: const Duration(milliseconds: 100),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.9).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.9,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -2341,10 +2307,7 @@ class _PillButtonState extends State<_PillButton>
       child: AnimatedBuilder(
         animation: _scaleAnimation,
         builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: child,
-          );
+          return Transform.scale(scale: _scaleAnimation.value, child: child);
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
@@ -2354,8 +2317,8 @@ class _PillButtonState extends State<_PillButton>
             color: widget.active
                 ? widget.accentColor.withValues(alpha: 0.2)
                 : (widget.isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : Colors.black.withValues(alpha: 0.05)),
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.black.withValues(alpha: 0.05)),
             border: Border.all(
               color: widget.active
                   ? widget.accentColor.withValues(alpha: 0.4)

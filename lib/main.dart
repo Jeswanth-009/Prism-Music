@@ -16,6 +16,7 @@ import 'presentation/blocs/search/search.dart';
 import 'presentation/blocs/library/library.dart';
 import 'presentation/blocs/theme/theme.dart';
 import 'presentation/pages/home_page.dart';
+import 'presentation/theme/prism_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,7 +25,9 @@ void main() async {
   Logger.root.level = Level.ALL;
   Logger.root.onRecord.listen((record) {
     // Keep format compact for mobile logcat readability.
-    debugPrint('[${record.level.name}] ${record.loggerName}: ${record.message}');
+    debugPrint(
+      '[${record.level.name}] ${record.loggerName}: ${record.message}',
+    );
     if (record.error != null) {
       debugPrint('  error: ${record.error}');
     }
@@ -32,7 +35,7 @@ void main() async {
       debugPrint('  stack: ${record.stackTrace}');
     }
   });
-  
+
   // Initialize Hive FIRST, before any services that depend on it
   await Hive.initFlutter();
 
@@ -41,7 +44,7 @@ void main() async {
 
   // 2. Get the AudioPlayerService instance
   final audioPlayerService = getIt<AudioPlayerService>();
-  
+
   // 3. Initialize AudioService with our custom handler, passing the existing player
   await AudioService.init(
     builder: () => PrismAudioHandler(audioPlayerService.player),
@@ -52,20 +55,20 @@ void main() async {
       androidStopForegroundOnPause: true,
     ),
   );
-  
+
   // Restore user library from the on-device backup (survives uninstall).
   await LocalBackupService.instance.restoreIfNeeded();
-  
+
   // Set preferred orientations
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-  
+
   // Request permissions (non-blocking to avoid hot restart issues)
   // ignore: body_might_complete_normally_catch_error
   PermissionService.requestAllPermissions().catchError((_) {});
-  
+
   runApp(const PrismMusicApp());
 }
 
@@ -77,15 +80,9 @@ class PrismMusicApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider<ThemeBloc>(
-          create: (_) => getIt<ThemeBloc>(),
-        ),
-        BlocProvider<PlayerBloc>(
-          create: (_) => getIt<PlayerBloc>(),
-        ),
-        BlocProvider<SearchBloc>(
-          create: (_) => getIt<SearchBloc>(),
-        ),
+        BlocProvider<ThemeBloc>(create: (_) => getIt<ThemeBloc>()),
+        BlocProvider<PlayerBloc>(create: (_) => getIt<PlayerBloc>()),
+        BlocProvider<SearchBloc>(create: (_) => getIt<SearchBloc>()),
         BlocProvider<LibraryBloc>(
           create: (_) => getIt<LibraryBloc>()..add(const LoadLibraryEvent()),
         ),
@@ -96,11 +93,53 @@ class PrismMusicApp extends StatelessWidget {
             themeMode: themeState.themeMode,
             theme: ShadThemeData(
               brightness: Brightness.light,
-              colorScheme: const ShadZincColorScheme.light(),
+              colorScheme: ShadColorScheme(
+                background: PrismColors.paper,
+                foreground: PrismColors.ink,
+                card: PrismColors.paperRaised,
+                cardForeground: PrismColors.ink,
+                popover: PrismColors.paperRaised,
+                popoverForeground: PrismColors.ink,
+                primary: const Color(0xFF007E73),
+                primaryForeground: Colors.white,
+                secondary: PrismColors.paperSoft,
+                secondaryForeground: PrismColors.ink,
+                muted: PrismColors.paperSoft,
+                mutedForeground: const Color(0xFF656760),
+                accent: const Color(0xFFD9F7F0),
+                accentForeground: const Color(0xFF005B53),
+                destructive: PrismColors.danger,
+                destructiveForeground: Colors.white,
+                border: const Color(0xFFDDDAD3),
+                input: const Color(0xFFDDDAD3),
+                ring: const Color(0xFF007E73),
+                selection: const Color(0xFFBCEDE4),
+              ),
             ),
             darkTheme: ShadThemeData(
               brightness: Brightness.dark,
-              colorScheme: const ShadZincColorScheme.dark(),
+              colorScheme: const ShadColorScheme(
+                background: PrismColors.ink,
+                foreground: Color(0xFFF4F2ED),
+                card: PrismColors.inkRaised,
+                cardForeground: Color(0xFFF4F2ED),
+                popover: PrismColors.inkRaised,
+                popoverForeground: Color(0xFFF4F2ED),
+                primary: PrismColors.cyan,
+                primaryForeground: PrismColors.ink,
+                secondary: PrismColors.inkSoft,
+                secondaryForeground: Color(0xFFF4F2ED),
+                muted: PrismColors.inkSoft,
+                mutedForeground: Color(0xFF9DA5B2),
+                accent: Color(0xFF123B38),
+                accentForeground: Color(0xFFBDF9EE),
+                destructive: PrismColors.danger,
+                destructiveForeground: Colors.white,
+                border: Color(0xFF252C38),
+                input: Color(0xFF252C38),
+                ring: PrismColors.cyan,
+                selection: Color(0xFF174B45),
+              ),
             ),
             appBuilder: (context) {
               return MaterialApp(

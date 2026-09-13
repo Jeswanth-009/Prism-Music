@@ -266,13 +266,6 @@ class _SettingsPageState extends State<SettingsPage> {
             );
           },
         ),
-        SettingRow(
-          leading: const Icon(LucideIcons.disc),
-          title: 'Player UI',
-          subtitle: _settingsService.playerUiStyle.label,
-          trailing: const Icon(LucideIcons.chevronRight, size: 18),
-          onTap: () => SettingsDialogs.showPlayerUiStyleSheet(context, _settingsService, _forceRebuild),
-        ),
         if (_isInitialized)
           SettingRow(
             leading: Text(_settingsService.selectedCountry.flag, style: const TextStyle(fontSize: 24)),

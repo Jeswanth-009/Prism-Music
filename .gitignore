@@ -53,4 +53,6 @@ app.*.map.json
 
 # Test artifacts
 test_hive/
+test_hive_player/
+test_hive*/
 

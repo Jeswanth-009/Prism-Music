@@ -43,9 +43,10 @@ class _SongCardState extends State<SongCard>
       duration: const Duration(milliseconds: 100),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.98).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.98,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -57,13 +58,12 @@ class _SongCardState extends State<SongCard>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    
     return BlocBuilder<PlayerBloc, PlayerState>(
       builder: (context, playerState) {
-        final isCurrentlyPlaying = playerState.currentSong?.id == widget.song.id;
+        final isCurrentlyPlaying =
+            playerState.currentSong?.id == widget.song.id;
         final accentColor = theme.colorScheme.primary;
-        
+
         return GestureDetector(
           onTapDown: (_) {
             setState(() => _isPressed = true);
@@ -93,30 +93,21 @@ class _SongCardState extends State<SongCard>
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(widget.compact ? 12 : 16),
                 color: isCurrentlyPlaying
-                    ? accentColor.withValues(alpha: isDark ? 0.15 : 0.1)
-                    : (isDark
-                        ? Colors.white.withValues(alpha: 0.05)
-                        : Colors.white.withValues(alpha: 0.8)),
+                    ? accentColor.withValues(alpha: 0.12)
+                    : theme.colorScheme.surfaceContainer,
                 border: Border.all(
                   color: isCurrentlyPlaying
                       ? accentColor.withValues(alpha: 0.3)
-                      : (isDark
-                          ? Colors.white.withValues(alpha: 0.08)
-                          : Colors.black.withValues(alpha: 0.05)),
+                      : theme.colorScheme.outlineVariant,
                   width: isCurrentlyPlaying ? 1.5 : 1,
                 ),
                 boxShadow: [
                   if (isCurrentlyPlaying)
                     BoxShadow(
-                      color: accentColor.withValues(alpha: 0.15),
-                      blurRadius: 12,
+                      color: accentColor.withValues(alpha: 0.10),
+                      blurRadius: 16,
                       offset: const Offset(0, 4),
                     ),
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
                 ],
               ),
               child: Row(
@@ -129,7 +120,7 @@ class _SongCardState extends State<SongCard>
                     size: widget.compact ? 48.0 : 56.0,
                   ),
                   SizedBox(width: widget.compact ? 10 : 14),
-                  
+
                   // Song info
                   Expanded(
                     child: Column(
@@ -165,7 +156,7 @@ class _SongCardState extends State<SongCard>
                       ],
                     ),
                   ),
-                  
+
                   // Right side: duration and play indicator
                   if (widget.showDuration || widget.showPlayIndicator)
                     Column(
@@ -180,9 +171,7 @@ class _SongCardState extends State<SongCard>
                             ),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(6),
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.08)
-                                  : Colors.black.withValues(alpha: 0.05),
+                              color: theme.colorScheme.surfaceContainerHigh,
                             ),
                             child: Text(
                               widget.song.durationFormatted,
@@ -202,7 +191,9 @@ class _SongCardState extends State<SongCard>
                               size: 18,
                               color: isCurrentlyPlaying
                                   ? accentColor
-                                  : theme.colorScheme.primary.withValues(alpha: 0.7),
+                                  : theme.colorScheme.primary.withValues(
+                                      alpha: 0.7,
+                                    ),
                             ),
                         ],
                       ],
@@ -234,7 +225,7 @@ class _AlbumArtThumbnail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Stack(
       children: [
         // Glow effect
@@ -323,9 +314,10 @@ class _PlayingIndicatorState extends State<_PlayingIndicator>
       )..repeat(reverse: true),
     );
     _animations = _controllers.map((c) {
-      return Tween<double>(begin: 0.3, end: 1.0).animate(
-        CurvedAnimation(parent: c, curve: Curves.easeInOut),
-      );
+      return Tween<double>(
+        begin: 0.3,
+        end: 1.0,
+      ).animate(CurvedAnimation(parent: c, curve: Curves.easeInOut));
     }).toList();
   }
 
@@ -390,9 +382,10 @@ class _SongCardHorizontalState extends State<SongCardHorizontal>
       duration: const Duration(milliseconds: 100),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.96).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.96,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -416,10 +409,7 @@ class _SongCardHorizontalState extends State<SongCardHorizontal>
       child: AnimatedBuilder(
         animation: _scaleAnimation,
         builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: child,
-          );
+          return Transform.scale(scale: _scaleAnimation.value, child: child);
         },
         child: SizedBox(
           width: widget.width,
@@ -434,7 +424,9 @@ class _SongCardHorizontalState extends State<SongCardHorizontal>
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.15),
+                      color: Colors.black.withValues(
+                        alpha: isDark ? 0.4 : 0.15,
+                      ),
                       blurRadius: 12,
                       offset: const Offset(0, 6),
                     ),
@@ -464,7 +456,9 @@ class _SongCardHorizontalState extends State<SongCardHorizontal>
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                                color: theme.colorScheme.primary.withValues(
+                                  alpha: 0.4,
+                                ),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
