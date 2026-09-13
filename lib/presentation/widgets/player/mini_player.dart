@@ -6,7 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../../blocs/player/player.dart';
-import '../../pages/player_page.dart';
+import '../../pages/prism_player_page.dart';
 import '../../theme/prism_theme.dart';
 
 /// Prism's persistent playback surface. It is intentionally the only frosted
@@ -17,7 +17,7 @@ class MiniPlayer extends StatelessWidget {
   void _openPlayer(BuildContext context) {
     Navigator.of(context).push(
       PageRouteBuilder<void>(
-        pageBuilder: (_, animation, __) => const PlayerPage(),
+        pageBuilder: (_, animation, __) => const PrismPlayerPage(),
         transitionsBuilder: (_, animation, __, child) => SlideTransition(
           position: Tween(begin: const Offset(0, 0.08), end: Offset.zero)
               .animate(

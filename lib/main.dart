@@ -15,7 +15,7 @@ import 'presentation/blocs/player/player.dart';
 import 'presentation/blocs/search/search.dart';
 import 'presentation/blocs/library/library.dart';
 import 'presentation/blocs/theme/theme.dart';
-import 'presentation/pages/home_page.dart';
+import 'presentation/pages/prism_shell.dart';
 import 'presentation/theme/prism_theme.dart';
 
 void main() async {
@@ -151,7 +151,7 @@ class PrismMusicApp extends StatelessWidget {
                 builder: (context, child) {
                   return ShadAppBuilder(child: child!);
                 },
-                home: const HomePage(),
+                home: const PrismShell(),
               );
             },
           );
