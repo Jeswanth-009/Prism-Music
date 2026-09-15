@@ -14,6 +14,7 @@ import 'liked_songs_page.dart';
 import 'playlist_detail_page.dart';
 import 'recently_played_page.dart';
 import 'settings_page.dart';
+import 'stats_page.dart';
 
 /// Playlist import sources.
 enum _ImportSource { spotify, youtube }
@@ -223,11 +224,30 @@ class _LibraryTabState extends State<LibraryTab>
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 150),
               sliver: SliverToBoxAdapter(
-                child: _StatsCard(
-                  totalPlays: state.stats?.totalPlays ?? 0,
-                  uniqueSongs: state.stats?.uniqueSongs ?? 0,
-                  topArtist: state.stats?.topArtist,
-                  mostPlayed: state.stats?.mostPlayedSong?.title,
+                child: Column(
+                  children: [
+                    _StatsCard(
+                      totalPlays: state.stats?.totalPlays ?? 0,
+                      uniqueSongs: state.stats?.uniqueSongs ?? 0,
+                      topArtist: state.stats?.topArtist,
+                      mostPlayed: state.stats?.mostPlayedSong?.title,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const StatsPage(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const StatsPage(),
+                        ),
+                      ),
+                      icon: const Icon(Icons.bar_chart_rounded, size: 18),
+                      label: const Text('Full listening stats'),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -365,17 +385,19 @@ class _StatsCard extends StatelessWidget {
     required this.uniqueSongs,
     this.topArtist,
     this.mostPlayed,
+    this.onTap,
   });
 
   final int totalPlays;
   final int uniqueSongs;
   final String? topArtist;
   final String? mostPlayed;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
+    final card = Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainer,
@@ -408,6 +430,16 @@ class _StatsCard extends StatelessWidget {
             ],
           ],
         ],
+      ),
+    );
+
+    if (onTap == null) return card;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(PrismRadius.lg),
+        child: card,
       ),
     );
   }

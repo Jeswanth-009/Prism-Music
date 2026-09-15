@@ -81,6 +81,11 @@ abstract class LibraryRepository {
   /// Compute aggregated listening statistics from the full play history.
   Future<Either<Failure, ListeningStats>> getListeningStats();
 
+  /// Get full play history with timestamps (newest first), for charts.
+  Future<Either<Failure, List<HistoryEntry>>> getHistoryEntries({
+    int limit = 200,
+  });
+
   // ============ DOWNLOADS ============
 
   /// Get all downloaded songs

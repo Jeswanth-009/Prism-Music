@@ -8,7 +8,13 @@ import 'theme_state.dart';
 /// BLoC for managing app theme and dynamic colors
 class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
   ThemeBloc({ThemeMode initialThemeMode = ThemeMode.system})
-      : super(ThemeState(themeMode: initialThemeMode)) {
+      : super(
+          ThemeState(
+            themeMode: initialThemeMode,
+            isDynamicColorEnabled:
+                SettingsService.instance.dynamicAccent,
+          ),
+        ) {
     on<SetThemeModeEvent>(_onSetThemeMode);
     on<UpdateDynamicColorEvent>(_onUpdateDynamicColor);
     on<ToggleDynamicColorEvent>(_onToggleDynamicColor);
@@ -85,7 +91,7 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
       isDynamicColorEnabled: enabled,
       primaryColor: enabled ? state.primaryColor : state.defaultPrimaryColor,
     ));
-    // TODO: Persist preference
+    SettingsService.instance.setDynamicAccent(enabled);
   }
 
   void _onSetLayoutMode(

@@ -86,6 +86,8 @@ class SettingsService {
   static const String _prefetchLookaheadKey = 'prefetch_lookahead';
   static const String _downloadFolderKey = 'download_folder_path';
   static const String _themeModeKey = 'theme_mode';
+  static const String _dynamicAccentKey = 'dynamic_accent';
+  static const String _onboardingCompleteKey = 'onboarding_complete';
   static SettingsService? _instance;
   
   Box? _settingsBox;
@@ -258,6 +260,35 @@ class SettingsService {
   /// Persist theme mode preference
   Future<void> setThemeMode(ThemeMode mode) async {
     await _settingsBox?.put(_themeModeKey, mode.name);
+  }
+
+  /// Whether the accent color adapts to the current song's artwork
+  bool get dynamicAccent {
+    try {
+      return _settingsBox?.get(_dynamicAccentKey, defaultValue: true) ?? true;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  /// Persist dynamic accent preference
+  Future<void> setDynamicAccent(bool enabled) async {
+    await _settingsBox?.put(_dynamicAccentKey, enabled);
+  }
+
+  /// Whether the first-launch onboarding has been completed
+  bool get onboardingComplete {
+    try {
+      return _settingsBox?.get(_onboardingCompleteKey, defaultValue: false) ??
+          false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Persist onboarding completion
+  Future<void> setOnboardingComplete() async {
+    await _settingsBox?.put(_onboardingCompleteKey, true);
   }
 
   /// Get custom download folder path (null means use default)

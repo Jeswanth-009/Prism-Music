@@ -16,6 +16,7 @@ import 'presentation/blocs/search/search.dart';
 import 'presentation/blocs/library/library.dart';
 import 'presentation/blocs/theme/theme.dart';
 import 'presentation/pages/home_page.dart';
+import 'presentation/pages/onboarding_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -98,7 +99,9 @@ class PrismMusicApp extends StatelessWidget {
             theme: themeState.lightTheme,
             darkTheme: themeState.darkTheme,
             themeMode: themeState.themeMode,
-            home: const HomePage(),
+            home: SettingsService.instance.onboardingComplete
+                ? const HomePage()
+                : const OnboardingPage(),
           );
         },
       ),

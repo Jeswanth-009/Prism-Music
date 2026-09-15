@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_state.dart';
+import '../blocs/theme/theme.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/player/mini_player.dart';
 import 'charts_hub_page.dart';
@@ -32,7 +33,19 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       extendBody: true,
-      body: Stack(
+      body: BlocListener<PlayerBloc, PlayerState>(
+        listenWhen: (prev, next) =>
+            prev.currentSong?.id != next.currentSong?.id,
+        listener: (context, state) {
+          // App-wide dynamic accent: retint the chrome from artwork.
+          final song = state.currentSong;
+          if (song != null && song.thumbnailUrl.isNotEmpty) {
+            context.read<ThemeBloc>().add(
+              UpdateDynamicColorEvent(imageUrl: song.thumbnailUrl),
+            );
+          }
+        },
+        child: Stack(
         children: [
           // Subtle single-hue tint at the top; otherwise flat surface.
           Positioned.fill(
@@ -80,7 +93,8 @@ class _HomePageState extends State<HomePage> {
               onSelect: (index) => setState(() => _currentIndex = index),
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

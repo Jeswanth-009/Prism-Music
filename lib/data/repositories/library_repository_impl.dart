@@ -404,4 +404,18 @@ class LibraryRepositoryImpl implements LibraryRepository {
       return Left(UnknownFailure(message: e.toString()));
     }
   }
+
+  @override
+  Future<Either<Failure, List<HistoryEntry>>> getHistoryEntries({
+    int limit = 200,
+  }) async {
+    try {
+      final entries = await _localDataSource.getFullHistory();
+      return Right(entries.take(limit).toList());
+    } on CacheException catch (e) {
+      return Left(CacheFailure(message: e.message));
+    } catch (e) {
+      return Left(UnknownFailure(message: e.toString()));
+    }
+  }
 }

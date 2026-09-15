@@ -54,7 +54,10 @@ different set of priorities:
 - **Song actions everywhere** — long-press any song for play next, queue,
   add to playlist, like, download, and share
 - **Library** — liked songs, recently played, downloads, playlists with
-  create/delete, and a listening-stats overview
+  create/delete, and a full listening-stats page (top artists/songs, a
+  14-day plays chart, lifetime numbers)
+- **Dynamic accent** — optionally tint the whole app from the playing
+  song's artwork (toggle in Settings)
 - **Playlist import** — bring Spotify or YouTube playlist links into Prism
 - **Offline** — download songs and play them without a connection
 - **Equalizer** — presets, bass boost, and reverb, applied through the
@@ -90,8 +93,8 @@ different set of priorities:
 | Material 3 UI revamp | Done | Design system, home, search, library, player, lyrics |
 | P1 feature gaps | Done | Song actions, playlist import, theme persistence, remote playlists |
 | Playback polish | Done | Crossfade, audio-quality selection, sleep timer, treble, cache management |
-| Experience depth | Next | Full stats page, app-wide dynamic accent color, onboarding |
-| Beta readiness | Planned | Regression pass, quality gates, iOS evaluation |
+| Experience depth | Done | Full stats page with play history chart, dynamic accent color, onboarding |
+| Beta readiness | Next | Regression pass, quality gates, iOS evaluation |
 
 ## Architecture Overview
 

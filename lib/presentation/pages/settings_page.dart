@@ -12,6 +12,7 @@ import '../../core/services/audio_player_service.dart';
 import '../../domain/entities/entities.dart';
 
 import '../blocs/theme/theme_bloc.dart';
+import '../blocs/theme/theme_event.dart';
 import '../blocs/theme/theme_state.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_state.dart';
@@ -260,6 +261,23 @@ class _SettingsPageState extends State<SettingsPage> {
                       ? 'Light'
                       : 'System Default',
               onTap: () => SettingsDialogs.showThemeModeDialog(context),
+            );
+          },
+        ),
+        BlocBuilder<ThemeBloc, ThemeState>(
+          builder: (context, themeState) {
+            return SettingRow(
+              leading: const Icon(Icons.colorize_rounded),
+              title: 'Accent from artwork',
+              subtitle: themeState.isDynamicColorEnabled
+                  ? 'App accent follows the playing song'
+                  : 'Using the fixed Prism accent',
+              trailing: Switch.adaptive(
+                value: themeState.isDynamicColorEnabled,
+                onChanged: (_) => context
+                    .read<ThemeBloc>()
+                    .add(const ToggleDynamicColorEvent()),
+              ),
             );
           },
         ),
