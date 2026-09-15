@@ -1,7 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/di/injection.dart';
@@ -12,6 +11,8 @@ import '../../domain/entities/song.dart';
 import '../../domain/repositories/music_repository.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
+import '../widgets/prism/prism_states.dart';
+import 'album_page.dart';
 
 class ArtistPage extends StatefulWidget {
   final String artistName;
@@ -181,24 +182,9 @@ class _ArtistPageState extends State<ArtistPage> {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: _loading
-          ? const Center(child: ShadProgress())
+          ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ShadAlert.destructive(
-                        icon: const Icon(LucideIcons.circleAlert),
-                        title: Text(_error!),
-                      ),
-                      const SizedBox(height: 12),
-                      ShadButton.outline(
-                        onPressed: _load,
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                )
+              ? PrismErrorState(message: _error, onRetry: _load)
               : RefreshIndicator(
                   onRefresh: _load,
                   child: CustomScrollView(
@@ -240,13 +226,13 @@ class _ArtistPageState extends State<ArtistPage> {
       stretch: true,
       backgroundColor: theme.colorScheme.surface,
       automaticallyImplyLeading: true,
-      leading: ShadIconButton.ghost(
-        icon: const Icon(LucideIcons.arrowLeft, size: 20),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_rounded),
         onPressed: () => Navigator.of(context).maybePop(),
       ),
       actions: [
-        ShadIconButton.ghost(
-          icon: const Icon(LucideIcons.share2, size: 20),
+        IconButton(
+          icon: const Icon(Icons.share_rounded),
           onPressed: () {
             final url = 'https://music.youtube.com/search?q=${Uri.encodeComponent(artist.name)}';
             Share.share('Check out ${artist.name} on YouTube Music\n$url');
@@ -292,7 +278,7 @@ class _ArtistPageState extends State<ArtistPage> {
                               ? CachedNetworkImage(
                                   imageUrl: image,
                                   fit: BoxFit.cover)
-                              : Icon(LucideIcons.user,
+                              : Icon(Icons.person_rounded,
                                   size: 42,
                                   color: theme.colorScheme
                                       .onSurfaceVariant),
@@ -331,9 +317,12 @@ class _ArtistPageState extends State<ArtistPage> {
                         ],
                       ),
                     ),
-                    ShadIconButton.ghost(
-                      icon: const Icon(LucideIcons.heart,
-                          color: Colors.white, size: 22),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.favorite_outline_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
                       onPressed: () {},
                     ),
                   ],
@@ -355,58 +344,45 @@ class _ArtistPageState extends State<ArtistPage> {
                 ?.copyWith(fontWeight: FontWeight.w700)),
         const SizedBox(height: 10),
         ..._topSongs.asMap().entries.map((entry) {
-          final idx = entry.key;
           final song = entry.value;
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: GestureDetector(
+            child: ListTile(
               onTap: () => _playSong(song, _topSongs),
-              child: ShadCard(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 10),
-              child: Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: SizedBox(
-                      width: 52,
-                      height: 52,
-                      child: song.thumbnailUrl.isNotEmpty
-                          ? CachedNetworkImage(
-                              imageUrl: song.thumbnailUrl,
-                              fit: BoxFit.cover)
-                          : Container(
-                              color: theme.colorScheme
-                                  .surfaceContainerHighest),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                      children: [
-                        Text(song.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(
-                                    fontWeight: FontWeight.w600)),
-                        Text(
-                            'Track ${idx + 1} · ${song.artist}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall),
-                      ],
-                    ),
-                  ),
-                  ShadIconButton.ghost(
-                    icon: const Icon(LucideIcons.play, size: 20),
-                    onPressed: () =>
-                        _playSong(song, _topSongs),
-                  ),
-                ],
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
               ),
+              tileColor:
+                  theme.colorScheme.surfaceContainer.withValues(alpha: .6),
+              leading: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: song.thumbnailUrl.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: song.thumbnailUrl, fit: BoxFit.cover)
+                      : Container(
+                          color: theme.colorScheme.surfaceContainerHighest,
+                        ),
+                ),
+              ),
+              title: Text(
+                song.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                song.artist,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall,
+              ),
+              trailing: IconButton(
+                icon: const Icon(Icons.play_arrow_rounded),
+                onPressed: () => _playSong(song, _topSongs),
               ),
             ),
           );
@@ -425,11 +401,6 @@ class _ArtistPageState extends State<ArtistPage> {
             Text('Albums',
                 style: theme.textTheme.titleLarge
                     ?.copyWith(fontWeight: FontWeight.w700)),
-            ShadButton.ghost(
-              onPressed: () {},
-              size: ShadButtonSize.sm,
-              child: const Text('View all'),
-            ),
           ],
         ),
         const SizedBox(height: 10),
@@ -444,11 +415,7 @@ class _ArtistPageState extends State<ArtistPage> {
               return GestureDetector(
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => AlbumPage(
-                      albumId: album.id,
-                      albumTitle: album.title,
-                      thumbnailUrl: album.thumbnailUrl,
-                    ),
+                    builder: (_) => AlbumPage(album: album),
                   ),
                 ),
                 child: SizedBox(
@@ -503,15 +470,15 @@ class _ArtistPageState extends State<ArtistPage> {
         _StatBubble(
             label: 'albums',
             value: albumsCount.toString(),
-            icon: LucideIcons.disc),
+            icon: Icons.album_rounded),
         _StatBubble(
             label: 'tracks',
             value: tracksCount.toString(),
-            icon: LucideIcons.music),
+            icon: Icons.music_note_rounded),
         _StatBubble(
             label: 'favorites',
             value: favorites.toString(),
-            icon: LucideIcons.heart),
+            icon: Icons.favorite_rounded),
       ],
     );
   }
@@ -552,287 +519,6 @@ class _StatBubble extends StatelessWidget {
           Text(label,
               style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant)),
-        ],
-      ),
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════════════
-// Album Page
-// ════════════════════════════════════════════════════════════════════════
-
-class AlbumPage extends StatefulWidget {
-  final String albumTitle;
-  final String? albumId;
-  final String? thumbnailUrl;
-
-  const AlbumPage({
-    super.key,
-    required this.albumTitle,
-    this.albumId,
-    this.thumbnailUrl,
-  });
-
-  @override
-  State<AlbumPage> createState() => _AlbumPageState();
-}
-
-class _AlbumPageState extends State<AlbumPage> {
-  final MusicRepository _musicRepository = getIt<MusicRepository>();
-
-  bool _loading = true;
-  String? _error;
-  Album? _album;
-  List<Song> _songs = const [];
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
-    try {
-      if (widget.albumId != null) {
-        final result =
-            await _musicRepository.getAlbumDetails(widget.albumId!);
-        result.fold((failure) => _error = failure.message, (album) {
-          _album = album;
-          _songs = album.songs ?? const [];
-        });
-      }
-
-      if (_album == null) {
-        final searchResult = await _musicRepository
-            .searchAlbums(widget.albumTitle, limit: 1);
-        searchResult.fold((failure) => _error = failure.message,
-            (albums) {
-          if (albums.isNotEmpty) _album = albums.first;
-        });
-
-        if (_album != null) {
-          final details =
-              await _musicRepository.getAlbumDetails(_album!.id);
-          details.fold((failure) => _error = failure.message,
-              (album) {
-            _album = album;
-            _songs = album.songs ?? const [];
-          });
-        }
-      }
-
-      if (_songs.isEmpty) {
-        final songsResult = await _musicRepository.searchSongs(
-            '${widget.albumTitle} ${_album?.artist ?? ''}',
-            limit: 20);
-        songsResult.fold(
-            (failure) => logError(
-                'Album tracks search failed', failure.message),
-            (songs) => _songs = songs);
-      }
-
-      setState(() => _loading = false);
-    } catch (e, stack) {
-      logError('Album load failed', e, stack);
-      setState(() {
-        _error = 'Failed to load album';
-        _loading = false;
-      });
-    }
-  }
-
-  void _playSong(Song song, List<Song> queue) {
-    final bloc = context.read<PlayerBloc>();
-    bloc.add(PlaySongEvent(
-        song: song, queue: queue, queueIndex: queue.indexOf(song)));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.albumTitle),
-        leading: ShadIconButton.ghost(
-          icon: const Icon(LucideIcons.arrowLeft, size: 20),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        actions: [
-          if (_songs.isNotEmpty)
-            ShadIconButton.ghost(
-              icon: const Icon(LucideIcons.shuffle, size: 20),
-              onPressed: () {
-                final queue = List<Song>.from(_songs)..shuffle();
-                _playSong(queue.first, queue);
-              },
-            ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: ShadProgress())
-          : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ShadAlert.destructive(
-                        icon: const Icon(LucideIcons.circleAlert),
-                        title: Text(_error!),
-                      ),
-                      const SizedBox(height: 12),
-                      ShadButton.outline(
-                        onPressed: _load,
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: ListView(
-                    padding: const EdgeInsets.only(bottom: 32),
-                    children: [
-                      _buildHeader(theme),
-                      const SizedBox(height: 12),
-                      if (_songs.isNotEmpty) _buildTracks(theme),
-                    ],
-                  ),
-                ),
-    );
-  }
-
-  Widget _buildHeader(ThemeData theme) {
-    final album = _album;
-    final cover = album?.thumbnailUrl ?? widget.thumbnailUrl;
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              width: 120,
-              height: 120,
-              child: cover != null
-                  ? CachedNetworkImage(
-                      imageUrl: cover, fit: BoxFit.cover)
-                  : Container(
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      child: Icon(LucideIcons.disc,
-                          size: 48,
-                          color: theme
-                              .colorScheme.onSurfaceVariant),
-                    ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  album?.title ?? widget.albumTitle,
-                  style: theme.textTheme.headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                if (album?.artist != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(album!.artist,
-                        style: theme.textTheme.bodyMedium),
-                  ),
-                if (album?.year != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: ShadBadge.secondary(
-                      child: Text('Released ${album!.year}'),
-                    ),
-                  ),
-                if (album?.description != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      album!.description!,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTracks(ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Tracks',
-              style: theme.textTheme.titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          ..._songs.asMap().entries.map((entry) {
-            final idx = entry.key;
-            final song = entry.value;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: GestureDetector(
-                onTap: () => _playSong(song, _songs),
-                child: ShadCard(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 10),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 28,
-                      child: Text('${idx + 1}',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme
-                                  .colorScheme.onSurfaceVariant),
-                          textAlign: TextAlign.center),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Text(song.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodyMedium
-                                  ?.copyWith(
-                                      fontWeight:
-                                          FontWeight.w600)),
-                          Text(song.artist,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall),
-                        ],
-                      ),
-                    ),
-                    ShadIconButton.ghost(
-                      icon: const Icon(LucideIcons.play, size: 20),
-                      onPressed: () =>
-                          _playSong(song, _songs),
-                    ),
-                  ],
-                ),
-                ),
-              ),
-            );
-          }),
         ],
       ),
     );

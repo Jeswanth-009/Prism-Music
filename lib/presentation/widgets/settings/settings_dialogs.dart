@@ -1,19 +1,19 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../../../core/services/settings_service.dart';
 import '../../blocs/theme/theme_bloc.dart';
 import '../../blocs/theme/theme_event.dart';
+import '../prism/prism_sheet.dart';
 import '../lastfm_login_dialog.dart';
 import '../../../core/services/lastfm_service.dart';
 
 class SettingsDialogs {
   static void showLoginDialog(
-    BuildContext context, 
-    LastFmService lastFmService, 
-    VoidCallback onStateChanged
+    BuildContext context,
+    LastFmService lastFmService,
+    VoidCallback onStateChanged,
   ) async {
     await showDialog(
       context: context,
@@ -25,17 +25,14 @@ class SettingsDialogs {
           if (success) {
             Navigator.pop(context);
             if (!context.mounted) return;
-            ShadToaster.of(context).show(
-              ShadToast(title: const Text('Successfully logged in to Last.fm!')),
-            );
+            showPrismToast(context, 'Successfully logged in to Last.fm!');
             onStateChanged();
           } else {
             Navigator.pop(context);
             if (!context.mounted) return;
-            ShadToaster.of(context).show(
-              ShadToast.destructive(
-                title: const Text('Failed to login. Check your credentials.'),
-              ),
+            showPrismToast(
+              context,
+              'Failed to login. Check your credentials.',
             );
           }
         },
@@ -46,79 +43,80 @@ class SettingsDialogs {
   static void showThemeModeDialog(BuildContext context) {
     final currentTheme = context.read<ThemeBloc>().state.themeMode;
 
-    showShadDialog(
+    showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return ShadDialog(
+        return SimpleDialog(
           title: const Text('Theme Mode'),
-          child: ShadRadioGroup<ThemeMode>(
-            initialValue: currentTheme,
-            onChanged: (value) {
-              if (value != null) {
-                context.read<ThemeBloc>().add(SetThemeModeEvent(value));
-                Navigator.pop(dialogContext);
-              }
-            },
-            items: [
-              ShadRadio<ThemeMode>(
-                value: ThemeMode.light,
-                label: const Text('Light'),
-                sublabel: const Text('Always use light theme'),
+          children: [
+            for (final mode in const [
+              (ThemeMode.light, 'Light', 'Always use light theme'),
+              (ThemeMode.dark, 'Dark', 'Always use dark theme'),
+              (ThemeMode.system, 'System Default', 'Follow system settings'),
+            ])
+              RadioListTile<ThemeMode>(
+                value: mode.$1,
+                groupValue: currentTheme,
+                onChanged: (value) {
+                  if (value != null) {
+                    dialogContext.read<ThemeBloc>().add(
+                      SetThemeModeEvent(value),
+                    );
+                    Navigator.pop(dialogContext);
+                  }
+                },
+                title: Text(mode.$2),
+                subtitle: Text(mode.$3),
               ),
-              ShadRadio<ThemeMode>(
-                value: ThemeMode.dark,
-                label: const Text('Dark'),
-                sublabel: const Text('Always use dark theme'),
-              ),
-              ShadRadio<ThemeMode>(
-                value: ThemeMode.system,
-                label: const Text('System Default'),
-                sublabel: const Text('Follow system settings'),
-              ),
-            ],
-          ),
-          actions: [
-            ShadButton.ghost(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
           ],
         );
       },
     );
   }
 
-  static void showPlayerUiStyleSheet(BuildContext context, SettingsService settingsService, VoidCallback onStateChanged) {
+  static void showPlayerUiStyleSheet(
+    BuildContext context,
+    SettingsService settingsService,
+    VoidCallback onStateChanged,
+  ) {
     final currentStyle = settingsService.playerUiStyle;
     final descriptions = {
       PlayerUiStyle.classic: 'Detailed layout with glassmorphism',
       PlayerUiStyle.modern: 'Minimal circular dial inspired by modern players',
     };
 
-    showShadSheet(
+    showPrismSheet(
       context: context,
-      side: ShadSheetSide.bottom,
       builder: (sheetContext) {
-        return ShadSheet(
-          title: const Text('Player UI Style'),
-          child: ShadRadioGroup<PlayerUiStyle>(
-            initialValue: currentStyle,
-            onChanged: (value) async {
-              if (value != null) {
-                Navigator.pop(sheetContext);
-                await settingsService.setPlayerUiStyle(value);
-                onStateChanged();
-              }
-            },
-            items: PlayerUiStyle.values
-                .map(
-                  (style) => ShadRadio<PlayerUiStyle>(
-                    value: style,
-                    label: Text(style.label),
-                    sublabel: Text(descriptions[style] ?? ''),
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                child: Text(
+                  'Player UI Style',
+                  style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
-                )
-                .toList(),
+                ),
+              ),
+              for (final style in PlayerUiStyle.values)
+                RadioListTile<PlayerUiStyle>(
+                  value: style,
+                  groupValue: currentStyle,
+                  onChanged: (value) async {
+                    if (value != null) {
+                      Navigator.pop(sheetContext);
+                      await settingsService.setPlayerUiStyle(value);
+                      onStateChanged();
+                    }
+                  },
+                  title: Text(style.label),
+                  subtitle: Text(descriptions[style] ?? ''),
+                ),
+              const SizedBox(height: 8),
+            ],
           ),
         );
       },
@@ -126,71 +124,58 @@ class SettingsDialogs {
   }
 
   static void showAudioQualityDialog(BuildContext context) {
-    showShadDialog(
+    showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return ShadDialog(
+        return AlertDialog(
           title: const Text('Audio Quality'),
-          child: ShadRadioGroup<String>(
-            initialValue: 'high',
-            onChanged: (value) {
-              ShadToaster.of(context).show(
-                ShadToast(title: const Text('Coming soon!')),
-              );
-              Navigator.pop(dialogContext);
-            },
-            items: [
-              ShadRadio<String>(
-                value: 'low',
-                label: const Text('Low (96 kbps)'),
-                sublabel: const Text('Save data, lower quality'),
-              ),
-              ShadRadio<String>(
-                value: 'medium',
-                label: const Text('Medium (128 kbps)'),
-                sublabel: const Text('Balanced quality'),
-              ),
-              ShadRadio<String>(
-                value: 'high',
-                label: const Text('High (192 kbps)'),
-                sublabel: const Text('Best quality, more data'),
-              ),
-            ],
+          content: const Text(
+            'Quality selection is coming soon — Prism adapts quality '
+            'automatically for the best balance right now.',
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('OK'),
+            ),
+          ],
         );
       },
     );
   }
 
   static void showRepeatModeDialog(BuildContext context) {
-    showShadDialog(
+    showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return ShadDialog(
+        return SimpleDialog(
           title: const Text('Default Repeat Mode'),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ShadButton.ghost(
-                leading: const Icon(LucideIcons.x, size: 18),
-                width: double.infinity,
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Align(alignment: Alignment.centerLeft, child: Text('Off')),
+          children: [
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const ListTile(
+                leading: Icon(Icons.close_rounded),
+                title: Text('Off'),
+                contentPadding: EdgeInsets.zero,
               ),
-              ShadButton.ghost(
-                leading: const Icon(LucideIcons.repeat, size: 18),
-                width: double.infinity,
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Align(alignment: Alignment.centerLeft, child: Text('Repeat All')),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const ListTile(
+                leading: Icon(Icons.repeat_rounded),
+                title: Text('Repeat All'),
+                contentPadding: EdgeInsets.zero,
               ),
-              ShadButton.ghost(
-                leading: const Icon(LucideIcons.repeat1, size: 18),
-                width: double.infinity,
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Align(alignment: Alignment.centerLeft, child: Text('Repeat One')),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const ListTile(
+                leading: Icon(Icons.repeat_one_rounded),
+                title: Text('Repeat One'),
+                contentPadding: EdgeInsets.zero,
               ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
@@ -198,22 +183,23 @@ class SettingsDialogs {
 
   static void showCrossfadeDialog(BuildContext context) {
     double duration = 2.0;
-    showShadDialog(
+    showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return ShadDialog(
+            return AlertDialog(
               title: const Text('Crossfade Duration'),
-              child: Column(
+              content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('${duration.toStringAsFixed(1)}s', style: Theme.of(context).textTheme.headlineSmall),
+                  Text(
+                    '${duration.toStringAsFixed(1)}s',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
                   const SizedBox(height: 12),
-                  ShadSlider(
-                    initialValue: duration / 10.0,
-                    min: 0,
-                    max: 1,
+                  Slider(
+                    value: (duration / 10.0).clamp(0.0, 1.0),
                     onChanged: (value) {
                       setDialogState(() => duration = value * 10.0);
                     },
@@ -221,14 +207,15 @@ class SettingsDialogs {
                 ],
               ),
               actions: [
-                ShadButton.ghost(
+                TextButton(
                   onPressed: () => Navigator.pop(dialogContext),
                   child: const Text('Cancel'),
                 ),
-                ShadButton(
+                FilledButton(
                   onPressed: () {
-                    ShadToaster.of(context).show(
-                      ShadToast(title: Text('Crossfade set to ${duration.toStringAsFixed(1)}s')),
+                    showPrismToast(
+                      context,
+                      'Crossfade set to ${duration.toStringAsFixed(1)}s',
                     );
                     Navigator.pop(dialogContext);
                   },
@@ -243,24 +230,28 @@ class SettingsDialogs {
   }
 
   static void showClearCacheDialog(BuildContext context) {
-    showShadDialog(
+    showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return ShadDialog(
-          title: const Text('Clear Cache'),
-          description: const Text('This will remove all temporary files to free up space. Continue?'),
+        return AlertDialog(
+          title: const Text('Clear cache?'),
+          content: const Text(
+            'This will remove all temporary files to free up space. Continue?',
+          ),
           actions: [
-            ShadButton.ghost(
+            TextButton(
               onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cancel'),
             ),
-            ShadButton.destructive(
+            FilledButton(
               onPressed: () {
-                ShadToaster.of(context).show(
-                  ShadToast(title: const Text('Cache cleared successfully')),
-                );
+                showPrismToast(context, 'Cache cleared successfully');
                 Navigator.pop(dialogContext);
               },
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(dialogContext).colorScheme.error,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Clear'),
             ),
           ],
@@ -269,95 +260,125 @@ class SettingsDialogs {
     );
   }
 
-  static void showDownloadFolderDialog(BuildContext context, SettingsService settingsService) {
+  static void showDownloadFolderDialog(
+    BuildContext context,
+    SettingsService settingsService,
+  ) {
     final currentPath = settingsService.downloadFolderPath;
     final controller = TextEditingController(text: currentPath ?? '');
 
-    showShadDialog(
+    showDialog<void>(
       context: context,
-      builder: (dialogContext) => ShadDialog(
-        title: const Text('Download Folder'),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Choose where to save downloaded songs:', style: TextStyle(fontSize: 14)),
-            const SizedBox(height: 16),
-            ShadInput(
-              controller: controller,
-              placeholder: Text(Platform.isAndroid ? '/storage/emulated/0/Download/Music' : 'C:\\Music\\PrismDownloads'),
-              trailing: ShadIconButton.ghost(
-                icon: const Icon(LucideIcons.folderOpen, size: 18),
-                width: 32,
-                height: 32,
-                onPressed: () async {
-                  if (Platform.isAndroid) {
-                    final result = await showShadDialog<String>(
-                      context: context,
-                      builder: (ctx) {
-                        final pathController = TextEditingController(text: controller.text);
-                        return ShadDialog(
-                          title: const Text('Enter Folder Path'),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Common Android paths:', style: TextStyle(fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 8),
-                              const Text(
-                                '- /storage/emulated/0/Download\n- /storage/emulated/0/Music\n- /storage/emulated/0/Documents',
-                                style: TextStyle(fontSize: 12),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('Download Folder'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Choose where to save downloaded songs:'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  hintText: Platform.isAndroid
+                      ? '/storage/emulated/0/Download/Music'
+                      : 'C:\\Music\\PrismDownloads',
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.folder_open_rounded, size: 20),
+                    onPressed: () async {
+                      if (Platform.isAndroid) {
+                        final result = await showDialog<String>(
+                          context: dialogContext,
+                          builder: (ctx) {
+                            final pathController = TextEditingController(
+                              text: controller.text,
+                            );
+                            return AlertDialog(
+                              title: const Text('Enter folder path'),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Common Android paths:',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    '- /storage/emulated/0/Download\n'
+                                    '- /storage/emulated/0/Music\n'
+                                    '- /storage/emulated/0/Documents',
+                                  ),
+                                  const SizedBox(height: 16),
+                                  TextField(
+                                    controller: pathController,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Full path',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 16),
-                              ShadInput(controller: pathController, placeholder: const Text('Full Path')),
-                            ],
-                          ),
-                          actions: [
-                            ShadButton.ghost(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-                            ShadButton(
-                              onPressed: () {
-                                if (pathController.text.isNotEmpty) {
-                                  Navigator.pop(ctx, pathController.text);
-                                }
-                              },
-                              child: const Text('Confirm'),
-                            ),
-                          ],
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text('Cancel'),
+                                ),
+                                FilledButton(
+                                  onPressed: () {
+                                    if (pathController.text.isNotEmpty) {
+                                      Navigator.pop(
+                                        ctx,
+                                        pathController.text,
+                                      );
+                                    }
+                                  },
+                                  child: const Text('Confirm'),
+                                ),
+                              ],
+                            );
+                          },
                         );
-                      },
-                    );
-                    if (result != null && result.isNotEmpty) {
-                      controller.text = result;
-                    }
-                  } else {
-                    ShadToaster.of(context).show(
-                      ShadToast(title: const Text('Folder picker not implemented on this platform yet.')),
-                    );
-                  }
-                },
+                        if (result != null && result.isNotEmpty) {
+                          setDialogState(() => controller.text = result);
+                        }
+                      } else {
+                        if (dialogContext.mounted) {
+                          showPrismToast(
+                            dialogContext,
+                            'Folder picker not implemented on this platform yet.',
+                          );
+                        }
+                      }
+                    },
+                  ),
+                ),
               ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final path = controller.text.trim();
+                await settingsService.setDownloadFolderPath(
+                  path.isEmpty ? null : path,
+                );
+                if (dialogContext.mounted) {
+                  Navigator.pop(dialogContext);
+                  showPrismToast(dialogContext, 'Download folder updated');
+                }
+              },
+              child: const Text('Save'),
             ),
           ],
         ),
-        actions: [
-          ShadButton.ghost(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          ShadButton(
-            onPressed: () async {
-              final path = controller.text.trim();
-              await settingsService.setDownloadFolderPath(path.isEmpty ? null : path);
-              if (context.mounted) {
-                Navigator.pop(dialogContext);
-                ShadToaster.of(context).show(
-                  ShadToast(title: const Text('Download folder updated')),
-                );
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
   }

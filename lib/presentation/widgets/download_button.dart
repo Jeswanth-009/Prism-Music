@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../../core/services/download_service.dart';
 import '../../domain/entities/song.dart';
@@ -59,19 +58,23 @@ class _DownloadButtonState extends State<DownloadButton> {
 
   Future<void> _handleDownload() async {
     if (_status == DownloadStatus.completed) {
-      final shouldDelete = await showShadDialog<bool>(
+      final shouldDelete = await showDialog<bool>(
         context: context,
-        builder: (context) => ShadDialog(
-          title: const Text('Delete Download'),
-          description: Text(
+        builder: (context) => AlertDialog(
+          title: const Text('Delete download?'),
+          content: Text(
               'Remove "${widget.song.title}" from offline storage?'),
           actions: [
-            ShadButton.ghost(
+            TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancel'),
             ),
-            ShadButton.destructive(
+            FilledButton(
               onPressed: () => Navigator.pop(context, true),
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Delete'),
             ),
           ],
@@ -84,18 +87,16 @@ class _DownloadButtonState extends State<DownloadButton> {
         if (success) {
           _updateStatus();
           if (mounted) {
-            ShadToaster.of(context).show(
-              const ShadToast(title: Text('Download deleted')),
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Download deleted')),
             );
           }
         }
       }
     } else if (_status == DownloadStatus.notDownloaded) {
       if (mounted) {
-        ShadToaster.of(context).show(
-          ShadToast(
-            title: Text('Downloading "${widget.song.title}"...'),
-          ),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Downloading "${widget.song.title}"…')),
         );
       }
 
@@ -103,13 +104,12 @@ class _DownloadButtonState extends State<DownloadButton> {
           await widget.downloadService.downloadSong(widget.song);
 
       if (success && mounted) {
-        ShadToaster.of(context).show(
-          const ShadToast(title: Text('Download completed')),
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Download completed')),
         );
       } else if (!success && mounted) {
-        ShadToaster.of(context).show(
-          const ShadToast.destructive(
-              title: Text('Download failed')),
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Download failed')),
         );
       }
     }
@@ -117,10 +117,11 @@ class _DownloadButtonState extends State<DownloadButton> {
 
   @override
   Widget build(BuildContext context) {
-    return ShadIconButton.ghost(
-      icon: _buildIcon(),
+    return IconButton(
+      tooltip: 'Download',
       onPressed:
           _status == DownloadStatus.downloading ? null : _handleDownload,
+      icon: _buildIcon(),
     );
   }
 
@@ -137,23 +138,23 @@ class _DownloadButtonState extends State<DownloadButton> {
             SizedBox(
               width: size,
               height: size,
-              child: ShadProgress(
+              child: CircularProgressIndicator(
                 value: _progress,
-                minHeight: 2,
+                strokeWidth: 2,
                 color: color,
               ),
             ),
-            Icon(LucideIcons.download, size: size * 0.6, color: color),
+            Icon(Icons.download_rounded, size: size * 0.55, color: color),
           ],
         );
       case DownloadStatus.completed:
-        return Icon(LucideIcons.circleCheck,
+        return Icon(Icons.check_circle_rounded,
             size: size, color: Colors.green);
       case DownloadStatus.failed:
-        return Icon(LucideIcons.circleAlert,
+        return Icon(Icons.error_outline_rounded,
             size: size, color: Colors.red);
       case DownloadStatus.notDownloaded:
-        return Icon(LucideIcons.download,
+        return Icon(Icons.download_rounded,
             size: size, color: widget.iconColor);
     }
   }

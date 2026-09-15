@@ -1,16 +1,14 @@
-
-
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/di/injection.dart';
 import '../../core/services/download_service.dart';
 import '../../domain/entities/song.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
-import '../widgets/common/bouncing_tap_widget.dart';
+import '../theme/prism_theme.dart';
+import '../widgets/prism/prism_sheet.dart';
+import '../widgets/prism/prism_states.dart';
 
 class DownloadsPage extends StatefulWidget {
   const DownloadsPage({super.key});
@@ -35,7 +33,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
     setState(() => _isLoading = true);
     final songs = _downloadService.getAllDownloadedSongs();
     final size = await _downloadService.getTotalDownloadSize();
-    
+
     if (mounted) {
       setState(() {
         _downloadedSongs = songs;
@@ -48,9 +46,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
   Future<void> _deleteSong(String songId, String title) async {
     final success = await _downloadService.deleteSong(songId);
     if (success && mounted) {
-      ShadToaster.of(context).show(
-        ShadToast(title: Text('Deleted $title')),
-      );
+      showPrismToast(context, 'Deleted $title');
       _loadDownloads();
     }
   }
@@ -61,7 +57,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
       title: songData['title'],
       artist: songData['artist'],
       duration: Duration(seconds: songData['duration'] ?? 0),
-      thumbnails: songData['thumbnailUrl'] != null 
+      thumbnails: songData['thumbnailUrl'] != null
           ? Thumbnails.fromUrl(songData['thumbnailUrl'])
           : Thumbnails.empty(),
       album: songData['album'],
@@ -70,55 +66,25 @@ class _DownloadsPageState extends State<DownloadsPage> {
     );
 
     context.read<PlayerBloc>().add(PlaySongEvent(song: song));
-    ShadToaster.of(context).show(
-      ShadToast(title: Text('Playing ${song.title}')),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Downloads'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _downloadedSongs.isEmpty
-              ? _buildEmptyState(theme)
+              ? const PrismEmptyState(
+                  icon: Icons.download_rounded,
+                  message: 'No downloads yet',
+                  hint: 'Songs you download will appear here',
+                )
               : _buildList(theme),
-    );
-  }
-
-  Widget _buildEmptyState(ThemeData theme) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            LucideIcons.download,
-            size: 64,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No downloads yet',
-            style: theme.textTheme.titleLarge?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Songs you download will appear here',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -126,7 +92,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -147,6 +113,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
         ),
         Expanded(
           child: ListView.builder(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 32),
             itemCount: _downloadedSongs.length,
             itemBuilder: (context, index) {
               final songData = _downloadedSongs[index];
@@ -158,102 +125,79 @@ class _DownloadsPageState extends State<DownloadsPage> {
     );
   }
 
-  Widget _buildSongItem(BuildContext context, ThemeData theme, Map<String, dynamic> songData) {
+  Widget _buildSongItem(
+    BuildContext context,
+    ThemeData theme,
+    Map<String, dynamic> songData,
+  ) {
     final title = songData['title'] ?? 'Unknown';
     final artist = songData['artist'] ?? 'Unknown Artist';
-    final thumbnailUrl = songData['thumbnailUrl'];
     final size = songData['fileSize'] as int?;
 
-    return BouncingTapWidget(
+    return ListTile(
       onTap: () => _playSong(songData),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          children: [
-            // Thumbnail
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: SizedBox(
-                width: 56,
-                height: 56,
-                child: thumbnailUrl != null
-                    ? CachedNetworkImage(
-                        imageUrl: thumbnailUrl,
-                        fit: BoxFit.cover,
-                        errorWidget: (context, url, error) => _buildPlaceholder(),
-                      )
-                    : _buildPlaceholder(),
-              ),
-            ),
-            const SizedBox(width: 16),
-            // Details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(LucideIcons.hardDriveDownload, size: 12, color: Colors.green),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          '$artist${size != null ? ' • ${_downloadService.formatBytes(size)}' : ''}',
-                          style: TextStyle(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontSize: 13,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            // Options
-            ShadIconButton.ghost(
-              icon: const Icon(LucideIcons.trash2, size: 20),
-              onPressed: () => _showDeleteDialog(songData['songId'], title),
-            ),
-          ],
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(PrismRadius.md),
+      ),
+      leading: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(PrismRadius.sm),
+        ),
+        child: Icon(
+          Icons.download_done_rounded,
+          color: theme.colorScheme.primary,
+          size: 22,
         ),
       ),
-    );
-  }
-
-  Widget _buildPlaceholder() {
-    return Container(
-      color: Colors.grey.withValues(alpha: 0.2),
-      child: const Center(
-        child: Icon(LucideIcons.music, color: Colors.grey),
+      title: Text(
+        title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      subtitle: Text(
+        '$artist${size != null ? ' · ${_downloadService.formatBytes(size)}' : ''}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+      trailing: IconButton(
+        icon: const Icon(Icons.delete_outline_rounded, size: 20),
+        tooltip: 'Delete download',
+        onPressed: () => _showDeleteDialog(songData['songId'], title),
       ),
     );
   }
 
   void _showDeleteDialog(String songId, String title) {
-    showShadDialog(
+    showDialog<void>(
       context: context,
-      builder: (ctx) => ShadDialog(
-        title: const Text('Delete Download'),
-        description: Text('Are you sure you want to delete "$title" from your device?'),
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete download?'),
+        content: Text(
+          'Are you sure you want to delete "$title" from your device?',
+        ),
         actions: [
-          ShadButton.ghost(
+          TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel'),
           ),
-          ShadButton.destructive(
+          FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
               _deleteSong(songId, title);
             },
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Delete'),
           ),
         ],

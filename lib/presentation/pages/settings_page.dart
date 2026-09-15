@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -19,6 +18,7 @@ import '../blocs/player/player_state.dart';
 
 import 'downloads_page.dart';
 import '../widgets/equalizer/equalizer_bottom_sheet.dart';
+import '../widgets/prism/prism_sheet.dart';
 import '../widgets/settings/setting_row.dart';
 import '../widgets/settings/setting_section_card.dart';
 import '../widgets/settings/country_selection_sheet.dart';
@@ -35,7 +35,7 @@ class _SettingsPageState extends State<SettingsPage> {
   final LastFmService _lastFmService = LastFmService();
   final SettingsService _settingsService = SettingsService.instance;
   RecommendationService? _recommendationService;
-  
+
   bool _isInitialized = false;
   bool _hasInitialized = false;
   bool _fastStartEnabled = true;
@@ -58,10 +58,10 @@ class _SettingsPageState extends State<SettingsPage> {
       _fastStartEnabled = _settingsService.fastStartEnabled;
       _prefetchLookahead = _settingsService.prefetchLookahead;
       _recommendationService = getIt<RecommendationService>();
-      
+
       final packageInfo = await PackageInfo.fromPlatform();
       _appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
-      
+
       if (mounted) setState(() {});
     } catch (e) {
       if (kDebugMode) debugPrint('Initialization error: $e');
@@ -107,7 +107,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final recoMode = _recommendationService?.mode;
 
     return SliverAppBar(
-      expandedHeight: 220.0,
+      expandedHeight: 190.0,
       floating: false,
       pinned: true,
       backgroundColor: theme.colorScheme.surface,
@@ -117,8 +117,8 @@ class _SettingsPageState extends State<SettingsPage> {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                theme.colorScheme.primary.withValues(alpha: 0.8),
-                theme.colorScheme.primary.withValues(alpha: 0.2),
+                theme.colorScheme.primary.withValues(alpha: 0.55),
+                theme.colorScheme.primary.withValues(alpha: 0.12),
                 theme.colorScheme.surface,
               ],
               begin: Alignment.topLeft,
@@ -126,7 +126,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 70, 24, 24),
+            padding: const EdgeInsets.fromLTRB(24, 60, 24, 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.end,
@@ -135,28 +135,33 @@ class _SettingsPageState extends State<SettingsPage> {
                   'Settings',
                   style: theme.textTheme.headlineMedium?.copyWith(
                     color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.6,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
                   'Tune Prism to match your mood.',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.8),
+                    color: Colors.white.withValues(alpha: 0.85),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 Wrap(
-                  spacing: 12,
-                  runSpacing: 8,
+                  spacing: 8,
+                  runSpacing: 6,
                   children: [
-                    if (connected)
-                      _buildPillBadge(Icons.check_circle, 'Last.fm linked', theme),
-                    if (!connected)
-                      _buildPillBadge(Icons.cloud_off, 'Last.fm offline', theme),
+                    _PillBadge(
+                      icon: connected
+                          ? Icons.check_circle_rounded
+                          : Icons.cloud_off_rounded,
+                      text: connected ? 'Last.fm linked' : 'Last.fm offline',
+                    ),
                     if (recoMode != null)
-                      _buildPillBadge(Icons.auto_awesome, 'Mode: ${recoMode.name}', theme),
+                      _PillBadge(
+                        icon: Icons.auto_awesome_rounded,
+                        text: 'Mode: ${recoMode.name}',
+                      ),
                   ],
                 ),
               ],
@@ -167,37 +172,22 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildPillBadge(IconData icon, String text, ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: Colors.white),
-          const SizedBox(width: 6),
-          Text(text, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-
   Widget _buildAccountSection() {
     return SettingSectionCard(
       title: 'Account & Services',
       subtitle: 'Manage your connected integrations',
-      icon: LucideIcons.user,
+      icon: Icons.person_outline_rounded,
       children: [
         if (!_isInitialized)
           const Padding(
             padding: EdgeInsets.all(16),
             child: Row(
               children: [
-                SizedBox(width: 20, height: 20, child: ShadProgress()),
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
                 SizedBox(width: 12),
                 Text('Initializing...'),
               ],
@@ -205,34 +195,41 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         if (_isInitialized && _lastFmService.isAuthenticated) ...[
           SettingRow(
-            leading: const Icon(LucideIcons.checkCheck),
+            leading: const Icon(Icons.check_circle_outline_rounded),
             title: 'Connected',
             subtitle: _lastFmService.username ?? 'Last.fm',
-            trailing: ShadButton.ghost(
+            trailing: TextButton(
               onPressed: () async {
                 await _lastFmService.logout();
                 _forceRebuild();
-                if (mounted) ShadToaster.of(context).show(const ShadToast(title: Text('Logged out from Last.fm')));
+                if (mounted) showPrismToast(context, 'Logged out from Last.fm');
               },
-              size: ShadButtonSize.sm,
               child: const Text('Logout'),
             ),
           ),
           SettingRow(
-            leading: const Icon(LucideIcons.history),
+            leading: const Icon(Icons.history_rounded),
             title: 'Scrobbling',
             subtitle: 'Automatically track your listening history',
-            trailing: Icon(LucideIcons.circleCheck, color: Colors.green.shade600, size: 20),
+            trailing: Icon(
+              Icons.check_circle_rounded,
+              color: Colors.green.shade600,
+              size: 20,
+            ),
           ),
         ],
         if (_isInitialized && !_lastFmService.isAuthenticated)
           SettingRow(
-            leading: const Icon(LucideIcons.music),
+            leading: const Icon(Icons.music_note_rounded),
             title: 'Connect to Last.fm',
-            subtitle: 'Track your listening history and get recommendations',
-            trailing: ShadButton(
-              onPressed: () => SettingsDialogs.showLoginDialog(context, _lastFmService, _forceRebuild),
-              size: ShadButtonSize.sm,
+            subtitle:
+                'Track your listening history and get recommendations',
+            trailing: FilledButton.tonal(
+              onPressed: () => SettingsDialogs.showLoginDialog(
+                context,
+                _lastFmService,
+                _forceRebuild,
+              ),
               child: const Text('Login'),
             ),
           ),
@@ -244,17 +241,17 @@ class _SettingsPageState extends State<SettingsPage> {
     return SettingSectionCard(
       title: 'App Experience',
       subtitle: 'Customize the look, feel, and recommendations',
-      icon: LucideIcons.palette,
+      icon: Icons.palette_outlined,
       children: [
         BlocBuilder<ThemeBloc, ThemeState>(
           builder: (context, state) {
             return SettingRow(
               leading: Icon(
                 state.themeMode == ThemeMode.dark
-                    ? LucideIcons.moon
+                    ? Icons.dark_mode_outlined
                     : state.themeMode == ThemeMode.light
-                        ? LucideIcons.sun
-                        : LucideIcons.sunMoon,
+                        ? Icons.light_mode_outlined
+                        : Icons.brightness_auto_outlined,
               ),
               title: 'Theme Mode',
               subtitle: state.themeMode == ThemeMode.dark
@@ -268,32 +265,35 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
         if (_isInitialized)
           SettingRow(
-            leading: Text(_settingsService.selectedCountry.flag, style: const TextStyle(fontSize: 24)),
+            leading: Text(
+              _settingsService.selectedCountry.flag,
+              style: const TextStyle(fontSize: 24),
+            ),
             title: 'Trending Region',
             subtitle: _settingsService.selectedCountry.name,
-            trailing: const Icon(LucideIcons.chevronRight, size: 18),
-            onTap: () => showCountrySelectionSheet(context, _settingsService, _forceRebuild),
+            trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+            onTap: () =>
+                showCountrySelectionSheet(context, _settingsService, _forceRebuild),
           ),
-        if (_isInitialized && _recommendationService != null) ...[
+        if (_isInitialized && _recommendationService != null)
           SettingRow(
-            leading: const Icon(LucideIcons.sparkles),
+            leading: const Icon(Icons.auto_awesome_outlined),
             title: 'Recommendation Mode',
-            subtitle: _recommendationService!.mode == RecommendationMode.similar 
-                ? 'Similar artists & genres' 
+            subtitle: _recommendationService!.mode == RecommendationMode.similar
+                ? 'Similar artists & genres'
                 : 'Discover new music',
-            trailing: ShadButton.ghost(
+            trailing: TextButton(
               onPressed: () async {
-                final newMode = _recommendationService!.mode == RecommendationMode.similar 
-                    ? RecommendationMode.discover 
-                    : RecommendationMode.similar;
+                final newMode =
+                    _recommendationService!.mode == RecommendationMode.similar
+                        ? RecommendationMode.discover
+                        : RecommendationMode.similar;
                 await _recommendationService!.setMode(newMode);
                 _forceRebuild();
               },
-              size: ShadButtonSize.sm,
               child: const Text('Toggle'),
             ),
           ),
-        ],
       ],
     );
   }
@@ -302,7 +302,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return SettingSectionCard(
       title: 'Audio & Playback',
       subtitle: 'Quality, equalizer, and behavior',
-      icon: LucideIcons.audioLines,
+      icon: Icons.graphic_eq_rounded,
       children: [
         BlocBuilder<PlayerBloc, PlayerState>(
           builder: (context, state) {
@@ -314,7 +314,7 @@ class _SettingsPageState extends State<SettingsPage> {
               AudioQuality.lossless => 'Lossless (FLAC/ALAC)',
             };
             return SettingRow(
-              leading: const Icon(LucideIcons.audioWaveform),
+              leading: const Icon(Icons.waves_rounded),
               title: 'Audio Quality',
               subtitle: subtitle,
               onTap: () => SettingsDialogs.showAudioQualityDialog(context),
@@ -322,14 +322,14 @@ class _SettingsPageState extends State<SettingsPage> {
           },
         ),
         SettingRow(
-          leading: const Icon(LucideIcons.slidersHorizontal),
+          leading: const Icon(Icons.tune_rounded),
           title: 'Equalizer',
           subtitle: 'Customize audio output',
-          trailing: const Icon(LucideIcons.chevronRight, size: 18),
+          trailing: const Icon(Icons.chevron_right_rounded, size: 20),
           onTap: () {
-            showShadSheet(
+            showModalBottomSheet<void>(
               context: context,
-              side: ShadSheetSide.bottom,
+              isScrollControlled: true,
               builder: (context) => EqualizerBottomSheet(
                 equalizerService: getIt<AudioPlayerService>().equalizer,
               ),
@@ -337,10 +337,10 @@ class _SettingsPageState extends State<SettingsPage> {
           },
         ),
         SettingRow(
-          leading: const Icon(LucideIcons.zap),
+          leading: const Icon(Icons.bolt_rounded),
           title: 'Fast Start',
           subtitle: 'Start streams at medium quality for quicker playback',
-          trailing: ShadSwitch(
+          trailing: Switch.adaptive(
             value: _fastStartEnabled,
             onChanged: (value) async {
               await _settingsService.setFastStartEnabled(value);
@@ -349,29 +349,29 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ),
         SettingRow(
-          leading: const Icon(LucideIcons.cloudDownload),
+          leading: const Icon(Icons.cloud_download_outlined),
           title: 'Prefetch Lookahead',
           subtitle: 'Prefetch the next $_prefetchLookahead track(s)',
-          trailing: ShadSelect<int>(
-            selectedOptionBuilder: (ctx, value) => Text('$value'),
-            initialValue: _prefetchLookahead,
-            onChanged: (value) async {
-              if (value == null) return;
+          trailing: SegmentedButton<int>(
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment(value: 0, label: Text('0')),
+              ButtonSegment(value: 1, label: Text('1')),
+              ButtonSegment(value: 2, label: Text('2')),
+            ],
+            selected: {_prefetchLookahead},
+            onSelectionChanged: (selection) async {
+              final value = selection.first;
               await _settingsService.setPrefetchLookahead(value);
               setState(() => _prefetchLookahead = value);
             },
-            options: const [0, 1, 2]
-                .map((v) => ShadOption(value: v, child: Text('$v')))
-                .toList(),
-            minWidth: 80,
-            maxWidth: 100,
           ),
         ),
         SettingRow(
-          leading: const Icon(LucideIcons.shuffle),
+          leading: const Icon(Icons.shuffle_rounded),
           title: 'Auto Shuffle',
           subtitle: 'Shuffle queue automatically',
-          trailing: ShadSwitch(
+          trailing: Switch.adaptive(
             value: _settingsService.autoShuffle,
             onChanged: (value) async {
               await _settingsService.setAutoShuffle(value);
@@ -380,7 +380,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ),
         SettingRow(
-          leading: const Icon(LucideIcons.timer),
+          leading: const Icon(Icons.timer_outlined),
           title: 'Crossfade Duration',
           subtitle: 'Smooth transition between songs',
           onTap: () => SettingsDialogs.showCrossfadeDialog(context),
@@ -393,20 +393,23 @@ class _SettingsPageState extends State<SettingsPage> {
     return SettingSectionCard(
       title: 'Data & Storage',
       subtitle: 'Downloads and cache management',
-      icon: LucideIcons.hardDrive,
+      icon: Icons.storage_outlined,
       children: [
         SettingRow(
-          leading: const Icon(LucideIcons.folderOpen),
+          leading: const Icon(Icons.folder_outlined),
           title: 'Download Folder',
           subtitle: _settingsService.downloadFolderPath ?? 'Default',
-          trailing: const Icon(LucideIcons.chevronRight, size: 18),
-          onTap: () => SettingsDialogs.showDownloadFolderDialog(context, _settingsService),
+          trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+          onTap: () => SettingsDialogs.showDownloadFolderDialog(
+            context,
+            _settingsService,
+          ),
         ),
         SettingRow(
-          leading: const Icon(LucideIcons.download),
+          leading: const Icon(Icons.download_rounded),
           title: 'Downloads',
           subtitle: 'Manage downloaded songs',
-          trailing: const Icon(LucideIcons.chevronRight, size: 18),
+          trailing: const Icon(Icons.chevron_right_rounded, size: 20),
           onTap: () {
             Navigator.push(
               context,
@@ -415,7 +418,7 @@ class _SettingsPageState extends State<SettingsPage> {
           },
         ),
         SettingRow(
-          leading: const Icon(LucideIcons.database),
+          leading: const Icon(Icons.cleaning_services_outlined),
           title: 'Cache',
           subtitle: 'Clear temporary files',
           onTap: () => SettingsDialogs.showClearCacheDialog(context),
@@ -428,24 +431,59 @@ class _SettingsPageState extends State<SettingsPage> {
     return SettingSectionCard(
       title: 'About',
       subtitle: 'Prism Music information',
-      icon: LucideIcons.info,
+      icon: Icons.info_outline_rounded,
       children: [
         SettingRow(
-          leading: const Icon(LucideIcons.smartphone),
+          leading: const Icon(Icons.smartphone_outlined),
           title: 'Version',
           subtitle: 'Prism Music $_appVersion',
         ),
         SettingRow(
-          leading: const Icon(LucideIcons.code),
+          leading: const Icon(Icons.code_rounded),
           title: 'Open Source',
           subtitle: 'View on GitHub',
-          trailing: const Icon(LucideIcons.externalLink, size: 16),
+          trailing: const Icon(Icons.open_in_new_rounded, size: 18),
           onTap: () async {
-            final url = Uri.parse('https://github.com/Jeswanth-009/Prism-Music');
+            final url =
+                Uri.parse('https://github.com/Jeswanth-009/Prism-Music');
             if (await canLaunchUrl(url)) await launchUrl(url);
           },
         ),
       ],
+    );
+  }
+}
+
+class _PillBadge extends StatelessWidget {
+  const _PillBadge({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

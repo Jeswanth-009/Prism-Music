@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../../domain/entities/playlist.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
+import '../blocs/player/player_state.dart';
 import '../theme/prism_theme.dart';
-import '../widgets/cards/song_card.dart';
+import '../widgets/prism/prism_song_tile.dart';
+import '../widgets/prism/prism_states.dart';
 
 class PlaylistDetailPage extends StatelessWidget {
   const PlaylistDetailPage({super.key, required this.playlist});
@@ -22,26 +23,26 @@ class PlaylistDetailPage extends StatelessWidget {
         leading: IconButton(
           tooltip: 'Back',
           onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(LucideIcons.chevronLeft),
+          icon: const Icon(Icons.arrow_back_rounded),
         ),
       ),
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
               child: Row(
                 children: [
                   Container(
                     width: 92,
                     height: 92,
                     decoration: BoxDecoration(
-                      gradient: PrismColors.spectrum,
-                      borderRadius: BorderRadius.circular(24),
+                      color: context.prismSpec.accentSoft,
+                      borderRadius: BorderRadius.circular(PrismRadius.lg),
                     ),
-                    child: const Icon(
-                      LucideIcons.listMusic,
-                      color: PrismColors.ink,
+                    child: Icon(
+                      Icons.queue_music_rounded,
+                      color: theme.colorScheme.primary,
                       size: 36,
                     ),
                   ),
@@ -53,7 +54,8 @@ class PlaylistDetailPage extends StatelessWidget {
                         Text(
                           playlist.name,
                           style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.5,
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -71,33 +73,31 @@ class PlaylistDetailPage extends StatelessWidget {
             ),
           ),
           if (songs.isEmpty)
-            SliverFillRemaining(
+            const SliverFillRemaining(
               hasScrollBody: false,
-              child: Center(
-                child: Text(
-                  'This playlist has no available songs yet.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
+              child: PrismEmptyState(
+                icon: Icons.queue_music_rounded,
+                message: 'This playlist has no available songs yet.',
               ),
             )
           else
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-              sliver: SliverList.separated(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 32),
+              sliver: SliverList.builder(
                 itemCount: songs.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final song = songs[index];
-                  return SongCard(
-                    song: song,
-                    compact: true,
-                    onTap: () => context.read<PlayerBloc>().add(
-                      PlaySongEvent(
-                        song: song,
-                        queue: songs,
-                        queueIndex: index,
+                  return BlocBuilder<PlayerBloc, PlayerState>(
+                    builder: (context, playerState) => PrismSongTile(
+                      song: song,
+                      isPlaying: playerState.currentSong?.id == song.id,
+                      isPlayingPaused: !playerState.isPlaying,
+                      onTap: () => context.read<PlayerBloc>().add(
+                        PlaySongEvent(
+                          song: song,
+                          queue: songs,
+                          queueIndex: index,
+                        ),
                       ),
                     ),
                   );

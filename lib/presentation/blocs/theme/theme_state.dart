@@ -5,9 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'theme_event.dart';
 import '../../theme/prism_theme.dart';
 
-const _darkSurface = PrismColors.ink;
-const _lightSurface = PrismColors.paper;
-
 /// Represents the complete theme state
 class ThemeState extends Equatable {
   /// Current theme mode
@@ -16,10 +13,10 @@ class ThemeState extends Equatable {
   /// Whether dynamic color is enabled
   final bool isDynamicColorEnabled;
 
-  /// Primary color (either from album art or default)
+  /// Accent color (either from album art or default)
   final Color primaryColor;
 
-  /// Default/fallback primary color
+  /// Default/fallback accent color
   final Color defaultPrimaryColor;
 
   /// Current layout mode
@@ -31,8 +28,8 @@ class ThemeState extends Equatable {
   const ThemeState({
     this.themeMode = ThemeMode.system,
     this.isDynamicColorEnabled = true,
-    this.primaryColor = PrismColors.cyan,
-    this.defaultPrimaryColor = PrismColors.cyan,
+    this.primaryColor = PrismColors.accentDark,
+    this.defaultPrimaryColor = PrismColors.accentDark,
     this.layoutMode = LayoutMode.list,
     this.isExtractingColor = false,
   });
@@ -47,40 +44,82 @@ class ThemeState extends Equatable {
 
   ThemeData get darkTheme => _buildTheme(Brightness.dark);
 
+  /// Nudges the accent toward the lightness that reads well on the given
+  /// brightness, so one seed accent can serve both themes.
+  Color _accentFor(Brightness brightness) {
+    final hsl = HSLColor.fromColor(primaryColor);
+    if (brightness == Brightness.dark) {
+      return hsl.withLightness(0.72).withSaturation(
+        hsl.saturation.clamp(0.45, 0.75),
+      ).toColor();
+    }
+    return hsl.withLightness(0.48).withSaturation(
+      hsl.saturation.clamp(0.50, 0.80),
+    ).toColor();
+  }
+
   ColorScheme _buildColorScheme(Brightness brightness) {
     final bool isDark = brightness == Brightness.dark;
-    final surface = isDark ? _darkSurface : _lightSurface;
-    final base = ColorScheme.fromSeed(
-      seedColor: primaryColor,
-      brightness: brightness,
-      surface: surface,
-    );
+    final accent = _accentFor(brightness);
+    final surface = isDark ? PrismColors.ink : PrismColors.paper;
+    final onSurface = isDark
+        ? const Color(0xFFF3F4F9)
+        : const Color(0xFF171922);
 
-    return base.copyWith(
-      primary: isDark ? PrismColors.magenta : const Color(0xFF6841D9),
-      onPrimary: isDark ? PrismColors.ink : Colors.white,
+    return ColorScheme(
+      brightness: brightness,
+      primary: accent,
+      onPrimary: Colors.white,
+      primaryContainer: isDark
+          ? PrismColors.accentContainerDark
+          : PrismColors.accentContainerLight,
+      onPrimaryContainer: isDark
+          ? const Color(0xFFCFC5FF)
+          : const Color(0xFF2A1D66),
+      secondary: accent.withValues(alpha: .55),
+      onSecondary: Colors.white,
+      secondaryContainer: isDark
+          ? PrismColors.inkHigh
+          : PrismColors.paperHigh,
+      onSecondaryContainer: onSurface,
+      tertiary: accent,
+      onTertiary: Colors.white,
+      error: PrismColors.danger,
+      onError: Colors.white,
       surface: surface,
-      surfaceContainerLowest: surface,
+      onSurface: onSurface,
+      onSurfaceVariant: isDark
+          ? const Color(0xFFA3A9BD)
+          : const Color(0xFF5E6373),
+      surfaceContainerLowest: isDark
+          ? const Color(0xFF07080D)
+          : Colors.white,
       surfaceContainerLow: isDark
-          ? const Color(0xFF0C1018)
-          : const Color(0xFFFBFAF7),
+          ? PrismColors.inkLow
+          : PrismColors.paperLow,
       surfaceContainer: isDark
           ? PrismColors.inkRaised
           : PrismColors.paperRaised,
       surfaceContainerHigh: isDark
-          ? PrismColors.inkSoft
-          : PrismColors.paperSoft,
+          ? PrismColors.inkHigh
+          : PrismColors.paperHigh,
       surfaceContainerHighest: isDark
-          ? const Color(0xFF202735)
-          : const Color(0xFFE3E0D9),
-      surfaceTint: Colors.transparent,
-      secondary: PrismColors.cyan,
-      tertiary: PrismColors.coral,
-      outline: isDark ? const Color(0xFF414958) : const Color(0xFFBBB8B0),
+          ? PrismColors.inkHighest
+          : PrismColors.paperHighest,
+      outline: isDark
+          ? const Color(0xFF3A415A)
+          : const Color(0xFFC8C4BB),
       outlineVariant: isDark
-          ? const Color(0xFF252C38)
-          : const Color(0xFFDDDAD3),
-      error: PrismColors.danger,
+          ? const Color(0xFF262C3F)
+          : const Color(0xFFE3E0D8),
+      surfaceTint: Colors.transparent,
+      shadow: Colors.black,
+      inverseSurface: isDark
+          ? PrismColors.paperRaised
+          : PrismColors.inkHighest,
+      onInverseSurface: isDark
+          ? const Color(0xFF171922)
+          : const Color(0xFFF3F4F9),
     );
   }
 
@@ -88,7 +127,9 @@ class ThemeState extends Equatable {
     final scheme = brightness == Brightness.dark
         ? darkColorScheme
         : lightColorScheme;
-    final baseTextTheme = GoogleFonts.spaceGroteskTextTheme(
+    final isDark = brightness == Brightness.dark;
+
+    final baseTextTheme = GoogleFonts.interTextTheme(
       brightness == Brightness.dark
           ? ThemeData(brightness: Brightness.dark).textTheme
           : ThemeData(brightness: Brightness.light).textTheme,
@@ -97,20 +138,43 @@ class ThemeState extends Equatable {
     final textTheme = baseTextTheme
         .copyWith(
           displayLarge: baseTextTheme.displayLarge?.copyWith(
-            letterSpacing: -1.5,
+            letterSpacing: -1.2,
+            fontWeight: FontWeight.w700,
+          ),
+          displaySmall: baseTextTheme.displaySmall?.copyWith(
+            letterSpacing: -0.8,
+            fontWeight: FontWeight.w700,
+          ),
+          headlineLarge: baseTextTheme.headlineLarge?.copyWith(
+            letterSpacing: -0.9,
             fontWeight: FontWeight.w700,
           ),
           headlineMedium: baseTextTheme.headlineMedium?.copyWith(
-            letterSpacing: -1,
+            letterSpacing: -0.6,
             fontWeight: FontWeight.w600,
           ),
           titleLarge: baseTextTheme.titleLarge?.copyWith(
-            letterSpacing: -0.5,
+            letterSpacing: -0.3,
             fontWeight: FontWeight.w600,
           ),
-          bodyLarge: baseTextTheme.bodyLarge?.copyWith(letterSpacing: -0.1),
+          titleMedium: baseTextTheme.titleMedium?.copyWith(
+            letterSpacing: -0.2,
+            fontWeight: FontWeight.w600,
+          ),
         )
         .apply(bodyColor: scheme.onSurface, displayColor: scheme.onSurface);
+
+    final spec = PrismSpec(
+      accent: scheme.primary,
+      accentSoft: scheme.primary.withValues(alpha: isDark ? 0.16 : 0.10),
+      skeletonBase: isDark
+          ? PrismColors.inkHigh
+          : PrismColors.paperHigh,
+      skeletonHighlight: isDark
+          ? PrismColors.inkHighest
+          : PrismColors.paperHighest,
+      hairline: scheme.outlineVariant,
+    );
 
     return ThemeData(
       useMaterial3: true,
@@ -118,6 +182,7 @@ class ThemeState extends Equatable {
       brightness: brightness,
       scaffoldBackgroundColor: scheme.surface,
       textTheme: textTheme,
+      extensions: [spec],
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         foregroundColor: scheme.onSurface,
@@ -125,59 +190,102 @@ class ThemeState extends Equatable {
         centerTitle: false,
         scrolledUnderElevation: 0,
         titleTextStyle: textTheme.titleLarge,
-        toolbarHeight: 72,
+        toolbarHeight: 64,
       ),
       cardTheme: CardThemeData(
         elevation: 0,
         color: scheme.surfaceContainer,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(PrismRadius.lg),
           side: BorderSide(color: scheme.outlineVariant),
-        ),
-      ),
-      navigationBarTheme: NavigationBarThemeData(
-        height: 68,
-        elevation: 0,
-        indicatorColor: scheme.primary.withAlpha((0.15 * 255).round()),
-        backgroundColor: scheme.surfaceContainer,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        labelTextStyle: WidgetStatePropertyAll(
-          textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        backgroundColor: scheme.surface,
+        backgroundColor: scheme.surfaceContainerLow,
         elevation: 0,
         showDragHandle: true,
+        dragHandleColor: scheme.outline,
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: scheme.surfaceContainerHigh.withAlpha(
-          (0.35 * 255).round(),
+        backgroundColor: scheme.surfaceContainerHigh.withValues(alpha: 0.45),
+        selectedColor: spec.accentSoft,
+        checkmarkColor: scheme.primary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
-        selectedColor: scheme.primary.withAlpha((0.15 * 255).round()),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         labelStyle: textTheme.labelLarge,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        side: BorderSide(
-          color: scheme.outlineVariant.withAlpha((0.2 * 255).round()),
-        ),
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: .3)),
       ),
       sliderTheme: SliderThemeData(
         trackHeight: 4,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
         overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
         activeTrackColor: scheme.primary,
-        inactiveTrackColor: scheme.surfaceContainerHigh.withAlpha(
-          (0.6 * 255).round(),
-        ),
+        inactiveTrackColor: scheme.surfaceContainerHigh.withValues(alpha: .6),
         thumbColor: scheme.onPrimary,
       ),
-      dividerColor: scheme.outlineVariant.withAlpha((0.4 * 255).round()),
+      listTileTheme: ListTileThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(PrismRadius.md),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          textStyle: textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          side: BorderSide(color: scheme.outline),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+      ),
+      dividerTheme: DividerThemeData(
+        color: scheme.outlineVariant.withValues(alpha: .5),
+        space: 1,
+        thickness: 1,
+      ),
+      dividerColor: scheme.outlineVariant.withValues(alpha: .5),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: scheme.primary,
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: scheme.surfaceContainerHigh,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(PrismRadius.md),
+        ),
+      ),
       iconTheme: IconThemeData(color: scheme.onSurface),
-      splashFactory: InkRipple.splashFactory,
+      splashFactory: InkSparkle.splashFactory,
     );
   }
 
@@ -202,11 +310,11 @@ class ThemeState extends Equatable {
 
   @override
   List<Object?> get props => [
-    themeMode,
-    isDynamicColorEnabled,
-    primaryColor,
-    defaultPrimaryColor,
-    layoutMode,
-    isExtractingColor,
-  ];
+        themeMode,
+        isDynamicColorEnabled,
+        primaryColor,
+        defaultPrimaryColor,
+        layoutMode,
+        isExtractingColor,
+      ];
 }
