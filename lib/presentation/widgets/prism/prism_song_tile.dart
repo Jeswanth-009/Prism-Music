@@ -5,8 +5,12 @@ import 'package:flutter/material.dart';
 import '../../../domain/entities/song.dart';
 import '../../theme/prism_theme.dart';
 import 'prism_artwork.dart';
+import 'prism_song_actions.dart';
 
 /// The standard song row used in every list across the app.
+///
+/// Long-press opens the shared song actions sheet (play next, queue,
+/// playlists, like, download, share) unless [onLongPress] is provided.
 class PrismSongTile extends StatelessWidget {
   const PrismSongTile({
     super.key,
@@ -41,7 +45,7 @@ class PrismSongTile extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      onLongPress: onLongPress,
+      onLongPress: onLongPress ?? () => showPrismSongActions(context, song),
       borderRadius: BorderRadius.circular(PrismRadius.md),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

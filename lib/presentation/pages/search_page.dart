@@ -9,12 +9,12 @@ import '../blocs/search/search_event.dart';
 import '../blocs/search/search_state.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/prism/prism_section_header.dart';
-import '../widgets/prism/prism_sheet.dart';
 import '../widgets/prism/prism_skeleton.dart';
 import '../widgets/prism/prism_song_tile.dart';
 import '../widgets/prism/prism_states.dart';
 import 'album_page.dart';
 import 'artist_page.dart';
+import 'remote_playlist_page.dart';
 
 /// Search: filter chips, full-bleed results, genre/vibe discovery.
 class SearchPage extends StatefulWidget {
@@ -476,9 +476,10 @@ class _SearchPageState extends State<SearchPage> {
           itemBuilder: (context, index) {
             final playlist = playlists[index];
             return ListTile(
-              onTap: () => showPrismToast(
-                context,
-                'Remote playlist view is on the way — import it from Library.',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => RemotePlaylistPage(playlist: playlist),
+                ),
               ),
               leading: ClipRRect(
                 borderRadius: BorderRadius.circular(PrismRadius.sm),

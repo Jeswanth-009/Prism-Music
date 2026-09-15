@@ -8,7 +8,6 @@ import '../../domain/repositories/music_repository.dart';
 import '../blocs/player/player.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/prism/prism_artwork.dart';
-import '../widgets/prism/prism_sheet.dart';
 import '../widgets/prism/prism_skeleton.dart';
 import '../widgets/prism/prism_song_tile.dart';
 import '../widgets/prism/prism_states.dart';
@@ -219,7 +218,6 @@ class _AlbumPageState extends State<AlbumPage> {
                       isPlaying: playerState.currentSong?.id == song.id,
                       isPlayingPaused: !playerState.isPlaying,
                       onTap: () => _playAt(index),
-                      onLongPress: () => _showSongActions(song),
                     ),
                   );
                 },
@@ -230,35 +228,5 @@ class _AlbumPageState extends State<AlbumPage> {
       ),
     );
   }
-
-  void _showSongActions(Song song) {
-    showPrismSheet(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            PrismSheetAction(
-              icon: Icons.play_arrow_rounded,
-              label: 'Play now',
-              onTap: () {
-                final index = _songs.indexOf(song);
-                Navigator.pop(context);
-                if (index >= 0) _playAt(index);
-              },
-            ),
-            PrismSheetAction(
-              icon: Icons.playlist_add_rounded,
-              label: 'Add to queue',
-              onTap: () {
-                context.read<PlayerBloc>().add(AddToQueueEvent(song: song));
-                Navigator.pop(context);
-                showPrismToast(context, 'Added to queue');
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
+

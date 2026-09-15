@@ -21,6 +21,7 @@ import '../widgets/equalizer/equalizer_bottom_sheet.dart';
 import '../widgets/player/player_lyrics_sheet.dart';
 import '../widgets/player/player_queue_sheet.dart';
 import '../widgets/prism/prism_sheet.dart';
+import '../widgets/prism/prism_song_actions.dart';
 import '../widgets/prism/prism_states.dart';
 import 'artist_page.dart';
 
@@ -246,6 +247,14 @@ class _PlayerPageState extends State<PlayerPage> {
                 Navigator.pop(sheetContext);
                 context.read<PlayerBloc>().add(AddToQueueEvent(song: song));
                 showPrismToast(context, 'Added to queue');
+              },
+            ),
+            PrismSheetAction(
+              icon: Icons.playlist_add_rounded,
+              label: 'Add to playlist',
+              onTap: () {
+                Navigator.pop(sheetContext);
+                showPrismPlaylistPicker(context, song);
               },
             ),
             BlocBuilder<LibraryBloc, LibraryState>(

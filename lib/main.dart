@@ -10,6 +10,7 @@ import 'core/services/audio_player_service.dart';
 import 'core/services/permission_service.dart';
 import 'core/services/local_backup_service.dart';
 import 'core/services/prism_audio_handler.dart';
+import 'core/services/settings_service.dart';
 import 'presentation/blocs/player/player.dart';
 import 'presentation/blocs/search/search.dart';
 import 'presentation/blocs/library/library.dart';
@@ -39,6 +40,10 @@ void main() async {
 
   // 1. Initialize dependencies so we can access AudioPlayerService
   await initializeDependencies();
+
+  // Settings must be ready before the app builds so the persisted theme
+  // mode is available to ThemeBloc on first frame.
+  await SettingsService.instance.initialize();
 
   // 2. Get the AudioPlayerService instance
   final audioPlayerService = getIt<AudioPlayerService>();

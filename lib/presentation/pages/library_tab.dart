@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -12,6 +14,9 @@ import 'liked_songs_page.dart';
 import 'playlist_detail_page.dart';
 import 'recently_played_page.dart';
 import 'settings_page.dart';
+
+/// Playlist import sources.
+enum _ImportSource { spotify, youtube }
 
 /// Library: quick-access tiles, playlists, listening overview.
 class LibraryTab extends StatefulWidget {
@@ -124,6 +129,23 @@ class _LibraryTabState extends State<LibraryTab>
                 ],
               ),
             ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              sliver: SliverToBoxAdapter(
+                child: BlocListener<LibraryBloc, LibraryState>(
+                  listenWhen: (prev, next) =>
+                      prev.status != next.status &&
+                      (next.status == LibraryStatus.importing ||
+                          prev.status == LibraryStatus.importing),
+                  listener: (context, importState) {
+                    if (importState.status == LibraryStatus.importing) {
+                      showPrismToast(context, 'Importing playlist…');
+                    }
+                  },
+                  child: _ImportTile(onTap: _importPlaylist),
+                ),
+              ),
+            ),
             const SliverToBoxAdapter(
               child: PrismSectionHeader(
                 title: 'Playlists',
@@ -213,6 +235,41 @@ class _LibraryTabState extends State<LibraryTab>
         ),
       ),
     );
+  }
+
+  /// Spotify / YouTube playlist import. Dispatches the import event and
+  /// reports the outcome when the bloc settles.
+  Future<void> _importPlaylist() async {
+    final params = await showPrismSheet<({_ImportSource source, String url})>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => const _ImportSheet(),
+    );
+    if (params == null || params.url.isEmpty || !mounted) return;
+
+    final bloc = context.read<LibraryBloc>();
+    bloc.add(
+      params.source == _ImportSource.spotify
+          ? ImportSpotifyPlaylistEvent(params.url)
+          : ImportYouTubePlaylistEvent(params.url),
+    );
+
+    try {
+      final result = await bloc.stream
+          .firstWhere((s) => s.status != LibraryStatus.importing)
+          .timeout(const Duration(minutes: 2));
+      if (!mounted) return;
+      if (result.status == LibraryStatus.error) {
+        showPrismToast(
+          context,
+          result.errorMessage ?? 'Import failed — check the link.',
+        );
+      } else {
+        showPrismToast(context, 'Playlist imported');
+      }
+    } on TimeoutException {
+      if (mounted) showPrismToast(context, 'Import is taking too long.');
+    }
   }
 
   Future<void> _createPlaylist() async {
@@ -409,4 +466,174 @@ class _StatsCard extends StatelessWidget {
           ),
         ],
       );
+}
+
+/// Full-width entry pointing at the Spotify/YouTube import flow.
+class _ImportTile extends StatelessWidget {
+  const _ImportTile({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surfaceContainer,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(PrismRadius.lg),
+        side: BorderSide(color: context.prismSpec.hairline),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(PrismRadius.lg),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Icon(Icons.download_for_offline_outlined,
+                  color: theme.colorScheme.primary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Import playlist',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      'Bring a Spotify or YouTube playlist into Prism',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Source picker + URL entry for playlist import. Pops with the chosen
+/// source and url, or null when cancelled.
+class _ImportSheet extends StatefulWidget {
+  const _ImportSheet();
+
+  @override
+  State<_ImportSheet> createState() => _ImportSheetState();
+}
+
+class _ImportSheetState extends State<_ImportSheet> {
+  _ImportSource _source = _ImportSource.spotify;
+  final _urlController = TextEditingController();
+
+  @override
+  void dispose() {
+    _urlController.dispose();
+    super.dispose();
+  }
+
+  String get _hint => _source == _ImportSource.spotify
+      ? 'https://open.spotify.com/playlist/…'
+      : 'https://youtube.com/playlist?list=…';
+
+  bool get _isValidUrl {
+    final text = _urlController.text.trim();
+    if (text.length < 10) return false;
+    return _source == _ImportSource.spotify
+        ? text.contains('spotify.com')
+        : text.contains('youtube.com') || text.contains('youtu.be');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Import playlist',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            SegmentedButton<_ImportSource>(
+              segments: const [
+                ButtonSegment(
+                  value: _ImportSource.spotify,
+                  icon: Icon(Icons.graphic_eq_rounded),
+                  label: Text('Spotify'),
+                ),
+                ButtonSegment(
+                  value: _ImportSource.youtube,
+                  icon: Icon(Icons.play_circle_outline_rounded),
+                  label: Text('YouTube'),
+                ),
+              ],
+              selected: {_source},
+              onSelectionChanged: (selection) =>
+                  setState(() => _source = selection.first),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _urlController,
+              autofocus: true,
+              keyboardType: TextInputType.url,
+              onChanged: (_) => setState(() {}),
+              onSubmitted: (value) {
+                if (_isValidUrl) {
+                  Navigator.of(context)
+                      .pop((source: _source, url: value.trim()));
+                }
+              },
+              decoration: InputDecoration(
+                hintText: _hint,
+                border: const OutlineInputBorder(),
+                errorText:
+                    _urlController.text.isNotEmpty && !_isValidUrl
+                        ? 'That does not look like a $_source playlist link'
+                        : null,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: _isValidUrl
+                      ? () => Navigator.of(context)
+                          .pop((source: _source, url: _urlController.text.trim()))
+                      : null,
+                  icon: const Icon(Icons.download_rounded),
+                  label: const Text('Import'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

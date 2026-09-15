@@ -16,6 +16,7 @@ import '../../presentation/blocs/library/library_bloc.dart';
 import '../../presentation/blocs/theme/theme_bloc.dart';
 import '../services/audio_player_service.dart';
 import '../services/audio_focus_orchestrator_service.dart';
+import '../services/settings_service.dart';
 import '../services/stream_cache_service.dart';
 import '../services/stream_loader_service.dart';
 import '../services/media_resolver_service.dart';
@@ -186,6 +187,8 @@ getIt.registerLazySingleton<LibraryRepository>(
   );
   
   getIt.registerFactory<ThemeBloc>(
-    () => ThemeBloc(),
+    () => ThemeBloc(
+      initialThemeMode: SettingsService.instance.themeMode,
+    ),
   );
 }

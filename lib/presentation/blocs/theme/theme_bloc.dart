@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:palette_generator/palette_generator.dart';
+import '../../../core/services/settings_service.dart';
 import 'theme_event.dart';
 import 'theme_state.dart';
 
 /// BLoC for managing app theme and dynamic colors
 class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
-  ThemeBloc() : super(const ThemeState()) {
+  ThemeBloc({ThemeMode initialThemeMode = ThemeMode.system})
+      : super(ThemeState(themeMode: initialThemeMode)) {
     on<SetThemeModeEvent>(_onSetThemeMode);
     on<UpdateDynamicColorEvent>(_onUpdateDynamicColor);
     on<ToggleDynamicColorEvent>(_onToggleDynamicColor);
@@ -19,7 +21,8 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     Emitter<ThemeState> emit,
   ) {
     emit(state.copyWith(themeMode: event.mode));
-    // TODO: Persist theme preference
+    // Persist so the choice survives restarts.
+    SettingsService.instance.setThemeMode(event.mode);
   }
 
   Future<void> _onUpdateDynamicColor(

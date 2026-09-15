@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show ThemeMode;
 import 'package:hive_flutter/hive_flutter.dart';
 import '../utils/logger.dart';
 
@@ -84,6 +85,7 @@ class SettingsService {
   static const String _fastStartKey = 'fast_start_enabled';
   static const String _prefetchLookaheadKey = 'prefetch_lookahead';
   static const String _downloadFolderKey = 'download_folder_path';
+  static const String _themeModeKey = 'theme_mode';
   static SettingsService? _instance;
   
   Box? _settingsBox;
@@ -241,6 +243,21 @@ class SettingsService {
   /// Listen for player layout changes to update the UI reactively
   ValueListenable<Box<dynamic>>? playerUiStyleListenable() {
     return _settingsBox?.listenable(keys: [_playerUiStyleKey]);
+  }
+
+  /// Selected theme mode (system / light / dark)
+  ThemeMode get themeMode {
+    final stored =
+        _settingsBox?.get(_themeModeKey, defaultValue: 'system') as String?;
+    return ThemeMode.values.firstWhere(
+      (mode) => mode.name == stored,
+      orElse: () => ThemeMode.system,
+    );
+  }
+
+  /// Persist theme mode preference
+  Future<void> setThemeMode(ThemeMode mode) async {
+    await _settingsBox?.put(_themeModeKey, mode.name);
   }
 
   /// Get custom download folder path (null means use default)
