@@ -620,13 +620,61 @@ class MusicRepositoryImpl implements MusicRepository {
   @override
   Future<Either<Failure, List<Album>>> getNewReleases({int limit = 20}) async {
     try {
-      final items = await _ytMusicApiService.searchAlbums('new music');
-      final albums = items
-          .map((item) => albumFromYtMusicApi(item))
-          .where((album) => album.id.isNotEmpty)
-          .take(limit)
-          .toList();
-      return Right(albums);
+      // Personalise the rail: dig up albums from artists already in the
+      // listener's rotation instead of a static "new music" query.
+      final seeds = <String>[];
+      final banned = RegExp(r'various|playlist|topic|compilation');
+      try {
+        final history = await _localDataSource.getListeningHistory(limit: 20);
+        for (final song in history) {
+          final artist = song.artist.trim();
+          if (artist.isEmpty || banned.hasMatch(artist.toLowerCase())) {
+            continue;
+          }
+          if (seeds.any((s) => s.toLowerCase() == artist.toLowerCase())) {
+            continue;
+          }
+          seeds.add(artist);
+          if (seeds.length >= 4) break;
+        }
+      } catch (_) {
+        // History is optional — without it there is nothing to personalise.
+      }
+
+      // No rotation yet: no rail rather than a generic one.
+      if (seeds.isEmpty) return const Right([]);
+
+      final perArtist = await Future.wait(
+        seeds.map((seed) async {
+          final result = await searchAlbums('$seed album', limit: 6);
+          return result.fold((_) => <Album>[], (items) => items);
+        }),
+      );
+
+      // Round-robin across artists so the rail mixes them up.
+      final albums = <Album>[];
+      final seenIds = <String>{};
+      final seenKeys = <String>{};
+      var index = 0;
+      while (albums.length < limit) {
+        var progressed = false;
+        for (final items in perArtist) {
+          if (index >= items.length) continue;
+          progressed = true;
+          final album = items[index];
+          if (album.id.isNotEmpty &&
+              seenIds.add(album.id) &&
+              seenKeys.add(
+                '${album.title.toLowerCase()}|${album.artist.toLowerCase()}',
+              )) {
+            albums.add(album);
+          }
+        }
+        if (!progressed) break;
+        index++;
+      }
+
+      return Right(albums.take(limit).toList());
     } catch (e) {
       return Left(UnknownFailure(message: e.toString()));
     }

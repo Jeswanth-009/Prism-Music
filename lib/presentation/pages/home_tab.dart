@@ -276,8 +276,8 @@ class _HomeTabState extends State<HomeTab>
                 ),
               if (_newAlbums.isNotEmpty)
                 _sliverSection(
-                  title: 'New albums',
-                  subtitle: 'Fresh from the artists you listen to',
+                  title: 'From your artists',
+                  subtitle: 'Albums to dig into from your rotation',
                   child: SizedBox(
                     height: 172,
                     child: ListView.separated(
