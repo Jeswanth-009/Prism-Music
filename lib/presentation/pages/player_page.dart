@@ -292,6 +292,93 @@ class _PlayerPageState extends State<PlayerPage> {
                 );
               },
             ),
+            BlocBuilder<PlayerBloc, PlayerState>(
+              builder: (context, playerState) {
+                final end = playerState.sleepTimerEnd;
+                final remaining =
+                    end?.difference(DateTime.now());
+                return PrismSheetAction(
+                  icon: Icons.bedtime_rounded,
+                  label: 'Sleep timer',
+                  trailing: remaining == null || remaining.isNegative
+                      ? null
+                      : Text(
+                          '${remaining.inMinutes}:${(remaining.inSeconds % 60).toString().padLeft(2, '0')}',
+                          style: Theme.of(sheetContext)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                color: Theme.of(sheetContext)
+                                    .colorScheme
+                                    .primary,
+                              ),
+                        ),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _showSleepTimerSheet(context, playerState);
+                  },
+                );
+              },
+            ),
+            const SizedBox(height: 6),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Off / end-of-track / fixed durations. Dispatches [SetSleepTimerEvent];
+  /// null cancels an active timer.
+  void _showSleepTimerSheet(BuildContext context, PlayerState state) {
+    final endOfTrack =
+        state.duration > Duration.zero ? state.duration - state.position : null;
+    final options = <({String label, Duration? duration})>[
+      const (label: 'Off', duration: null),
+      if (endOfTrack != null && !endOfTrack.isNegative)
+        (label: 'End of track', duration: endOfTrack),
+      ...const [5, 10, 15, 30, 45, 60, 90].map(
+        (minutes) => (
+          label: '$minutes minutes',
+          duration: Duration(minutes: minutes),
+        ),
+      ),
+    ];
+
+    showPrismSheet(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Sleep timer',
+                  style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            for (final option in options)
+              ListTile(
+                leading: const Icon(Icons.bedtime_rounded),
+                title: Text(option.label),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  context
+                      .read<PlayerBloc>()
+                      .add(SetSleepTimerEvent(option.duration));
+                  if (option.duration != null) {
+                    showPrismToast(
+                      context,
+                      'Sleep timer set: ${option.label}',
+                    );
+                  }
+                },
+              ),
             const SizedBox(height: 6),
           ],
         ),

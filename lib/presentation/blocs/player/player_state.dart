@@ -55,6 +55,9 @@ class PlayerState extends Equatable {
   /// Queue of songs
   final List<Song> queue;
 
+  /// When the sleep timer will pause playback (null = no timer)
+  final DateTime? sleepTimerEnd;
+
   /// Original queue (before shuffle)
   final List<Song> originalQueue;
 
@@ -78,6 +81,7 @@ class PlayerState extends Equatable {
     this.audioQuality = AudioQuality.medium,
     this.currentStreamInfo,
     this.queue = const [],
+    this.sleepTimerEnd,
     this.originalQueue = const [],
     this.queueIndex = 0,
     this.errorMessage,
@@ -146,6 +150,8 @@ class PlayerState extends Equatable {
     List<Song>? originalQueue,
     int? queueIndex,
     String? errorMessage,
+    DateTime? sleepTimerEnd,
+    bool clearSleepTimer = false,
   }) {
     return PlayerState(
       status: status ?? this.status,
@@ -164,6 +170,8 @@ class PlayerState extends Equatable {
       originalQueue: originalQueue ?? this.originalQueue,
       queueIndex: queueIndex ?? this.queueIndex,
       errorMessage: errorMessage ?? this.errorMessage,
+      sleepTimerEnd:
+          clearSleepTimer ? null : (sleepTimerEnd ?? this.sleepTimerEnd),
     );
   }
 
@@ -180,9 +188,10 @@ class PlayerState extends Equatable {
         repeatMode,
         playbackSpeed,
         audioQuality,
-        currentStreamInfo,
-        queue,
-        originalQueue,
+    currentStreamInfo,
+    queue,
+    sleepTimerEnd,
+    originalQueue,
         queueIndex,
         errorMessage,
       ];

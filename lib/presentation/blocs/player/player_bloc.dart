@@ -32,6 +32,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
   int _prefetchLookahead = 1;
   double _crossfadeDurationSeconds = 0.0;
   int _lastNearEndPrefetchIndex = -1;
+  Timer? _sleepTimer;
   final LastFmService _lastFmService = LastFmService();
   RecommendationService? _recommendationService;
 
@@ -99,6 +100,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
     on<ClearQueueEvent>(_onClearQueue);
     on<SetPlaybackSpeedEvent>(_onSetPlaybackSpeed);
     on<SetAudioQualityEvent>(_onSetAudioQuality);
+    on<SetSleepTimerEvent>(_onSetSleepTimer);
+    on<_SleepTimerClearedEvent>(_onSleepTimerCleared);
     on<StopEvent>(_onStop);
     on<PositionUpdateEvent>(_onPositionUpdate);
     on<BufferedPositionUpdateEvent>(_onBufferedPositionUpdate);
@@ -796,6 +799,35 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
     // Note: Quality change will apply on next song
   }
 
+  Future<void> _onSetSleepTimer(
+    SetSleepTimerEvent event,
+    Emitter<PlayerState> emit,
+  ) async {
+    _sleepTimer?.cancel();
+    _sleepTimer = null;
+
+    final duration = event.duration;
+    if (duration == null || duration <= Duration.zero) {
+      emit(state.copyWith(clearSleepTimer: true));
+      return;
+    }
+
+    emit(state.copyWith(sleepTimerEnd: DateTime.now().add(duration)));
+    _sleepTimer = Timer(duration, () {
+      _sleepTimer = null;
+      // Two events: pause playback first, then surface the cleared timer.
+      add(const PauseEvent());
+      add(const _SleepTimerClearedEvent());
+    });
+  }
+
+  void _onSleepTimerCleared(
+    _SleepTimerClearedEvent event,
+    Emitter<PlayerState> emit,
+  ) {
+    emit(state.copyWith(clearSleepTimer: true));
+  }
+
   Future<void> _onStop(StopEvent event, Emitter<PlayerState> emit) async {
     await _audioPlayer.stop();
     await _audioFocus.deactivate();
@@ -1228,6 +1260,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
   @override
   Future<void> close() async {
     WidgetsBinding.instance.removeObserver(this);
+    _sleepTimer?.cancel();
     await _positionSubscription?.cancel();
     await _bufferedSubscription?.cancel();
     await _durationSubscription?.cancel();
@@ -1278,4 +1311,13 @@ class _IndexChangedEvent extends PlayerEvent {
 
   @override
   List<Object?> get props => [index];
+}
+
+/// Internal event fired when the sleep timer elapses and playback was
+/// paused; clears the timer state.
+class _SleepTimerClearedEvent extends PlayerEvent {
+  const _SleepTimerClearedEvent();
+
+  @override
+  List<Object?> get props => [];
 }

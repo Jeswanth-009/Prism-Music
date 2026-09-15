@@ -114,11 +114,14 @@ class EqualizerService {
 
       // Apply bass boost
       await AudioEffectsChannel.setBassBoost(_bassBoostLevel, _bassBoostEnabled);
-      
+
+      // Apply treble
+      await AudioEffectsChannel.setTreble(_trebleLevel);
+
       // Apply reverb
       await AudioEffectsChannel.setReverb(_reverbPreset.value);
-      
-      debugPrint('EqualizerService: Applied preset: $presetName (Bass: $_bassBoostLevel, Reverb: ${_reverbPreset.displayName})');
+
+      debugPrint('EqualizerService: Applied preset: $presetName (Bass: $_bassBoostLevel, Treble: $_trebleLevel, Reverb: ${_reverbPreset.displayName})');
     } catch (e) {
       debugPrint('EqualizerService: Failed to apply preset: $e');
     }
@@ -140,13 +143,19 @@ class EqualizerService {
     }
   }
 
-  /// Set treble level manually (0.0 - 1.0)
-  /// Note: Treble adjustment requires a different audio effect API
-  /// This is a placeholder for future implementation
+  /// Set treble level manually (0.0 - 1.0); 0.5 is neutral
   Future<void> setTreble(double level) async {
-    _trebleLevel = level.clamp(0.0, 1.0);
-    _currentPresetName = 'Custom';
-    debugPrint('EqualizerService: Set treble: $level (not yet implemented in platform)');
+    await initialize();
+
+    try {
+      _trebleLevel = level.clamp(0.0, 1.0);
+      _currentPresetName = 'Custom';
+
+      await AudioEffectsChannel.setTreble(_trebleLevel);
+      debugPrint('EqualizerService: Set treble: $_trebleLevel');
+    } catch (e) {
+      debugPrint('EqualizerService: Failed to set treble: $e');
+    }
   }
 
   /// Set reverb preset manually

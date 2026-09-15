@@ -78,10 +78,9 @@ different set of priorities:
 
 ## Known Limitations (Alpha)
 
-- Crossfade duration and audio-quality selection dialogs are not yet wired to
-  the audio engine
-- "Clear cache" does not yet delete cached streams
-- Treble control in the equalizer is a placeholder
+- Treble applies a single top-band EQ shelf (±6 dB), not a full multi-band
+  equalizer
+- Audio-quality changes apply from the next song onward, not mid-track
 - Android-first; iOS/desktop are untested
 
 ## Roadmap
@@ -90,8 +89,8 @@ different set of priorities:
 | --- | --- | --- |
 | Material 3 UI revamp | Done | Design system, home, search, library, player, lyrics |
 | P1 feature gaps | Done | Song actions, playlist import, theme persistence, remote playlists |
-| Playback polish | Next | Real crossfade, audio-quality selection, sleep timer, treble, cache management |
-| Experience depth | Planned | Full stats page, app-wide dynamic accent color, onboarding |
+| Playback polish | Done | Crossfade, audio-quality selection, sleep timer, treble, cache management |
+| Experience depth | Next | Full stats page, app-wide dynamic accent color, onboarding |
 | Beta readiness | Planned | Regression pass, quality gates, iOS evaluation |
 
 ## Architecture Overview

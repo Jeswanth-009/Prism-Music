@@ -1,6 +1,7 @@
 package com.prismmusic.prism_music
 
 import android.media.audiofx.BassBoost
+import android.media.audiofx.Equalizer
 import android.media.audiofx.PresetReverb
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -10,6 +11,7 @@ class MainActivity : AudioServiceActivity() {
     private val CHANNEL = "com.prismmusic/audio_effects"
     private var bassBoost: BassBoost? = null
     private var reverbPreset: PresetReverb? = null
+    private var equalizer: Equalizer? = null
     private var audioSessionId: Int = 0
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -26,6 +28,11 @@ class MainActivity : AudioServiceActivity() {
                         val level = call.argument<Double>("level") ?: 0.5
                         val enabled = call.argument<Boolean>("enabled") ?: false
                         setBassBoost(level, enabled)
+                        result.success(null)
+                    }
+                    "setTreble" -> {
+                        val level = call.argument<Double>("level") ?: 0.5
+                        setTreble(level)
                         result.success(null)
                     }
                     "setReverb" -> {
@@ -60,6 +67,35 @@ class MainActivity : AudioServiceActivity() {
             bassBoost?.enabled = false
             bassBoost?.setStrength(strength)
             bassBoost?.enabled = true
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * Treble shaping via the platform Equalizer effect: 0.5 is neutral
+     * (0 dB), below 0.5 cuts and above 0.5 boosts the highest band.
+     */
+    private fun setTreble(level: Double) {
+        try {
+            if (equalizer == null && audioSessionId != 0) {
+                equalizer = Equalizer(1, audioSessionId)
+                equalizer?.enabled = true
+            }
+            val eq = equalizer ?: return
+
+            val bands = eq.numberOfBands.toShort()
+            val topBand = (bands - 1).toShort()
+            val range = eq.bandLevelRange
+            val span = minOf(
+                (range[1] - range[0]).toDouble(),
+                12.0, // keep the adjustment subtle: ±6 dB around 0.5
+            )
+            val db = ((level - 0.5) * span)
+                .coerceIn(range[0].toDouble(), range[1].toDouble())
+                .toInt()
+                .toShort()
+            eq.setBandLevel(topBand, db)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -105,6 +141,10 @@ class MainActivity : AudioServiceActivity() {
             reverbPreset?.enabled = false
             reverbPreset?.release()
             reverbPreset = null
+
+            equalizer?.enabled = false
+            equalizer?.release()
+            equalizer = null
         } catch (e: Exception) {
             e.printStackTrace()
         }

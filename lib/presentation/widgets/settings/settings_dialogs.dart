@@ -2,12 +2,32 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/di/injection.dart';
 import '../../../core/services/settings_service.dart';
+import '../../../core/services/stream_cache_service.dart';
+import '../../../domain/entities/entities.dart';
 import '../../blocs/theme/theme_bloc.dart';
 import '../../blocs/theme/theme_event.dart';
+import '../../blocs/player/player.dart';
 import '../prism/prism_sheet.dart';
 import '../lastfm_login_dialog.dart';
 import '../../../core/services/lastfm_service.dart';
+
+extension _AudioQualityLabel on AudioQuality {
+  String get label => switch (this) {
+    AudioQuality.low => 'Low',
+    AudioQuality.medium => 'Medium',
+    AudioQuality.high => 'High',
+    AudioQuality.lossless => 'Lossless',
+  };
+
+  String get subtitle => switch (this) {
+    AudioQuality.low => '64 kbps — saves the most data',
+    AudioQuality.medium => '128 kbps — balanced',
+    AudioQuality.high => '256 kbps — detailed',
+    AudioQuality.lossless => '320 kbps — maximum fidelity',
+  };
+}
 
 class SettingsDialogs {
   static void showLoginDialog(
@@ -124,20 +144,33 @@ class SettingsDialogs {
   }
 
   static void showAudioQualityDialog(BuildContext context) {
+    final currentQuality = SettingsService.instance.audioQuality;
+
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
+        return SimpleDialog(
           title: const Text('Audio Quality'),
-          content: const Text(
-            'Quality selection is coming soon — Prism adapts quality '
-            'automatically for the best balance right now.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('OK'),
-            ),
+          children: [
+            for (final quality in AudioQuality.values)
+              RadioListTile<String>(
+                value: quality.name,
+                groupValue: currentQuality,
+                onChanged: (value) {
+                  if (value == null) return;
+                  SettingsService.instance.setAudioQuality(value);
+                  dialogContext.read<PlayerBloc>().add(
+                    SetAudioQualityEvent(quality),
+                  );
+                  Navigator.pop(dialogContext);
+                  showPrismToast(
+                    dialogContext,
+                    'Audio quality set to ${quality.label} — applies on the next song',
+                  );
+                },
+                title: Text(quality.label),
+                subtitle: Text(quality.subtitle),
+              ),
           ],
         );
       },
@@ -212,12 +245,16 @@ class SettingsDialogs {
                   child: const Text('Cancel'),
                 ),
                 FilledButton(
-                  onPressed: () {
-                    showPrismToast(
-                      context,
-                      'Crossfade set to ${duration.toStringAsFixed(1)}s',
-                    );
-                    Navigator.pop(dialogContext);
+                  onPressed: () async {
+                    await SettingsService.instance
+                        .setCrossfadeDuration(duration);
+                    if (dialogContext.mounted) {
+                      showPrismToast(
+                        dialogContext,
+                        'Crossfade set to ${duration.toStringAsFixed(1)}s',
+                      );
+                      Navigator.pop(dialogContext);
+                    }
                   },
                   child: const Text('OK'),
                 ),
@@ -230,13 +267,17 @@ class SettingsDialogs {
   }
 
   static void showClearCacheDialog(BuildContext context) {
+    final stats = getIt<StreamCacheService>().getStats();
+    final validStreams = stats['valid'] as int? ?? 0;
+
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Clear cache?'),
-          content: const Text(
-            'This will remove all temporary files to free up space. Continue?',
+          content: Text(
+            'This drops $validStreams pre-resolved stream${validStreams == 1 ? '' : 's'} '
+            'and the in-memory artwork cache. Downloads are kept.',
           ),
           actions: [
             TextButton(
@@ -245,7 +286,10 @@ class SettingsDialogs {
             ),
             FilledButton(
               onPressed: () {
-                showPrismToast(context, 'Cache cleared successfully');
+                getIt<StreamCacheService>().clearAll();
+                PaintingBinding.instance.imageCache.clear();
+                PaintingBinding.instance.imageCache.clearLiveImages();
+                showPrismToast(context, 'Cache cleared');
                 Navigator.pop(dialogContext);
               },
               style: FilledButton.styleFrom(

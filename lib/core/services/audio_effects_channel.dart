@@ -30,6 +30,18 @@ class AudioEffectsChannel {
     }
   }
 
+  /// Set treble level (0.0 - 1.0); 0.5 is neutral, above boosts the
+  /// highest equalizer band, below cuts it.
+  static Future<void> setTreble(double level) async {
+    try {
+      await _channel.invokeMethod('setTreble', {
+        'level': level.clamp(0.0, 1.0),
+      });
+    } catch (e) {
+      debugPrint('AudioEffectsChannel: Failed to set treble: $e');
+    }
+  }
+
   /// Set reverb preset
   static Future<void> setReverb(String preset) async {
     try {
