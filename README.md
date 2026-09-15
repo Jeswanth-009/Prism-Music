@@ -5,149 +5,146 @@
 [![Auto Version](https://github.com/Jeswanth-009/Prism-Music/actions/workflows/auto-version.yml/badge.svg)](https://github.com/Jeswanth-009/Prism-Music/actions/workflows/auto-version.yml)
 [![Latest Alpha](https://img.shields.io/github/v/release/Jeswanth-009/Prism-Music?include_prereleases&label=latest%20alpha&color=purple)](https://github.com/Jeswanth-009/Prism-Music/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
-[![Version](https://img.shields.io/github/v/release/Jeswanth-009/Prism-Music?include_prereleases&label=version)](https://github.com/Jeswanth-009/Prism-Music/releases)
 
 Open-source, privacy-first music streaming app built with Flutter.
 
-Prism Music is in a very early alpha stage. Current work is focused on building a strong engineering base: reliable search, resilient playback, and recommendation quality, with transparent open-source development.
+Prism Music streams from YouTube Music (with Spotify/JioSaavn bridges), needs
+no account, keeps your library on-device, and ships as an automated alpha
+release on every push to `main`.
 
 ## Alpha Status
 
-- Stage: Early alpha
-- Current version: 0.1.1+7
-- Primary target: Android
-- Stability: Experimental, breaking changes may happen between alpha builds
+- Stage: Early alpha — breaking changes can happen between builds
+- Primary target: Android (APK/AAB from every release run)
+- Current version: see the [latest release](https://github.com/Jeswanth-009/Prism-Music/releases) or `pubspec.yaml`
 
-## Screenshots and Demo
+## Screenshots
 
-### Current placeholders
-
-These placeholders keep README layout ready while real screenshots are collected from alpha devices.
+Placeholder frames while real screenshots are collected from alpha devices:
 
 | Home | Player | Search |
 | --- | --- | --- |
 | ![Home](docs/media/home-placeholder.svg) | ![Player](docs/media/player-placeholder.svg) | ![Search](docs/media/search-placeholder.svg) |
 
-### GIF walkthrough
-
-- Planned for next alpha documentation pass
-- Target file path: docs/media/prism-alpha-demo.gif
-
 ## Why Prism Music Is Different
 
-Most mainstream music apps are optimized around account lock-in and platform-owned funnels.
-Prism Music is intentionally engineered with a different set of priorities.
+Most mainstream music apps are optimized around account lock-in and
+platform-owned funnels. Prism Music is intentionally engineered with a
+different set of priorities:
 
-### Core differentiators
+- **No login for the core flow** — search, play, like, download, all local
+- **Local-first backup** — your library and history survive reinstall without any cloud account
+- **Fallback-first reliability** — search, recommendations, and playback have multi-path safety nets
+- **Performance-first playback** — stream caching and prefetch (lookahead) built into the resolve path
+- **Open pipeline** — CI, release automation, and architecture docs are public from alpha
 
-- Privacy-first usage model with no mandatory login for core flow
-- Local-first data backup: your library and history are backed up on-device and survive reinstall without any cloud account
-- Fallback-first reliability for search, recommendations, and playback
-- Performance-first playback path with cache and pre-resolve strategies
-- Open architecture and public release automation from early alpha stage
+## Features
 
-## Feature Comparison
-
-| Capability | Prism Music (Alpha) | Typical Music Apps |
-| --- | --- | --- |
-| Core usage without mandatory login | Yes | Usually no |
-| Open-source code visibility | Yes | Usually no |
-| Search fallback behavior | Typed parse plus raw fallback | Mostly single-path or opaque |
-| Recommendation fallback behavior | Multi-path with safety net | Service-specific and closed |
-| Stream startup optimization | Cache-first and pre-resolve aware | Varies by platform |
-| Public release pipeline visibility | Yes, GitHub Actions | Often internal only |
+- **Material 3 interface** — artwork-first design with a single accent, Inter
+  typography, light/dark themes (persisted across restarts), skeleton
+  loaders, and unified empty/error states
+- **Home** — continue-listening hero with shuffle, jump back in, personalized
+  *Recommended for you* rail (similar-artists or discover mode), new albums,
+  trending, charts, and curated mood mixes
+- **Search** — songs, artists, albums, and playlists, with real album detail
+  pages and remote playlist detail pages
+- **Player** — dominant-color ambient background, tap-through to a synced
+  lyrics view with auto-scroll, editable queue (reorder / remove / clear /
+  play next), shuffle and repeat
+- **Song actions everywhere** — long-press any song for play next, queue,
+  add to playlist, like, download, and share
+- **Library** — liked songs, recently played, downloads, playlists with
+  create/delete, and a listening-stats overview
+- **Playlist import** — bring Spotify or YouTube playlist links into Prism
+- **Offline** — download songs and play them without a connection
+- **Equalizer** — presets, bass boost, and reverb, applied through the
+  native audio effects channel
+- **Last.fm scrobbling** — optional account link (see [LASTFM_SETUP.md](LASTFM_SETUP.md))
 
 ## What Has Been Done So Far
 
 | Area | Completed Work | Current Outcome |
 | --- | --- | --- |
-| Architecture | Layered core/data/domain/presentation design with DI and BLoC | Cleaner separation and maintainability |
-| Search | YT Music focused service and mapper pipeline with fallback handling | Better resilience on parser edge cases |
-| Recommendations | Multi-path recommendation flow with fallback logic | Reduced empty-state queue failures |
-| Playback | Stream loader plus cache strategy and reliability hardening | Faster repeat play and improved stability |
-| Streaming Backend | Custom JioSaavn API bridge with 3DES decryption and dynamic CDN bypass (anti-block) | Reliable high-quality 320kbps streams without bot-detection issues |
-| Offline/Downloads | Refactored DownloadService to leverage StreamLoaderService and JioSaavn CDNs | Bypassed YouTube bot protections (403 Forbidden), enabling flawless high-speed downloads |
-| Library & data | On-device library (likes, playlists, history), listening stats, and a local backup that survives uninstall without cloud sync | Private, durable library across updates and reinstalls |
-| User Interface | App-wide Glassmorphic overhaul featuring bouncy physics, edge-to-edge cards, and premium frosted blur effects | A "wow" aesthetic that feels modern, tactile, and fast |
-| Audio/Equalizer | Material wrapper added for EqualizerBottomSheet TabBar | Fixed crash assertion in Equalizer UI |
-| Open source | CI/CD workflows, changelog, license, contributing docs | Public, reproducible alpha delivery |
+| Architecture | Layered core/data/domain/presentation design with DI and BLoC | Clean separation and testability |
+| UI | Full Material 3 revamp: token-based theme (`PrismSpec`), Inter type, shared prism widget library, single song-actions sheet | Calm, artwork-led interface; shadcn_ui removed entirely |
+| Lyrics | Synced lyrics via LRCLIB with line highlight and auto-scroll (`scrollable_positioned_list`) | Built-in lyrics without third-party UI |
+| Albums & playlists | Album detail pages, remote playlist pages, create/delete playlist, add-to-playlist, Spotify/YouTube import | Full browse-and-collect loop |
+| Search | YT Music service and mapper pipeline with fallback handling | Resilient on parser edge cases |
+| Recommendations | Mode-aware service (similar / discover) with taste profile and fallbacks | Personalized rails on Home |
+| Playback | Stream loader, cache strategy, prefetch lookahead, reliability hardening (retry + circuit breaker) | Fast repeat play and stable streaming |
+| Streaming backend | Custom JioSaavn bridge with 3DES decryption and CDN fallback | Reliable high-bitrate streams, downloads without bot-blocking |
+| Library & data | On-device likes, playlists, history, stats, and uninstall-surviving backup | Private, durable library |
+| Open source | CI/CD, changelog, license, contributing docs | Public, reproducible alpha delivery |
 
-## Public Roadmap
+## Known Limitations (Alpha)
 
-| Milestone | Target Date | Status | Scope |
-| --- | --- | --- | --- |
-| Alpha hardening wave 1 | 2026-04-20 | In progress | Analyzer cleanup, failure handling, test additions |
-| Alpha hardening wave 2 | 2026-05-15 | Planned | Playback polish, diagnostics, recommendation refinements |
-| Rich alpha baseline | 2026-06-30 | Planned | Library and playlist UX improvements |
-| Beta readiness review | 2026-08-15 | Planned | Regression checks, quality gates, stabilization |
-| v1.0 planning checkpoint | 2026-10-01 | Planned | Scope lock, privacy posture, release readiness |
+- Crossfade duration and audio-quality selection dialogs are not yet wired to
+  the audio engine
+- "Clear cache" does not yet delete cached streams
+- Treble control in the equalizer is a placeholder
+- Android-first; iOS/desktop are untested
 
-Dates are target estimates and may move based on quality and contributor velocity.
+## Roadmap
+
+| Milestone | Status | Scope |
+| --- | --- | --- |
+| Material 3 UI revamp | Done | Design system, home, search, library, player, lyrics |
+| P1 feature gaps | Done | Song actions, playlist import, theme persistence, remote playlists |
+| Playback polish | Next | Real crossfade, audio-quality selection, sleep timer, treble, cache management |
+| Experience depth | Planned | Full stats page, app-wide dynamic accent color, onboarding |
+| Beta readiness | Planned | Regression pass, quality gates, iOS evaluation |
 
 ## Architecture Overview
 
 Prism Music follows a layered structure:
 
-- Presentation: pages, widgets, BLoCs
-- Domain: entities and contracts
-- Data: repository implementations and data sources
-- Core: DI, services, mappers, utilities
+- **Presentation**: pages, widgets, BLoCs
+- **Domain**: entities and repository contracts
+- **Data**: repository implementations and data sources
+- **Core**: DI, services, mappers, utilities
 
 High-level pipelines:
 
-- Search: UI -> SearchBloc -> MusicRepository -> YT Music service -> mapper -> UI
-- Playback: PlayerBloc -> stream loader/cache -> audio engine
-- Recommendations: PlayerBloc -> recommendation service -> repository fallback -> queue update
-
-Deep architecture docs are listed later in this README.
+- Search: UI → SearchBloc → MusicRepository → YT Music service → mappers → UI
+- Playback: PlayerBloc → media resolver → stream loader/cache → audio engine
+- Recommendations: PlayerBloc (recordPlay) → RecommendationService → repository fallbacks → Home rails
 
 ## Tech Stack
 
-- Flutter + Dart
-- BLoC: flutter_bloc, bloc
-- Dependency injection: get_it, injectable
-- Audio stack: just_audio, audio_service, just_audio_background
-- Networking/data: dart_ytmusic_api, youtube_explode_dart, dio
-- Local persistence: hive
+- Flutter + Dart (Material 3)
+- State: flutter_bloc, bloc, equatable, rxdart
+- DI: get_it, injectable
+- Audio: just_audio, audio_service, audio_session, just_audio_background
+- Sources: dart_ytmusic_api, youtube_explode_dart, darttubefix, dio
+- Persistence: hive_flutter
+- UI utilities: cached_network_image, google_fonts (Inter), palette_generator, scrollable_positioned_list
 
 ## Project Structure
 
 ```text
 lib/
-  core/
-    di/
-    mappers/
-    services/
-  data/
-    datasources/
-    repositories/
-  domain/
-    entities/
-    repositories/
+  core/            # DI, services (audio, downloads, lyrics, recs), mappers, utils
+  data/            # repository impls + remote/local data sources
+  domain/          # entities (Song, Album, Artist, Playlist, Lyrics, ...)
   presentation/
-    blocs/
-    pages/
-    widgets/
+    blocs/         # player, search, library, theme
+    pages/         # home, search, library, player, albums, playlists, settings...
+    theme/         # design tokens (PrismColors, PrismSpec, radius, motion)
+    widgets/       # shared prism/ component library + feature widgets
 ```
 
 ## Getting Started
 
 ### Prerequisites
 
-- Flutter stable SDK
-- Recommended Flutter version: 3.38.4
+- Flutter stable SDK (recommended: 3.38.4+)
+- Android SDK with an emulator or device
 - Android Studio or VS Code
-- Android SDK and emulator/device
 
-### Install
+### Install & run
 
 ```bash
 flutter pub get
-```
-
-### Run
-
-```bash
 flutter run
 ```
 
@@ -160,41 +157,38 @@ flutter build apk --release
 
 ## CI/CD and Release Automation
 
-### CI workflow
+### CI — `.github/workflows/ci.yml`
 
-File: .github/workflows/ci.yml
+Runs on push and pull requests: `pub get`, `analyze`, `test`, debug APK build,
+artifact upload.
 
-Runs on push and pull request:
+### Auto Version + Release — `.github/workflows/auto-version.yml`
 
-- flutter pub get
-- flutter analyze --no-fatal-infos --no-fatal-warnings
-- flutter test
-- flutter build apk --debug
-- Upload debug APK artifact
+Runs on every push to `main` (skips doc-only changes and its own bot commits):
 
-### Alpha release workflow
+1. Reads the version from `pubspec.yaml`
+2. If that version's tag already exists, bumps the version
+   (`patch` by default; `[minor]` / `[major]` in the commit message force
+   bigger bumps)
+3. Commits the bump, tags `alpha-v<version>-build<build>`, pushes the tag
+4. Builds release APK and AAB with matching `versionName`/`versionCode`
+5. Publishes a GitHub prerelease with APK, AAB, and SHA-256 checksums
 
-File: .github/workflows/release-alpha.yml
+### Manual / tag re-builds — `.github/workflows/release-alpha.yml`
 
-Runs automatically on every push to main (and also supports manual tag pushes matching alpha-v*):
+Re-builds and re-publishes when you push an `alpha-v*` tag, or run it manually
+from the Actions tab (adds a `-run<N>` suffix so tags never collide).
 
-- Builds release APK and AAB
-- Generates SHA-256 checksum files
-- Fails the workflow if APK output is missing
-- Uploads APK and AAB as workflow artifacts
-- Publishes GitHub prerelease artifacts with APK attached every run
-- Uses contents write permissions for release publishing
+### Release signing (optional)
 
-### Signed release support via GitHub Secrets
+Signing is enabled automatically when these repository secrets are set:
 
-Release signing is automatically enabled when these repository secrets are set:
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_PASSWORD`
 
-- ANDROID_KEYSTORE_BASE64
-- ANDROID_KEY_ALIAS
-- ANDROID_KEYSTORE_PASSWORD
-- ANDROID_KEY_PASSWORD
-
-When secrets are missing, workflow still builds using debug signing fallback.
+Without secrets, builds fall back to debug signing.
 
 ## Versioning Strategy
 
@@ -204,60 +198,43 @@ Prism Music uses the Flutter version format:
 version: MAJOR.MINOR.PATCH+BUILD_NUMBER
 ```
 
-The `BUILD_NUMBER` (Android `versionCode`) is **generated automatically** from the
-number of git commits (`git rev-list --count HEAD`) in `android/app/build.gradle.kts`.
-It is monotonic for both local `flutter run` and CI builds, which means:
+The Android `versionCode` is **generated automatically** from the number of
+git commits (`git rev-list --count HEAD`) in `android/app/build.gradle.kts`,
+with the `pubspec.yaml` build number kept as a safety floor. Consequences:
 
-- You do **not** need to manually bump the build number.
-- Every push to `main` produces a new, higher `versionCode`, so updates install
-  in-place instead of forcing an uninstall.
-- The `+BUILD_NUMBER` in `pubspec.yaml` is only kept as a safety floor and is
-  otherwise ignored for the Android build number.
+- You do **not** need to manually bump build numbers — every push produces a
+  higher `versionCode`, so updates install in-place without uninstalling.
+- Automatic releases use the tag format `alpha-v<version>-build<build>`,
+  where both parts come from `pubspec.yaml`.
+- Keep `MAJOR` at 0 during the unstable phase; bump the visible version name
+  only when you want a new release label (or let the bot do it — see above).
 
-Alpha guidance:
+### Publishing a release
 
-- Keep `MAJOR` at 0 during the unstable phase.
-- Bump `MAJOR.MINOR.PATCH` (the visible version name) only when you want a new
-  release label.
-- Automated releases use the tag format:
-  `alpha-v<version>-build<git-commit-count>-run<workflow-run>`.
+Just push to `main`. The bot handles the bump, tag, build, and prerelease.
+To force a bigger version, include `[minor]` or `[major]` in your commit
+message.
 
-## Publish Next Alpha
+## Collaboration
 
-1. (Optional) Bump the `MAJOR.MINOR.PATCH` version name in `pubspec.yaml` if you
-   want a new visible release label. Do **not** edit the `+BUILD_NUMBER` part —
-   it is derived from git history automatically.
-2. Commit and push to `main`.
-3. The release-alpha workflow runs automatically and publishes a GitHub
-   prerelease with APK and AAB assets. The build number increments on its own.
+- Bug report template: `.github/ISSUE_TEMPLATE/bug_report.yml`
+- Feature request template: `.github/ISSUE_TEMPLATE/feature_request.yml`
+- PR template: `.github/pull_request_template.md`
+- Security policy: [SECURITY.md](SECURITY.md)
 
-Optional manual trigger via tag (the build number is still auto-derived from git):
-
-```bash
-git tag alpha-v0.1.1
-git push origin alpha-v0.1.1
-```
-
-4. Wait for the release-alpha workflow to publish the prerelease artifacts.
-
-## Collaboration Workflow
-
-- Bug report template: .github/ISSUE_TEMPLATE/bug_report.yml
-- Feature request template: .github/ISSUE_TEMPLATE/feature_request.yml
-- PR template: .github/pull_request_template.md
-- Security policy: SECURITY.md
-
-See CONTRIBUTING.md for contribution expectations.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution expectations.
 
 ## Documentation
 
-- ARCHITECTURE.md
-- STREAM_ARCHITECTURE.md
-- BACKEND_INTEGRATION.md
-- IMPLEMENTATION_SUMMARY.md
-- PRISM_MUSIC_DOCUMENTATION.md
-- MUSIC_APPS_DOCUMENTATION.md
+- [ARCHITECTURE.md](ARCHITECTURE.md)
+- [STREAM_ARCHITECTURE.md](STREAM_ARCHITECTURE.md)
+- [BACKEND_INTEGRATION.md](BACKEND_INTEGRATION.md)
+- [LASTFM_SETUP.md](LASTFM_SETUP.md)
+- [CHANGELOG.md](CHANGELOG.md)
+- [PRISM_MUSIC_DOCUMENTATION.md](PRISM_MUSIC_DOCUMENTATION.md)
+- [MUSIC_APPS_DOCUMENTATION.md](MUSIC_APPS_DOCUMENTATION.md)
+- [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)
 
 ## License
 
-MIT License. See LICENSE.
+MIT License. See [LICENSE](LICENSE).
