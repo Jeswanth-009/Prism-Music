@@ -91,8 +91,21 @@ jobs:
           CURRENT_VERSION="${{ steps.current_version.outputs.version_name }}"
           CURRENT_BUILD="${{ steps.current_version.outputs.build_number }}"
 
+          # A version whose tag already exists has already been released;
+          # it must never be re-tagged. This also covers merge commits,
+          # where comparing against HEAD~1 is unreliable (the first parent
+          # may predate the version bump that the merge brought in).
+          CURRENT_TAG="alpha-v${CURRENT_VERSION}-build${CURRENT_BUILD}"
+          if git rev-parse -q --verify "refs/tags/${CURRENT_TAG}" >/dev/null; then
+            echo "Tag ${CURRENT_TAG} already exists — version was already released, bumping forward."
+            VERSION_ALREADY_RELEASED=true
+          else
+            echo "Tag ${CURRENT_TAG} does not exist yet."
+            VERSION_ALREADY_RELEASED=false
+          fi
+
           PREV_VERSION_LINE=$(git show HEAD~1:pubspec.yaml 2>/dev/null | grep '^version:' | awk '{print $2}' || true)
-          if [[ -n "$PREV_VERSION_LINE" && "${{ steps.current_version.outputs.version_line }}" != "$PREV_VERSION_LINE" ]]; then
+          if [[ "$VERSION_ALREADY_RELEASED" == "false" ]] && [[ -n "$PREV_VERSION_LINE" && "${{ steps.current_version.outputs.version_line }}" != "$PREV_VERSION_LINE" ]]; then
             echo "Version was manually updated in this commit from $PREV_VERSION_LINE to ${{ steps.current_version.outputs.version_line }}"
             NEXT_VERSION="$CURRENT_VERSION"
             NEXT_BUILD="$CURRENT_BUILD"
@@ -130,20 +143,34 @@ jobs:
             NEXT_VERSION_LINE="$NEXT_VERSION+$NEXT_BUILD"
           fi
 
+          # Safety net: if the computed tag somehow already exists (e.g.
+          # a concurrent run), skip the release instead of failing.
+          NEXT_TAG="alpha-v${NEXT_VERSION}-build${NEXT_BUILD}"
+          if git rev-parse -q --verify "refs/tags/${NEXT_TAG}" >/dev/null; then
+            echo "Computed tag ${NEXT_TAG} already exists; skipping release."
+            SHOULD_RELEASE=false
+          else
+            SHOULD_RELEASE=true
+          fi
+
           echo "next_version=$NEXT_VERSION"           >> "$GITHUB_OUTPUT"
           echo "next_build=$NEXT_BUILD"               >> "$GITHUB_OUTPUT"
           echo "next_version_line=$NEXT_VERSION_LINE" >> "$GITHUB_OUTPUT"
           echo "bump_type=$BUMP_TYPE"                 >> "$GITHUB_OUTPUT"
-          echo "Next version: $NEXT_VERSION_LINE"
+          echo "next_tag=$NEXT_TAG"                   >> "$GITHUB_OUTPUT"
+          echo "should_release=$SHOULD_RELEASE"       >> "$GITHUB_OUTPUT"
+          echo "Next version: $NEXT_VERSION_LINE (release: $SHOULD_RELEASE)"
 
       # ── 5. Patch pubspec.yaml ─────────────────────────────────────
       - name: Update pubspec.yaml
+        if: steps.next_version.outputs.should_release == 'true'
         run: |
           sed -i "s/^version: .*/version: ${{ steps.next_version.outputs.next_version_line }}/" pubspec.yaml
           echo "pubspec.yaml updated to ${{ steps.next_version.outputs.next_version_line }}"
 
       # ── 6. Commit & push the version bump ────────────────────────
       - name: Commit and push version bump
+        if: steps.next_version.outputs.should_release == 'true'
         run: |
           if git diff --quiet pubspec.yaml; then
             echo "pubspec.yaml is already up to date; skipping bump commit"
@@ -156,10 +183,15 @@ jobs:
       # ── 7. Create & push the release tag ─────────────────────────
       - name: Create release tag
         id: tag
+        if: steps.next_version.outputs.should_release == 'true'
         run: |
-          TAG="alpha-v${{ steps.next_version.outputs.next_version }}-build${{ steps.next_version.outputs.next_build }}"
-          git tag -a "$TAG" -m "Release $TAG"
-          git push origin "$TAG"
+          TAG="${{ steps.next_version.outputs.next_tag }}"
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "Tag ${TAG} already exists; skipping tag creation."
+          else
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+          fi
           echo "tag=$TAG"                                >> "$GITHUB_OUTPUT"
           echo "release_name=Prism Music $TAG"           >> "$GITHUB_OUTPUT"
 
@@ -209,6 +241,7 @@ jobs:
       # correct versionName and versionCode into the APK manifest.
       # This is the fix for the "install conflict / downgrade" error.
       - name: Build release APK
+        if: steps.next_version.outputs.should_release == 'true'
         run: |
           flutter build apk --release \
             --build-name "${{ steps.next_version.outputs.next_version }}" \
@@ -217,6 +250,7 @@ jobs:
 
       # ── 11. Build release App Bundle ──────────────────────────────
       - name: Build release App Bundle (AAB)
+        if: steps.next_version.outputs.should_release == 'true'
         run: |
           flutter build appbundle --release \
             --build-name "${{ steps.next_version.outputs.next_version }}" \
@@ -226,6 +260,7 @@ jobs:
       # ── 12. Stage release assets with descriptive names ──────────
       - name: Prepare release assets
         id: assets
+        if: steps.next_version.outputs.should_release == 'true'
         shell: bash
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
@@ -253,6 +288,7 @@ jobs:
 
       # ── 13. Upload artifacts (downloadable from Actions UI) ───────
       - name: Upload release artifacts
+        if: steps.next_version.outputs.should_release == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: prism-music-${{ steps.tag.outputs.tag }}
@@ -265,6 +301,7 @@ jobs:
 
       # ── 14. Publish ONE GitHub Release with APK/AAB attached ──────
       - name: Publish GitHub Release
+        if: steps.next_version.outputs.should_release == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
