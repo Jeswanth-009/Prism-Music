@@ -5,7 +5,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/di/injection.dart';
 import '../../core/services/chart_service.dart';
 import '../../core/services/curated_playlists.dart';
+import '../../core/services/recommendation_service.dart';
 import '../../core/services/settings_service.dart';
+import '../../domain/entities/album.dart';
 import '../../domain/entities/song.dart';
 import '../../domain/repositories/music_repository.dart';
 import '../blocs/library/library.dart';
@@ -17,6 +19,7 @@ import '../widgets/prism/prism_section_header.dart';
 import '../widgets/prism/prism_skeleton.dart';
 import '../widgets/prism/prism_song_tile.dart';
 import '../widgets/prism/prism_states.dart';
+import 'album_page.dart';
 import 'chart_page.dart';
 import 'curated_playlist_page.dart';
 import 'recently_played_page.dart';
@@ -34,7 +37,10 @@ class _HomeTabState extends State<HomeTab>
     with AutomaticKeepAliveClientMixin {
   final _settings = SettingsService.instance;
   List<Song> _songs = const [];
+  List<Song> _recommended = const [];
+  List<Album> _newAlbums = const [];
   bool _loading = true;
+  bool _loadingRecs = false;
   String? _error;
 
   @override
@@ -44,7 +50,12 @@ class _HomeTabState extends State<HomeTab>
   void initState() {
     super.initState();
     _load();
+    _loadRecommendations();
+    _loadNewAlbums();
   }
+
+  Future<void> _refreshAll() =>
+      Future.wait([_load(), _loadRecommendations(), _loadNewAlbums()]);
 
   Future<void> _load() async {
     setState(() {
@@ -80,6 +91,35 @@ class _HomeTabState extends State<HomeTab>
     }
   }
 
+  /// Personalised picks. Loads independently of trending so a slow
+  /// recommendation fetch never blocks the main feed; empty on failure.
+  Future<void> _loadRecommendations() async {
+    setState(() => _loadingRecs = true);
+    try {
+      final songs = await getIt<RecommendationService>().getRecommendations(
+        limit: 12,
+      );
+      if (!mounted) return;
+      setState(() {
+        _recommended = songs;
+        _loadingRecs = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadingRecs = false);
+    }
+  }
+
+  Future<void> _loadNewAlbums() async {
+    try {
+      final result = await getIt<MusicRepository>().getNewReleases(limit: 12);
+      if (!mounted) return;
+      result.fold(
+        (_) {}, // Albums are a bonus rail; silently omit on failure.
+        (albums) => setState(() => _newAlbums = albums),
+      );
+    } catch (_) {}
+  }
+
   void _play(Song song, {int index = 0, List<Song>? queue}) {
     context.read<PlayerBloc>().add(
       PlaySongEvent(song: song, queue: queue ?? _songs, queueIndex: index),
@@ -93,13 +133,18 @@ class _HomeTabState extends State<HomeTab>
     return 'Good evening';
   }
 
+  String get _recommendationSubtitle =>
+      getIt<RecommendationService>().mode == RecommendationMode.discover
+          ? 'Discover something new'
+          : 'Because of what you play';
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
     return SafeArea(
       bottom: false,
       child: RefreshIndicator(
-        onRefresh: _load,
+        onRefresh: _refreshAll,
         child: CustomScrollView(
           key: const PageStorageKey('prism_home'),
           physics: const AlwaysScrollableScrollPhysics(
@@ -117,14 +162,24 @@ class _HomeTabState extends State<HomeTab>
               sliver: SliverToBoxAdapter(
                 child: BlocBuilder<LibraryBloc, LibraryState>(
                   builder: (context, library) {
-                    final song = library.recentlyPlayed.isNotEmpty
+                    final fromHistory = library.recentlyPlayed.isNotEmpty;
+                    final song = fromHistory
                         ? library.recentlyPlayed.first
                         : (_songs.isEmpty ? null : _songs.first);
-                    return _Hero(
-                      greeting: _greeting,
-                      song: song,
-                      isLoading: _loading,
-                      onPlay: song == null ? null : () => _play(song),
+                    return _Entrance(
+                      child: _Hero(
+                        greeting: _greeting,
+                        song: song,
+                        isLoading: _loading,
+                        onPlay: song == null ? null : () => _play(song),
+                        onShuffle: _songs.isEmpty
+                            ? null
+                            : () {
+                                final shuffled = [..._songs]..shuffle();
+                                _play(shuffled.first,
+                                    queue: shuffled, index: 0);
+                              },
+                      ),
                     );
                   },
                 ),
@@ -132,7 +187,7 @@ class _HomeTabState extends State<HomeTab>
             ),
             if (_loading) ...[
               const SliverToBoxAdapter(
-                child: PrismSectionHeader(title: 'New releases'),
+                child: PrismSectionHeader(title: 'Recommended for you'),
               ),
               const SliverToBoxAdapter(child: PrismRailSkeleton()),
               const SliverToBoxAdapter(
@@ -185,28 +240,69 @@ class _HomeTabState extends State<HomeTab>
                   );
                 },
               ),
-              _sliverSection(
-                title: 'New releases',
-                subtitle: 'Fresh music for you',
-                child: SizedBox(
-                  height: 172,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _songs.take(10).length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 14),
-                    itemBuilder: (_, index) {
-                      final song = _songs[index];
-                      return PrismMediaCard(
-                        url: song.thumbnailUrl,
-                        title: song.title,
-                        subtitle: song.artist,
-                        onTap: () => _play(song, index: index),
-                      );
-                    },
+              // Recommended for you — omitted entirely when the service
+              // has nothing to offer.
+              if (_loadingRecs) ...[
+                const SliverToBoxAdapter(
+                  child: PrismSectionHeader(title: 'Recommended for you'),
+                ),
+                const SliverToBoxAdapter(child: PrismRailSkeleton()),
+              ] else if (_recommended.length >= 3)
+                _sliverSection(
+                  title: 'Recommended for you',
+                  subtitle: _recommendationSubtitle,
+                  child: SizedBox(
+                    height: 172,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _recommended.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 14),
+                      itemBuilder: (_, index) {
+                        final song = _recommended[index];
+                        return PrismMediaCard(
+                          url: song.thumbnailUrl,
+                          title: song.title,
+                          subtitle: song.artist,
+                          onTap: () => _play(
+                            song,
+                            index: index,
+                            queue: _recommended,
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
-              ),
+              if (_newAlbums.isNotEmpty)
+                _sliverSection(
+                  title: 'New albums',
+                  subtitle: 'Fresh from the artists you listen to',
+                  child: SizedBox(
+                    height: 172,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _newAlbums.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 14),
+                      itemBuilder: (_, index) {
+                        final album = _newAlbums[index];
+                        return PrismMediaCard(
+                          url: album.thumbnails.high ??
+                              album.thumbnails.medium ??
+                              '',
+                          title: album.title,
+                          subtitle: album.artist,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => AlbumPage(album: album),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
               _sliverSection(
                 title: 'Trending now',
                 subtitle:
@@ -217,7 +313,7 @@ class _HomeTabState extends State<HomeTab>
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Column(
                     children: [
-                      for (var i = 0; i < _songs.take(6).length; i++)
+                      for (var i = 0; i < _songs.take(8).length; i++)
                         PrismSongTile(
                           song: _songs[i],
                           index: i,
@@ -393,18 +489,43 @@ class _TopBar extends StatelessWidget {
   );
 }
 
+class _Entrance extends StatelessWidget {
+  const _Entrance({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 420),
+      curve: PrismMotion.curve,
+      builder: (context, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(0, 14 * (1 - t)),
+          child: child,
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
 class _Hero extends StatelessWidget {
   const _Hero({
     required this.greeting,
     required this.song,
     required this.isLoading,
     required this.onPlay,
+    required this.onShuffle,
   });
 
   final String greeting;
   final Song? song;
   final bool isLoading;
   final VoidCallback? onPlay;
+  final VoidCallback? onShuffle;
 
   @override
   Widget build(BuildContext context) {
@@ -501,12 +622,52 @@ class _Hero extends StatelessWidget {
                           foregroundColor: Colors.black,
                         ),
                       ),
+                      const SizedBox(width: 10),
+                      _HeroIconButton(
+                        icon: Icons.shuffle_rounded,
+                        tooltip: 'Shuffle all',
+                        onPressed: onShuffle,
+                      ),
                     ],
                   ),
                 ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Translucent white icon button used on the dark hero scrim.
+class _HeroIconButton extends StatelessWidget {
+  const _HeroIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.white.withValues(alpha: .18),
+        shape: const CircleBorder(
+          side: BorderSide(color: Colors.white24),
+        ),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onPressed,
+          child: SizedBox.square(
+            dimension: 44,
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
         ),
       ),
     );
