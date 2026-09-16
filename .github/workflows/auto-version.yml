@@ -85,8 +85,18 @@ jobs:
           echo "Current version: $VERSION_LINE (name=$VERSION_NAME, build=$BUILD_NUMBER)"
 
       # ── 4. Calculate next version ─────────────────────────────────
+      # The commit message and dispatch input are passed via `env` on
+      # purpose: `${{ }}` interpolation pastes the raw value into the
+      # shell script, so a multi-line commit message containing quotes
+      # breaks the script's quoting (a bare `+` token even ends up
+      # executed as a command — "line 44: +: command not found").
+      # Env vars reach bash verbatim and are always safe to quote.
       - name: Calculate next version
         id: next_version
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          DISPATCH_BUMP_TYPE: ${{ github.event.inputs.version_type }}
+          CURRENT_VERSION_LINE: ${{ steps.current_version.outputs.version_line }}
         run: |
           CURRENT_VERSION="${{ steps.current_version.outputs.version_name }}"
           CURRENT_BUILD="${{ steps.current_version.outputs.build_number }}"
@@ -105,20 +115,19 @@ jobs:
           fi
 
           PREV_VERSION_LINE=$(git show HEAD~1:pubspec.yaml 2>/dev/null | grep '^version:' | awk '{print $2}' || true)
-          if [[ "$VERSION_ALREADY_RELEASED" == "false" ]] && [[ -n "$PREV_VERSION_LINE" && "${{ steps.current_version.outputs.version_line }}" != "$PREV_VERSION_LINE" ]]; then
-            echo "Version was manually updated in this commit from $PREV_VERSION_LINE to ${{ steps.current_version.outputs.version_line }}"
+          if [[ "$VERSION_ALREADY_RELEASED" == "false" ]] && [[ -n "$PREV_VERSION_LINE" && "$CURRENT_VERSION_LINE" != "$PREV_VERSION_LINE" ]]; then
+            echo "Version was manually updated in this commit from $PREV_VERSION_LINE to $CURRENT_VERSION_LINE"
             NEXT_VERSION="$CURRENT_VERSION"
             NEXT_BUILD="$CURRENT_BUILD"
-            NEXT_VERSION_LINE="${{ steps.current_version.outputs.version_line }}"
+            NEXT_VERSION_LINE="$CURRENT_VERSION_LINE"
             BUMP_TYPE="manual"
           else
             MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
             MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
             PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
 
-            BUMP_TYPE="${{ github.event.inputs.version_type }}"
+            BUMP_TYPE="$DISPATCH_BUMP_TYPE"
             if [[ -z "$BUMP_TYPE" ]]; then
-              COMMIT_MSG="${{ github.event.head_commit.message }}"
               if echo "$COMMIT_MSG" | grep -qiE "(major upgrade|make it version 0\.2|\[minor\]|type:\s*minor)"; then
                 BUMP_TYPE="minor"
               elif echo "$COMMIT_MSG" | grep -qiE "(breaking|\[major\]|type:\s*major)"; then
