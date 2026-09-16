@@ -365,45 +365,14 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
       // Set up the queue
       int queueIndex = initialQueueIndex;
 
-      if (event.queue == null) {
-        // No queue provided — fetch recommendations in background
-        // Use add() instead of emit() to properly route through the bloc
-        // event system (emit() silently fails outside handler scope)
-        final recommendationService = _recommendationService;
-        if (recommendationService != null) {
-          recommendationService
-              .getRecommendations(currentSong: event.song, limit: 10)
-              .then((recommendations) async {
-                if (recommendations.isNotEmpty) {
-                  add(_AddRecommendationsEvent(recommendations));
-                  return;
-                }
-
-                _log(
-                  'RecommendationService returned 0, trying repository fallback',
-                );
-                final fallback = await _musicRepository.getRecommendations(
-                  limit: 10,
-                );
-                fallback.fold(
-                  (failure) => _log(
-                    'Repository recommendation fallback failed: ${failure.message}',
-                  ),
-                  (songs) {
-                    if (songs.isNotEmpty) {
-                      _log(
-                        'Repository recommendation fallback returned ${songs.length} songs',
-                      );
-                      add(_AddRecommendationsEvent(songs));
-                    }
-                  },
-                );
-              })
-              .catchError((e) {
-                _log('Failed to fetch recommendations: $e');
-              });
-        }
-      }
+      // Keep the queue topped up with fresh recommendations. This covers both
+      // single-song playback (queue is just the seed) and finite queues built
+      // from search results or playlists: as the end of the known songs
+      // approaches, recommendations are appended so playback continues with
+      // new music instead of stopping at the last search result.
+      // Use _checkAndAddRecommendations so every entry point (search, queue
+      // selection, auto-advance) shares the same guard rails.
+      _checkAndAddRecommendations();
 
       try {
         _log(
@@ -1093,6 +1062,12 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
   String?
   _lastRecommendationSongId; // Track which song we last fetched recommendations for
 
+  /// Songs that may remain after the current one (exclusive) before we top up
+  /// the queue with recommendations. Keeps finite queues (search results,
+  /// playlists) from ending abruptly or re-serving the same list forever.
+  static const int _recommendTopUpRemaining = 3;
+  static const int _recommendationBatchSize = 10;
+
   /// Check if queue is running low and add recommendations (BlackHole + BloomeeTunes approach)
   void _checkAndAddRecommendations() {
     if (_isFetchingRecommendations || _recommendationService == null) return;
@@ -1105,43 +1080,71 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
     // Calculate songs remaining AFTER current song (not including current)
     final int songsRemaining = queueLength - currentIndex - 1;
 
-    // Only fetch when less than 2 songs remaining AND we haven't already fetched for this song
-    // BloomeeTunes uses < 2, BlackHole uses < 5
-    if (songsRemaining < 2 &&
-        _lastRecommendationSongId != currentSong.playableId) {
-      _log(
-        'Only $songsRemaining songs remaining after "${currentSong.title}", adding recommendations',
+    // Only fetch when the queue is running low AND we haven't already fetched
+    // for this song.
+    if (songsRemaining >= _recommendTopUpRemaining ||
+        _lastRecommendationSongId == currentSong.playableId) {
+      return;
+    }
+
+    _log(
+      'Only $songsRemaining songs remaining after "${currentSong.title}", adding recommendations',
+    );
+    _lastRecommendationSongId =
+        currentSong.playableId; // Mark this song as processed
+
+    // Delay fetch by 1 second to avoid rapid calls (BlackHole approach)
+    Future.delayed(const Duration(seconds: 1), () async {
+      // Skip if the user has already moved on to a different song
+      if (state.currentSong?.playableId != currentSong.playableId) return;
+
+      _log('Fetching recommendations for: ${currentSong.title}');
+      await _fetchAndAppendRecommendations(currentSong);
+    });
+  }
+
+  /// Fetch recommendations for [seedSong] and append them to the queue.
+  /// Falls back to the repository's own recommendation feed when the
+  /// recommendation service returns nothing (e.g. algorithmic sources down).
+  Future<void> _fetchAndAppendRecommendations(Song seedSong) async {
+    final recommendationService = _recommendationService;
+    if (recommendationService == null || _isFetchingRecommendations) return;
+
+    _isFetchingRecommendations = true;
+    try {
+      final recommendations = await recommendationService.getRecommendations(
+        currentSong: seedSong,
+        limit: _recommendationBatchSize,
       );
-      _isFetchingRecommendations = true;
-      _lastRecommendationSongId =
-          currentSong.playableId; // Mark this song as processed
 
-      // Delay fetch by 1 second to avoid rapid calls (BlackHole approach)
-      Future.delayed(const Duration(seconds: 1), () async {
-        // Double-check we're still playing the same song
-        if (state.currentSong?.playableId != currentSong.playableId) {
-          _isFetchingRecommendations = false;
-          return;
-        }
+      if (recommendations.isNotEmpty) {
+        // Use batch event for single state emission (add() instead of emit()
+        // properly routes through the bloc event system)
+        add(_AddRecommendationsEvent(recommendations));
+        return;
+      }
 
-        try {
-          _log('Fetching recommendations for: ${currentSong.title}');
-          final recommendations = await _recommendationService!
-              .getRecommendations(currentSong: currentSong, limit: 10);
-
-          _log('Got ${recommendations.length} recommendations');
-
-          if (state.currentSong?.playableId == currentSong.playableId &&
-              recommendations.isNotEmpty) {
-            // Use batch event for single state emission
-            add(_AddRecommendationsEvent(recommendations));
+      _log('RecommendationService returned 0, trying repository fallback');
+      final fallback = await _musicRepository.getRecommendations(
+        limit: _recommendationBatchSize,
+      );
+      fallback.fold(
+        (failure) => _log(
+          'Repository recommendation fallback failed: ${failure.message}',
+        ),
+        (songs) {
+          if (songs.isNotEmpty) {
+            _log(
+              'Repository recommendation fallback returned ${songs.length} songs',
+            );
+            add(_AddRecommendationsEvent(songs));
           }
-        } catch (e) {
-          _log('✗ Error adding recommendations: $e');
-        } finally {
-          _isFetchingRecommendations = false;
-        }
-      });
+        },
+      );
+    } catch (e) {
+      _log('✗ Error adding recommendations: $e');
+    } finally {
+      _isFetchingRecommendations = false;
     }
   }
 
@@ -1152,15 +1155,22 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
   ) {
     final uniqueSongs = <Song>[];
     final seenKeys = state.queue
-        .map((s) => '${s.title.toLowerCase()}|${s.artist.toLowerCase()}')
+        .map((s) => '${s.title.toLowerCase().trim()}|${s.artist.toLowerCase().trim()}')
+        .toSet();
+    final seenIds = state.queue
+        .map((s) => s.playableId)
+        .where((id) => id.isNotEmpty)
         .toSet();
 
     for (final song in event.songs) {
-      final key = '${song.title.toLowerCase()}|${song.artist.toLowerCase()}';
-      if (!seenKeys.contains(key)) {
-        seenKeys.add(key);
-        uniqueSongs.add(song);
-      }
+      final key =
+          '${song.title.toLowerCase().trim()}|${song.artist.toLowerCase().trim()}';
+      if (seenKeys.contains(key)) continue;
+      // Same underlying track can surface with slightly different metadata —
+      // dedupe by playable id as well so it isn't queued twice.
+      if (song.playableId.isNotEmpty && !seenIds.add(song.playableId)) continue;
+      seenKeys.add(key);
+      uniqueSongs.add(song);
     }
 
     if (uniqueSongs.isNotEmpty) {

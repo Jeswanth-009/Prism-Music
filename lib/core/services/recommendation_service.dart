@@ -55,15 +55,6 @@ bool _isLikelyNonMusicArtistName(String artist) {
   return _nonMusicArtistRegex.hasMatch(artist);
 }
 
-/// Clean a song title by removing extraneous parenthetical tags for cleaner search queries
-String _cleanTitle(String title) {
-  return title
-      .replaceAll(RegExp(r'\([^)]*\)'), '')
-      .replaceAll(RegExp(r'\[[^\]]*\]'), '')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
-}
-
 /// Universal Recommendation Service
 ///
 /// Provides intelligent music recommendations by:
@@ -355,11 +346,14 @@ class RecommendationService {
 
       logDebug('Similar seed: videoId=$videoId, jioSaavnId=$jioSaavnId, language=$songLanguage, genre=$songGenre');
 
-      final futures = <Future>[];
+      // 1. Algorithmic sources FIRST (YouTube Music UpNext & Mix Radio,
+      //    JioSaavn suggestions). These are true related-song feeds and must
+      //    dominate the pool so the queue gets fresh music instead of a
+      //    re-run of whatever the user just searched.
+      final algorithmicFutures = <Future>[];
 
-      // 1. Primary: YouTube Music UpNext & Mix Radio (Highest Quality)
       if (videoId != null && videoId.isNotEmpty) {
-        futures.add(
+        algorithmicFutures.add(
           _musicRepository.getRelatedSongs(videoId, limit: limit * 2).then((result) {
             result.fold(
               (failure) => logDebug('getRelatedSongs failed: ${failure.message}'),
@@ -376,9 +370,8 @@ class RecommendationService {
         );
       }
 
-      // 2. JioSaavn Suggestions (for Indian & regional tracks)
       if (jioSaavnId != null && jioSaavnId.isNotEmpty) {
-        futures.add(
+        algorithmicFutures.add(
           _musicRepository.getJioSaavnSuggestions(jioSaavnId, limit: limit * 2).then((result) {
             result.fold(
               (failure) => logDebug('JioSaavn suggestions failed: ${failure.message}'),
@@ -395,41 +388,43 @@ class RecommendationService {
         );
       }
 
-      // 3. Supplemental search queries if needed (only clean, high-precision searches)
-      final cleanSeedTitle = _cleanTitle(song.title);
-      futures.add(
-        _musicRepository.searchSongs(
-          '${song.artist} $cleanSeedTitle',
-          limit: 10,
-        ).then((r) => r.fold((_) => null, (songs) => candidatePool.addAll(songs))),
-      );
+      await Future.wait(algorithmicFutures);
 
-      futures.add(
-        _musicRepository.searchSongs(
-          '${song.artist} top songs',
-          limit: 10,
-        ).then((r) => r.fold((_) => null, (songs) => candidatePool.addAll(songs))),
-      );
+      // 2. Supplemental search queries ONLY when the algorithmic pool came
+      //    back thin. Never re-search the seed's own "artist + title" — that
+      //    just returns the search results the queue was built from.
+      if (candidatePool.length < limit) {
+        logDebug('Algorithmic pool thin (${candidatePool.length} < $limit); adding supplemental searches');
 
-      if (songGenre != null && songGenre.isNotEmpty) {
-        futures.add(
+        final supplementalFutures = <Future>[];
+
+        supplementalFutures.add(
           _musicRepository.searchSongs(
-            'best $songGenre songs',
+            '${song.artist} top songs',
             limit: 10,
           ).then((r) => r.fold((_) => null, (songs) => candidatePool.addAll(songs))),
         );
-      }
 
-      if (songLanguage != null && songLanguage.isNotEmpty && songLanguage != 'English') {
-        futures.add(
-          _musicRepository.searchSongs(
-            'trending $songLanguage songs',
-            limit: 10,
-          ).then((r) => r.fold((_) => null, (songs) => candidatePool.addAll(songs))),
-        );
-      }
+        if (songGenre != null && songGenre.isNotEmpty) {
+          supplementalFutures.add(
+            _musicRepository.searchSongs(
+              'best $songGenre songs',
+              limit: 10,
+            ).then((r) => r.fold((_) => null, (songs) => candidatePool.addAll(songs))),
+          );
+        }
 
-      await Future.wait(futures);
+        if (songLanguage != null && songLanguage.isNotEmpty && songLanguage != 'English') {
+          supplementalFutures.add(
+            _musicRepository.searchSongs(
+              'trending $songLanguage songs',
+              limit: 10,
+            ).then((r) => r.fold((_) => null, (songs) => candidatePool.addAll(songs))),
+          );
+        }
+
+        await Future.wait(supplementalFutures);
+      }
 
       // Filter out seed song, invalid lengths, and junk
       final filtered = _filterCandidates(
@@ -627,6 +622,12 @@ class RecommendationService {
   // DISCOVER mode — finds fresh music based on user's full taste profile
   // ──────────────────────────────────────────────────────────────────
 
+  /// Increments on every discovery fetch so consecutive top-ups rotate
+  /// through different artist seeds / query shapes. Without rotation the
+  /// taste profile is static for minutes, identical queries return the same
+  /// candidates, everything is already in the queue, and the queue starves.
+  int _discoveryRotation = 0;
+
   Future<List<Song>> _getDiscoverySongs(Song? seedSong, int limit) async {
     final candidatePool = <Song>[];
 
@@ -637,16 +638,22 @@ class RecommendationService {
       final topArtists = _topArtists;
       final topLanguages = _topLanguages;
       final topGenre = _preferredGenre;
+      final rotation = _discoveryRotation++;
 
-      logDebug('Discover: country=$countryCode, topArtists=$topArtists, topLanguages=$topLanguages, topGenre=$topGenre');
+      logDebug('Discover: country=$countryCode, topArtists=$topArtists, topLanguages=$topLanguages, topGenre=$topGenre, rotation=$rotation');
 
       final futures = <Future>[];
 
-      // 1. Multi-Seed Source: Top Played Artists' Radios & Top Tracks
+      // 1. Multi-Seed Source: Top Played Artists' Radios & Top Tracks.
+      //    Rotate through the artist list so successive fetches in the same
+      //    session surface different artists instead of repeating the top 3.
       if (topArtists.isNotEmpty) {
-        for (final artist in topArtists.take(3)) {
+        final offset = topArtists.length > 3 ? (rotation * 3) % topArtists.length : 0;
+        for (var i = 0; i < 3 && i < topArtists.length; i++) {
+          final artist = topArtists[(offset + i) % topArtists.length];
+          final query = rotation.isEven ? '$artist songs' : '$artist top tracks';
           futures.add(
-            _musicRepository.searchSongs('$artist songs', limit: 8).then(
+            _musicRepository.searchSongs(query, limit: 8).then(
               (r) => r.fold((_) => null, (songs) => candidatePool.addAll(songs)),
             ),
           );
@@ -655,8 +662,11 @@ class RecommendationService {
 
       // 2. Genre Discovery
       if (topGenre != null && topGenre.isNotEmpty) {
+        final genreQuery = rotation.isEven
+            ? 'best $topGenre songs $currentYear'
+            : 'new $topGenre songs';
         futures.add(
-          _musicRepository.searchSongs('best $topGenre songs $currentYear', limit: 8).then(
+          _musicRepository.searchSongs(genreQuery, limit: 8).then(
             (r) => r.fold((_) => null, (songs) => candidatePool.addAll(songs)),
           ),
         );
@@ -665,8 +675,11 @@ class RecommendationService {
       // 3. Language Trending
       if (topLanguages.isNotEmpty && topLanguages.first != 'English') {
         final lang = topLanguages.first;
+        final langQuery = rotation.isEven
+            ? 'trending $lang songs $currentYear'
+            : 'new $lang songs';
         futures.add(
-          _musicRepository.searchSongs('trending $lang songs $currentYear', limit: 8).then(
+          _musicRepository.searchSongs(langQuery, limit: 8).then(
             (r) => r.fold((_) => null, (songs) => candidatePool.addAll(songs)),
           ),
         );
