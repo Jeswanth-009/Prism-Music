@@ -204,9 +204,19 @@ class _SearchPageState extends State<SearchPage> {
       ),
       onChanged: (value) {
         setState(() {});
-        if (value.trim().length >= 2) _onSearch(value);
+        final trimmed = value.trim();
+        if (trimmed.isEmpty) {
+          context.read<SearchBloc>().add(const ClearSearchEvent());
+        } else if (trimmed.length >= 2) {
+          _onSearch(trimmed);
+        }
       },
-      onSubmitted: _onSearch,
+      onSubmitted: (value) {
+        final trimmed = value.trim();
+        if (trimmed.length >= 2) {
+          _onSearch(trimmed);
+        }
+      },
     );
   }
 
@@ -335,7 +345,7 @@ class _SearchPageState extends State<SearchPage> {
                 isPlayingPaused: !playerState.isPlaying,
                 onTap: () {
                   context.read<PlayerBloc>().add(
-                    PlaySongEvent(song: song, queue: songs, queueIndex: index),
+                    PlaySongEvent(song: song, queue: [song], queueIndex: 0),
                   );
                   if (!widget.embedded) Navigator.of(context).maybePop();
                 },

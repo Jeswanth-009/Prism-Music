@@ -65,7 +65,7 @@ class SearchState extends Equatable {
   const SearchState({
     this.status = SearchStatus.initial,
     this.query = '',
-    this.filter = SearchFilter.all,
+    this.filter = SearchFilter.songs,
     this.results = const SearchResults(),
     this.entitySuggestions = const [],
     this.historyEntries = const [],

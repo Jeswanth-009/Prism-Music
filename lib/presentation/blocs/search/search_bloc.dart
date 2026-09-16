@@ -8,9 +8,9 @@ import '../../../domain/repositories/repositories.dart';
 import 'search_event.dart';
 import 'search_state.dart';
 
-/// Custom event transformer for debouncing
-EventTransformer<E> _debounce<E>(Duration duration) {
-  return (events, mapper) => events.debounceTime(duration).asyncExpand(mapper);
+/// Custom event transformer for restartable debouncing
+EventTransformer<E> _restartableDebounce<E>(Duration duration) {
+  return (events, mapper) => events.debounceTime(duration).switchMap(mapper);
 }
 
 /// BLoC for managing search functionality
@@ -18,16 +18,16 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
   final MusicRepository _musicRepository;
   final LocalDataSource _localDataSource;
 
-  int _debounceToken = 0;
-  int _requestToken = 0;
-
   SearchBloc({
     required MusicRepository musicRepository,
     required LocalDataSource localDataSource,
   })  : _musicRepository = musicRepository,
         _localDataSource = localDataSource,
         super(const SearchState()) {
-    on<SearchQueryEvent>(_onSearchQuery);
+    on<SearchQueryEvent>(
+      _onSearchQuery,
+      transformer: _restartableDebounce(const Duration(milliseconds: 300)),
+    );
     on<ClearSearchEvent>(_onClearSearch);
     on<LoadMoreResultsEvent>(_onLoadMoreResults);
     on<UpdateFilterEvent>(_onUpdateFilter);
@@ -38,7 +38,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     // Use debounce transformer for suggestions to avoid excessive API calls
     on<FetchSuggestionsEvent>(
       _onFetchSuggestions,
-      transformer: _debounce(const Duration(milliseconds: 350)),
+      transformer: _restartableDebounce(const Duration(milliseconds: 350)),
     );
 
     // Load search history on init
@@ -50,29 +50,17 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     Emitter<SearchState> emit,
   ) async {
     final query = event.query.trim();
-    Logger.root.info('SearchBloc: _onSearchQuery("$query")');
+    Logger.root.info('SearchBloc: _onSearchQuery("$query") filter=${event.filter}');
     if (query.length < 2) {
       emit(state.copyWith(
         status: SearchStatus.initial,
-        query: '',
+        query: query,
         results: const SearchResults(),
         entitySuggestions: [],
+        errorMessage: null,
       ));
       return;
     }
-
-    final debounceId = ++_debounceToken;
-
-    // Wait for debounce window; bail if a newer event arrived
-    await Future.delayed(const Duration(milliseconds: 280));
-    if (debounceId != _debounceToken) return;
-
-    // If same query/filter already in progress, skip duplicate
-    if (state.query == query && state.filter == event.filter && state.isLoading) {
-      return;
-    }
-
-    final requestId = ++_requestToken;
 
     emit(state.copyWith(
       status: SearchStatus.loading,
@@ -89,7 +77,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
             'SearchBloc: searchSongs("$query") filter=${event.filter}',
           );
           final result = await _musicRepository.searchSongs(query, limit: 30);
-          if (requestId != _requestToken || emit.isDone) return;
+          if (emit.isDone) return;
           result.fold(
             (failure) {
               if (emit.isDone) return;
@@ -112,7 +100,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
           break;
         case SearchFilter.artists:
           final result = await _musicRepository.searchArtists(query, limit: 30);
-          if (requestId != _requestToken || emit.isDone) return;
+          if (emit.isDone) return;
           result.fold(
             (failure) {
               if (emit.isDone) return;
@@ -135,7 +123,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
           break;
         case SearchFilter.albums:
           final result = await _musicRepository.searchAlbums(query, limit: 30);
-          if (requestId != _requestToken || emit.isDone) return;
+          if (emit.isDone) return;
           result.fold(
             (failure) {
               if (emit.isDone) return;
@@ -158,7 +146,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
           break;
         case SearchFilter.playlists:
           final result = await _musicRepository.searchPlaylists(query, limit: 30);
-          if (requestId != _requestToken || emit.isDone) return;
+          if (emit.isDone) return;
           result.fold(
             (failure) {
               if (emit.isDone) return;
@@ -184,7 +172,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
             'SearchBloc: searchAll("$query") filter=${event.filter}',
           );
           final result = await _musicRepository.searchAll(query, limit: 30);
-          if (requestId != _requestToken || emit.isDone) return;
+          if (emit.isDone) return;
           result.fold(
             (failure) {
               if (emit.isDone) return;
@@ -207,7 +195,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
           break;
       }
     } catch (e) {
-      if (requestId != _requestToken || emit.isDone) return;
+      if (emit.isDone) return;
       emit(state.copyWith(
         status: SearchStatus.error,
         errorMessage: e.toString(),
@@ -220,6 +208,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     Emitter<SearchState> emit,
   ) {
     emit(SearchState(
+      filter: state.filter,
       history: state.history,
       historyEntries: state.historyEntries,
     ));

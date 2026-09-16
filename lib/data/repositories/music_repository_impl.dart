@@ -54,10 +54,26 @@ class MusicRepositoryImpl implements MusicRepository {
       Logger.root.info(
         'MusicRepository.searchSongs("$query"): mapped songs = ${songs.length}',
       );
-      return Right(songs);
+      if (songs.isNotEmpty) {
+        return Right(songs);
+      }
+      Logger.root.warning(
+        'MusicRepository.searchSongs("$query"): 0 songs from ytMusicApi, falling back to YouTubeExplode',
+      );
+      final fallbackSongs = await _youtubeMusicDataSource.searchSongs(query, limit: limit);
+      return Right(fallbackSongs);
     } on NetworkException {
       return const Left(NetworkFailure());
     } catch (e) {
+      Logger.root.warning(
+        'MusicRepository.searchSongs("$query") failed ($e), falling back to YouTubeExplode',
+      );
+      try {
+        final fallbackSongs = await _youtubeMusicDataSource.searchSongs(query, limit: limit);
+        if (fallbackSongs.isNotEmpty) {
+          return Right(fallbackSongs);
+        }
+      } catch (_) {}
       return Left(UnknownFailure(message: e.toString()));
     }
   }
@@ -161,6 +177,13 @@ class MusicRepositoryImpl implements MusicRepository {
             }
             break;
         }
+      }
+
+      if (songs.isEmpty) {
+        try {
+          final fallbackSongs = await _youtubeMusicDataSource.searchSongs(query, limit: limit);
+          songs.addAll(fallbackSongs);
+        } catch (_) {}
       }
 
       final primaryResults = SearchResults(

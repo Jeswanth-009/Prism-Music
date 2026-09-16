@@ -29,6 +29,9 @@ abstract class YouTubeMusicDataSource {
 
   /// Get YouTube Music charts
   Future<List<Song>> getCharts({String region = 'US', int limit = 50});
+
+  /// Search songs via YouTube Explode
+  Future<List<Song>> searchSongs(String query, {int limit = 20});
 }
 
 /// Implementation using youtube_explode_dart
@@ -422,6 +425,11 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
       );
       return [];
     }
+  }
+
+  @override
+  Future<List<Song>> searchSongs(String query, {int limit = 20}) async {
+    return _searchSongsByQuery(query, limit: limit);
   }
 
   @override

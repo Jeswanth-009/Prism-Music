@@ -323,6 +323,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
       ),
     );
     _lastNearEndPrefetchIndex = -1; // reset for new track
+    _lastRecommendationSongId = null; // allow fresh recommendations for new track or queue
 
     // Reset scrobbling flags for new song
     _hasScrobbled = false;
@@ -1093,8 +1094,13 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
     _lastRecommendationSongId =
         currentSong.playableId; // Mark this song as processed
 
-    // Delay fetch by 1 second to avoid rapid calls (BlackHole approach)
-    Future.delayed(const Duration(seconds: 1), () async {
+    // If queue is empty after current song, fetch immediately so Up Next is ready.
+    // Otherwise use a short delay to avoid rapid calls.
+    final delay = songsRemaining == 0
+        ? Duration.zero
+        : const Duration(milliseconds: 500);
+
+    Future.delayed(delay, () async {
       // Skip if the user has already moved on to a different song
       if (state.currentSong?.playableId != currentSong.playableId) return;
 

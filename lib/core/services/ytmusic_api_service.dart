@@ -20,8 +20,12 @@ class YtMusicApiService {
       return;
     }
 
-    await _ytMusic.initialize();
-    _initialized = true;
+    try {
+      await _ytMusic.initialize();
+      _initialized = true;
+    } catch (e, st) {
+      _logger.warning('YTMusic initialization failed, will retry on next request: $e');
+    }
   }
     Future<Map<String, dynamic>> getPlaylist(String playlistId) async {
     await _ensureInitialized();
@@ -780,25 +784,32 @@ class YtMusicApiService {
     }
 
     if (raw is UpNextsDetails) {
+      final dynamic rawArtists = raw.artists;
+      final String artistName = (rawArtists is ArtistBasic ? rawArtists.name : rawArtists?.name?.toString()) ?? 'Unknown Artist';
+      final String artistId = (rawArtists is ArtistBasic ? rawArtists.artistId : rawArtists?.artistId?.toString()) ?? '';
+      final dynamic rawAlbum = raw.album;
+      final String? albumName = rawAlbum is AlbumBasic ? rawAlbum.name : rawAlbum?.name?.toString();
+      final String? albumId = rawAlbum is AlbumBasic ? rawAlbum.albumId : rawAlbum?.albumId?.toString();
+
       return {
         'type': 'song',
         'videoId': raw.videoId,
         'id': raw.videoId,
         'title': raw.title,
         'name': raw.title,
-        'artist': raw.artists.name,
+        'artist': artistName,
         'artists': [
           {
-            'artistId': raw.artists.artistId,
-            'name': raw.artists.name,
+            'artistId': artistId,
+            'name': artistName,
           }
         ],
-        'album': raw.album == null
-            ? null
-            : {
-                'albumId': raw.album!.albumId,
-                'name': raw.album!.name,
-              },
+        'album': albumName != null
+            ? {
+                'albumId': albumId ?? '',
+                'name': albumName,
+              }
+            : null,
         'durationSeconds': raw.duration,
         'duration': raw.duration,
         'thumbnails': raw.thumbnails
