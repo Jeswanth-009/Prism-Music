@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/services/audio_player_service.dart';
 import '../../../core/services/lastfm_service.dart';
+import '../../../core/services/media_session_coordinator.dart';
 import '../../../core/services/recommendation_service.dart';
 import '../../../core/services/audio_focus_orchestrator_service.dart';
 import '../../../core/services/media_resolver_service.dart';
@@ -78,6 +79,24 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
     if (_recommendationService == null && getIt.isRegistered<RecommendationService>()) {
       _recommendationService = getIt<RecommendationService>();
     }
+
+    // Expose queue controls to the media notification. The audio_service
+    // handler's next/previous buttons call these closures, which read the
+    // live bloc state — the notification therefore always reflects the real
+    // queue (including appended recommendations).
+    MediaSessionCoordinator.instance.bindBloc(
+      onNext: () async {
+        if (!isClosed) add(const NextEvent());
+      },
+      onPrevious: () async {
+        if (!isClosed) add(const PreviousEvent());
+      },
+      onStop: () async {
+        if (!isClosed) add(const StopEvent());
+      },
+      hasNext: () => !isClosed && state.hasNext,
+      hasPrevious: () => !isClosed && state.hasPrevious,
+    );
 
 // Register event handlers
     on<PlaySongEvent>(_onPlaySong);
@@ -285,11 +304,27 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
     }
   }
 
+  /// Monotonic counter for playback attempts. Every _onPlaySong start bumps
+  /// it; anything captured before a later bump is stale (the user skipped
+  /// elsewhere) and must abandon silently instead of emitting error states
+  /// or scheduling retries/auto-advances that hijack newer playback.
+  int _playbackGeneration = 0;
+
+  /// Upper bounds for network-bound playback stages. Without these a dead
+  /// source (e.g. a hung stream manifest fetch) leaves the UI in `loading`
+  /// forever with no failure to recover from.
+  static const Duration _resolveTimeout = Duration(seconds: 45);
+  static const Duration _setSourceTimeout = Duration(seconds: 45);
+
   Future<void> _onPlaySong(
     PlaySongEvent event,
     Emitter<PlayerState> emit,
   ) async {
-    if (_reliability.isCircuitOpen) {
+    // The circuit breaker only shields programmatic attempts (retries,
+    // auto-advance skips). User-initiated plays always get through — a run
+    // of failing songs must never leave the user unable to skip or pick
+    // another song.
+    if (!event.userInitiated && _reliability.isCircuitOpen) {
       emit(
         state.copyWith(
           status: PlayerStatus.error,
@@ -299,7 +334,15 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
       return;
     }
 
-    // Quick check if this is the same song already playing - just update queue position
+    // Every new attempt invalidates anything still in flight from previous
+    // attempts (bloc handlers run concurrently, so an old hung _onPlaySong
+    // may still be awaiting its resolution right now).
+    final generation = ++_playbackGeneration;
+
+    // Quick check if this is the same song already playing - just update queue position.
+    // NOTE: only when playing. Retry/auto-advance flows re-enter here with
+    // status == loading right after the optimistic emit, and must proceed to
+    // actually start playback.
     if (state.currentSong?.playableId == event.song.playableId &&
         state.status == PlayerStatus.playing &&
         event.queueIndex != null) {
@@ -337,6 +380,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
       _prefetchAhead(initialQueue, initialQueueIndex, quality: playbackQuality);
 
       final focusGranted = await _audioFocus.activateForPlayback();
+      if (generation != _playbackGeneration) return; // user moved on
       if (!focusGranted) {
         emit(
           state.copyWith(
@@ -351,12 +395,12 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
       final resolveStopwatch = Stopwatch()..start();
       final preResolved = _mediaResolver.takePreResolved(event.song.playableId);
       final usedPreResolved = preResolved != null;
-      final resolvedSource =
-          preResolved ??
-          await _mediaResolver.resolveForPlayback(
+      final resolvedSource = preResolved ??
+          await (_mediaResolver.resolveForPlayback(
             event.song,
             preferredQuality: playbackQuality,
-          );
+          ).timeout(_resolveTimeout));
+      if (generation != _playbackGeneration) return; // user moved on
       resolveStopwatch.stop();
       _log(
         'PlayerBloc: Resolve stage took ${resolveStopwatch.elapsedMilliseconds}ms '
@@ -388,6 +432,10 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
             state.currentSong!.playableId != event.song.playableId;
 
         final setSourceStopwatch = Stopwatch()..start();
+        // Notification artwork prefers the medium thumbnail: YouTube's
+        // maxres URLs frequently 404, which leaves the media card art-less.
+        final notificationArtwork =
+            event.song.thumbnails.medium ?? event.song.thumbnailUrl;
         final duration = shouldCrossfade
             ? await _audioPlayer.crossfadeTo(
                 resolvedSource.uri,
@@ -397,13 +445,14 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
                 title: event.song.title,
                 artist: event.song.artist,
                 album: event.song.album,
-                artworkUrl: event.song.thumbnailUrl,
+                artworkUrl: notificationArtwork,
+                mediaDuration: event.song.duration,
                 duration: Duration(
                   milliseconds: (_crossfadeDurationSeconds * 1000)
                       .round()
                       .clamp(0, 6000),
                 ),
-              )
+              ).timeout(_setSourceTimeout)
             : await _audioPlayer.setUrl(
                 resolvedSource.uri,
                 headers: resolvedSource.headers,
@@ -412,9 +461,11 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
                 title: event.song.title,
                 artist: event.song.artist,
                 album: event.song.album,
-                artworkUrl: event.song.thumbnailUrl,
+                artworkUrl: notificationArtwork,
+                mediaDuration: event.song.duration,
                 allowYouTubeFallbackOnDirectFailure: true,
-              );
+              ).timeout(_setSourceTimeout);
+        if (generation != _playbackGeneration) return; // user moved on
         setSourceStopwatch.stop();
 
         _log(
@@ -426,6 +477,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
         if (!shouldCrossfade) {
           await _audioPlayer.play();
         }
+        if (generation != _playbackGeneration) return; // user moved on
 
         if (duration == null) {
           throw Exception('Unable to decode selected audio source');
@@ -453,7 +505,11 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
         _reliability.registerSuccess(event.song.playableId);
         _consecutiveFailureSkips = 0;
         _updateNowPlaying(event.song);
+        // Position in the queue changed → notification skip buttons may
+        // have become usable/unusable.
+        MediaSessionCoordinator.instance.notifyQueueChanged();
       } catch (playbackError, stackTrace) {
+        if (generation != _playbackGeneration) return; // user moved on
         _handlePlaybackError(
           emit,
           failedSong: event.song,
@@ -462,9 +518,11 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
           queueIndex: event.queueIndex ?? state.queueIndex,
           isOffline: resolvedSource.isOffline,
           stackTrace: stackTrace,
+          generation: generation,
         );
       }
     } catch (e, stackTrace) {
+      if (generation != _playbackGeneration) return; // user moved on
       _handlePlaybackError(
         emit,
         failedSong: event.song,
@@ -473,6 +531,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
         queueIndex: event.queueIndex ?? state.queueIndex,
         isOffline: false,
         stackTrace: stackTrace,
+        generation: generation,
       );
     }
   }
@@ -561,6 +620,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
 
   Future<void> _onNext(NextEvent event, Emitter<PlayerState> emit) async {
     if (state.hasNext) {
+      // A manual skip is explicit user intent: clear any open circuit and
+      // per-song retry budgets so the target song always gets a real attempt.
+      _reliability.resetCircuitBreaker();
       final nextIndex = state.queueIndex + 1;
       final nextSong = state.queue[nextIndex];
 
@@ -578,6 +640,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
       );
     } else if (state.repeatMode == RepeatMode.all && state.queue.isNotEmpty) {
       // Loop back to first song
+      _reliability.resetCircuitBreaker();
       emit(state.copyWith(queueIndex: 0, status: PlayerStatus.loading));
       add(
         PlaySongEvent(
@@ -594,6 +657,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
     Emitter<PlayerState> emit,
   ) async {
     if (state.hasPrevious) {
+      // Same as _onNext: user intent overrides the circuit breaker.
+      _reliability.resetCircuitBreaker();
       final prevIndex = state.queueIndex - 1;
       final prevSong = state.queue[prevIndex];
 
@@ -608,6 +673,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
         ),
       );
     } else if (state.repeatMode == RepeatMode.all && state.queue.isNotEmpty) {
+      _reliability.resetCircuitBreaker();
       final lastIndex = state.queue.length - 1;
       emit(state.copyWith(queueIndex: lastIndex, status: PlayerStatus.loading));
       add(
@@ -836,6 +902,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
     PlayerStateChangedEvent event,
     Emitter<PlayerState> emit,
   ) {
+    // Terminal errors must not be silently erased by stream noise (e.g. the
+    // player reporting "not playing" right after we stopped it).
+    if (state.status == PlayerStatus.error) return;
     emit(
       state.copyWith(
         status: event.isPlaying ? PlayerStatus.playing : PlayerStatus.paused,
@@ -847,6 +916,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
     _BufferingChangedEvent event,
     Emitter<PlayerState> emit,
   ) {
+    if (state.status == PlayerStatus.error) return;
+
     // Only update status if there's actually a change to avoid UI flicker
     if (event.isBuffering && state.status != PlayerStatus.loading) {
       emit(state.copyWith(status: PlayerStatus.loading));
@@ -910,6 +981,14 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
       _log('PlayerBloc: Ignoring PlayerErrorEvent during loading (handled by _onPlaySong): ${event.message}');
       return;
     }
+    // If we already surfaced a terminal error for this attempt, ignore any
+    // follow-up error events: re-handling them would double-count failures
+    // (accelerating the circuit breaker) and schedule "resurrection" retries
+    // of a song the user was already told failed.
+    if (state.status == PlayerStatus.error) {
+      _log('PlayerBloc: Ignoring PlayerErrorEvent in terminal error state: ${event.message}');
+      return;
+    }
 
     final currentSong = state.currentSong;
     if (currentSong == null) {
@@ -936,6 +1015,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
     required int queueIndex,
     bool isOffline = false,
     StackTrace? stackTrace,
+    int? generation,
   }) {
     _reliability.registerFailure(failedSong.playableId);
     _mediaResolver.invalidate(failedSong.playableId);
@@ -947,12 +1027,17 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
       } catch (_) {}
     }
 
+    // A stale attempt (user already skipped to another song) must not
+    // schedule retries or advance the queue.
+    bool isStale() => generation != null && generation != _playbackGeneration;
+
     final isFatalError = _isFatalPlaybackError(error);
     if (isFatalError) {
       _log('PlayerBloc: Fatal playback error detected for "${failedSong.title}"; skipping retry.');
     }
 
     final canRetry = !isFatalError &&
+        !isStale() &&
         _reliability.shouldRetry(
           failedSong.playableId,
           isOffline: isOffline,
@@ -970,15 +1055,16 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
         errorMessage: 'Retrying playback...',
       ));
       Future.delayed(waitFor, () {
-        if (!isClosed) {
-          add(
-            PlaySongEvent(
-              song: failedSong,
-              queue: queue,
-              queueIndex: queueIndex,
-            ),
-          );
-        }
+        if (isClosed || isStale()) return;
+        add(
+          PlaySongEvent(
+            song: failedSong,
+            queue: queue,
+            queueIndex: queueIndex,
+            // Programmatic retry: still subject to the circuit breaker.
+            userInitiated: false,
+          ),
+        );
       });
       return;
     }
@@ -995,6 +1081,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
 
     // Auto-advance to next song if available, capped at 5 skips or queue length to prevent runaway loops
     final shouldAutoAdvance = hasNextSong &&
+        !isStale() &&
         _consecutiveFailureSkips <= 5 &&
         _consecutiveFailureSkips < effectiveQueue.length;
 
@@ -1019,27 +1106,30 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
       );
 
       Future.delayed(const Duration(milliseconds: 300), () {
-        if (!isClosed) {
-          add(
-            PlaySongEvent(
-              song: nextSong,
-              queue: effectiveQueue,
-              queueIndex: nextIndex,
-            ),
-          );
-        }
+        if (isClosed || isStale()) return;
+        add(
+          PlaySongEvent(
+            song: nextSong,
+            queue: effectiveQueue,
+            queueIndex: nextIndex,
+            // Programmatic skip: still subject to the circuit breaker.
+            userInitiated: false,
+          ),
+        );
       });
       return;
     }
 
-    // No next track or max consecutive skips reached
+    // No next track or max consecutive skips reached. Capture the skip count
+    // before resetting so the user gets a meaningful message.
+    final consecutiveSkips = _consecutiveFailureSkips;
     _consecutiveFailureSkips = 0;
     unawaited(_audioPlayer.stop());
     emit(
       state.copyWith(
         status: PlayerStatus.error,
-        errorMessage: effectiveQueue.length > 1 && _consecutiveFailureSkips >= 5
-            ? 'Unable to play songs in queue. Please check your connection.'
+        errorMessage: effectiveQueue.length > 1 && consecutiveSkips >= 3
+            ? 'Multiple songs failed to play. Please check your connection and try again.'
             : 'Playback error: $error',
       ),
     );
@@ -1185,6 +1275,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> with WidgetsBindingObser
       _log(
         'Added ${uniqueSongs.length} recommendations to queue (total: ${updatedQueue.length})',
       );
+      // Next button in the media notification may now be usable.
+      MediaSessionCoordinator.instance.notifyQueueChanged();
     }
   }
 

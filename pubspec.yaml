@@ -75,7 +75,6 @@ dependencies:
   json_annotation: ^4.9.0
   freezed_annotation: ^3.1.0
   audio_session: ^0.2.4
-  just_audio_background: ^0.0.1-beta.17
   darttubefix: ^1.0.1
   encrypt: ^5.0.3
 

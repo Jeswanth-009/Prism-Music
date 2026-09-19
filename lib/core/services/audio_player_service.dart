@@ -150,6 +150,7 @@ class AudioPlayerService {
     String? artist,
     String? album,
     String? artworkUrl,
+    Duration? mediaDuration,
     bool allowYouTubeFallbackOnDirectFailure = false,
   }) async {
     debugPrint(
@@ -193,6 +194,9 @@ class AudioPlayerService {
             artist: artist ?? 'Unknown Artist',
             album: album ?? 'Prism Music',
             artUri: artworkUrl != null ? Uri.tryParse(artworkUrl) : null,
+            // Without a duration the lock-screen/notification seek bar cannot
+            // render and scrubbing is disabled on some system surfaces.
+            duration: mediaDuration,
           ),
         );
 
@@ -236,6 +240,7 @@ class AudioPlayerService {
             artist: artist ?? 'Unknown Artist',
             album: album ?? 'Prism Music',
             artUri: artworkUrl != null ? Uri.tryParse(artworkUrl) : null,
+            duration: mediaDuration,
           ),
         );
 
@@ -327,6 +332,7 @@ class AudioPlayerService {
     String? artist,
     String? album,
     String? artworkUrl,
+    Duration? mediaDuration,
     Duration duration = const Duration(seconds: 2),
   }) async {
     if (!_initialized) return null;
@@ -354,6 +360,7 @@ class AudioPlayerService {
       artist: artist,
       album: album,
       artworkUrl: artworkUrl,
+      mediaDuration: mediaDuration,
     );
 
     if (d == null) {

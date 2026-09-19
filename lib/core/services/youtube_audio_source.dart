@@ -72,7 +72,10 @@ class YouTubeAudioSource extends StreamAudioSource {
 
     try {
       debugPrint('YouTubeAudioSource: Fetching fresh manifest for $videoId');
-      
+
+      // getManifest uses package:http with no internal timeout; without this
+      // bound a dead/unreachable endpoint hangs playback setup indefinitely
+      // (the player stays in "loading" with no error to recover from).
       StreamManifest manifest;
       try {
         manifest = await _ytExplode.videos.streamsClient.getManifest(
@@ -83,7 +86,7 @@ class YouTubeAudioSource extends StreamAudioSource {
             YoutubeApiClient.ios,
           ],
           requireWatchPage: false,
-        );
+        ).timeout(const Duration(seconds: 15));
       } catch (e) {
         debugPrint('YouTubeAudioSource: Primary client failed: $e');
         manifest = await _ytExplode.videos.streamsClient.getManifest(
@@ -93,7 +96,7 @@ class YouTubeAudioSource extends StreamAudioSource {
             YoutubeApiClient.ios,
           ],
           requireWatchPage: false,
-        );
+        ).timeout(const Duration(seconds: 15));
       }
 
       final supportedStreams = manifest.audioOnly.sortByBitrate();
@@ -242,7 +245,7 @@ class YouTubeAudioSource extends StreamAudioSource {
             YoutubeApiClient.ios,
           ],
           requireWatchPage: false,
-        );
+        ).timeout(const Duration(seconds: 15));
       } catch (e) {
         manifest = await _ytExplode.videos.streamsClient.getManifest(
           videoId,
@@ -251,7 +254,7 @@ class YouTubeAudioSource extends StreamAudioSource {
             YoutubeApiClient.ios,
           ],
           requireWatchPage: false,
-        );
+        ).timeout(const Duration(seconds: 15));
       }
 
       final supportedStreams = manifest.audioOnly.sortByBitrate();

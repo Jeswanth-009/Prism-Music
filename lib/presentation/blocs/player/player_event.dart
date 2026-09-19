@@ -15,14 +15,22 @@ class PlaySongEvent extends PlayerEvent {
   final List<Song>? queue;
   final int? queueIndex;
 
+  /// True when the play request comes from the user (tap on a song, next,
+  /// previous, queue selection). User-initiated plays bypass the playback
+  /// circuit breaker so a run of failed songs can never leave the user
+  /// unable to skip. Programmatic retries and auto-advance skips pass false
+  /// and remain subject to the breaker.
+  final bool userInitiated;
+
   const PlaySongEvent({
     required this.song,
     this.queue,
     this.queueIndex,
+    this.userInitiated = true,
   });
 
   @override
-  List<Object?> get props => [song, queue, queueIndex];
+  List<Object?> get props => [song, queue, queueIndex, userInitiated];
 }
 
 /// Play/Resume current song

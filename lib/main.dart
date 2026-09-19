@@ -7,6 +7,7 @@ import 'package:logging/logging.dart';
 
 import 'core/di/injection.dart';
 import 'core/services/audio_player_service.dart';
+import 'core/services/media_session_coordinator.dart';
 import 'core/services/permission_service.dart';
 import 'core/services/local_backup_service.dart';
 import 'core/services/prism_audio_handler.dart';
@@ -49,16 +50,34 @@ void main() async {
   // 2. Get the AudioPlayerService instance
   final audioPlayerService = getIt<AudioPlayerService>();
 
-  // 3. Initialize AudioService with our custom handler, passing the existing player
+  // 3. Initialize AudioService with our custom handler, passing the existing player.
+  //    Keep the handler reference so MediaSessionCoordinator can route the
+  //    notification's next/previous/stop buttons into the PlayerBloc and
+  //    re-render controls when the queue changes.
+  final audioHandler = PrismAudioHandler(audioPlayerService.player);
   await AudioService.init(
-    builder: () => PrismAudioHandler(audioPlayerService.player),
+    builder: () => audioHandler,
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.prismmusic.app.channel.audio',
       androidNotificationChannelName: 'Prism Music',
+      androidNotificationChannelDescription:
+          'Now-playing controls and media session for Prism Music',
+      // Brand accent tint for the media notification card.
+      notificationColor: Color(0xFF8B7BFF),
+      // Monochrome white glyph for the status bar (Android renders small
+      // notification icons as silhouettes); the colorful prism artwork still
+      // shows in the expanded card. Tapping the card reopens the app via the
+      // default androidNotificationClickStartsActivity.
+      androidNotificationIcon: 'drawable/ic_notification',
       androidNotificationOngoing: true,
       androidStopForegroundOnPause: true,
+      // Decode notification artwork at a bounded size: crisp on the card
+      // without decoding full-resolution (up to 1280px) bitmaps.
+      artDownscaleWidth: 512,
+      artDownscaleHeight: 512,
     ),
   );
+  MediaSessionCoordinator.instance.attachHandler(audioHandler);
 
   // Restore user library from the on-device backup (survives uninstall).
   await LocalBackupService.instance.restoreIfNeeded();

@@ -109,6 +109,7 @@ class MockAudioPlayerService implements AudioPlayerService {
     String? artist,
     String? album,
     String? artworkUrl,
+    Duration? mediaDuration,
     bool allowYouTubeFallbackOnDirectFailure = false,
   }) async {
     return const Duration(seconds: 180);
