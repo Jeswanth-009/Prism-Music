@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 
@@ -42,23 +44,32 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
   void _broadcastState(PlaybackEvent event) {
     final playing = player.playing;
     final coordinator = MediaSessionCoordinator.instance;
+    final controls = <MediaControl>[
+      // Only offer skips the real queue can satisfy, so buttons never
+      // appear on the card while doing nothing.
+      if (coordinator.canSkipPrevious) MediaControl.skipToPrevious,
+      if (playing) MediaControl.pause else MediaControl.play,
+      if (coordinator.canSkipNext) MediaControl.skipToNext,
+      MediaControl.stop, // Adds the X (Close) button when expanded
+    ];
+    // The compact notification renders the first `length` actions named in
+    // androidCompactActionIndices; on Android <13 an index that exceeds the
+    // controls list CRASHES the app when the notification is posted. This
+    // happens exactly when previous/next are hidden (single-song queue, or
+    // a broadcast before the bloc state settles). Show up to 3 of the
+    // non-stop controls, which are always at indices 0..n-1 (stop is last).
+    final compactCount = math.max(0, math.min(3, controls.length - 1));
+    final compactActionIndices = List<int>.generate(compactCount, (i) => i);
     playbackState.add(
       playbackState.value.copyWith(
-        controls: [
-          // Only offer skips the real queue can satisfy, so buttons never
-          // appear on the card while doing nothing.
-          if (coordinator.canSkipPrevious) MediaControl.skipToPrevious,
-          if (playing) MediaControl.pause else MediaControl.play,
-          if (coordinator.canSkipNext) MediaControl.skipToNext,
-          MediaControl.stop, // Adds the X (Close) button when expanded
-        ],
+        controls: controls,
         systemActions: const {
           MediaAction.seek,
           MediaAction.seekForward,
           MediaAction.seekBackward,
           MediaAction.stop, // Required for Android 13+ to recognize the stop action
         },
-        androidCompactActionIndices: const [0, 1, 2],
+        androidCompactActionIndices: compactActionIndices,
         processingState: const {
           ProcessingState.idle: AudioProcessingState.idle,
           ProcessingState.loading: AudioProcessingState.loading,
