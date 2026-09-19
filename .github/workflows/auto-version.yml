@@ -13,6 +13,8 @@ on:
     paths-ignore:
       - "**.md"
       - "docs/**"
+      # Marketing-site changes don't affect the app; don't burn an APK build.
+      - "website/**"
   workflow_dispatch:
     inputs:
       version_type:

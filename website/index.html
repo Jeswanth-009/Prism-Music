@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prism Music — All your music. One app. No account.</title>
+  <meta name="description" content="Prism Music is a free, open-source music player for Android. Stream from YouTube Music and JioSaavn with synced lyrics, an equalizer, offline downloads and smart recommendations — no login, no tracking." />
+  <meta property="og:title" content="Prism Music — All your music. One app. No account." />
+  <meta property="og:description" content="Free, open-source music streaming for Android. Synced lyrics, equalizer, offline downloads, smart recommendations. No account required." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="assets/logo-dark.png" />
+  <link rel="icon" type="image/png" href="assets/logo-dark.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ── Navigation ─────────────────────────────────────────────── -->
+  <header class="nav" id="top">
+    <div class="container nav-inner">
+      <a class="brand" href="#top">
+        <img class="brand-logo" src="assets/logo-dark.png" alt="" width="34" height="34" />
+        <span class="brand-name">Prism&nbsp;Music</span>
+      </a>
+      <nav class="nav-links" id="navLinks" aria-label="Main">
+        <a href="#features">Features</a>
+        <a href="#how">How it works</a>
+        <a href="#download">Download</a>
+        <a href="#faq">FAQ</a>
+        <a class="nav-github" href="https://github.com/Jeswanth-009/Prism-Music" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+          GitHub
+        </a>
+      </nav>
+      <div class="nav-actions">
+        <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch color theme">
+          <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+        </button>
+        <a class="btn btn-primary btn-sm" href="#download" data-download-link href-fallback="https://github.com/Jeswanth-009/Prism-Music/releases">Get the APK</a>
+        <button class="nav-burger" id="navBurger" type="button" aria-label="Open menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Hero ───────────────────────────────────────────────────── -->
+  <section class="hero">
+    <!-- Signature motif: the prism mark refracts a beam into the spectrum,
+         fanning out behind the phone. Kept to the right half so it never
+         crosses the headline. -->
+    <svg class="hero-beam" viewBox="0 0 1440 760" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs>
+        <linearGradient id="rayA" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#8b7bff"/><stop offset="1" stop-color="#62e8ff"/>
+        </linearGradient>
+        <linearGradient id="rayB" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#8b7bff"/><stop offset="1" stop-color="#a978ff"/>
+        </linearGradient>
+        <linearGradient id="rayC" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#8b7bff"/><stop offset="1" stop-color="#ff5cc8"/>
+        </linearGradient>
+        <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="6"/>
+        </filter>
+      </defs>
+      <!-- prism at the refraction point (stroke follows theme via currentColor) -->
+      <polygon points="640,290 690,370 590,370" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <!-- incoming beam stub (stops at the prism) -->
+      <line x1="470" y1="330" x2="640" y2="330" stroke="currentColor" stroke-width="1.5" opacity="0.8"/>
+      <!-- refracted rays fan right, behind the phone -->
+      <line x1="660" y1="330" x2="1460" y2="120" stroke="url(#rayA)" stroke-width="1.5" opacity="0.55"/>
+      <line x1="660" y1="330" x2="1460" y2="150" stroke="url(#rayA)" stroke-width="18" opacity="0.10" filter="url(#soft)"/>
+      <line x1="660" y1="330" x2="1460" y2="390" stroke="url(#rayB)" stroke-width="1.5" opacity="0.6"/>
+      <line x1="660" y1="330" x2="1460" y2="390" stroke="url(#rayB)" stroke-width="20" opacity="0.12" filter="url(#soft)"/>
+      <line x1="660" y1="330" x2="1460" y2="660" stroke="url(#rayC)" stroke-width="1.5" opacity="0.5"/>
+      <line x1="660" y1="330" x2="1460" y2="660" stroke="url(#rayC)" stroke-width="18" opacity="0.10" filter="url(#soft)"/>
+    </svg>
+
+    <div class="container hero-inner">
+      <div class="hero-copy reveal">
+        <p class="eyebrow mono">Free &amp; open source · Android</p>
+        <h1>All your music.<br /><span class="grad-text">One app. No account.</span></h1>
+        <p class="hero-sub">
+          Prism Music streams millions of songs from YouTube Music and JioSaavn —
+          with synced lyrics, a real equalizer, offline downloads and
+          recommendations that learn what you play. No sign-up. No ads. No tracking.
+        </p>
+        <div class="hero-cta">
+          <a class="btn btn-primary btn-lg" href="#download" data-download-link href-fallback="https://github.com/Jeswanth-009/Prism-Music/releases">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg>
+            Download APK
+          </a>
+          <a class="btn btn-ghost btn-lg" href="https://github.com/Jeswanth-009/Prism-Music" target="_blank" rel="noopener">
+            <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+            View source
+          </a>
+        </div>
+        <p class="hero-version mono">
+          <span class="version-dot" aria-hidden="true"></span>
+          <span class="mono-dim">latest</span> <strong id="versionLabel">…</strong>
+          <span class="mono-dim" id="buildLabel"></span>
+        </p>
+      </div>
+
+      <!-- CSS-built player mockup: an honest recreation of the in-app player,
+           not a screenshot. -->
+      <div class="hero-phone reveal" aria-hidden="true">
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="mock-status mono"><span>21:47</span><span class="mock-notch"></span><span>▮▮▮</span></div>
+            <div class="mock-art">
+              <div class="mock-vinyl">
+                <svg viewBox="0 0 24 24" width="34" height="34" fill="white"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6Z"/></svg>
+              </div>
+            </div>
+            <div class="mock-title">Midnight Prism</div>
+            <div class="mock-artist">The Refraction</div>
+            <div class="mock-progress"><span></span></div>
+            <div class="mock-times mono"><span>1:24</span><span>3:47</span></div>
+            <div class="mock-controls">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6 6h2v12H6zM20 6l-9 6 9 6z" transform="scale(-1,1) translate(-24,0)"/><path d="M4 6h2v12H4z" transform="scale(-1,1) translate(-28,0)"/></svg>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6 6h2v12H6zM20 6l-9 6 9 6z" transform="scale(-1,1) translate(-24,0)"/></svg>
+              <button class="mock-play" tabindex="-1">
+                <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              </button>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6 6l11 6-11 6zM18 6h2v12h-2z" transform="scale(-1,1) translate(-26,0)"/></svg>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M18 6h-2v12h2zM4 18l9-6-9-6z" transform="scale(-1,1) translate(-24,0)"/></svg>
+            </div>
+            <div class="mock-lyrics">
+              <p class="dim">the light bends through the night</p>
+              <p class="active">every color finds its way</p>
+              <p class="dim">back to you</p>
+            </div>
+          </div>
+        </div>
+        <div class="phone-shadow" aria-hidden="true"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Ticker ─────────────────────────────────────────────────── -->
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker-track mono">
+      <span>no account</span><i>◆</i><span>synced lyrics</span><i>◆</i><span>8-band equalizer</span><i>◆</i><span>offline downloads</span><i>◆</i><span>background playback</span><i>◆</i><span>crossfade</span><i>◆</i><span>sleep timer</span><i>◆</i><span>smart recommendations</span><i>◆</i><span>last.fm scrobbling</span><i>◆</i><span>light &amp; dark</span><i>◆</i>
+      <span>no account</span><i>◆</i><span>synced lyrics</span><i>◆</i><span>8-band equalizer</span><i>◆</i><span>offline downloads</span><i>◆</i><span>background playback</span><i>◆</i><span>crossfade</span><i>◆</i><span>sleep timer</span><i>◆</i><span>smart recommendations</span><i>◆</i><span>last.fm scrobbling</span><i>◆</i><span>light &amp; dark</span><i>◆</i>
+    </div>
+  </div>
+
+  <!-- ── Features (bento) ───────────────────────────────────────── -->
+  <section class="section" id="features">
+    <div class="container">
+      <p class="eyebrow mono reveal">// 01 — features</p>
+      <h2 class="section-title reveal">Everything a music app should be.<br class="br-desktop" /> Nothing it shouldn't.</h2>
+
+      <div class="bento">
+
+        <!-- Synced lyrics — the wide showpiece -->
+        <article class="tile tile-lyrics reveal">
+          <div class="tile-head">
+            <h3>Synced lyrics</h3>
+            <p>Word-by-word scrolling lyrics that follow the music, fetched for almost any track.</p>
+          </div>
+          <div class="lyric-demo" aria-hidden="true">
+            <p class="dim">the light bends through the night</p>
+            <p class="now">every color finds its way</p>
+            <p class="dim">back to you, back to you</p>
+            <p class="dim far">i keep the pieces of the sky</p>
+          </div>
+        </article>
+
+        <!-- Equalizer — real sliders -->
+        <article class="tile tile-eq reveal">
+          <div class="tile-head">
+            <h3>Real equalizer</h3>
+            <p>Bass boost, reverb and eight presets. Tune it once — it sticks.</p>
+          </div>
+          <div class="eq-demo" aria-hidden="true">
+            <div class="band"><i style="--v:34%"></i><span class="mono">60</span></div>
+            <div class="band"><i style="--v:58%"></i><span class="mono">230</span></div>
+            <div class="band"><i style="--v:46%"></i><span class="mono">910</span></div>
+            <div class="band"><i style="--v:72%"></i><span class="mono">3.6k</span></div>
+            <div class="band"><i style="--v:52%"></i><span class="mono">14k</span></div>
+          </div>
+        </article>
+
+        <!-- Smart queue -->
+        <article class="tile tile-queue reveal">
+          <div class="tile-head">
+            <h3>Smart queue</h3>
+            <p>Reorder and play-next anything. When the queue runs dry, Prism adds songs you'll actually like.</p>
+          </div>
+          <div class="queue-demo" aria-hidden="true">
+            <div class="q-row"><span class="q-art"></span><span class="q-lines"><b>Glass Anthems</b><i>Nova Court</i></span><span class="q-badge mono">playing</span></div>
+            <div class="q-row"><span class="q-art alt"></span><span class="q-lines"><b>Spectrum Days</b><i>The Refraction</i></span><span class="q-badge mono">up next</span></div>
+            <div class="q-row"><span class="q-art alt2"></span><span class="q-lines"><b>Afterglow Radio</b><i>added for you</i></span></div>
+          </div>
+        </article>
+
+        <!-- Downloads -->
+        <article class="tile tile-dl reveal">
+          <div class="tile-head">
+            <h3>Offline downloads</h3>
+            <p>Save songs and playlists to your device — the subway, the plane, anywhere.</p>
+          </div>
+          <div class="dl-demo" aria-hidden="true">
+            <svg viewBox="0 0 96 96" width="92" height="92">
+              <circle cx="48" cy="48" r="40" fill="none" stroke="rgba(128,128,150,0.25)" stroke-width="7"/>
+              <circle cx="48" cy="48" r="40" fill="none" stroke="url(#dlGrad)" stroke-width="7" stroke-linecap="round" stroke-dasharray="251.3" stroke-dashoffset="83" transform="rotate(-90 48 48)"/>
+              <defs><linearGradient id="dlGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#62e8ff"/><stop offset=".5" stop-color="#a978ff"/><stop offset="1" stop-color="#ff5cc8"/></linearGradient></defs>
+            </svg>
+            <div class="dl-label mono">28 songs<br />saved</div>
+          </div>
+        </article>
+
+        <!-- Stats -->
+        <article class="tile tile-stats reveal">
+          <div class="tile-head">
+            <h3>Listening stats</h3>
+            <p>Top artists, top tracks and a 14-day history — computed on your device, for your eyes only.</p>
+          </div>
+          <div class="stats-demo" aria-hidden="true">
+            <i style="--h:38%"></i><i style="--h:56%"></i><i style="--h:30%"></i><i style="--h:72%"></i><i style="--h:50%"></i><i style="--h:88%"></i><i style="--h:44%"></i><i style="--h:64%"></i><i style="--h:78%"></i><i style="--h:96%"></i>
+          </div>
+        </article>
+
+        <!-- Compact tiles -->
+        <article class="tile tile-mini reveal">
+          <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
+          <h3>Millions of songs</h3>
+          <p>The full YouTube Music catalog plus JioSaavn, albums, artists, playlists and charts.</p>
+        </article>
+
+        <article class="tile tile-mini reveal">
+          <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+          <h3>Sleep timer &amp; crossfade</h3>
+          <p>Music that switches itself off, and tracks that blend into each other.</p>
+        </article>
+
+        <article class="tile tile-mini reveal">
+          <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.6-9.5-9A5.5 5.5 0 0 1 12 6.1 5.5 5.5 0 0 1 21.5 12C19 16.4 12 21 12 21Z"/></svg></div>
+          <h3>Radio that learns</h3>
+          <p>Play a song and Prism builds a station around it — stay in the vibe or discover something new.</p>
+        </article>
+
+        <article class="tile tile-mini reveal">
+          <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 0 0-9 9c0 1.5 2 2.5 2 4 0 1.5-1 2-1 3h16c0-1-1-1.5-1-3 0-1.5 2-2.5 2-4a9 9 0 0 0-9-9Z"/><path d="M10 21h4"/></svg></div>
+          <h3>Last.fm scrobbling</h3>
+          <p>Link your account and every play is logged to your musical history.</p>
+        </article>
+
+        <article class="tile tile-mini reveal">
+          <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18M3 12h18"/></svg></div>
+          <h3>Charts &amp; trending</h3>
+          <p>Regional trending, mood playlists and top charts for the country you pick.</p>
+        </article>
+
+        <article class="tile tile-mini reveal">
+          <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></div>
+          <h3>Light &amp; dark, your accent</h3>
+          <p>Artwork-first interface with an optional accent pulled from whatever's playing.</p>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── How it works ───────────────────────────────────────────── -->
+  <section class="section section-alt" id="how">
+    <div class="container">
+      <p class="eyebrow mono reveal">// 02 — how it works</p>
+      <h2 class="section-title reveal">Three steps, one minute</h2>
+      <div class="steps">
+        <div class="step reveal">
+          <span class="step-num mono">01</span>
+          <h3>Download the APK</h3>
+          <p>Grab the latest release below. A normal Android installer — about 30&nbsp;MB, no store needed.</p>
+        </div>
+        <div class="step reveal">
+          <span class="step-num mono">02</span>
+          <h3>Install &amp; allow</h3>
+          <p>Open the file and confirm "install from unknown sources" when Android asks. That's the only hoop.</p>
+        </div>
+        <div class="step reveal">
+          <span class="step-num mono">03</span>
+          <h3>Press play</h3>
+          <p>Search anything, hit play, and you're listening. No account, no trial, no "premium" wall.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Privacy band ───────────────────────────────────────────── -->
+  <section class="privacy">
+    <div class="container privacy-inner reveal">
+      <div class="privacy-copy">
+        <p class="eyebrow mono">// 03 — privacy by default</p>
+        <h2>Your library lives on <span class="grad-text">your</span> phone</h2>
+        <p>
+          Prism Music has no accounts and no analytics. Likes, playlists, history and
+          downloads stay in local storage on your device — and a built-in backup
+          means they even survive an uninstall. The entire source code is public,
+          so you never have to take our word for it.
+        </p>
+        <a class="btn btn-ghost" href="https://github.com/Jeswanth-009/Prism-Music" target="_blank" rel="noopener">Read the code →</a>
+      </div>
+      <div class="privacy-orb" aria-hidden="true"><img src="assets/logo-dark.png" alt="" /></div>
+    </div>
+  </section>
+
+  <!-- ── Download ───────────────────────────────────────────────── -->
+  <section class="section" id="download">
+    <div class="container download-inner">
+      <p class="eyebrow mono reveal">// 04 — download</p>
+      <h2 class="section-title reveal">Get Prism Music for Android</h2>
+      <p class="section-sub reveal">
+        Automated alpha builds straight from the source. Every release has an
+        increasing version code, so new builds install right over the old one.
+      </p>
+
+      <div class="manifest reveal">
+        <div class="manifest-rows mono">
+          <div class="m-row"><span class="m-key">release</span><span class="m-val" id="mRelease">alpha-v…</span></div>
+          <div class="m-row"><span class="m-key">asset</span><span class="m-val" id="mAsset">prism-music-….apk</span></div>
+          <div class="m-row"><span class="m-key">updated</span><span class="m-val" id="mDate">—</span></div>
+          <div class="m-row"><span class="m-key">checks</span><span class="m-val">sha256 included · Android 6.0+</span></div>
+        </div>
+        <div class="manifest-actions">
+          <a class="btn btn-primary btn-lg" data-download-link href-fallback="https://github.com/Jeswanth-009/Prism-Music/releases" href="https://github.com/Jeswanth-009/Prism-Music/releases">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg>
+            Download APK
+          </a>
+          <a class="btn btn-ghost" href="https://github.com/Jeswanth-009/Prism-Music/releases" target="_blank" rel="noopener">All releases</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FAQ ────────────────────────────────────────────────────── -->
+  <section class="section section-alt" id="faq">
+    <div class="container faq-inner">
+      <div>
+        <p class="eyebrow mono reveal">// 05 — faq</p>
+        <h2 class="section-title reveal">Questions,<br />answered</h2>
+      </div>
+      <div class="faq-list">
+        <details class="faq reveal">
+          <summary><span class="mono faq-num">01</span>Why isn't this on the Play Store?</summary>
+          <p>Prism Music streams from public sources and is distributed as an open-source APK. Sideloading takes one extra tap during install — and it's the reason the app can stay free, ad-free and account-free.</p>
+        </details>
+        <details class="faq reveal">
+          <summary><span class="mono faq-num">02</span>Is it really free? What's the catch?</summary>
+          <p>There's no catch. The app is MIT-licensed open source and the builds are generated automatically from the public repository. No ads, no subscriptions, no data collection.</p>
+        </details>
+        <details class="faq reveal">
+          <summary><span class="mono faq-num">03</span>Where does the music come from?</summary>
+          <p>Prism searches public YouTube Music and JioSaavn catalogs and streams the audio directly, with multiple fallback sources for reliability. Nothing is hosted by Prism itself.</p>
+        </details>
+        <details class="faq reveal">
+          <summary><span class="mono faq-num">04</span>Is my iPhone / Windows PC supported?</summary>
+          <p>Prism is Android-first today. The Flutter codebase can target iOS and desktop later, but Android is the platform that's tested and shipped.</p>
+        </details>
+        <details class="faq reveal">
+          <summary><span class="mono faq-num">05</span>Can I use it offline?</summary>
+          <p>Yes — download songs inside the app and they play without a connection. Everything else (search, streaming, recommendations) needs internet.</p>
+        </details>
+        <details class="faq reveal">
+          <summary><span class="mono faq-num">06</span>Will updates break my library?</summary>
+          <p>No. Your library is stored on your device and updates install over the top. There's also a manual backup/restore in settings that survives full reinstalls.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Footer ─────────────────────────────────────────────────── -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <img src="assets/logo-dark.png" alt="" width="28" height="28" />
+        <span>Prism Music</span>
+      </div>
+      <nav class="footer-links" aria-label="Footer">
+        <a href="#features">Features</a>
+        <a href="#download">Download</a>
+        <a href="https://github.com/Jeswanth-009/Prism-Music" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/Jeswanth-009/Prism-Music/releases" target="_blank" rel="noopener">Releases</a>
+      </nav>
+      <p class="footer-note mono">
+        MIT licensed · an independent open-source project, not affiliated with YouTube, Google or JioSaavn.
+      </p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
