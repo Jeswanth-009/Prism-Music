@@ -216,7 +216,7 @@ class _HomeTabState extends State<HomeTab>
                   return _sliverSection(
                     title: 'Jump back in',
                     child: SizedBox(
-                      height: 168,
+                      height: 190,
                       child: ListView.separated(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         scrollDirection: Axis.horizontal,
@@ -252,7 +252,7 @@ class _HomeTabState extends State<HomeTab>
                   title: 'Recommended for you',
                   subtitle: _recommendationSubtitle,
                   child: SizedBox(
-                    height: 172,
+                    height: 194,
                     child: ListView.separated(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       scrollDirection: Axis.horizontal,
@@ -279,7 +279,7 @@ class _HomeTabState extends State<HomeTab>
                   title: 'From your artists',
                   subtitle: 'Albums to dig into from your rotation',
                   child: SizedBox(
-                    height: 172,
+                    height: 194,
                     child: ListView.separated(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       scrollDirection: Axis.horizontal,

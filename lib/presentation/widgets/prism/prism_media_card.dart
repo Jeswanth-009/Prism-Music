@@ -33,8 +33,10 @@ class PrismMediaCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AspectRatio(
-              aspectRatio: 1,
+            // The artwork flexes to fill whatever height the rail leaves for
+            // the text block, so a taller-than-expected title (larger system
+            // font scale) can never overflow the card.
+            Expanded(
               child: circle
                   ? ClipOval(
                       child: PrismArtwork(url: url, fit: BoxFit.cover),
