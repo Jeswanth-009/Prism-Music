@@ -41,9 +41,7 @@ class _PlayerPageState extends State<PlayerPage> {
 
   void _openArtistPage(String artistName) {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ArtistPage(artistName: artistName),
-      ),
+      MaterialPageRoute(builder: (_) => ArtistPage(artistName: artistName)),
     );
   }
 
@@ -94,68 +92,68 @@ class _PlayerPageState extends State<PlayerPage> {
               _AmbientBackground(dominantColor: _dominantColor),
               SafeArea(
                 child: Column(
-                    children: [
-                      _buildHeader(context, theme, song),
-                      Expanded(
-                        child: AnimatedSwitcher(
-                          duration: PrismMotion.base,
-                          child: _showLyrics
-                              ? PlayerLyricsView(
-                                  key: ValueKey('lyrics_${song.id}'),
-                                  song: song,
-                                )
-                              : SingleChildScrollView(
-                                  key: const ValueKey('artwork'),
-                                  physics: const BouncingScrollPhysics(),
-                                  child: ConstrainedBox(
-                                    constraints: BoxConstraints(
-                                      minHeight: 0,
-                                      maxWidth: isTablet ? 500 : double.infinity,
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        const SizedBox(height: 12),
-                                        _AlbumArtwork(
-                                          song: song,
-                                          dominantColor: _dominantColor,
-                                        ),
-                                        const SizedBox(height: 28),
-                                        _SongInfo(
-                                          song: song,
-                                          onArtistTap: _openArtistPage,
-                                        ),
-                                      ],
-                                    ),
+                  children: [
+                    _buildHeader(context, theme, song),
+                    Expanded(
+                      child: AnimatedSwitcher(
+                        duration: PrismMotion.base,
+                        child: _showLyrics
+                            ? PlayerLyricsView(
+                                key: ValueKey('lyrics_${song.id}'),
+                                song: song,
+                              )
+                            : SingleChildScrollView(
+                                key: const ValueKey('artwork'),
+                                physics: const BouncingScrollPhysics(),
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    minHeight: 0,
+                                    maxWidth: isTablet ? 500 : double.infinity,
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      const SizedBox(height: 12),
+                                      _AlbumArtwork(
+                                        song: song,
+                                        dominantColor: _dominantColor,
+                                      ),
+                                      const SizedBox(height: 28),
+                                      _SongInfo(
+                                        song: song,
+                                        onArtistTap: _openArtistPage,
+                                      ),
+                                    ],
                                   ),
                                 ),
-                        ),
+                              ),
                       ),
-                      if (!_showLyrics) ...[
-                        _ProgressBar(state: state),
-                        const SizedBox(height: 14),
-                        _MainControls(state: state),
-                        const SizedBox(height: 10),
-                        _SecondaryControls(
-                          song: song,
-                          state: state,
-                          showLyrics: _showLyrics,
-                          onToggleLyrics: () =>
-                              setState(() => _showLyrics = !_showLyrics),
-                        ),
-                      ] else ...[
-                        const SizedBox(height: 10),
-                        _SecondaryControls(
-                          song: song,
-                          state: state,
-                          showLyrics: _showLyrics,
-                          onToggleLyrics: () =>
-                              setState(() => _showLyrics = !_showLyrics),
-                        ),
-                      ],
-                      const SizedBox(height: 22),
+                    ),
+                    if (!_showLyrics) ...[
+                      _ProgressBar(state: state),
+                      const SizedBox(height: 14),
+                      _MainControls(state: state),
+                      const SizedBox(height: 10),
+                      _SecondaryControls(
+                        song: song,
+                        state: state,
+                        showLyrics: _showLyrics,
+                        onToggleLyrics: () =>
+                            setState(() => _showLyrics = !_showLyrics),
+                      ),
+                    ] else ...[
+                      const SizedBox(height: 10),
+                      _SecondaryControls(
+                        song: song,
+                        state: state,
+                        showLyrics: _showLyrics,
+                        onToggleLyrics: () =>
+                            setState(() => _showLyrics = !_showLyrics),
+                      ),
                     ],
+                    const SizedBox(height: 22),
+                  ],
+                ),
               ),
-            ),
             ],
           ),
         );
@@ -216,9 +214,8 @@ class _PlayerPageState extends State<PlayerPage> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => EqualizerBottomSheet(
-        equalizerService: audioPlayerService.equalizer,
-      ),
+      builder: (_) =>
+          EqualizerBottomSheet(equalizerService: audioPlayerService.equalizer),
     );
   }
 
@@ -235,9 +232,9 @@ class _PlayerPageState extends State<PlayerPage> {
                 song.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: Theme.of(
+                  sheetContext,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
             PrismSheetAction(
@@ -295,8 +292,7 @@ class _PlayerPageState extends State<PlayerPage> {
             BlocBuilder<PlayerBloc, PlayerState>(
               builder: (context, playerState) {
                 final end = playerState.sleepTimerEnd;
-                final remaining =
-                    end?.difference(DateTime.now());
+                final remaining = end?.difference(DateTime.now());
                 return PrismSheetAction(
                   icon: Icons.bedtime_rounded,
                   label: 'Sleep timer',
@@ -304,13 +300,11 @@ class _PlayerPageState extends State<PlayerPage> {
                       ? null
                       : Text(
                           '${remaining.inMinutes}:${(remaining.inSeconds % 60).toString().padLeft(2, '0')}',
-                          style: Theme.of(sheetContext)
-                              .textTheme
-                              .bodySmall
+                          style: Theme.of(sheetContext).textTheme.bodySmall
                               ?.copyWith(
-                                color: Theme.of(sheetContext)
-                                    .colorScheme
-                                    .primary,
+                                color: Theme.of(
+                                  sheetContext,
+                                ).colorScheme.primary,
                               ),
                         ),
                   onTap: () {
@@ -330,17 +324,16 @@ class _PlayerPageState extends State<PlayerPage> {
   /// Off / end-of-track / fixed durations. Dispatches [SetSleepTimerEvent];
   /// null cancels an active timer.
   void _showSleepTimerSheet(BuildContext context, PlayerState state) {
-    final endOfTrack =
-        state.duration > Duration.zero ? state.duration - state.position : null;
+    final endOfTrack = state.duration > Duration.zero
+        ? state.duration - state.position
+        : null;
     final options = <({String label, Duration? duration})>[
       const (label: 'Off', duration: null),
       if (endOfTrack != null && !endOfTrack.isNegative)
         (label: 'End of track', duration: endOfTrack),
       ...const [5, 10, 15, 30, 45, 60, 90].map(
-        (minutes) => (
-          label: '$minutes minutes',
-          duration: Duration(minutes: minutes),
-        ),
+        (minutes) =>
+            (label: '$minutes minutes', duration: Duration(minutes: minutes)),
       ),
     ];
 
@@ -356,9 +349,9 @@ class _PlayerPageState extends State<PlayerPage> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Sleep timer',
-                  style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: Theme.of(
+                    sheetContext,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
             ),
@@ -368,14 +361,11 @@ class _PlayerPageState extends State<PlayerPage> {
                 title: Text(option.label),
                 onTap: () {
                   Navigator.pop(sheetContext);
-                  context
-                      .read<PlayerBloc>()
-                      .add(SetSleepTimerEvent(option.duration));
+                  context.read<PlayerBloc>().add(
+                    SetSleepTimerEvent(option.duration),
+                  );
                   if (option.duration != null) {
-                    showPrismToast(
-                      context,
-                      'Sleep timer set: ${option.label}',
-                    );
+                    showPrismToast(context, 'Sleep timer set: ${option.label}');
                   }
                 },
               ),
@@ -448,8 +438,7 @@ class _AlbumArtwork extends StatelessWidget {
         .toDouble();
     final maxArtHeight = MediaQuery.sizeOf(context).height * 0.40;
     final artSize = size > maxArtHeight ? maxArtHeight : size;
-    final accent =
-        dominantColor ?? Theme.of(context).colorScheme.primary;
+    final accent = dominantColor ?? Theme.of(context).colorScheme.primary;
 
     return Hero(
       tag: 'album_art_${song.youtubeId ?? song.id}',
@@ -573,8 +562,7 @@ class _ClickableArtistTextState extends State<_ClickableArtistText> {
   }
 
   void _buildRecognizers() {
-    final artistCount =
-        widget.artistString.split(RegExp(r',\s*')).length;
+    final artistCount = widget.artistString.split(RegExp(r',\s*')).length;
     _recognizers = List.generate(
       artistCount,
       (_) => TapGestureRecognizer()..onTap = () {},
@@ -605,12 +593,7 @@ class _ClickableArtistTextState extends State<_ClickableArtistText> {
     final spans = <InlineSpan>[];
     for (var i = 0; i < names.length; i++) {
       if (i > 0) {
-        spans.add(
-          TextSpan(
-            text: ', ',
-            style: widget.style,
-          ),
-        );
+        spans.add(TextSpan(text: ', ', style: widget.style));
       }
       if (i < _recognizers.length) {
         spans.add(
@@ -653,8 +636,10 @@ class _ProgressBar extends StatelessWidget {
     final theme = Theme.of(context);
     final duration = state.duration;
     final progress = duration.inMilliseconds > 0
-        ? (state.position.inMilliseconds / duration.inMilliseconds)
-            .clamp(0.0, 1.0)
+        ? (state.position.inMilliseconds / duration.inMilliseconds).clamp(
+            0.0,
+            1.0,
+          )
         : 0.0;
 
     return Padding(
@@ -664,17 +649,14 @@ class _ProgressBar extends StatelessWidget {
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
               trackHeight: 4,
-              thumbShape:
-                  const RoundSliderThumbShape(enabledThumbRadius: 7),
-              overlayShape:
-                  const RoundSliderOverlayShape(overlayRadius: 16),
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
             ),
             child: Slider(
               value: progress,
               onChanged: (value) {
                 final newPosition = Duration(
-                  milliseconds:
-                      (value * duration.inMilliseconds).round(),
+                  milliseconds: (value * duration.inMilliseconds).round(),
                 );
                 context.read<PlayerBloc>().add(SeekEvent(newPosition));
               },
@@ -721,11 +703,9 @@ class _MainControls extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           IconButton(
-            onPressed:
-                state.hasPrevious || state.position.inSeconds > 3
-                    ? () =>
-                        context.read<PlayerBloc>().add(const PreviousEvent())
-                    : null,
+            onPressed: state.hasPrevious || state.position.inSeconds > 3
+                ? () => context.read<PlayerBloc>().add(const PreviousEvent())
+                : null,
             iconSize: 30,
             icon: const Icon(Icons.skip_previous_rounded),
           ),
@@ -760,8 +740,8 @@ class _PlayPauseButton extends StatelessWidget {
         onTap: state.isBuffering
             ? null
             : () => context.read<PlayerBloc>().add(
-                  isPlaying ? const PauseEvent() : const ResumeEvent(),
-                ),
+                isPlaying ? const PauseEvent() : const ResumeEvent(),
+              ),
         child: AnimatedContainer(
           duration: PrismMotion.fast,
           curve: PrismMotion.curve,
@@ -786,16 +766,18 @@ class _PlayPauseButton extends StatelessWidget {
                     color: Colors.white,
                   ),
                 )
-              : AnimatedSwitcher(
-                  duration: PrismMotion.fast,
-                  child: Icon(
-                    isPlaying
-                        ? Icons.pause_rounded
-                        : Icons.play_arrow_rounded,
-                    key: ValueKey(isPlaying),
-                    size: 38,
-                    color: scheme.onPrimary,
-                  ),
+              // Do not key/stack rapidly alternating play/pause icons here.
+              // On a physical device `playingStream` can bounce
+              // true -> false -> true inside the 150ms switch animation while
+              // the source is prepared. AnimatedSwitcher then temporarily owns
+              // two children with the same boolean key and throws, closing the
+              // Now Playing route. AnimatedContainer already animates the
+              // control itself, so a direct icon is both safe and visually
+              // indistinguishable at this size.
+              : Icon(
+                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  size: 38,
+                  color: scheme.onPrimary,
                 ),
         ),
       ),
@@ -830,9 +812,8 @@ class _SecondaryControls extends StatelessWidget {
             children: [
               IconButton(
                 tooltip: 'Shuffle',
-                onPressed: () => context
-                    .read<PlayerBloc>()
-                    .add(const ToggleShuffleEvent()),
+                onPressed: () =>
+                    context.read<PlayerBloc>().add(const ToggleShuffleEvent()),
                 icon: Icon(
                   Icons.shuffle_rounded,
                   color: state.isShuffleEnabled
@@ -842,9 +823,9 @@ class _SecondaryControls extends StatelessWidget {
               ),
               IconButton(
                 tooltip: 'Repeat',
-                onPressed: () => context
-                    .read<PlayerBloc>()
-                    .add(const CycleRepeatModeEvent()),
+                onPressed: () => context.read<PlayerBloc>().add(
+                  const CycleRepeatModeEvent(),
+                ),
                 icon: Icon(
                   switch (state.repeatMode) {
                     RepeatMode.one => Icons.repeat_one_rounded,
@@ -858,9 +839,8 @@ class _SecondaryControls extends StatelessWidget {
               ),
               IconButton(
                 tooltip: isLiked ? 'Unlike' : 'Like',
-                onPressed: () => context
-                    .read<LibraryBloc>()
-                    .add(ToggleLikeSongEvent(song)),
+                onPressed: () =>
+                    context.read<LibraryBloc>().add(ToggleLikeSongEvent(song)),
                 icon: Icon(
                   isLiked
                       ? Icons.favorite_rounded
@@ -873,9 +853,7 @@ class _SecondaryControls extends StatelessWidget {
                 onPressed: onToggleLyrics,
                 icon: Icon(
                   Icons.lyrics_outlined,
-                  color: showLyrics
-                      ? scheme.primary
-                      : scheme.onSurfaceVariant,
+                  color: showLyrics ? scheme.primary : scheme.onSurfaceVariant,
                 ),
               ),
               IconButton(

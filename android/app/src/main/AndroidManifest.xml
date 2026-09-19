@@ -27,6 +27,11 @@
     
     <!-- Receive boot completed for restoring playback -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
+    <!-- Declares the intent to ask for a battery-optimization exemption; without
+         this declaration the runtime request silently no-ops (permission_handler
+         logs "No permissions found in manifest"). -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     
     <!-- Foreground service type for media playback (Android 14+) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>

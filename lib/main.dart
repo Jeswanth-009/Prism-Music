@@ -12,6 +12,7 @@ import 'core/services/permission_service.dart';
 import 'core/services/local_backup_service.dart';
 import 'core/services/prism_audio_handler.dart';
 import 'core/services/settings_service.dart';
+import 'package:permission_handler/permission_handler.dart' show Permission;
 import 'presentation/blocs/player/player.dart';
 import 'presentation/blocs/search/search.dart';
 import 'presentation/blocs/library/library.dart';
@@ -58,7 +59,12 @@ void main() async {
   await AudioService.init(
     builder: () => audioHandler,
     config: const AudioServiceConfig(
-      androidNotificationChannelId: 'com.prismmusic.app.channel.audio',
+      // Use a dedicated v2 playback channel. Android persists the old
+      // channel's visibility/importance across app upgrades, so a channel
+      // created by an earlier build can remain silently suppressed even when
+      // POST_NOTIFICATIONS is granted.
+      androidNotificationChannelId:
+          'com.prismmusic.app.channel.audio.playback.v2',
       androidNotificationChannelName: 'Prism Music',
       androidNotificationChannelDescription:
           'Now-playing controls and media session for Prism Music',
@@ -69,8 +75,15 @@ void main() async {
       // shows in the expanded card. Tapping the card reopens the app via the
       // default androidNotificationClickStartsActivity.
       androidNotificationIcon: 'drawable/ic_notification',
-      androidNotificationOngoing: true,
-      androidStopForegroundOnPause: true,
+      // While the service remains foregrounded Android makes the media card
+      // ongoing automatically. This must be false when
+      // androidStopForegroundOnPause is false (audio_service enforces that
+      // configuration invariant).
+      androidNotificationOngoing: false,
+      // Real devices frequently report a short paused state while a source is
+      // prepared or audio focus is re-acquired. Stopping foreground service
+      // at that point prevents some OEMs from ever posting the media card.
+      androidStopForegroundOnPause: false,
       // Decode notification artwork at a bounded size: crisp on the card
       // without decoding full-resolution (up to 1280px) bitmaps.
       artDownscaleWidth: 512,
@@ -88,9 +101,20 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Request permissions (non-blocking to avoid hot restart issues)
+  // Request permissions (non-blocking to avoid hot restart issues).
+  // The notification status is logged because Android 13+ silently hides
+  // the media notification when it is denied — this line is the fastest
+  // way to diagnose "no notification" from a debug log.
   // ignore: body_might_complete_normally_catch_error
-  PermissionService.requestAllPermissions().catchError((_) {});
+  PermissionService.requestAllPermissions()
+      .then((results) {
+        final notif = results[Permission.notification];
+        debugPrint(
+          'Prism permissions: notification=$notif '
+          '(denied/permanentlyDenied = no media notification on Android 13+)',
+        );
+      })
+      .catchError((_) {});
 
   runApp(const PrismMusicApp());
 }
