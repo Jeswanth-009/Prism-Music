@@ -16,6 +16,9 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  # Needed so configure-pages can enable Pages itself (enablement: true)
+  # when the repo has never had Pages configured — no manual setup needed.
+  administration: write
 
 # Allow only one concurrent deploy; never cancel an in-flight one.
 concurrency:
@@ -35,6 +38,9 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          # Enables Pages automatically on first deploy if not configured yet.
+          enablement: true
 
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
