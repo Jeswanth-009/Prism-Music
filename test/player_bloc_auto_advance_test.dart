@@ -38,6 +38,8 @@ class FakeAudioPlayerService implements AudioPlayerService {
   final _compCtrl = StreamController<bool>.broadcast();
   final _errCtrl = StreamController<String>.broadcast();
   final _idxCtrl = StreamController<int?>.broadcast();
+  final fallbackFlags = <bool>[];
+  int playCalls = 0;
 
   @override
   Stream<Duration> get positionStream => _posCtrl.stream;
@@ -74,6 +76,7 @@ class FakeAudioPlayerService implements AudioPlayerService {
     Duration? mediaDuration,
     bool allowYouTubeFallbackOnDirectFailure = false,
   }) async {
+    fallbackFlags.add(allowYouTubeFallbackOnDirectFailure);
     if (url.contains('unplayable')) {
       _errCtrl.add('HTTP 403 Forbidden');
       return null;
@@ -82,7 +85,9 @@ class FakeAudioPlayerService implements AudioPlayerService {
   }
 
   @override
-  Future<void> play() async {}
+  Future<void> play() async {
+    playCalls++;
+  }
 
   @override
   Future<void> stop() async {}
@@ -141,7 +146,9 @@ class FakeMediaResolverService implements MediaResolverService {
       throw Exception('Stream resolution failed: 403 Forbidden');
     }
     return ResolvedMediaSource(
-      uri: 'https://stream.example.com/${song.id}',
+      uri: song.id == 'decode_failure'
+          ? 'https://stream.example.com/unplayable'
+          : 'https://stream.example.com/${song.id}',
       isOffline: false,
       videoId: song.id,
     );
@@ -236,6 +243,60 @@ void main() {
     expect(playerBloc.state.currentSong?.id, 'valid_song_2');
     expect(playerBloc.state.queueIndex, 1);
   });
+
+  test(
+    'Direct 403 does not launch a redundant YouTube fallback or play an invalid source',
+    () async {
+      const blocked = Song(
+        id: 'decode_failure',
+        title: 'Blocked Track',
+        artist: 'Artist A',
+        duration: Duration(seconds: 180),
+        thumbnails: Thumbnails(),
+      );
+      const playable = Song(
+        id: 'valid_after_block',
+        title: 'Playable Track',
+        artist: 'Artist B',
+        duration: Duration(seconds: 200),
+        thumbnails: Thumbnails(),
+      );
+      final audioPlayer = FakeAudioPlayerService();
+      await playerBloc.close();
+      playerBloc = PlayerBloc(
+        musicRepository: FakeMusicRepository(),
+        libraryRepository: FakeLibraryRepository(),
+        audioPlayerService: audioPlayer,
+        audioFocus: FakeAudioFocusOrchestratorService(),
+        mediaResolver: mediaResolver,
+        reliability: PlaybackReliabilityService(),
+        streamLoader: FakeStreamLoaderService(),
+        downloadService: FakeDownloadService(),
+      );
+
+      playerBloc.add(
+        const PlaySongEvent(
+          song: blocked,
+          queue: [blocked, playable],
+          queueIndex: 0,
+        ),
+      );
+
+      await expectLater(
+        playerBloc.stream,
+        emitsThrough(
+          predicate<PlayerState>(
+            (state) =>
+                state.currentSong?.id == 'valid_after_block' &&
+                state.status == PlayerStatus.playing,
+          ),
+        ),
+      );
+
+      expect(audioPlayer.fallbackFlags, everyElement(isFalse));
+      expect(audioPlayer.playCalls, 1);
+    },
+  );
 
   test('Stops gracefully without infinite loop when all songs in queue fail', () async {
     const song1 = Song(

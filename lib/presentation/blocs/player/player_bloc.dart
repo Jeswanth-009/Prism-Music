@@ -476,7 +476,11 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
                     album: event.song.album,
                     artworkUrl: notificationArtwork,
                     mediaDuration: event.song.duration,
-                    allowYouTubeFallbackOnDirectFailure: true,
+                    // MediaResolver has already exhausted JioSaavn, YouTube,
+                    // Piped and Invidious before returning this URL. Retrying
+                    // YouTube again inside the player turns a definitive 403
+                    // into ~40 seconds of apparent frozen buffering.
+                    allowYouTubeFallbackOnDirectFailure: false,
                   )
                   .timeout(_setSourceTimeout);
         if (generation != _playbackGeneration) return; // user moved on
@@ -488,14 +492,14 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
           '(crossfade=$shouldCrossfade)',
         );
 
+        if (duration == null) {
+          throw Exception('Unable to decode selected audio source');
+        }
+
         if (!shouldCrossfade) {
           await _audioPlayer.play();
         }
         if (generation != _playbackGeneration) return; // user moved on
-
-        if (duration == null) {
-          throw Exception('Unable to decode selected audio source');
-        }
 
         _log('PlayerBloc: Playback started, duration: $duration');
 
