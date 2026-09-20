@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  audio_service resolves this icon by its string name at runtime. Because there
+  is no generated R.drawable reference, Android's release resource shrinker
+  otherwise treats it as unused and removes it from the APK. That makes
+  Notification.Builder receive resource ID 0 and crashes playback on devices.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_notification" />

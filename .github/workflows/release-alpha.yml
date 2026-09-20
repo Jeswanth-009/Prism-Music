@@ -112,8 +112,21 @@ jobs:
       - name: Build release APK
         run: |
           flutter build apk --release \
+            --target-platform android-arm,android-arm64 \
             --build-name "${{ steps.app_version.outputs.build_name }}" \
             --build-number "${{ steps.app_version.outputs.build_number }}"
+          mkdir -p build/release-apks
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            build/release-apks/app-phone-release.apk
+
+      - name: Build x86_64 emulator APK
+        run: |
+          flutter build apk --release \
+            --target-platform android-x64 \
+            --build-name "${{ steps.app_version.outputs.build_name }}" \
+            --build-number "${{ steps.app_version.outputs.build_number }}"
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            build/release-apks/app-emulator-x86_64-release.apk
 
       # ── 7. Build release App Bundle ───────────────────────────────
       - name: Build release App Bundle (AAB)
@@ -128,27 +141,36 @@ jobs:
         shell: bash
         run: |
           TAG="${{ steps.release_tag.outputs.tag }}"
-          APK_SRC="build/app/outputs/flutter-apk/app-release.apk"
+          APK_SRC="build/release-apks/app-phone-release.apk"
+          EMULATOR_APK_SRC="build/release-apks/app-emulator-x86_64-release.apk"
           AAB_SRC="build/app/outputs/bundle/release/app-release.aab"
-          APK_OUT="prism-music-${TAG}.apk"
+          APK_OUT="prism-music-${TAG}-android.apk"
+          EMULATOR_APK_OUT="prism-music-${TAG}-android-emulator-x86_64.apk"
           AAB_OUT="prism-music-${TAG}.aab"
 
           if [[ ! -f "$APK_SRC" ]]; then
             echo "ERROR: Release APK not found at $APK_SRC"; exit 1
+          fi
+          if [[ ! -f "$EMULATOR_APK_SRC" ]]; then
+            echo "ERROR: Emulator APK not found at $EMULATOR_APK_SRC"; exit 1
           fi
           if [[ ! -f "$AAB_SRC" ]]; then
             echo "ERROR: Release AAB not found at $AAB_SRC"; exit 1
           fi
 
           cp "$APK_SRC" "$APK_OUT"
+          cp "$EMULATOR_APK_SRC" "$EMULATOR_APK_OUT"
           cp "$AAB_SRC" "$AAB_OUT"
           sha256sum "$APK_OUT" > "${APK_OUT}.sha256"
+          sha256sum "$EMULATOR_APK_OUT" > "${EMULATOR_APK_OUT}.sha256"
           sha256sum "$AAB_OUT" > "${AAB_OUT}.sha256"
 
-          echo "apk=$APK_OUT"             >> "$GITHUB_OUTPUT"
-          echo "aab=$AAB_OUT"             >> "$GITHUB_OUTPUT"
-          echo "apk_sha=${APK_OUT}.sha256" >> "$GITHUB_OUTPUT"
-          echo "aab_sha=${AAB_OUT}.sha256" >> "$GITHUB_OUTPUT"
+          echo "apk=$APK_OUT"                     >> "$GITHUB_OUTPUT"
+          echo "emulator_apk=$EMULATOR_APK_OUT"   >> "$GITHUB_OUTPUT"
+          echo "aab=$AAB_OUT"                     >> "$GITHUB_OUTPUT"
+          echo "apk_sha=${APK_OUT}.sha256"         >> "$GITHUB_OUTPUT"
+          echo "emulator_apk_sha=${EMULATOR_APK_OUT}.sha256" >> "$GITHUB_OUTPUT"
+          echo "aab_sha=${AAB_OUT}.sha256"         >> "$GITHUB_OUTPUT"
 
       # ── 9. Upload artifacts ────────────────────────────────────────
       - name: Upload release artifacts
@@ -157,8 +179,10 @@ jobs:
           name: prism-music-${{ steps.release_tag.outputs.tag }}
           path: |
             ${{ steps.assets.outputs.apk }}
+            ${{ steps.assets.outputs.emulator_apk }}
             ${{ steps.assets.outputs.aab }}
             ${{ steps.assets.outputs.apk_sha }}
+            ${{ steps.assets.outputs.emulator_apk_sha }}
             ${{ steps.assets.outputs.aab_sha }}
           if-no-files-found: error
 
@@ -181,10 +205,17 @@ jobs:
             | **Source ref** | `${{ github.ref_name }}` |
 
             > ⚠️ This is a pre-release build.
+
+            ### Install
+            Download the single `android.apk` file and tap it to install. It supports
+            both modern 64-bit and older 32-bit ARM phones. The separately labelled
+            `android-emulator-x86_64.apk` is only for PC Android emulators.
           files: |
             ${{ steps.assets.outputs.apk }}
+            ${{ steps.assets.outputs.emulator_apk }}
             ${{ steps.assets.outputs.aab }}
             ${{ steps.assets.outputs.apk_sha }}
+            ${{ steps.assets.outputs.emulator_apk_sha }}
             ${{ steps.assets.outputs.aab_sha }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

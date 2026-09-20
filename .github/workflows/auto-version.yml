@@ -255,9 +255,24 @@ jobs:
         if: steps.next_version.outputs.should_release == 'true'
         run: |
           flutter build apk --release \
+            --target-platform android-arm,android-arm64 \
             --build-name "${{ steps.next_version.outputs.next_version }}" \
             --build-number "${{ steps.next_version.outputs.next_build }}" \
             --android-skip-build-dependency-validation
+          mkdir -p build/release-apks
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            build/release-apks/app-phone-release.apk
+
+      - name: Build x86_64 emulator APK
+        if: steps.next_version.outputs.should_release == 'true'
+        run: |
+          flutter build apk --release \
+            --target-platform android-x64 \
+            --build-name "${{ steps.next_version.outputs.next_version }}" \
+            --build-number "${{ steps.next_version.outputs.next_build }}" \
+            --android-skip-build-dependency-validation
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            build/release-apks/app-emulator-x86_64-release.apk
 
       # ── 11. Build release App Bundle ──────────────────────────────
       - name: Build release App Bundle (AAB)
@@ -275,27 +290,36 @@ jobs:
         shell: bash
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
-          APK_SRC="build/app/outputs/flutter-apk/app-release.apk"
+          APK_SRC="build/release-apks/app-phone-release.apk"
+          EMULATOR_APK_SRC="build/release-apks/app-emulator-x86_64-release.apk"
           AAB_SRC="build/app/outputs/bundle/release/app-release.aab"
-          APK_OUT="prism-music-${TAG}.apk"
+          APK_OUT="prism-music-${TAG}-android.apk"
+          EMULATOR_APK_OUT="prism-music-${TAG}-android-emulator-x86_64.apk"
           AAB_OUT="prism-music-${TAG}.aab"
 
           if [[ ! -f "$APK_SRC" ]]; then
             echo "ERROR: Release APK not found at $APK_SRC"; exit 1
+          fi
+          if [[ ! -f "$EMULATOR_APK_SRC" ]]; then
+            echo "ERROR: Emulator APK not found at $EMULATOR_APK_SRC"; exit 1
           fi
           if [[ ! -f "$AAB_SRC" ]]; then
             echo "ERROR: Release AAB not found at $AAB_SRC"; exit 1
           fi
 
           cp "$APK_SRC" "$APK_OUT"
+          cp "$EMULATOR_APK_SRC" "$EMULATOR_APK_OUT"
           cp "$AAB_SRC" "$AAB_OUT"
           sha256sum "$APK_OUT" > "${APK_OUT}.sha256"
+          sha256sum "$EMULATOR_APK_OUT" > "${EMULATOR_APK_OUT}.sha256"
           sha256sum "$AAB_OUT" > "${AAB_OUT}.sha256"
 
-          echo "apk=$APK_OUT"                   >> "$GITHUB_OUTPUT"
-          echo "aab=$AAB_OUT"                   >> "$GITHUB_OUTPUT"
-          echo "apk_sha=${APK_OUT}.sha256"       >> "$GITHUB_OUTPUT"
-          echo "aab_sha=${AAB_OUT}.sha256"       >> "$GITHUB_OUTPUT"
+          echo "apk=$APK_OUT"                     >> "$GITHUB_OUTPUT"
+          echo "emulator_apk=$EMULATOR_APK_OUT"   >> "$GITHUB_OUTPUT"
+          echo "aab=$AAB_OUT"                     >> "$GITHUB_OUTPUT"
+          echo "apk_sha=${APK_OUT}.sha256"         >> "$GITHUB_OUTPUT"
+          echo "emulator_apk_sha=${EMULATOR_APK_OUT}.sha256" >> "$GITHUB_OUTPUT"
+          echo "aab_sha=${AAB_OUT}.sha256"         >> "$GITHUB_OUTPUT"
 
       # ── 13. Upload artifacts (downloadable from Actions UI) ───────
       - name: Upload release artifacts
@@ -305,8 +329,10 @@ jobs:
           name: prism-music-${{ steps.tag.outputs.tag }}
           path: |
             ${{ steps.assets.outputs.apk }}
+            ${{ steps.assets.outputs.emulator_apk }}
             ${{ steps.assets.outputs.aab }}
             ${{ steps.assets.outputs.apk_sha }}
+            ${{ steps.assets.outputs.emulator_apk_sha }}
             ${{ steps.assets.outputs.aab_sha }}
           if-no-files-found: error
 
@@ -333,13 +359,18 @@ jobs:
             > ⚠️ This is an automated pre-release and may contain breaking changes.
 
             ### Install
-            Download `prism-music-${{ steps.tag.outputs.tag }}.apk` and sideload it.
+            Download `prism-music-${{ steps.tag.outputs.tag }}-android.apk` and tap it to install.
+            It supports modern 64-bit and older 32-bit ARM phones in one file, while
+            omitting emulator-only x86 libraries to keep the download smaller. The clearly
+            labelled `android-emulator-x86_64.apk` is only for PC Android emulators.
             Each release has a strictly increasing `versionCode`, so Android will
             always accept the upgrade without a conflict.
           files: |
             ${{ steps.assets.outputs.apk }}
+            ${{ steps.assets.outputs.emulator_apk }}
             ${{ steps.assets.outputs.aab }}
             ${{ steps.assets.outputs.apk_sha }}
+            ${{ steps.assets.outputs.emulator_apk_sha }}
             ${{ steps.assets.outputs.aab_sha }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
