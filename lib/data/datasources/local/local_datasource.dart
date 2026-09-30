@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../../../core/error/error.dart';
@@ -223,10 +224,13 @@ class LocalDataSourceImpl implements LocalDataSource {
     'id': playlist.id,
     'name': playlist.name,
     'description': playlist.description,
+    'author': playlist.author,
     'thumbnailsLow': playlist.thumbnails?.low,
     'thumbnailsMed': playlist.thumbnails?.medium,
     'thumbnailsHigh': playlist.thumbnails?.high,
     'thumbnailsMax': playlist.thumbnails?.max,
+    'spotifyPlaylistId': playlist.spotifyPlaylistId,
+    'youtubePlaylistId': playlist.youtubePlaylistId,
     'isUserCreated': playlist.isUserCreated,
     'createdAt': playlist.createdAt?.toIso8601String(),
     'updatedAt': playlist.updatedAt?.toIso8601String(),
@@ -243,6 +247,7 @@ class LocalDataSourceImpl implements LocalDataSource {
       id: data['id'] as String? ?? '',
       name: data['name'] as String? ?? '',
       description: data['description'] as String?,
+      author: data['author'] as String?,
       thumbnails: data['thumbnailsLow'] != null || data['thumbnailsMed'] != null || data['thumbnailsHigh'] != null || data['thumbnailsMax'] != null
           ? Thumbnails(
               low: data['thumbnailsLow'] as String?,
@@ -251,6 +256,8 @@ class LocalDataSourceImpl implements LocalDataSource {
               max: data['thumbnailsMax'] as String?,
             )
           : null,
+      spotifyPlaylistId: data['spotifyPlaylistId'] as String?,
+      youtubePlaylistId: data['youtubePlaylistId'] as String?,
       isUserCreated: data['isUserCreated'] as bool? ?? false,
       createdAt: DateTime.tryParse(data['createdAt'] as String? ?? ''),
       updatedAt: DateTime.tryParse(data['updatedAt'] as String? ?? ''),
@@ -258,6 +265,17 @@ class LocalDataSourceImpl implements LocalDataSource {
       totalDuration: Duration(milliseconds: data['totalDurationMs'] as int? ?? 0),
       songs: songs,
     );
+  }
+
+  /// Timestamp alone collides when two playlists are created in the same
+  /// millisecond (Hive keys would overwrite each other) — add random salt.
+  String _newPlaylistId() {
+    final random = Random.secure();
+    final suffix = List.generate(
+      4,
+      (_) => random.nextInt(16).toRadixString(16),
+    ).join();
+    return '${DateTime.now().millisecondsSinceEpoch}-$suffix';
   }
 
   // ============ LIKED SONGS ============
@@ -312,7 +330,7 @@ class LocalDataSourceImpl implements LocalDataSource {
   Future<Playlist> createPlaylist(String name, {String? description}) async {
     final box = await _getPlaylistsBox();
     final playlist = Playlist(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: _newPlaylistId(),
       name: name,
       description: description,
       isUserCreated: true,
@@ -383,7 +401,9 @@ class LocalDataSourceImpl implements LocalDataSource {
     }
     final existing = _mapToPlaylist(Map<String, dynamic>.from(data));
     final existingSongs = existing.songs ?? [];
-    final updatedSongs = existingSongs.where((s) => s.playableId != songId).toList();
+    final updatedSongs = existingSongs
+        .where((s) => s.id != songId && s.playableId != songId)
+        .toList();
     final updated = existing.copyWith(
       songs: updatedSongs,
       trackCount: updatedSongs.length,

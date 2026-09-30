@@ -46,6 +46,12 @@ abstract class LibraryRepository {
     Song song,
   );
 
+  /// Replace all songs in a playlist (used to refresh imported playlists)
+  Future<Either<Failure, void>> updatePlaylistSongs(
+    String playlistId,
+    List<Song> songs,
+  );
+
   /// Remove a song from a playlist
   Future<Either<Failure, void>> removeSongFromPlaylist(
     String playlistId,

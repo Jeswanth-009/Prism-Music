@@ -139,6 +139,21 @@ class LibraryRepositoryImpl implements LibraryRepository {
   }
 
   @override
+  Future<Either<Failure, void>> updatePlaylistSongs(
+    String playlistId,
+    List<Song> songs,
+  ) async {
+    try {
+      await _localDataSource.updatePlaylistSongs(playlistId, songs);
+      return const Right(null);
+    } on CacheException catch (e) {
+      return Left(CacheFailure(message: e.message));
+    } catch (e) {
+      return Left(UnknownFailure(message: e.toString()));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> removeSongFromPlaylist(
     String playlistId,
     String songId,
