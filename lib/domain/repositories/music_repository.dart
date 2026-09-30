@@ -120,8 +120,12 @@ abstract class MusicRepository {
   // ============ PLAYLIST IMPORT ============
 
   /// Import a Spotify playlist by URL
-  /// Converts Spotify tracks to YouTube video IDs
-  Future<Either<Failure, Playlist>> importSpotifyPlaylist(String playlistUrl);
+  /// Converts Spotify tracks to YouTube video IDs.
+  /// [onProgress] reports 0.0–1.0 as tracks are matched.
+  Future<Either<Failure, Playlist>> importSpotifyPlaylist(
+    String playlistUrl, {
+    void Function(double progress)? onProgress,
+  });
 
   /// Import a YouTube playlist by URL
   Future<Either<Failure, Playlist>> importYouTubePlaylist(String playlistUrl);

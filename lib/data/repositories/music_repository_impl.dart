@@ -704,45 +704,97 @@ class MusicRepositoryImpl implements MusicRepository {
   }
 
   @override
-  Future<Either<Failure, Playlist>> importSpotifyPlaylist(String playlistUrl) async {
+  Future<Either<Failure, Playlist>> importSpotifyPlaylist(
+    String playlistUrl, {
+    void Function(double progress)? onProgress,
+  }) async {
     try {
-      // Get tracks from Spotify playlist
-      final spotifyTracks = await _spotifyDataSource.getPlaylistTracks(playlistUrl);
-      
-      if (spotifyTracks.isEmpty) {
-        return const Left(ParsingFailure(message: 'Could not parse Spotify playlist'));
-      }
-
-      // Convert Spotify tracks to YouTube video IDs
-      final convertedSongs = <Song>[];
-      
-      for (final track in spotifyTracks) {
-        final youtubeIdResult = await spotifyToYouTubeId(track.title, track.artist);
-        
-        await youtubeIdResult.fold(
-          (failure) async {
-            // Skip failed conversions
-          },
-          (youtubeId) async {
-            convertedSongs.add(track.copyWith(youtubeId: youtubeId));
-          },
+      final details = await _spotifyDataSource.getPlaylistDetails(playlistUrl);
+      if (details == null) {
+        return const Left(
+          ParsingFailure(
+            message:
+                'Could not read that Spotify playlist. Make sure it is public and the link is correct.',
+          ),
         );
       }
 
-      // Create local playlist
+      // Match each track on YouTube in parallel (small worker pool) so a
+      // 100-track playlist takes seconds instead of minutes.
+      final tracks = details.tracks;
+      final matched = List<Song?>.filled(tracks.length, null);
+      var nextIndex = 0;
+      var converted = 0;
+
+      Future<void> worker() async {
+        while (nextIndex < tracks.length) {
+          final index = nextIndex++;
+          final track = tracks[index];
+          final match = await _searchYoutubeMatch(track.title, track.artist);
+          if (match != null) {
+            matched[index] = track.copyWith(
+              youtubeId: match.youtubeId ?? match.id,
+              // Spotify embed tracks carry no artwork — fall back to the
+              // YouTube match's thumbnail.
+              thumbnails: track.thumbnails.smallest == null
+                  ? match.thumbnails
+                  : track.thumbnails,
+            );
+          }
+          converted++;
+          onProgress?.call(converted / tracks.length);
+        }
+      }
+
+      await Future.wait([
+        for (var i = 0; i < 5 && i < tracks.length; i++) worker(),
+      ]);
+
+      final convertedSongs = matched.whereType<Song>().toList();
+      if (convertedSongs.isEmpty) {
+        return const Left(
+          ParsingFailure(
+            message:
+                'Tracks were read from Spotify but none could be matched on YouTube. Try again later.',
+          ),
+        );
+      }
+
       final playlist = Playlist(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: 'Imported Spotify Playlist',
+        id: 'spotify_${details.id}',
+        name: details.name,
+        description:
+            details.owner == null ? null : 'Imported from Spotify • ${details.owner}',
+        thumbnails: details.coverUrl == null
+            ? null
+            : Thumbnails.fromUrl(details.coverUrl!),
+        author: details.owner,
         trackCount: convertedSongs.length,
         songs: convertedSongs,
         isUserCreated: true,
-        spotifyPlaylistId: playlistUrl,
+        spotifyPlaylistId: details.id,
         createdAt: DateTime.now(),
       );
 
       return Right(playlist);
     } catch (e) {
       return Left(UnknownFailure(message: e.toString()));
+    }
+  }
+
+  /// Search YT Music for the closest match to a Spotify track.
+  Future<Song?> _searchYoutubeMatch(String trackTitle, String artistName) async {
+    try {
+      final items = await _ytMusicApiService.searchSongs(
+        '$artistName $trackTitle',
+      );
+      final results = items
+          .map((item) => songFromYtMusicApi(item))
+          .where((song) => song.playableId.isNotEmpty)
+          .toList();
+      return results.isEmpty ? null : results.first;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -794,23 +846,12 @@ class MusicRepositoryImpl implements MusicRepository {
     String trackTitle,
     String artistName,
   ) async {
-    try {
-      // Search YT Music for the song.
-      final query = '$artistName $trackTitle';
-      final items = await _ytMusicApiService.searchSongs(query);
-      final results = items
-          .map((item) => songFromYtMusicApi(item))
-          .where((song) => song.playableId.isNotEmpty)
-          .take(1)
-          .toList();
-      
-      if (results.isEmpty) {
-        return const Left(SearchFailure(message: 'No matching YouTube video found'));
-      }
-      
-      return Right(results.first.youtubeId ?? results.first.id);
-    } catch (e) {
-      return Left(UnknownFailure(message: e.toString()));
+    final match = await _searchYoutubeMatch(trackTitle, artistName);
+    if (match == null) {
+      return const Left(
+        SearchFailure(message: 'No matching YouTube video found'),
+      );
     }
+    return Right(match.youtubeId ?? match.id);
   }
 }
