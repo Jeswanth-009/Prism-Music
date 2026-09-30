@@ -181,7 +181,7 @@ Runs on every push to `main` (skips doc-only changes and its own bot commits):
 Re-builds and re-publishes when you push an `alpha-v*` tag, or run it manually
 from the Actions tab (adds a `-run<N>` suffix so tags never collide).
 
-### Release signing (optional)
+### Release signing
 
 Signing is enabled automatically when these repository secrets are set:
 
@@ -190,7 +190,24 @@ Signing is enabled automatically when these repository secrets are set:
 - `ANDROID_KEYSTORE_PASSWORD`
 - `ANDROID_KEY_PASSWORD`
 
-Without secrets, builds fall back to debug signing.
+These are configured: every automated release is signed with the project
+keystore at `android/release-keystore.jks` (kept out of git; credentials live
+in `android/key.properties`, also gitignored). Without the secrets, builds
+fall back to debug signing — and since each CI runner generates its own
+throwaway debug key, those APKs can never update an install of another build.
+
+> **Keep `android/release-keystore.jks` and `android/key.properties` backed up
+> somewhere safe.** If both are lost, no future APK can ever update existing
+> installs and the app would have to be reinstalled (losing local data) after
+> every release, forever.
+
+### Updating installed builds
+
+Android only accepts an update whose APK is signed with the **same key** as
+the installed app. Releases before `alpha-v0.2.21` were signed with per-run
+debug keys, so updating from one of those fails with a package-conflict
+error — **uninstall the old build once, then install `alpha-v0.2.21` or
+newer**. All later releases share the stable release key and update in place.
 
 ## Versioning Strategy
 

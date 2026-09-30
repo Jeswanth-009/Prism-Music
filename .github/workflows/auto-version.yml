@@ -233,18 +233,22 @@ jobs:
         run: |
           if [[ -n "$ANDROID_KEYSTORE_BASE64" && -n "$ANDROID_KEY_ALIAS" \
              && -n "$ANDROID_KEYSTORE_PASSWORD" && -n "$ANDROID_KEY_PASSWORD" ]]; then
+            # app/build.gradle.kts resolves storeFile relative to android/app/,
+            # so the keystore lives at android/ and the path needs the ../ prefix.
             echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release-keystore.jks
             {
               echo "storePassword=$ANDROID_KEYSTORE_PASSWORD"
               echo "keyPassword=$ANDROID_KEY_PASSWORD"
               echo "keyAlias=$ANDROID_KEY_ALIAS"
-              echo "storeFile=release-keystore.jks"
+              echo "storeFile=../release-keystore.jks"
             } > android/key.properties
             echo "SIGNED_BUILD=true" >> "$GITHUB_ENV"
             echo "Release signing configured from secrets."
           else
             echo "SIGNED_BUILD=false" >> "$GITHUB_ENV"
             echo "No signing secrets found — using debug signing fallback."
+            echo "WARNING: runner debug keys are unique per run, so APKs built"
+            echo "this way can never update an install of a previous release."
           fi
 
       # ── 10. Build release APK ────────────────────────────────────
