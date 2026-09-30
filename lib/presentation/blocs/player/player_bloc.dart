@@ -363,6 +363,20 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     List<Song> initialQueue = event.queue ?? [event.song];
     int initialQueueIndex = event.queueIndex ?? 0;
 
+    // Honor the persisted Auto Shuffle preference: on a user-initiated play
+    // of a multi-song queue, shuffle the remaining songs behind the picked
+    // track. (The toggle used to persist a value nothing ever read.)
+    if (event.userInitiated &&
+        event.queue != null &&
+        initialQueue.length > 1 &&
+        _settingsService.autoShuffle) {
+      final shuffled = [...initialQueue];
+      final picked = shuffled.removeAt(initialQueueIndex);
+      shuffled.shuffle();
+      initialQueue = [picked, ...shuffled];
+      initialQueueIndex = 0;
+    }
+
     // Update UI immediately with the song info (before loading)
     emit(
       state.copyWith(
