@@ -27,16 +27,60 @@ class LocalBackupService {
 
   Timer? _debounce;
 
+  /// Backup file locations, best first.
+  ///
+  /// The primary location is the *public* Downloads folder: it is visible
+  /// to the user and the only place that survives an uninstall — the
+  /// app-specific dirs returned by getExternalStorageDirectory()
+  /// (`Android/data/<package>/…`) are wiped by Android together with the
+  /// app, which defeated the whole purpose of this backup. The remaining
+  /// candidates are kept so backups written by older builds are still
+  /// readable, and so non-Android platforms have a home.
   Future<File?> _backupFile() async {
-    try {
-      final Directory base =
-          await getExternalStorageDirectory() ?? await getApplicationDocumentsDirectory();
-      final Directory backupDir = Directory('${base.path}/PrismMusic/backup');
-      await backupDir.create(recursive: true);
-      return File('${backupDir.path}/library_backup.json');
-    } catch (_) {
-      return null;
+    for (final Directory base in await _candidateBaseDirs()) {
+      try {
+        final Directory backupDir = Directory('${base.path}/PrismMusic/backup');
+        await backupDir.create(recursive: true);
+        return File('${backupDir.path}/library_backup.json');
+      } catch (_) {
+        // Try the next candidate.
+      }
     }
+    return null;
+  }
+
+  /// Existing backup files, newest-preference order. Returns every
+  /// candidate that exists on disk; [restoreIfNeeded] uses the first.
+  Future<List<File>> _existingBackupFiles() async {
+    final files = <File>[];
+    for (final Directory base in await _candidateBaseDirs()) {
+      final file = File('${base.path}/PrismMusic/backup/library_backup.json');
+      try {
+        if (await file.exists()) files.add(file);
+      } catch (_) {
+        // Unreadable candidate — skip it.
+      }
+    }
+    return files;
+  }
+
+  Future<List<Directory>> _candidateBaseDirs() async {
+    final dirs = <Directory>[];
+    // Public shared storage (Android). Unreachable paths simply fail the
+    // create() in the caller and fall through to the next candidate.
+    dirs.add(Directory('/storage/emulated/0/Download'));
+    try {
+      final external = await getExternalStorageDirectory();
+      if (external != null) dirs.add(external);
+    } catch (_) {
+      // Not available on this platform.
+    }
+    try {
+      dirs.add(await getApplicationDocumentsDirectory());
+    } catch (_) {
+      // Last resort failed — caller handles the empty list.
+    }
+    return dirs;
   }
 
   /// Schedule a debounced backup. Safe to call after every mutation; rapid
@@ -80,18 +124,27 @@ class LocalBackupService {
     }
   }
 
-  /// Restore boxes from the backup file, but only when a box is currently
-  /// empty (so a fresh install reuses old data without clobbering new data).
+  /// Restore boxes from the newest reachable backup file, but only when a
+  /// box is currently empty (so a fresh install reuses old data without
+  /// clobbering new data).
   Future<void> restoreIfNeeded() async {
     try {
-      final File? file = await _backupFile();
-      if (file == null || !await file.exists()) return;
+      final candidates = await _existingBackupFiles();
+      if (candidates.isEmpty) return;
 
-      final Map<String, dynamic> payload =
-          jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-      final Map<String, dynamic> boxes =
-          (payload['boxes'] as Map<dynamic, dynamic>?)?.cast<String, dynamic>() ??
-              <String, dynamic>{};
+      Map<String, dynamic>? boxes;
+      for (final file in candidates) {
+        try {
+          final Map<String, dynamic> payload =
+              jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+          boxes =
+              (payload['boxes'] as Map<dynamic, dynamic>?)?.cast<String, dynamic>();
+          if (boxes != null && boxes.isNotEmpty) break;
+        } catch (_) {
+          // Corrupt or unreadable candidate — try the next one.
+        }
+      }
+      if (boxes == null) return;
 
       for (final String name in _boxes) {
         final dynamic entries = boxes[name];
