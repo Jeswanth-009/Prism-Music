@@ -3,14 +3,16 @@ import 'package:flutter/foundation.dart';
 import '../../../../domain/entities/stream_info.dart';
 import '../../../../domain/entities/song.dart';
 
-/// Invidious instance URLs (public proxies for YouTube)
+/// Invidious instance URLs (public proxies for YouTube).
+/// Health-checked 2026-09: the first two serve playlist/video data reliably.
 class InvidiousInstances {
   static const List<String> instances = [
-    'https://inv.tux.pizza',
-    'https://invidious.nerdvpn.de',
-    'https://invidious.private.coffee',
     'https://inv.nadeko.net',
+    'https://invidious.f5.si',
+    'https://invidious.private.coffee',
+    'https://inv.tux.pizza',
     'https://yewtu.be',
+    'https://invidious.nerdvpn.de',
   ];
   
   static String _currentInstance = instances[0];
@@ -27,6 +29,23 @@ class InvidiousInstances {
     _currentIndex = 0;
     _currentInstance = instances[0];
   }
+}
+
+/// Playlist metadata + tracks fetched from an Invidious instance.
+class InvidiousPlaylistData {
+  final String title;
+  final String? author;
+  final String? description;
+  final String? thumbnailUrl;
+  final List<Song> songs;
+
+  const InvidiousPlaylistData({
+    required this.title,
+    this.author,
+    this.description,
+    this.thumbnailUrl,
+    required this.songs,
+  });
 }
 
 /// Data source that uses Invidious API as a fallback for YouTube streams
@@ -185,9 +204,117 @@ class InvidiousDataSource {
     return null;
   }
   
+  /// Fetch a YouTube playlist's metadata and tracks from Invidious.
+  ///
+  /// Fallback for playlist imports: youtube_explode's playlist pagination
+  /// currently returns zero videos against YouTube's live API. Rotates
+  /// through every instance before giving up. Returns null when no
+  /// instance can serve the playlist.
+  Future<InvidiousPlaylistData?> getPlaylistDetails(String playlistId) async {
+    for (var attempt = 0;
+        attempt < InvidiousInstances.instances.length;
+        attempt++) {
+      final instance = InvidiousInstances.currentInstance;
+      try {
+        debugPrint('InvidiousDataSource: Fetching playlist from $instance');
+        final response = await _dio.get(
+          '$instance/api/v1/playlists/$playlistId',
+          options: Options(
+            // Playlist payloads run large (one entry per track, each with
+            // thumbnail variants) — allow more time than stream lookups.
+            receiveTimeout: const Duration(seconds: 25),
+            validateStatus: (status) => status != null && status < 500,
+          ),
+        );
+
+        final data = response.data;
+        if (response.statusCode != 200 || data is! Map<String, dynamic>) {
+          debugPrint(
+            'InvidiousDataSource: Bad playlist response from $instance '
+            '(${response.statusCode})',
+          );
+          InvidiousInstances.rotateInstance();
+          continue;
+        }
+        if (data['error'] != null) {
+          debugPrint(
+            'InvidiousDataSource: Playlist error from $instance: '
+            '${data['error']}',
+          );
+          InvidiousInstances.rotateInstance();
+          continue;
+        }
+
+        final songs = <Song>[];
+        final videos = data['videos'] as List? ?? const [];
+        for (final video in videos) {
+          if (video is! Map<String, dynamic>) continue;
+          final videoId = video['videoId']?.toString() ?? '';
+          final title = (video['title'] ?? '').toString().trim();
+          if (videoId.isEmpty || title.isEmpty) continue;
+
+          final author = (video['author'] ?? '').toString().trim();
+          final thumbnails = video['videoThumbnails'] as List? ?? const [];
+          String? thumbnailUrl;
+          for (final thumb in thumbnails) {
+            if (thumb is! Map<String, dynamic>) continue;
+            if (thumb['quality'] == 'high') {
+              thumbnailUrl = thumb['url']?.toString();
+              break;
+            }
+          }
+          thumbnailUrl ??= thumbnails
+              .whereType<Map<String, dynamic>>()
+              .map((t) => t['url']?.toString())
+              .firstWhere((url) => url != null && url.isNotEmpty,
+                  orElse: () => null);
+
+          songs.add(Song(
+            id: videoId,
+            title: title,
+            artist: author.isEmpty ? 'Unknown Artist' : author,
+            duration:
+                Duration(seconds: (video['lengthSeconds'] as num?)?.toInt() ?? 0),
+            thumbnails: thumbnailUrl == null
+                ? const Thumbnails()
+                : Thumbnails.fromUrl(thumbnailUrl),
+            source: MusicSource.youtube,
+            youtubeId: videoId,
+          ));
+        }
+
+        if (songs.isEmpty) {
+          debugPrint(
+            'InvidiousDataSource: $instance returned no videos, rotating',
+          );
+          InvidiousInstances.rotateInstance();
+          continue;
+        }
+
+        final title = (data['title'] ?? '').toString().trim();
+        return InvidiousPlaylistData(
+          title: title.isEmpty ? 'YouTube Playlist' : title,
+          author: _optionalText(data['author']),
+          description: _optionalText(data['description']),
+          thumbnailUrl: _optionalText(data['playlistThumbnail']),
+          songs: songs,
+        );
+      } catch (e) {
+        debugPrint('InvidiousDataSource: Playlist fetch failed on $instance: $e');
+        InvidiousInstances.rotateInstance();
+        continue;
+      }
+    }
+    return null;
+  }
+
+  String? _optionalText(Object? value) {
+    final text = (value ?? '').toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
   /// Proxy a googlevideo URL through Invidious
-  String _proxyThroughInvidious(String instance, String googleUrl) {
-    try {
+  String _proxyThroughInvidious(String instance, String googleUrl) {    try {
       final uri = Uri.parse(googleUrl);
       // Invidious proxy format
       return '$instance/videoplayback?${uri.query}&host=${uri.host}';

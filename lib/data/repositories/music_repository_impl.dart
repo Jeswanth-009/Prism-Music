@@ -804,14 +804,23 @@ class MusicRepositoryImpl implements MusicRepository {
       // Extract playlist ID from URL
       final regex = RegExp(r'[?&]list=([^&]+)');
       final match = regex.firstMatch(playlistUrl);
-      
+
       if (match == null) {
         return const Left(ParsingFailure(message: 'Invalid YouTube playlist URL'));
       }
 
       final playlistId = match.group(1)!;
       final playlist = await _youtubeMusicDataSource.getPlaylistDetails(playlistId);
-      
+
+      if (playlist.songs == null || playlist.songs!.isEmpty) {
+        return const Left(
+          ParsingFailure(
+            message:
+                'Could not fetch that playlist\u2019s tracks. Make sure it is public and the link is correct.',
+          ),
+        );
+      }
+
       return Right(playlist.copyWith(isUserCreated: true));
     } catch (e) {
       return Left(UnknownFailure(message: e.toString()));

@@ -440,15 +440,50 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
 
   @override
   Future<Playlist> getPlaylistDetails(String playlistId) async {
-    final playlist = await _youtube.playlists.get(playlistId);
-    final videos = await _youtube.playlists.getVideos(playlistId).toList();
-
-    final songs = videos.map((v) => _videoToSong(v)).toList();
-    String? thumbnailUrl;
+    // Metadata first — playlists.get is still served reliably.
+    String? name;
+    String? author;
+    String? description;
+    Thumbnails? thumbnails;
     try {
-      thumbnailUrl = playlist.thumbnails.maxResUrl;
+      final playlist = await _youtube.playlists.get(playlistId);
+      name = playlist.title;
+      author = playlist.author;
+      description = playlist.description;
+      try {
+        final thumbnailUrl = playlist.thumbnails.maxResUrl;
+        if (thumbnailUrl.isNotEmpty) {
+          thumbnails = Thumbnails.fromUrl(thumbnailUrl);
+        }
+      } catch (_) {
+        thumbnails = null;
+      }
     } catch (e) {
-      thumbnailUrl = null;
+      debugPrint('YouTubeDataSource: playlists.get failed for $playlistId: $e');
+    }
+
+    // Tracks: youtube_explode's playlist pagination currently returns zero
+    // videos against YouTube's live API, so fall back to the Invidious
+    // mirror for tracks (and anything else still missing).
+    List<Song> songs = const [];
+    try {
+      final videos = await _youtube.playlists.getVideos(playlistId).toList();
+      songs = videos.map(_videoToSong).toList();
+    } catch (e) {
+      debugPrint('YouTubeDataSource: getVideos failed for $playlistId: $e');
+    }
+
+    if (songs.isEmpty || name == null) {
+      final alt = await _invidious.getPlaylistDetails(playlistId);
+      if (alt != null) {
+        if (songs.isEmpty) songs = alt.songs;
+        name ??= alt.title;
+        author ??= alt.author;
+        description ??= alt.description;
+        thumbnails ??= alt.thumbnailUrl == null
+            ? null
+            : Thumbnails.fromUrl(alt.thumbnailUrl!);
+      }
     }
 
     // Calculate total duration
@@ -458,17 +493,15 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
     }
 
     return Playlist(
-      id: playlist.id.value,
-      name: playlist.title,
-      description: playlist.description,
-      thumbnails: thumbnailUrl != null
-          ? Thumbnails.fromUrl(thumbnailUrl)
-          : Thumbnails.empty(),
-      author: playlist.author,
-      trackCount: videos.length,
+      id: playlistId,
+      name: (name == null || name.isEmpty) ? 'YouTube Playlist' : name,
+      description: description,
+      thumbnails: thumbnails ?? Thumbnails.empty(),
+      author: author,
+      trackCount: songs.length,
       totalDuration: totalDuration,
       songs: songs,
-      youtubePlaylistId: playlist.id.value,
+      youtubePlaylistId: playlistId,
     );
   }
 
