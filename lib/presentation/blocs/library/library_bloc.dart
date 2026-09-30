@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../domain/entities/entities.dart';
 import '../../../domain/repositories/repositories.dart';
 import 'library_event.dart';
 import 'library_state.dart';
@@ -191,35 +192,33 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     emit(state.copyWith(
       status: LibraryStatus.importing,
       importProgress: 0.0,
+      errorMessage: null,
     ));
 
-    try {
-      final result = await _musicRepository.importSpotifyPlaylist(event.playlistUrl);
+    final result = await _musicRepository.importSpotifyPlaylist(
+      event.playlistUrl,
+      onProgress: (progress) => emit(state.copyWith(importProgress: progress)),
+    );
 
-      result.fold(
-        (failure) {
-          emit(state.copyWith(
-            status: LibraryStatus.error,
-            errorMessage: failure.message,
-            importProgress: null,
-          ));
-        },
-        (playlist) {
-          final updatedPlaylists = [playlist, ...state.playlists];
-          emit(state.copyWith(
-            status: LibraryStatus.success,
-            playlists: updatedPlaylists,
-            importProgress: null,
-          ));
-        },
-      );
-    } catch (e) {
-      emit(state.copyWith(
-        status: LibraryStatus.error,
-        errorMessage: e.toString(),
-        importProgress: null,
-      ));
-    }
+    await result.fold(
+      (failure) async {
+        emit(state.copyWith(
+          status: LibraryStatus.error,
+          errorMessage: failure.message,
+          importProgress: null,
+        ));
+        event.onDone?.call(failure.message);
+      },
+      (playlist) async {
+        final saved = await _persistImportedPlaylist(playlist);
+        emit(state.copyWith(
+          status: LibraryStatus.success,
+          playlists: [saved, ...state.playlists],
+          importProgress: null,
+        ));
+        event.onDone?.call(null);
+      },
+    );
   }
 
   Future<void> _onImportYouTubePlaylist(
@@ -229,35 +228,60 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     emit(state.copyWith(
       status: LibraryStatus.importing,
       importProgress: 0.0,
+      errorMessage: null,
     ));
 
-    try {
-      final result = await _musicRepository.importYouTubePlaylist(event.playlistUrl);
+    final result = await _musicRepository.importYouTubePlaylist(
+      event.playlistUrl,
+    );
 
-      result.fold(
-        (failure) {
-          emit(state.copyWith(
-            status: LibraryStatus.error,
-            errorMessage: failure.message,
-            importProgress: null,
-          ));
-        },
-        (playlist) {
-          final updatedPlaylists = [playlist, ...state.playlists];
-          emit(state.copyWith(
-            status: LibraryStatus.success,
-            playlists: updatedPlaylists,
-            importProgress: null,
-          ));
-        },
-      );
-    } catch (e) {
-      emit(state.copyWith(
-        status: LibraryStatus.error,
-        errorMessage: e.toString(),
-        importProgress: null,
-      ));
-    }
+    await result.fold(
+      (failure) async {
+        emit(state.copyWith(
+          status: LibraryStatus.error,
+          errorMessage: failure.message,
+          importProgress: null,
+        ));
+        event.onDone?.call(failure.message);
+      },
+      (playlist) async {
+        final saved = await _persistImportedPlaylist(playlist);
+        emit(state.copyWith(
+          status: LibraryStatus.success,
+          playlists: [saved, ...state.playlists],
+          importProgress: null,
+        ));
+        event.onDone?.call(null);
+      },
+    );
+  }
+
+  /// Save an imported playlist into the local library so it survives app
+  /// restarts, and return the persisted version (falling back to the
+  /// in-memory playlist when persistence fails).
+  Future<Playlist> _persistImportedPlaylist(Playlist playlist) async {
+    final createdResult = await _libraryRepository.createPlaylist(
+      playlist.name,
+      description: playlist.description,
+    );
+
+    final songs = playlist.songs ?? const <Song>[];
+    return createdResult.fold(
+      (failure) async => playlist,
+      (created) async {
+        for (final song in songs) {
+          await _libraryRepository.addSongToPlaylist(created.id, song);
+        }
+        return created.copyWith(
+          songs: songs.toList(),
+          trackCount: songs.length,
+          thumbnails: playlist.thumbnails,
+          author: playlist.author,
+          spotifyPlaylistId: playlist.spotifyPlaylistId,
+          youtubePlaylistId: playlist.youtubePlaylistId,
+        );
+      },
+    );
   }
 
   Future<void> _onLoadHistory(

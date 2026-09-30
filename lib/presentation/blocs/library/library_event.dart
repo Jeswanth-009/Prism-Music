@@ -77,10 +77,15 @@ class RemoveFromPlaylistEvent extends LibraryEvent {
 }
 
 /// Import a Spotify playlist
+///
+/// [onDone] is called exactly once when the import settles — null means
+/// success, otherwise it carries the error message. Callers use it to await
+/// the result instead of racing on the state stream.
 class ImportSpotifyPlaylistEvent extends LibraryEvent {
   final String playlistUrl;
+  final void Function(String? errorMessage)? onDone;
 
-  const ImportSpotifyPlaylistEvent(this.playlistUrl);
+  const ImportSpotifyPlaylistEvent(this.playlistUrl, {this.onDone});
 
   @override
   List<Object?> get props => [playlistUrl];
@@ -89,8 +94,9 @@ class ImportSpotifyPlaylistEvent extends LibraryEvent {
 /// Import a YouTube playlist
 class ImportYouTubePlaylistEvent extends LibraryEvent {
   final String playlistUrl;
+  final void Function(String? errorMessage)? onDone;
 
-  const ImportYouTubePlaylistEvent(this.playlistUrl);
+  const ImportYouTubePlaylistEvent(this.playlistUrl, {this.onDone});
 
   @override
   List<Object?> get props => [playlistUrl];

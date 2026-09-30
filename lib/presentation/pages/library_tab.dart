@@ -258,7 +258,8 @@ class _LibraryTabState extends State<LibraryTab>
   }
 
   /// Spotify / YouTube playlist import. Dispatches the import event and
-  /// reports the outcome when the bloc settles.
+  /// reports the outcome through the event's onDone callback (the state
+  /// stream can't be used for this — its current state replays on listen).
   Future<void> _importPlaylist() async {
     final params = await showPrismSheet<({_ImportSource source, String url})>(
       context: context,
@@ -268,27 +269,30 @@ class _LibraryTabState extends State<LibraryTab>
     if (params == null || params.url.isEmpty || !mounted) return;
 
     final bloc = context.read<LibraryBloc>();
+    final done = Completer<String?>();
     bloc.add(
       params.source == _ImportSource.spotify
-          ? ImportSpotifyPlaylistEvent(params.url)
-          : ImportYouTubePlaylistEvent(params.url),
+          ? ImportSpotifyPlaylistEvent(
+              params.url,
+              onDone: (error) {
+                if (!done.isCompleted) done.complete(error);
+              },
+            )
+          : ImportYouTubePlaylistEvent(
+              params.url,
+              onDone: (error) {
+                if (!done.isCompleted) done.complete(error);
+              },
+            ),
     );
 
     try {
-      final result = await bloc.stream
-          .firstWhere((s) => s.status != LibraryStatus.importing)
-          .timeout(const Duration(minutes: 2));
+      final error = await done.future.timeout(const Duration(minutes: 5));
       if (!mounted) return;
-      if (result.status == LibraryStatus.error) {
-        showPrismToast(
-          context,
-          result.errorMessage ?? 'Import failed — check the link.',
-        );
-      } else {
-        showPrismToast(context, 'Playlist imported');
-      }
+      showPrismToast(context, error ?? 'Playlist imported');
     } on TimeoutException {
-      if (mounted) showPrismToast(context, 'Import is taking too long.');
+      if (!mounted) return;
+      showPrismToast(context, 'Import is taking too long.');
     }
   }
 
@@ -582,9 +586,13 @@ class _ImportSheetState extends State<_ImportSheet> {
   bool get _isValidUrl {
     final text = _urlController.text.trim();
     if (text.length < 10) return false;
-    return _source == _ImportSource.spotify
-        ? text.contains('spotify.com')
-        : text.contains('youtube.com') || text.contains('youtu.be');
+    return switch (_source) {
+      _ImportSource.spotify => text.contains('spotify.com') ||
+          text.startsWith('spotify:') ||
+          text.contains('spotify.link'),
+      _ImportSource.youtube =>
+        text.contains('youtube.com') || text.contains('youtu.be'),
+    };
   }
 
   @override
