@@ -325,11 +325,13 @@ class _SettingsPageState extends State<SettingsPage> {
         BlocBuilder<PlayerBloc, PlayerState>(
           builder: (context, state) {
             final quality = state.audioQuality;
+            // Keep these in sync with the AudioQuality entity bitrates —
+            // the labels previously advertised 96/192 kbps.
             final subtitle = switch (quality) {
-              AudioQuality.low => 'Low (96 kbps)',
+              AudioQuality.low => 'Low (64 kbps)',
               AudioQuality.medium => 'Medium (128 kbps)',
-              AudioQuality.high => 'High (192 kbps)',
-              AudioQuality.lossless => 'Lossless (FLAC/ALAC)',
+              AudioQuality.high => 'High (256 kbps)',
+              AudioQuality.lossless => 'Lossless (320 kbps)',
             };
             return SettingRow(
               leading: const Icon(Icons.waves_rounded),
@@ -376,8 +378,11 @@ class _SettingsPageState extends State<SettingsPage> {
               ButtonSegment(value: 0, label: Text('0')),
               ButtonSegment(value: 1, label: Text('1')),
               ButtonSegment(value: 2, label: Text('2')),
+              ButtonSegment(value: 3, label: Text('3')),
             ],
-            selected: {_prefetchLookahead},
+            // The service default is 3 — the old 0–2 control rendered with
+            // nothing selected on a fresh install.
+            selected: {_prefetchLookahead.clamp(0, 3)},
             onSelectionChanged: (selection) async {
               final value = selection.first;
               await _settingsService.setPrefetchLookahead(value);
@@ -400,8 +405,13 @@ class _SettingsPageState extends State<SettingsPage> {
         SettingRow(
           leading: const Icon(Icons.timer_outlined),
           title: 'Crossfade Duration',
-          subtitle: 'Smooth transition between songs',
-          onTap: () => SettingsDialogs.showCrossfadeDialog(context),
+          subtitle: _settingsService.crossfadeDuration <= 0
+              ? 'Off — smooth transitions between songs'
+              : 'Currently ${_settingsService.crossfadeDuration.toStringAsFixed(1)}s',
+          onTap: () async {
+            await SettingsDialogs.showCrossfadeDialog(context);
+            _forceRebuild();
+          },
         ),
       ],
     );
@@ -464,7 +474,17 @@ class _SettingsPageState extends State<SettingsPage> {
           onTap: () async {
             final url =
                 Uri.parse('https://github.com/Jeswanth-009/Prism-Music');
-            if (await canLaunchUrl(url)) await launchUrl(url);
+            try {
+              final launched = await launchUrl(
+                url,
+                mode: LaunchMode.externalApplication,
+              );
+              if (!launched && mounted) {
+                showPrismToast(context, 'Could not open the browser');
+              }
+            } catch (_) {
+              if (mounted) showPrismToast(context, 'Could not open the browser');
+            }
           },
         ),
       ],

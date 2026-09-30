@@ -94,55 +94,6 @@ class SettingsDialogs {
     );
   }
 
-  static void showPlayerUiStyleSheet(
-    BuildContext context,
-    SettingsService settingsService,
-    VoidCallback onStateChanged,
-  ) {
-    final currentStyle = settingsService.playerUiStyle;
-    final descriptions = {
-      PlayerUiStyle.classic: 'Detailed layout with glassmorphism',
-      PlayerUiStyle.modern: 'Minimal circular dial inspired by modern players',
-    };
-
-    showPrismSheet(
-      context: context,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                child: Text(
-                  'Player UI Style',
-                  style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              for (final style in PlayerUiStyle.values)
-                RadioListTile<PlayerUiStyle>(
-                  value: style,
-                  groupValue: currentStyle,
-                  onChanged: (value) async {
-                    if (value != null) {
-                      Navigator.pop(sheetContext);
-                      await settingsService.setPlayerUiStyle(value);
-                      onStateChanged();
-                    }
-                  },
-                  title: Text(style.label),
-                  subtitle: Text(descriptions[style] ?? ''),
-                ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   static void showAudioQualityDialog(BuildContext context) {
     final currentQuality = SettingsService.instance.audioQuality;
 
@@ -177,48 +128,15 @@ class SettingsDialogs {
     );
   }
 
-  static void showRepeatModeDialog(BuildContext context) {
-    showDialog<void>(
+  /// Opens the crossfade slider pre-set to the saved duration.
+  /// Resolves once the dialog is closed so callers can refresh their rows.
+  static Future<void> showCrossfadeDialog(BuildContext context) {
+    return showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return SimpleDialog(
-          title: const Text('Default Repeat Mode'),
-          children: [
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const ListTile(
-                leading: Icon(Icons.close_rounded),
-                title: Text('Off'),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const ListTile(
-                leading: Icon(Icons.repeat_rounded),
-                title: Text('Repeat All'),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const ListTile(
-                leading: Icon(Icons.repeat_one_rounded),
-                title: Text('Repeat One'),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  static void showCrossfadeDialog(BuildContext context) {
-    double duration = 2.0;
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
+        // Previously always opened at 2.0s, ignoring the persisted value.
+        double duration =
+            SettingsService.instance.crossfadeDuration.clamp(0.0, 10.0);
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
@@ -232,7 +150,7 @@ class SettingsDialogs {
                   ),
                   const SizedBox(height: 12),
                   Slider(
-                    value: (duration / 10.0).clamp(0.0, 1.0),
+                    value: duration / 10.0,
                     onChanged: (value) {
                       setDialogState(() => duration = value * 10.0);
                     },
