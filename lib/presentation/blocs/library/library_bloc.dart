@@ -210,10 +210,14 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
         event.onDone?.call(failure.message);
       },
       (playlist) async {
-        final saved = await _persistImportedPlaylist(playlist);
+        final (saved, isNew) = await _persistImportedPlaylist(playlist);
         emit(state.copyWith(
           status: LibraryStatus.success,
-          playlists: [saved, ...state.playlists],
+          playlists: isNew
+              ? [saved, ...state.playlists]
+              : state.playlists
+                  .map((p) => p.id == saved.id ? saved : p)
+                  .toList(),
           importProgress: null,
         ));
         event.onDone?.call(null);
@@ -245,10 +249,14 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
         event.onDone?.call(failure.message);
       },
       (playlist) async {
-        final saved = await _persistImportedPlaylist(playlist);
+        final (saved, isNew) = await _persistImportedPlaylist(playlist);
         emit(state.copyWith(
           status: LibraryStatus.success,
-          playlists: [saved, ...state.playlists],
+          playlists: isNew
+              ? [saved, ...state.playlists]
+              : state.playlists
+                  .map((p) => p.id == saved.id ? saved : p)
+                  .toList(),
           importProgress: null,
         ));
         event.onDone?.call(null);
@@ -257,32 +265,69 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
   }
 
   /// Save an imported playlist into the local library so it survives app
-  /// restarts, and return the persisted version (falling back to the
-  /// in-memory playlist when persistence fails).
-  Future<Playlist> _persistImportedPlaylist(Playlist playlist) async {
+  /// restarts. When the same Spotify/YouTube playlist was imported before,
+  /// its songs are refreshed in place instead of creating a duplicate.
+  ///
+  /// Returns the playlist as it should appear in state, plus whether it is
+  /// a new entry. Falls back to the in-memory playlist when persistence
+  /// fails.
+  Future<(Playlist, bool)> _persistImportedPlaylist(Playlist playlist) async {
+    final songs = playlist.songs ?? const <Song>[];
+
+    final existing = state.playlists
+        .where((p) => _matchesImport(p, playlist))
+        .firstOrNull;
+    if (existing != null) {
+      final updated = existing.copyWith(
+        name: playlist.name,
+        thumbnails: playlist.thumbnails,
+        author: playlist.author,
+        description: playlist.description,
+        songs: songs.toList(),
+        trackCount: songs.length,
+        updatedAt: DateTime.now(),
+      );
+      final result =
+          await _libraryRepository.updatePlaylistSongs(existing.id, songs);
+      // Keep the refreshed copy even when the write fails — the listener
+      // gets correct state either way.
+      result.fold((_) => null, (_) => null);
+      return (updated, false);
+    }
+
     final createdResult = await _libraryRepository.createPlaylist(
       playlist.name,
       description: playlist.description,
     );
 
-    final songs = playlist.songs ?? const <Song>[];
     return createdResult.fold(
-      (failure) async => playlist,
+      (failure) async => (playlist, true),
       (created) async {
         for (final song in songs) {
           await _libraryRepository.addSongToPlaylist(created.id, song);
         }
-        return created.copyWith(
-          songs: songs.toList(),
-          trackCount: songs.length,
-          thumbnails: playlist.thumbnails,
-          author: playlist.author,
-          spotifyPlaylistId: playlist.spotifyPlaylistId,
-          youtubePlaylistId: playlist.youtubePlaylistId,
+        return (
+          created.copyWith(
+            songs: songs.toList(),
+            trackCount: songs.length,
+            thumbnails: playlist.thumbnails,
+            author: playlist.author,
+            spotifyPlaylistId: playlist.spotifyPlaylistId,
+            youtubePlaylistId: playlist.youtubePlaylistId,
+          ),
+          true,
         );
       },
     );
   }
+
+  /// True when [existing] is a previous import of [imported] — matched on
+  /// the persisted Spotify/YouTube source id.
+  bool _matchesImport(Playlist existing, Playlist imported) =>
+      (imported.spotifyPlaylistId != null &&
+          existing.spotifyPlaylistId == imported.spotifyPlaylistId) ||
+      (imported.youtubePlaylistId != null &&
+          existing.youtubePlaylistId == imported.youtubePlaylistId);
 
   Future<void> _onLoadHistory(
     LoadHistoryEvent event,
