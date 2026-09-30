@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../domain/entities/entities.dart';
 import '../blocs/library/library.dart';
 import '../theme/prism_theme.dart';
+import '../widgets/prism/prism_artwork.dart';
 import '../widgets/prism/prism_quick_tile.dart';
 import '../widgets/prism/prism_section_header.dart';
 import '../widgets/prism/prism_sheet.dart';
@@ -164,52 +166,29 @@ class _LibraryTabState extends State<LibraryTab>
               )
             else
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                sliver: SliverList.separated(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                sliver: SliverGrid.builder(
+                  gridDelegate:
+                      const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 220,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 0.82,
+                  ),
                   itemCount: state.playlists.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 4),
                   itemBuilder: (context, index) {
                     final playlist = state.playlists[index];
-                    return ListTile(
+                    return _PlaylistCard(
+                      playlist: playlist,
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) =>
                               PlaylistDetailPage(playlist: playlist),
                         ),
                       ),
-                      leading: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: context.prismSpec.accentSoft,
-                          borderRadius: BorderRadius.circular(PrismRadius.sm),
-                        ),
-                        child: Icon(
-                          Icons.queue_music_rounded,
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                      title: Text(
+                      onDelete: () => _deletePlaylist(
+                        playlist.id,
                         playlist.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      subtitle: Text(
-                        '${playlist.trackCount} songs',
-                        maxLines: 1,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline_rounded,
-                            size: 20),
-                        tooltip: 'Delete playlist',
-                        onPressed: () => _deletePlaylist(playlist.id,
-                            playlist.name),
                       ),
                     );
                   },
@@ -502,6 +481,154 @@ class _StatsCard extends StatelessWidget {
           ),
         ],
       );
+}
+
+/// Cover-art grid card for a library playlist.
+class _PlaylistCard extends StatelessWidget {
+  const _PlaylistCard({
+    required this.playlist,
+    required this.onTap,
+    required this.onDelete,
+  });
+
+  final Playlist playlist;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final spec = context.prismSpec;
+    return Material(
+      color: theme.colorScheme.surfaceContainer,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(PrismRadius.lg),
+        side: BorderSide(color: spec.hairline),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Falls back to a quiet placeholder when the playlist has
+                  // no cover of its own (user-created playlists).
+                  PrismArtwork(
+                    url: playlist.thumbnailUrl ?? '',
+                    fit: BoxFit.cover,
+                  ),
+                  if (_sourceLabel != null)
+                    Positioned(
+                      left: 8,
+                      bottom: 8,
+                      child: _badge(
+                        context,
+                        icon: _sourceLabel!.$2,
+                        label: _sourceLabel!.$1,
+                      ),
+                    ),
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: _CardDeleteButton(onDelete: onDelete),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    playlist.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${playlist.trackCount} songs',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// (label, icon) for imported playlists, null for user-created ones.
+  (String, IconData)? get _sourceLabel {
+    if (playlist.spotifyPlaylistId != null) {
+      return ('Spotify', Icons.graphic_eq_rounded);
+    }
+    if (playlist.youtubePlaylistId != null) {
+      return ('YouTube', Icons.play_circle_outline_rounded);
+    }
+    return null;
+  }
+
+  Widget _badge(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+  }) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withValues(alpha: .88),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: theme.colorScheme.primary),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CardDeleteButton extends StatelessWidget {
+  const _CardDeleteButton({required this.onDelete});
+
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return IconButton(
+      onPressed: onDelete,
+      tooltip: 'Delete playlist',
+      icon: const Icon(Icons.close_rounded, size: 15),
+      style: IconButton.styleFrom(
+        backgroundColor: theme.colorScheme.surface.withValues(alpha: .88),
+        foregroundColor: theme.colorScheme.onSurface,
+        minimumSize: const Size(28, 28),
+        padding: EdgeInsets.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    );
+  }
 }
 
 /// Full-width entry pointing at the Spotify/YouTube import flow.
