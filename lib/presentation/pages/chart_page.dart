@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/services/chart_service.dart';
 import '../../domain/entities/song.dart';
 import '../blocs/player/player.dart';
+import '../theme/prism_theme.dart';
+import '../widgets/prism/prism_chart_chip.dart';
 import '../widgets/prism/prism_skeleton.dart';
 import '../widgets/prism/prism_song_tile.dart';
 import '../widgets/prism/prism_states.dart';
@@ -54,9 +56,17 @@ class _ChartPageState extends State<ChartPage> {
     );
   }
 
+  void _playShuffled() {
+    final shuffled = [..._songs]..shuffle();
+    context.read<PlayerBloc>().add(
+      PlaySongEvent(song: shuffled.first, queue: shuffled, queueIndex: 0),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final spec = context.prismSpec;
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -95,11 +105,90 @@ class _ChartPageState extends State<ChartPage> {
                       slivers: [
                         SliverToBoxAdapter(
                           child: Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
-                            child: Text(
-                              widget.chart.description,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
+                            padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+                            child: Container(
+                              padding: const EdgeInsets.all(18),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.surfaceContainer,
+                                borderRadius:
+                                    BorderRadius.circular(PrismRadius.lg),
+                                border: Border.all(color: spec.hairline),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      PrismChartChip(
+                                        type: widget.chart.iconType,
+                                        size: 46,
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              widget.chart.name,
+                                              style: theme
+                                                  .textTheme.titleLarge
+                                                  ?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                                letterSpacing: -0.4,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 3),
+                                            Text(
+                                              '${chartSourceLabel(widget.chart.source)}'
+                                              '${widget.chart.region == null ? '' : ' · ${widget.chart.region}'}'
+                                              ' · ${_songs.length} songs',
+                                              style: theme.textTheme.bodySmall
+                                                  ?.copyWith(
+                                                color: theme.colorScheme
+                                                    .onSurfaceVariant,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    widget.chart.description,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: FilledButton.icon(
+                                          onPressed: () => _play(0),
+                                          icon: const Icon(
+                                            Icons.play_arrow_rounded,
+                                          ),
+                                          label: const Text('Play all'),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      IconButton(
+                                        tooltip: 'Shuffle play',
+                                        onPressed: _playShuffled,
+                                        icon:
+                                            const Icon(Icons.shuffle_rounded),
+                                        style: IconButton.styleFrom(
+                                          backgroundColor: theme.colorScheme
+                                              .surfaceContainerHigh,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
                           ),

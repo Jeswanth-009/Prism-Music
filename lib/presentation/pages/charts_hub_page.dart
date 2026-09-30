@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import '../../core/services/chart_service.dart';
 import '../../core/services/settings_service.dart';
 import '../theme/prism_theme.dart';
+import '../widgets/common/bouncing_tap_widget.dart';
+import '../widgets/prism/prism_chart_chip.dart';
 import 'chart_page.dart';
 
-/// Charts hub: a calm grid of available charts per region.
+/// Charts hub: available charts per region as rich, tappable cards.
 class ChartsHubPage extends StatefulWidget {
   const ChartsHubPage({super.key});
 
@@ -15,15 +17,6 @@ class ChartsHubPage extends StatefulWidget {
 
 class _ChartsHubPageState extends State<ChartsHubPage> {
   final _settings = SettingsService.instance;
-
-  IconData _icon(ChartIconType type) => switch (type) {
-    ChartIconType.global => Icons.public_rounded,
-    ChartIconType.viral => Icons.local_fire_department_rounded,
-    ChartIconType.trending => Icons.trending_up_rounded,
-    ChartIconType.top => Icons.emoji_events_outlined,
-    ChartIconType.chart => Icons.bar_chart_rounded,
-    ChartIconType.newRelease => Icons.auto_awesome_outlined,
-  };
 
   @override
   Widget build(BuildContext context) {
@@ -55,9 +48,37 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${_settings.selectedCountry.flag} ${_settings.selectedCountry.name} · updated throughout the day',
+                    'What the world is listening to, refreshed all day.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: spec.accentSoft,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: spec.hairline),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _settings.selectedCountry.flag,
+                          style: theme.textTheme.labelLarge,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _settings.selectedCountry.name,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -68,58 +89,58 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 140),
             sliver: SliverGrid.builder(
               itemCount: charts.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 1.15,
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 260,
+                childAspectRatio: 1.05,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
               ),
               itemBuilder: (context, index) {
                 final chart = charts[index];
-                return Material(
-                  color: theme.colorScheme.surfaceContainer,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(PrismRadius.lg),
-                    side: BorderSide(color: spec.hairline),
+                return BouncingTapWidget(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ChartPage(chart: chart),
+                    ),
                   ),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(PrismRadius.lg),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => ChartPage(chart: chart),
-                      ),
+                  child: Material(
+                    color: theme.colorScheme.surfaceContainer,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(PrismRadius.lg),
+                      side: BorderSide(color: spec.hairline),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: spec.accentSoft,
-                              borderRadius: BorderRadius.circular(11),
-                            ),
-                            child: Icon(
-                              _icon(chart.iconType),
-                              size: 19,
-                              color: theme.colorScheme.primary,
-                            ),
+                          Row(
+                            children: [
+                              PrismChartChip(type: chart.iconType, size: 38),
+                              const Spacer(),
+                              Text(
+                                chartSourceLabel(chart.source),
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ],
                           ),
                           const Spacer(),
                           Text(
                             chart.name,
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          const SizedBox(height: 3),
+                          const SizedBox(height: 4),
                           Text(
                             chart.description,
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
