@@ -12,7 +12,6 @@ import 'package:prism_music/core/services/media_resolver_service.dart';
 import 'package:prism_music/core/services/playback_reliability_service.dart';
 import 'package:prism_music/core/services/recommendation_service.dart';
 import 'package:prism_music/core/services/stream_loader_service.dart';
-import 'package:prism_music/core/services/ytmusic_api_service.dart';
 import 'package:prism_music/data/datasources/local/local_datasource.dart';
 import 'package:prism_music/domain/entities/entities.dart';
 import 'package:prism_music/domain/repositories/repositories.dart';
@@ -345,7 +344,6 @@ void main() {
         ],
       );
 
-      final ytService = YtMusicApiService();
       // Test dynamic mapper through runtime
       final map = {
         'type': 'song',

@@ -23,7 +23,7 @@ class YtMusicApiService {
     try {
       await _ytMusic.initialize();
       _initialized = true;
-    } catch (e, st) {
+    } catch (e) {
       _logger.warning('YTMusic initialization failed, will retry on next request: $e');
     }
   }
