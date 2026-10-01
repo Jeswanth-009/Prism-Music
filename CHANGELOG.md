@@ -8,6 +8,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.27] - 2026-10-01
+
+### Added
+
+- Brand spectrum, real screenshots, gallery, live GitHub data and copy fixes
+
+### Changed
+
+- Generate release notes and update CHANGELOG automatically
+- Rebuild CHANGELOG from release history
+- Redesign README with banner and framed screenshots
+
 ## [0.2.26] - 2026-10-01
 
 ### Changed
@@ -518,3 +530,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.24]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.24-build60
 [0.2.25]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.25-build61
 [0.2.26]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.26-build62
+[0.2.27]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.27-build63
