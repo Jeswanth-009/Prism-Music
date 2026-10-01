@@ -132,11 +132,12 @@ abstract class MusicRepository {
 
   // ============ LYRICS ============
 
-  /// Get lyrics for a song
+  /// Get lyrics for a song. Set [forceRefresh] to bypass the local cache.
   Future<Either<Failure, Lyrics>> getLyrics(
     String songTitle,
     String artistName, {
     Duration? duration,
+    bool forceRefresh = false,
   });
 
   // ============ HELPER METHODS ============
