@@ -1,6 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dartz/dartz.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:prism_music/core/di/injection.dart';
 import 'package:prism_music/core/error/failures.dart';
@@ -14,7 +18,10 @@ import 'package:prism_music/core/services/stream_loader_service.dart';
 import 'package:prism_music/data/datasources/local/local_datasource.dart';
 import 'package:prism_music/domain/entities/entities.dart';
 import 'package:prism_music/domain/repositories/repositories.dart';
+import 'package:prism_music/presentation/blocs/library/library_bloc.dart';
 import 'package:prism_music/presentation/blocs/player/player_bloc.dart';
+import 'package:prism_music/presentation/blocs/search/search_bloc.dart';
+import 'package:prism_music/presentation/blocs/theme/theme_state.dart';
 
 /// Canonical fakes shared across test files.
 ///
@@ -108,6 +115,7 @@ class FakeMusicRepository implements MusicRepository {
   bool lastLyricsForceRefresh = false;
   Either<Failure, Lyrics> lyricsResult =
       const Left(SearchFailure(message: 'Lyrics not found'));
+  Duration lyricsDelay = Duration.zero;
 
   // getStreamUrl
   Either<Failure, StreamInfo> streamUrlResult =
@@ -119,6 +127,7 @@ class FakeMusicRepository implements MusicRepository {
   // getTrending / getNewReleases (HomeTab loaders)
   Either<Failure, List<Song>> trendingResult = const Right([]);
   int trendingCallCount = 0;
+  bool throwOnTrending = false;
   Either<Failure, List<Album>> newReleasesResult = const Right([]);
 
   bool throwOnSearch = false;
@@ -212,6 +221,9 @@ class FakeMusicRepository implements MusicRepository {
     getLyricsCallCount++;
     lastLyricsDurationSeconds = duration?.inSeconds;
     lastLyricsForceRefresh = forceRefresh;
+    if (lyricsDelay > Duration.zero) {
+      await Future<void>.delayed(lyricsDelay);
+    }
     return lyricsResult;
   }
 
@@ -232,6 +244,7 @@ class FakeMusicRepository implements MusicRepository {
     int limit = 50,
   }) async {
     trendingCallCount++;
+    if (throwOnTrending) throw Exception('trending down');
     return trendingResult;
   }
 
@@ -575,8 +588,9 @@ PlayerBloc buildTestPlayerBloc({
   FakeAudioPlayerService? audioPlayerService,
   FakeMediaResolver? mediaResolver,
   RecommendationService? recommendationService,
-}) =>
-    PlayerBloc(
+}) {
+  ensureWidgetTestHive();
+  return PlayerBloc(
       musicRepository: musicRepository ?? FakeMusicRepository(),
       libraryRepository: libraryRepository ?? FakeLibraryRepository(),
       audioPlayerService: audioPlayerService ?? FakeAudioPlayerService(),
@@ -587,6 +601,7 @@ PlayerBloc buildTestPlayerBloc({
       downloadService: FakeDownloadService(),
       recommendationService: recommendationService,
     );
+}
 
 // ---------------------------------------------------------------------------
 // getIt registration for widget tests
@@ -644,7 +659,101 @@ class FakeRecommendationService implements RecommendationService {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-/// Hive bootstrap for tests: unique relative dir per suite.
+/// Hive bootstrap for tests: a unique temp dir per process, so parallel
+/// or re-run test processes never contend on Windows Hive lock files.
 void initTestHive(String suiteName) {
-  Hive.init('./test_hive_$suiteName');
+  final temp = Directory.systemTemp.createTempSync('prism_${suiteName}_hive');
+  Hive.init(temp.path);
+}
+
+/// Poll until [condition] is true — bloc event chains complete
+/// asynchronously (e.g. add-to-playlist triggers a full library reload).
+Future<void> waitFor(
+  bool Function() condition, {
+  Duration timeout = const Duration(seconds: 3),
+}) async {
+  final deadline = DateTime.now().add(timeout);
+  while (!condition()) {
+    if (DateTime.now().isAfter(deadline)) {
+      fail('waitFor condition not met within $timeout');
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+}
+
+bool _widgetHiveReady = false;
+
+/// Hive bootstrap for the widget-test harness (PlayerBloc's constructor
+/// opens the settings box, so Hive must be initialized before building).
+void ensureWidgetTestHive() {
+  if (_widgetHiveReady) return;
+  final temp = Directory.systemTemp.createTempSync('prism_widget_hive');
+  Hive.init(temp.path);
+  _widgetHiveReady = true;
+}
+
+// ---------------------------------------------------------------------------
+// Widget-test harness
+// ---------------------------------------------------------------------------
+
+/// Wraps [child] in the app theme + bloc providers so pages pump without
+/// the real audio stack or network.
+///
+/// Blocs passed in are owned by the caller (close them in tearDown);
+/// unspecified ones are created on the fly with offline fakes.
+Widget wrapForTests(
+  Widget child, {
+  Brightness brightness = Brightness.light,
+  LibraryBloc? libraryBloc,
+  PlayerBloc? playerBloc,
+  SearchBloc? searchBloc,
+}) {
+  final themeState = const ThemeState();
+  return MultiBlocProvider(
+    providers: [
+      BlocProvider<LibraryBloc>.value(
+        value: libraryBloc ??
+            LibraryBloc(
+              libraryRepository: FakeLibraryRepository(),
+              musicRepository: FakeMusicRepository(),
+            ),
+      ),
+      BlocProvider<PlayerBloc>.value(value: playerBloc ?? buildTestPlayerBloc()),
+      if (searchBloc != null) BlocProvider<SearchBloc>.value(value: searchBloc),
+    ],
+    child: MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme:
+          brightness == Brightness.light
+              ? themeState.lightTheme
+              : themeState.darkTheme,
+      home: Scaffold(body: child),
+    ),
+  );
+}
+
+/// Pumps [child] at a fixed phone-sized surface so slivers build the same
+/// way they would on a device (and off-screen slivers can be forced by
+/// passing a taller [size]).
+Future<void> pumpTestWidget(
+  WidgetTester tester,
+  Widget child, {
+  Brightness brightness = Brightness.light,
+  Size size = const Size(400, 900),
+  LibraryBloc? libraryBloc,
+  PlayerBloc? playerBloc,
+  SearchBloc? searchBloc,
+}) async {
+  tester.view.devicePixelRatio = 1.0;
+  tester.view.physicalSize = size;
+  addTearDown(() {
+    tester.view.reset();
+  });
+  await tester.pumpWidget(wrapForTests(
+    child,
+    brightness: brightness,
+    libraryBloc: libraryBloc,
+    playerBloc: playerBloc,
+    searchBloc: searchBloc,
+  ));
 }
