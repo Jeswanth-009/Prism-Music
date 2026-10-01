@@ -659,6 +659,10 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
       thumbnails: thumbnailUrl != null
           ? Thumbnails.fromUrl(thumbnailUrl)
           : Thumbnails.empty(),
+      // Mark the source so MediaResolver's YouTube stream heuristics and
+      // lyrics matching treat these songs correctly.
+      source: MusicSource.youtube,
+      youtubeId: videoId,
     );
   }
 

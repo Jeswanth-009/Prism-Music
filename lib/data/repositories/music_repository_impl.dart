@@ -800,16 +800,13 @@ class MusicRepositoryImpl implements MusicRepository {
 
   @override
   Future<Either<Failure, Playlist>> importYouTubePlaylist(String playlistUrl) async {
+    final playlistId = _extractYouTubePlaylistId(playlistUrl.trim());
+
+    if (playlistId == null) {
+      return const Left(ParsingFailure(message: 'Invalid YouTube playlist URL'));
+    }
+
     try {
-      // Extract playlist ID from URL
-      final regex = RegExp(r'[?&]list=([^&]+)');
-      final match = regex.firstMatch(playlistUrl);
-
-      if (match == null) {
-        return const Left(ParsingFailure(message: 'Invalid YouTube playlist URL'));
-      }
-
-      final playlistId = match.group(1)!;
       final playlist = await _youtubeMusicDataSource.getPlaylistDetails(playlistId);
 
       if (playlist.songs == null || playlist.songs!.isEmpty) {
@@ -827,23 +824,46 @@ class MusicRepositoryImpl implements MusicRepository {
     }
   }
 
+  /// Extract a YouTube playlist ID from any of the share formats:
+  /// `youtube.com/playlist?list=ID`, `music.youtube.com/playlist?list=ID`,
+  /// `youtube.com/playlist/ID`, or a bare playlist ID (including `RD*`
+  /// mixes and radio playlists).
+  String? _extractYouTubePlaylistId(String url) {
+    final listParam = RegExp(r'[?&]list=([^&]+)').firstMatch(url);
+    if (listParam != null) return listParam.group(1);
+
+    final pathSegment = RegExp(r'/playlist/([A-Za-z0-9_-]+)').firstMatch(url);
+    if (pathSegment != null) return pathSegment.group(1);
+
+    // Bare ID pasted directly — playlist IDs run 13–42 chars (PL…, RD…,
+    // OLAK5uy…, UU…). The prefix rules of real IDs keep this from
+    // matching free text.
+    final trimmed = url.trim();
+    if (RegExp(r'^[A-Za-z0-9_-]{13,42}$').hasMatch(trimmed)) {
+      return trimmed;
+    }
+    return null;
+  }
+
   @override
   Future<Either<Failure, Lyrics>> getLyrics(
     String songTitle,
     String artistName, {
     Duration? duration,
+    bool forceRefresh = false,
   }) async {
     try {
       final lyrics = await _lyricsDataSource.getSyncedLyrics(
         songTitle,
         artistName,
         duration: duration,
+        forceRefresh: forceRefresh,
       );
-      
+
       if (lyrics == null) {
         return const Left(SearchFailure(message: 'Lyrics not found'));
       }
-      
+
       return Right(lyrics);
     } catch (e) {
       return Left(UnknownFailure(message: e.toString()));

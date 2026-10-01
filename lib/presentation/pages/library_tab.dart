@@ -708,7 +708,7 @@ class _ImportSheetState extends State<_ImportSheet> {
 
   String get _hint => _source == _ImportSource.spotify
       ? 'https://open.spotify.com/playlist/…'
-      : 'https://youtube.com/playlist?list=…';
+      : 'https://music.youtube.com/playlist?list=… or playlist ID (also mixes)';
 
   bool get _isValidUrl {
     final text = _urlController.text.trim();

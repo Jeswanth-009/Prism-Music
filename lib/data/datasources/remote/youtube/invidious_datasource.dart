@@ -210,15 +210,28 @@ class InvidiousDataSource {
   /// currently returns zero videos against YouTube's live API. Rotates
   /// through every instance before giving up. Returns null when no
   /// instance can serve the playlist.
+  ///
+  /// IDs starting with `RD` are mixes/radio stations ("My Mix", artist
+  /// radio, the music playlists YouTube Music hands out) — those are served
+  /// by the separate `/api/v1/mixes` endpoint. Some instances disable one
+  /// endpoint or the other, so rotation matters here.
   Future<InvidiousPlaylistData?> getPlaylistDetails(String playlistId) async {
+    final isMix = playlistId.startsWith('RD');
+    final path = isMix
+        ? '/api/v1/mixes/$playlistId'
+        : '/api/v1/playlists/$playlistId';
+
     for (var attempt = 0;
         attempt < InvidiousInstances.instances.length;
         attempt++) {
       final instance = InvidiousInstances.currentInstance;
       try {
-        debugPrint('InvidiousDataSource: Fetching playlist from $instance');
+        debugPrint(
+          'InvidiousDataSource: Fetching ${isMix ? 'mix' : 'playlist'} '
+          'from $instance',
+        );
         final response = await _dio.get(
-          '$instance/api/v1/playlists/$playlistId',
+          '$instance$path',
           options: Options(
             // Playlist payloads run large (one entry per track, each with
             // thumbnail variants) — allow more time than stream lookups.
@@ -293,7 +306,9 @@ class InvidiousDataSource {
 
         final title = (data['title'] ?? '').toString().trim();
         return InvidiousPlaylistData(
-          title: title.isEmpty ? 'YouTube Playlist' : title,
+          title: title.isEmpty
+              ? (isMix ? 'YouTube Mix' : 'YouTube Playlist')
+              : title,
           author: _optionalText(data['author']),
           description: _optionalText(data['description']),
           thumbnailUrl: _optionalText(data['playlistThumbnail']),
