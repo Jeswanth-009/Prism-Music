@@ -172,6 +172,75 @@ jobs:
           echo "should_release=$SHOULD_RELEASE"       >> "$GITHUB_OUTPUT"
           echo "Next version: $NEXT_VERSION_LINE (release: $SHOULD_RELEASE)"
 
+      # ── 4b. Generate release notes + changelog entry ─────────────
+      # Collects commit subjects since the previous release tag and
+      # groups them into Added / Fixed / Changed (conventional commits).
+      # changelog_entry.md is prepended to CHANGELOG.md in the bump
+      # commit; release_notes.md becomes the top of the release body.
+      - name: Generate release notes and changelog entry
+        id: notes
+        if: steps.next_version.outputs.should_release == 'true'
+        env:
+          NEXT_VERSION: ${{ steps.next_version.outputs.next_version }}
+        run: |
+          LAST_TAG="$(git describe --tags --abbrev=0 --match 'alpha-v*' 2>/dev/null || true)"
+          if [[ -n "$LAST_TAG" ]]; then
+            RANGE="$LAST_TAG..HEAD"
+          else
+            RANGE="HEAD"
+          fi
+          echo "Collecting commits since ${LAST_TAG:-repository start} (range: $RANGE)"
+
+          group() {
+            git log --format='%s' $RANGE \
+              | grep -E "$1" \
+              | sed -E 's/^[a-z]+(\([^)]*\))?:[[:space:]]*//' \
+              | awk '{print toupper(substr($0,1,1)) substr($0,2)}' \
+              || true
+          }
+          ADDED="$(group '^feat(\(|:)')"
+          FIXED="$(group '^fix(\(|:)')"
+          CHANGED="$(git log --format='%s' $RANGE \
+            | grep -v -E '^chore(\([^)]*\))?: bump version' \
+            | grep -v -E '^feat(\(|:)' \
+            | grep -v -E '^fix(\(|:)' \
+            | sed -E 's/^[a-z]+(\([^)]*\))?:[[:space:]]*//' \
+            | awk '{print toupper(substr($0,1,1)) substr($0,2)}' \
+            || true)"
+
+          if [[ -z "$ADDED" && -z "$FIXED" && -z "$CHANGED" ]]; then
+            echo "No release-worthy commits since $LAST_TAG — maintenance release."
+            {
+              echo "## [${NEXT_VERSION}] - $(date -u +%F)"
+              echo ""
+              echo "_Maintenance release — automated version bump and rebuild only._"
+              echo ""
+            } > changelog_entry.md
+            {
+              echo "Maintenance release — no functional changes since the previous tag."
+              echo ""
+            } > release_notes.md
+          else
+            {
+              echo "## [${NEXT_VERSION}] - $(date -u +%F)"
+              echo ""
+              if [[ -n "$ADDED" ]];   then echo "### Added";   echo ""; echo "$ADDED"   | sed 's/^/- /'; echo ""; fi
+              if [[ -n "$FIXED" ]];   then echo "### Fixed";   echo ""; echo "$FIXED"   | sed 's/^/- /'; echo ""; fi
+              if [[ -n "$CHANGED" ]]; then echo "### Changed"; echo ""; echo "$CHANGED" | sed 's/^/- /'; echo ""; fi
+            } > changelog_entry.md
+
+            {
+              echo "## What changed"
+              echo ""
+              if [[ -n "$ADDED" ]];   then echo "### Added";   echo ""; echo "$ADDED"   | sed 's/^/- /'; echo ""; fi
+              if [[ -n "$FIXED" ]];   then echo "### Fixed";   echo ""; echo "$FIXED"   | sed 's/^/- /'; echo ""; fi
+              if [[ -n "$CHANGED" ]]; then echo "### Changed"; echo ""; echo "$CHANGED" | sed 's/^/- /'; echo ""; fi
+            } > release_notes.md
+          fi
+
+          echo "--- changelog entry ---"
+          cat changelog_entry.md
+
       # ── 5. Patch pubspec.yaml ─────────────────────────────────────
       - name: Update pubspec.yaml
         if: steps.next_version.outputs.should_release == 'true'
@@ -180,13 +249,30 @@ jobs:
           echo "pubspec.yaml updated to ${{ steps.next_version.outputs.next_version_line }}"
 
       # ── 6. Commit & push the version bump ────────────────────────
+      # The bump commit also carries the CHANGELOG.md update, so the
+      # changelog and the release always move together.
       - name: Commit and push version bump
         if: steps.next_version.outputs.should_release == 'true'
         run: |
-          if git diff --quiet pubspec.yaml; then
-            echo "pubspec.yaml is already up to date; skipping bump commit"
+          # Prepend the generated section before the first version heading
+          # (fallback: end of file) and add its release link reference.
+          if [[ -f CHANGELOG.md && -f changelog_entry.md ]]; then
+            LINE_NUM="$(grep -n -m1 -E '^## \[[0-9]' CHANGELOG.md | cut -d: -f1 || true)"
+            if [[ -n "$LINE_NUM" ]]; then
+              head -n $((LINE_NUM - 1)) CHANGELOG.md > CHANGELOG.next
+              cat changelog_entry.md >> CHANGELOG.next
+              tail -n +"$LINE_NUM" CHANGELOG.md >> CHANGELOG.next
+              mv CHANGELOG.next CHANGELOG.md
+            else
+              cat changelog_entry.md >> CHANGELOG.md
+            fi
+            echo "[${{ steps.next_version.outputs.next_version }}]: https://github.com/${GITHUB_REPOSITORY}/releases/tag/${{ steps.next_version.outputs.next_tag }}" >> CHANGELOG.md
+          fi
+
+          if git diff --quiet pubspec.yaml && git diff --quiet CHANGELOG.md 2>/dev/null; then
+            echo "pubspec.yaml and CHANGELOG.md unchanged; skipping bump commit"
           else
-            git add pubspec.yaml
+            git add pubspec.yaml CHANGELOG.md
             git commit -m "chore: bump version to ${{ steps.next_version.outputs.next_version_line }} [${{ steps.next_version.outputs.bump_type }}]"
             git push origin main
           fi
@@ -340,6 +426,38 @@ jobs:
             ${{ steps.assets.outputs.aab_sha }}
           if-no-files-found: error
 
+      # ── 13b. Assemble the release body ────────────────────────────
+      # Generated "What changed" section on top, then the static
+      # release details that were always included.
+      - name: Assemble release body
+        if: steps.next_version.outputs.should_release == 'true'
+        shell: bash
+        run: |
+          {
+            cat release_notes.md
+            echo "## Prism Music — Automated Alpha Release"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| **Version** | \`${{ steps.next_version.outputs.next_version_line }}\` |"
+            echo "| **Bump type** | \`${{ steps.next_version.outputs.bump_type }}\` |"
+            echo "| **versionCode** | \`${{ steps.next_version.outputs.next_build }}\` |"
+            echo "| **Signed APK** | \`${{ env.SIGNED_BUILD }}\` |"
+            echo "| **Source ref** | \`${{ github.sha }}\` |"
+            echo ""
+            echo "> ⚠️ This is an automated pre-release and may contain breaking changes."
+            echo ""
+            echo "### Install"
+            echo "Download \`prism-music-${{ steps.next_version.outputs.next_tag }}-android.apk\` and tap it to install."
+            echo "It supports modern 64-bit and older 32-bit ARM phones in one file, while"
+            echo "omitting emulator-only x86 libraries to keep the download smaller. The clearly"
+            echo "labelled \`android-emulator-x86_64.apk\` is only for PC Android emulators."
+            echo "Each release has a strictly increasing \`versionCode\`, so Android will"
+            echo "always accept the upgrade without a conflict."
+          } > release_body.md
+          echo "--- release body ---"
+          cat release_body.md
+
       # ── 14. Publish ONE GitHub Release with APK/AAB attached ──────
       - name: Publish GitHub Release
         if: steps.next_version.outputs.should_release == 'true'
@@ -349,26 +467,7 @@ jobs:
           name:     ${{ steps.tag.outputs.release_name }}
           prerelease: true
           generate_release_notes: true
-          body: |
-            ## Prism Music — Automated Alpha Release
-
-            | Field | Value |
-            |-------|-------|
-            | **Version** | `${{ steps.next_version.outputs.next_version_line }}` |
-            | **Bump type** | `${{ steps.next_version.outputs.bump_type }}` |
-            | **versionCode** | `${{ steps.next_version.outputs.next_build }}` |
-            | **Signed APK** | `${{ env.SIGNED_BUILD }}` |
-            | **Source ref** | `${{ github.sha }}` |
-
-            > ⚠️ This is an automated pre-release and may contain breaking changes.
-
-            ### Install
-            Download `prism-music-${{ steps.tag.outputs.tag }}-android.apk` and tap it to install.
-            It supports modern 64-bit and older 32-bit ARM phones in one file, while
-            omitting emulator-only x86 libraries to keep the download smaller. The clearly
-            labelled `android-emulator-x86_64.apk` is only for PC Android emulators.
-            Each release has a strictly increasing `versionCode`, so Android will
-            always accept the upgrade without a conflict.
+          body_path: release_body.md
           files: |
             ${{ steps.assets.outputs.apk }}
             ${{ steps.assets.outputs.emulator_apk }}
