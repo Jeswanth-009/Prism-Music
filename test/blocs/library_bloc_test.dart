@@ -10,21 +10,6 @@ import 'package:prism_music/presentation/blocs/library/library_state.dart';
 
 import '../helpers/fakes.dart';
 
-/// Poll until [condition] is true (bloc event chains complete
-/// asynchronously — e.g. add-to-playlist triggers a full library reload).
-Future<void> waitFor(
-  bool Function() condition, {
-  Duration timeout = const Duration(seconds: 3),
-}) async {
-  final deadline = DateTime.now().add(timeout);
-  while (!condition()) {
-    if (DateTime.now().isAfter(deadline)) {
-      fail('waitFor condition not met within $timeout');
-    }
-    await Future<void>.delayed(const Duration(milliseconds: 10));
-  }
-}
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 

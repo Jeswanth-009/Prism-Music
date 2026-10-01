@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:prism_music/core/services/settings_service.dart';
+
+import '../helpers/fakes.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -23,7 +24,7 @@ void main() {
 
   group('SettingsService round-trips', () {
     setUp(() async {
-      Hive.init('./test_hive_settings');
+      initTestHive('settings');
       await SettingsService.instance.initialize();
     });
 

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:prism_music/core/services/settings_service.dart';
 import 'package:prism_music/presentation/blocs/theme/theme_bloc.dart';
 import 'package:prism_music/presentation/blocs/theme/theme_event.dart';
 import 'package:prism_music/presentation/blocs/theme/theme_state.dart';
+
+import '../helpers/fakes.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -13,7 +14,7 @@ void main() {
     // ThemeBloc persists through the SettingsService singleton, which is
     // backed by Hive — the box survives across tests in this file, so
     // reset the dynamic-accent flag every test for determinism.
-    Hive.init('./test_hive_theme');
+    initTestHive('theme');
     await SettingsService.instance.initialize();
     await SettingsService.instance.setDynamicAccent(false);
   });
