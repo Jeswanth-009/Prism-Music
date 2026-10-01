@@ -16,6 +16,7 @@ import 'package:prism_music/presentation/widgets/player/player_lyrics_sheet.dart
 import 'package:prism_music/presentation/widgets/prism/prism_song_tile.dart';
 
 import '../helpers/fakes.dart';
+import 'tolerant_golden_comparator.dart';
 
 /// Golden tests for the main surfaces across dark/light themes and common
 /// phone sizes.
@@ -44,6 +45,11 @@ Future<Lyrics> _syncedLyrics() async => Lyrics(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
+
+  // Cross-platform font rasterization differs by a fraction of a percent;
+  // tolerate it while still catching real layout regressions. The basedir
+  // mirrors the default comparator's (the directory of this test file).
+  goldenFileComparator = TolerantGoldenComparator(Uri.base.resolve('test/goldens/goldens_test.dart'));
 
   setUp(() async {
     await getIt.reset();
