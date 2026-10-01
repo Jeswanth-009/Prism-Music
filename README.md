@@ -79,6 +79,18 @@ different set of priorities:
 | Library & data | On-device likes, playlists, history, stats, and uninstall-surviving backup | Private, durable library |
 | Open source | CI/CD, changelog, license, contributing docs | Public, reproducible alpha delivery |
 
+## Testing
+
+Prism Music ships four test tiers — unit/BLoC, widget, golden (dark/light
+× common phone sizes) and a real-device integration flow. See
+[docs/TESTING.md](docs/TESTING.md) for the full inventory, conventions
+and the Android 13/14/15 regression matrix.
+
+```bash
+flutter analyze && flutter test          # everything except integration
+flutter test integration_test            # on a booted device/emulator
+```
+
 ## Known Limitations (Alpha)
 
 - Treble applies a single top-band EQ shelf (±6 dB), not a full multi-band
