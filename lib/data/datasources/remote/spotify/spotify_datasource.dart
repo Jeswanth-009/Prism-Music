@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import '../../../../core/utils/link_validation.dart';
 import '../../../../domain/entities/entities.dart';
 
 /// Playlist metadata + tracks parsed from a public Spotify embed page.
@@ -132,27 +133,51 @@ class SpotifyDataSourceImpl implements SpotifyDataSource {
   /// Resolve a playlist ID from any of the share formats:
   /// `open.spotify.com/playlist/ID?si=...`, `spotify:playlist:ID`,
   /// a spotify.link short URL, or a bare 22-character playlist ID.
+  ///
+  /// User-supplied URLs are untrusted: hosts are matched exactly (never by
+  /// substring, which would admit lookalikes like `spotify.link.evil.com`),
+  /// and a followed short-link redirect only counts when it lands on
+  /// `open.spotify.com` over HTTPS.
   Future<String?> _resolvePlaylistId(String url) async {
     var candidate = url.trim();
 
     final bareId = RegExp(r'^[a-zA-Z0-9]{22}$').firstMatch(candidate);
     if (bareId != null) return candidate;
 
-    var id = _extractPlaylistId(candidate);
-    if (id != null) return id;
-
-    // Short links (spotify.link/...) redirect to open.spotify.com —
-    // follow the redirect and read the final URL.
     final uri = Uri.tryParse(candidate);
-    if (uri != null && uri.host.contains('spotify.link')) {
-      try {
-        final response = await _dio.get<String>(candidate);
-        id = _extractPlaylistId(response.realUri.toString());
-      } catch (_) {
-        return null;
+    if (uri != null && uri.host.isNotEmpty) {
+      final host = uri.host.toLowerCase();
+      final isPlaylistHost = isSpotifyPlaylistHost(host);
+      final isShortLink = isSpotifyShortLinkHost(host);
+      if (!isPlaylistHost && !isShortLink) return null;
+
+      if (isShortLink) {
+        // Short links (spotify.link/...) redirect to open.spotify.com.
+        // We set followRedirects: false so we can inspect and validate the
+        // redirect target BEFORE any request is sent to it, preventing SSRF
+        // and redirection to arbitrary/private hosts.
+        try {
+          final response = await _dio.get<void>(
+            candidate,
+            options: Options(
+              followRedirects: false,
+              validateStatus: (status) => status != null && status < 400,
+            ),
+          );
+          final location = response.headers.value('location');
+          if (location == null) return null;
+          final targetUri = Uri.tryParse(location);
+          if (targetUri == null || !isTrustedSpotifyRedirectTarget(targetUri)) {
+            return null;
+          }
+          return _extractPlaylistId(targetUri.toString());
+        } catch (_) {
+          return null;
+        }
       }
     }
-    return id;
+
+    return _extractPlaylistId(candidate);
   }
 
   String? _extractPlaylistId(String url) {

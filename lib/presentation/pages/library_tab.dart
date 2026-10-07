@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/utils/link_validation.dart';
 import '../../domain/entities/entities.dart';
 import '../blocs/library/library.dart';
 import '../theme/prism_theme.dart';
@@ -713,12 +714,16 @@ class _ImportSheetState extends State<_ImportSheet> {
   bool get _isValidUrl {
     final text = _urlController.text.trim();
     if (text.length < 10) return false;
+    final uri = Uri.tryParse(text);
+    if (uri == null) return false;
+
     return switch (_source) {
-      _ImportSource.spotify => text.contains('spotify.com') ||
-          text.startsWith('spotify:') ||
-          text.contains('spotify.link'),
+      _ImportSource.spotify => uri.scheme == 'spotify' ||
+          (uri.isScheme('https') &&
+              (isSpotifyPlaylistHost(uri.host) ||
+                  isSpotifyShortLinkHost(uri.host))),
       _ImportSource.youtube =>
-        text.contains('youtube.com') || text.contains('youtu.be'),
+        uri.isScheme('https') && isYouTubePlaylistHost(uri.host),
     };
   }
 
