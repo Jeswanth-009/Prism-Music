@@ -93,7 +93,10 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Column(
                 children: [
                   const SizedBox(height: 12),
-                  _buildAccountSection(),
+                  if (LastFmService.isConfigured) ...[
+                    _buildAccountSection(),
+                    const SizedBox(height: 16),
+                  ],
                   _buildAppExperienceSection(),
                   _buildAudioPlaybackSection(),
                   _buildDataStorageSection(),
@@ -158,12 +161,13 @@ class _SettingsPageState extends State<SettingsPage> {
                   spacing: 8,
                   runSpacing: 6,
                   children: [
-                    _PillBadge(
-                      icon: connected
-                          ? Icons.check_circle_rounded
-                          : Icons.cloud_off_rounded,
-                      text: connected ? 'Last.fm linked' : 'Last.fm offline',
-                    ),
+                    if (LastFmService.isConfigured)
+                      _PillBadge(
+                        icon: connected
+                            ? Icons.check_circle_rounded
+                            : Icons.cloud_off_rounded,
+                        text: connected ? 'Last.fm linked' : 'Last.fm offline',
+                      ),
                     if (recoMode != null)
                       _PillBadge(
                         icon: Icons.auto_awesome_rounded,
