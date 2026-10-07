@@ -8,6 +8,7 @@ import 'stream_loader_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import '../utils/logger.dart';
+import '../utils/path_safety.dart';
 import 'settings_service.dart';
 
 enum DownloadStatus {
@@ -381,11 +382,8 @@ class DownloadService {
       if (info == null) return false;
 
       final localPath = info['localPath'] as String?;
-      if (localPath != null) {
-        final file = File(localPath);
-        if (await file.exists()) {
-          await file.delete();
-        }
+      if (localPath != null && await DownloadPathGuard.canDelete(localPath)) {
+        await File(localPath).delete();
       }
 
       await _downloadBox?.delete(songId);

@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../../../core/error/error.dart';
 import '../../../../core/services/local_backup_service.dart';
+import '../../../../core/utils/path_safety.dart';
 import '../../../../domain/entities/entities.dart';
 
 /// Data source for local storage operations
@@ -588,11 +589,8 @@ class LocalDataSourceImpl implements LocalDataSource {
     final data = box.get(songId);
     if (data is Map) {
       final path = data['localPath']?.toString();
-      if (path != null && path.isNotEmpty) {
-        final file = File(path);
-        if (await file.exists()) {
-          await file.delete();
-        }
+      if (path != null && path.isNotEmpty && await DownloadPathGuard.canDelete(path)) {
+        await File(path).delete();
       }
     }
     await box.delete(songId);
