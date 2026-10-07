@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -23,20 +24,24 @@ import 'presentation/pages/onboarding_page.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Temporary global logging setup for search diagnostics.
-  Logger.root.level = Level.ALL;
-  Logger.root.onRecord.listen((record) {
-    // Keep format compact for mobile logcat readability.
-    debugPrint(
-      '[${record.level.name}] ${record.loggerName}: ${record.message}',
-    );
-    if (record.error != null) {
-      debugPrint('  error: ${record.error}');
-    }
-    if (record.stackTrace != null) {
-      debugPrint('  stack: ${record.stackTrace}');
-    }
-  });
+  // Global logging setup: active only in debug mode to prevent leaking
+  // search queries, stream URLs, or internal state in release logcat.
+  if (kDebugMode) {
+    Logger.root.level = Level.ALL;
+    Logger.root.onRecord.listen((record) {
+      debugPrint(
+        '[${record.level.name}] ${record.loggerName}: ${record.message}',
+      );
+      if (record.error != null) {
+        debugPrint('  error: ${record.error}');
+      }
+      if (record.stackTrace != null) {
+        debugPrint('  stack: ${record.stackTrace}');
+      }
+    });
+  } else {
+    Logger.root.level = Level.OFF;
+  }
 
   // Initialize Hive FIRST, before any services that depend on it
   await Hive.initFlutter();

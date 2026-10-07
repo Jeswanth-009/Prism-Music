@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:dio/dio.dart';
 
@@ -42,12 +43,14 @@ Future<void> initializeDependencies() async {
       },
     ));
     
-    // Add interceptors for logging and error handling
-    dio.interceptors.add(LogInterceptor(
-      requestBody: false,
-      responseBody: false,
-      error: true,
-    ));
+    // Add interceptors for logging and error handling (debug mode only)
+    if (kDebugMode) {
+      dio.interceptors.add(LogInterceptor(
+        requestBody: false,
+        responseBody: false,
+        error: true,
+      ));
+    }
     
     return dio;
   });

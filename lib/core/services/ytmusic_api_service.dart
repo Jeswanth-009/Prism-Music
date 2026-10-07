@@ -51,14 +51,14 @@ class YtMusicApiService {
         return list;
       }
 
-      _logger.warning('searchSongs typed parser returned 0 for "$query", trying raw fallback');
+      _logger.warning('searchSongs typed parser returned 0, trying raw fallback');
       return await _searchFromRawRequest(
         query: query,
         params: _songsParams,
         expectedType: 'song',
       );
     } catch (e, st) {
-      _logger.severe('searchSongs failed for "$query"', e, st);
+      _logger.severe('searchSongs failed', e, st);
       return _searchFromRawRequest(
         query: query,
         params: _songsParams,
@@ -226,10 +226,10 @@ class YtMusicApiService {
         return list;
       }
 
-      _logger.warning('search typed parser returned 0 for "$query", trying raw fallback');
+      _logger.warning('search typed parser returned 0, trying raw fallback');
       return await _searchFromRawRequest(query: query);
     } catch (e, st) {
-      _logger.severe('search failed for "$query"', e, st);
+      _logger.severe('search failed', e, st);
       return _searchFromRawRequest(query: query);
     }
   }
@@ -252,7 +252,7 @@ class YtMusicApiService {
         expectedType: 'artist',
       );
     } catch (e, st) {
-      _logger.severe('searchArtists failed for "$query"', e, st);
+      _logger.severe('searchArtists failed', e, st);
       return _searchFromRawRequest(
         query: query,
         params: _artistsParams,
@@ -279,7 +279,7 @@ class YtMusicApiService {
         expectedType: 'album',
       );
     } catch (e, st) {
-      _logger.severe('searchAlbums failed for "$query"', e, st);
+      _logger.severe('searchAlbums failed', e, st);
       return _searchFromRawRequest(
         query: query,
         params: _albumsParams,
@@ -306,7 +306,7 @@ class YtMusicApiService {
         expectedType: 'playlist',
       );
     } catch (e, st) {
-      _logger.severe('searchPlaylists failed for "$query"', e, st);
+      _logger.severe('searchPlaylists failed', e, st);
       return _searchFromRawRequest(
         query: query,
         params: _playlistsParams,
@@ -324,10 +324,10 @@ class YtMusicApiService {
       final body = <String, dynamic>{'query': query, 'params': params};
       final raw = await _ytMusic.constructRequest('search', body: body);
       final items = _extractRawSearchItems(raw, expectedType: expectedType);
-      _logger.info('raw fallback search("$query") -> ${items.length} items');
+      _logger.info('raw fallback search -> ${items.length} items');
       return items;
     } catch (e, st) {
-      _logger.severe('raw fallback search failed for "$query"', e, st);
+      _logger.severe('raw fallback search failed', e, st);
       return const [];
     }
   }

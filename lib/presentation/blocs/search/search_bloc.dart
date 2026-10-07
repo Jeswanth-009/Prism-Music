@@ -50,7 +50,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     Emitter<SearchState> emit,
   ) async {
     final query = event.query.trim();
-    Logger.root.info('SearchBloc: _onSearchQuery("$query") filter=${event.filter}');
+    Logger.root.info('SearchBloc: _onSearchQuery (queryLength=${query.length}) filter=${event.filter}');
     if (query.length < 2) {
       emit(state.copyWith(
         status: SearchStatus.initial,
@@ -74,7 +74,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
       switch (event.filter) {
         case SearchFilter.songs:
           Logger.root.info(
-            'SearchBloc: searchSongs("$query") filter=${event.filter}',
+            'SearchBloc: searchSongs filter=${event.filter}',
           );
           final result = await _musicRepository.searchSongs(query, limit: 30);
           if (emit.isDone) return;
@@ -169,7 +169,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
           break;
         case SearchFilter.all:
           Logger.root.info(
-            'SearchBloc: searchAll("$query") filter=${event.filter}',
+            'SearchBloc: searchAll filter=${event.filter}',
           );
           final result = await _musicRepository.searchAll(query, limit: 30);
           if (emit.isDone) return;

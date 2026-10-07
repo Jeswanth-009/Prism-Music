@@ -122,13 +122,13 @@ class AudioPlayerService {
         return;
       }
       _currentIndexController.add(index);
-      debugPrint('AudioPlayerService: Current index changed to $index');
+      if (kDebugMode) debugPrint('AudioPlayerService: Current index changed to $index');
     });
 
     // Player state stream for comprehensive error handling
     _player.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
-        debugPrint('AudioPlayerService: Playback completed');
+        if (kDebugMode) debugPrint('AudioPlayerService: Playback completed');
         // In queue mode, check if we're at the last song
         if (_playlist != null && !_player.hasNext) {
           _completedController.add(true);
@@ -153,9 +153,11 @@ class AudioPlayerService {
     Duration? mediaDuration,
     bool allowYouTubeFallbackOnDirectFailure = false,
   }) async {
-    debugPrint(
-      'AudioPlayerService: Setting up audio (videoId: $videoId, directUrl: ${url.isNotEmpty})',
-    );
+    if (kDebugMode) {
+      debugPrint(
+        'AudioPlayerService: Setting up audio (videoId: $videoId, directUrl: ${url.isNotEmpty})',
+      );
+    }
 
     // Single-track mode should not keep stale queue metadata from older sessions.
     _playlist = null;
@@ -173,9 +175,11 @@ class AudioPlayerService {
 
     Future<Duration?> setSource(AudioSource source, String label) async {
       await _player.setAudioSource(source);
-      debugPrint(
-        'AudioPlayerService: $label source ready, duration: ${_player.duration}',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          'AudioPlayerService: $label source ready, duration: ${_player.duration}',
+        );
+      }
       return _player.duration;
     }
 
@@ -203,8 +207,10 @@ class AudioPlayerService {
         return await setSource(directSource, 'Direct URL');
       } on PlayerException catch (e, st) {
         lastDirectException = e;
-        debugPrint('AudioPlayerService: Direct URL failed: $e');
-        if (kDebugMode) debugPrint('Stack trace: $st');
+        if (kDebugMode) {
+          debugPrint('AudioPlayerService: Direct URL failed: $e');
+          debugPrint('Stack trace: $st');
+        }
 
         if (isLikelyLocalPath) {
           final errorMessage = _mapPlayerExceptionToMessage(e.message);
@@ -213,8 +219,10 @@ class AudioPlayerService {
         }
       } catch (e, st) {
         lastDirectError = e;
-        debugPrint('AudioPlayerService: Direct URL threw: $e');
-        if (kDebugMode) debugPrint('Stack trace: $st');
+        if (kDebugMode) {
+          debugPrint('AudioPlayerService: Direct URL threw: $e');
+          debugPrint('Stack trace: $st');
+        }
 
         if (isLikelyLocalPath) {
           _errorController.add('Failed to load local audio file: $e');
@@ -246,18 +254,22 @@ class AudioPlayerService {
 
         return await setSource(ytSource, 'YouTube');
       } on PlayerException catch (e, st) {
-        debugPrint(
-          'AudioPlayerService: PlayerException while loading YouTube source: $e',
-        );
-        debugPrint('Stack trace: $st');
+        if (kDebugMode) {
+          debugPrint(
+            'AudioPlayerService: PlayerException while loading YouTube source: $e',
+          );
+          debugPrint('Stack trace: $st');
+        }
         final errorMessage = _mapPlayerExceptionToMessage(e.message);
         _errorController.add(errorMessage);
         return null;
       } catch (e, st) {
-        debugPrint(
-          'AudioPlayerService: Failed to load audio via YouTube source: $e',
-        );
-        debugPrint('Stack trace: $st');
+        if (kDebugMode) {
+          debugPrint(
+            'AudioPlayerService: Failed to load audio via YouTube source: $e',
+          );
+          debugPrint('Stack trace: $st');
+        }
         _errorController.add('Failed to load audio: $e');
         return null;
       }
@@ -267,9 +279,11 @@ class AudioPlayerService {
         videoId != null &&
         videoId.isNotEmpty &&
         !allowYouTubeFallbackOnDirectFailure) {
-      debugPrint(
-        'AudioPlayerService: Skipping YouTube fallback after direct URL failure',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          'AudioPlayerService: Skipping YouTube fallback after direct URL failure',
+        );
+      }
     }
 
     // No source succeeded; report the most helpful error.
