@@ -3,20 +3,27 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../utils/path_safety.dart';
+
 /// Service to download YouTube audio streams with proper headers
 /// This bypasses IP restrictions by downloading with proper headers first
 class AudioDownloaderService {
   static final Dio _dio = Dio();
-  
+
   /// Download audio stream and save to temporary file
   /// Returns the local file path
   static Future<String> downloadAndCache(String streamUrl, String songId) async {
+    if (!isAcceptableStreamUrl(streamUrl)) {
+      throw ArgumentError('Refusing to download from an untrusted stream URL');
+    }
     try {
-      debugPrint('AudioDownloader: Downloading $streamUrl');
-      
+      debugPrint('AudioDownloader: Downloading stream');
+
       // Get temp directory
       final tempDir = await getTemporaryDirectory();
-      final filePath = '${tempDir.path}/prism_audio_$songId.webm';
+      // songId is provider data; never let it shape the path.
+      final safeId = sanitizePathComponent(songId, maxLength: 64);
+      final filePath = '${tempDir.path}/prism_audio_$safeId.webm';
       
       // Check if already cached
       final file = File(filePath);

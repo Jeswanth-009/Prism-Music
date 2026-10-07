@@ -11,6 +11,13 @@ import '../utils/logger.dart';
 import '../utils/path_safety.dart';
 import 'settings_service.dart';
 
+/// Builds a filesystem-safe file name for a downloaded song.
+///
+/// Both inputs come from provider data (ids may contain colons, titles may
+/// contain separators), so each component is strictly allowlisted.
+String downloadFileName(String playableId, String title) =>
+    '${sanitizePathComponent(playableId, maxLength: 64)}-${sanitizePathComponent(title)}.m4a';
+
 enum DownloadStatus {
   notDownloaded,
   downloading,
@@ -269,11 +276,15 @@ class DownloadService {
         streamUrl = null;
       }
 
-      if (streamUrl == null) {
+      if (streamUrl == null || !isAcceptableStreamUrl(streamUrl)) {
         downloadInfo = downloadInfo.copyWith(
           status: DownloadStatus.failed,
-          error: 'Failed to get stream URL',
+          error:
+              streamUrl == null ? 'Failed to get stream URL' : 'Stream URL failed validation',
         );
+        if (streamUrl != null) {
+          logError('Rejected untrusted stream URL scheme/host for download');
+        }
         _downloadProgress[song.playableId] = downloadInfo;
         _notifyListeners(downloadInfo);
         _cancelTokens.remove(song.playableId);
@@ -283,9 +294,8 @@ class DownloadService {
       // Get download directory
       final downloadDir = await _getDownloadDirectory();
       
-      // Create safe filename
-      final safeTitle = song.title.replaceAll(RegExp(r'[^\w\s-]'), '');
-      final fileName = '${song.playableId}_$safeTitle.m4a';
+      // Create safe filename (id and title are untrusted provider data)
+      final fileName = downloadFileName(song.playableId, song.title);
       final filePath = '${downloadDir.path}/$fileName';
 
       // Download file with progress tracking and proper headers
