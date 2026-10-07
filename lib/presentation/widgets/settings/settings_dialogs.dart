@@ -12,6 +12,7 @@ import '../../blocs/player/player.dart';
 import '../prism/prism_sheet.dart';
 import '../lastfm_login_dialog.dart';
 import '../../../core/services/lastfm_service.dart';
+import '../../../core/services/permission_service.dart';
 
 extension _AudioQualityLabel on AudioQuality {
   String get label => switch (this) {
@@ -329,6 +330,16 @@ class SettingsDialogs {
             FilledButton(
               onPressed: () async {
                 final path = controller.text.trim();
+                if (path.isNotEmpty && Platform.isAndroid) {
+                  final granted =
+                      await PermissionService.requestStoragePermission();
+                  if (!granted && dialogContext.mounted) {
+                    showPrismToast(
+                      dialogContext,
+                      'Storage permission not granted. Custom folder may not be writable.',
+                    );
+                  }
+                }
                 await settingsService.setDownloadFolderPath(
                   path.isEmpty ? null : path,
                 );

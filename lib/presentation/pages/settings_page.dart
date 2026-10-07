@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,6 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/di/injection.dart';
 import '../../core/services/lastfm_service.dart';
 import '../../core/services/local_backup_service.dart';
+import '../../core/services/permission_service.dart';
 import '../../core/services/recommendation_service.dart';
 import '../../core/services/settings_service.dart';
 import '../../core/services/audio_player_service.dart';
@@ -423,6 +425,33 @@ class _SettingsPageState extends State<SettingsPage> {
             _forceRebuild();
           },
         ),
+        if (Platform.isAndroid)
+          SettingRow(
+            leading: const Icon(Icons.battery_charging_full_rounded),
+            title: 'Unrestricted Battery Usage',
+            subtitle:
+                'Prevents Android from stopping audio playback in the background',
+            trailing: FutureBuilder<bool>(
+              future: PermissionService.hasIgnoreBatteryOptimizations(),
+              builder: (context, snapshot) {
+                final isIgnored = snapshot.data ?? false;
+                if (isIgnored) {
+                  return Icon(
+                    Icons.check_circle_rounded,
+                    color: Colors.green.shade600,
+                    size: 20,
+                  );
+                }
+                return TextButton(
+                  onPressed: () async {
+                    await PermissionService.requestIgnoreBatteryOptimizations();
+                    _forceRebuild();
+                  },
+                  child: const Text('Optimize'),
+                );
+              },
+            ),
+          ),
       ],
     );
   }

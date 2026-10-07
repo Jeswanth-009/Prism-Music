@@ -56,6 +56,15 @@ class PermissionService {
      return results;
    }
   
+  static bool _notificationRequested = false;
+
+  /// Request notification permission once on initial playback without blocking startup
+  static Future<bool> requestNotificationPermissionOnce() async {
+    if (_notificationRequested) return hasNotificationPermission();
+    _notificationRequested = true;
+    return requestNotificationPermission();
+  }
+
   /// Request notification permission (required for Android 13+)
   static Future<bool> requestNotificationPermission() async {
     if (Platform.isAndroid) {

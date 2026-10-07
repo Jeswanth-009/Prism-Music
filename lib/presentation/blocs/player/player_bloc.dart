@@ -11,6 +11,7 @@ import '../../../core/services/media_resolver_service.dart';
 import '../../../core/services/playback_reliability_service.dart';
 import '../../../core/services/stream_loader_service.dart';
 import '../../../core/services/download_service.dart';
+import '../../../core/services/permission_service.dart';
 import '../../../core/services/settings_service.dart';
 import '../../../core/di/injection.dart';
 import '../../../domain/entities/entities.dart';
@@ -398,6 +399,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
     try {
       _refreshRuntimeSettings();
+      // JIT permission: ask for notification permission on initial playback so
+      // media playback controls work on Android 13+ lock screen / status bar.
+      unawaited(PermissionService.requestNotificationPermissionOnce());
       final playbackQuality = _startupQuality(state.audioQuality);
 
       // Kick off next-track pre-resolve immediately after queue is known.

@@ -9,11 +9,9 @@ import 'package:logging/logging.dart';
 import 'core/di/injection.dart';
 import 'core/services/audio_player_service.dart';
 import 'core/services/media_session_coordinator.dart';
-import 'core/services/permission_service.dart';
 import 'core/services/local_backup_service.dart';
 import 'core/services/prism_audio_handler.dart';
 import 'core/services/settings_service.dart';
-import 'package:permission_handler/permission_handler.dart' show Permission;
 import 'presentation/blocs/player/player.dart';
 import 'presentation/blocs/search/search.dart';
 import 'presentation/blocs/library/library.dart';
@@ -105,21 +103,6 @@ void main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-
-  // Request permissions (non-blocking to avoid hot restart issues).
-  // The notification status is logged because Android 13+ silently hides
-  // the media notification when it is denied — this line is the fastest
-  // way to diagnose "no notification" from a debug log.
-  // ignore: body_might_complete_normally_catch_error
-  PermissionService.requestAllPermissions()
-      .then((results) {
-        final notif = results[Permission.notification];
-        debugPrint(
-          'Prism permissions: notification=$notif '
-          '(denied/permanentlyDenied = no media notification on Android 13+)',
-        );
-      })
-      .catchError((_) {});
 
   runApp(const PrismMusicApp());
 }

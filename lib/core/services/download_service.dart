@@ -210,29 +210,26 @@ class DownloadService {
       return true;
     }
 
-    try {
-      if (Platform.isAndroid) {
+    // Permissions: Default downloads use app-specific external storage which
+    // requires no runtime permissions. Only check storage permissions if a
+    // custom download directory is configured.
+    final customFolder = SettingsService.instance.downloadFolderPath;
+    if (customFolder != null && customFolder.isNotEmpty && Platform.isAndroid) {
+      try {
         final plugin = DeviceInfoPlugin();
         final androidInfo = await plugin.androidInfo;
         if (androidInfo.version.sdkInt >= 30) {
           if (!await Permission.manageExternalStorage.isGranted) {
-            final status = await Permission.manageExternalStorage.request();
-            if (!status.isGranted) {
-              logError('Manage external storage permission denied');
-              // Proceed anyway, fallback dir might work
-            }
+            await Permission.manageExternalStorage.request();
           }
         } else {
           if (!await Permission.storage.isGranted) {
-            final status = await Permission.storage.request();
-            if (!status.isGranted) {
-              logError('Storage permission denied');
-            }
+            await Permission.storage.request();
           }
         }
+      } catch (e) {
+        logError('Custom folder permission check failed: $e');
       }
-    } catch (e) {
-      logError('Permission check failed: $e');
     }
 
     // Check if currently downloading (but allow retry if failed)
