@@ -8,6 +8,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.28] - 2026-10-07
+
+### Added
+
+- Secure session storage and dart-define credential gating (S10)
+- Private-by-default storage with opt-in shared copy (S03)
+
+### Fixed
+
+- Request notification, storage and battery permissions just-in-time (S11)
+- Strip queries and disable verbose logging in release builds (S05)
+- Exact-host validation for links and redirects (S09)
+- Enforce HTTPS-only traffic via network security config (S04)
+- Validate schema, size and count limits on restore and imports (S06)
+- Sanitize download filenames and validate stream URLs (S07)
+- Restrict deletions to app-owned roots (S01)
+
+### Changed
+
+- Remove unused StreamProxyService (S08)
+
 ## [0.2.27] - 2026-10-01
 
 ### Added
@@ -531,3 +552,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.25]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.25-build61
 [0.2.26]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.26-build62
 [0.2.27]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.27-build63
+[0.2.28]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.28-build64
