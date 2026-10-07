@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- All remote providers are reached over HTTPS, so cleartext is denied
+     globally. If a local loopback proxy is ever reintroduced (it was removed
+     with StreamProxyService), add a narrow <domain-config> cleartext
+     exception for 127.0.0.1/localhost/10.0.2.2 instead of relaxing this. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>
