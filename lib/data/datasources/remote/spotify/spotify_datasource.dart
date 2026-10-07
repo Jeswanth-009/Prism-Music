@@ -163,6 +163,12 @@ class SpotifyDataSourceImpl implements SpotifyDataSource {
     return regex.firstMatch(url)?.group(1);
   }
 
+  /// Upper bound on the embedded app-state JSON we are willing to decode.
+  static const int _maxEmbedJsonChars = 20 * 1024 * 1024;
+
+  /// Upper bound on tracks parsed from one embed playlist payload.
+  static const int _maxEmbedTracks = 1000;
+
   /// Pull the embedded app-state JSON (`__NEXT_DATA__`) out of the page
   /// and navigate to the playlist entity it carries.
   Map<String, dynamic>? _extractEntity(String html) {
@@ -172,8 +178,11 @@ class SpotifyDataSourceImpl implements SpotifyDataSource {
     ).firstMatch(html);
     if (match == null) return null;
 
+    final raw = match.group(1)!;
+    if (raw.length > _maxEmbedJsonChars) return null;
+
     try {
-      final data = jsonDecode(match.group(1)!);
+      final data = jsonDecode(raw);
       if (data is! Map<String, dynamic>) return null;
       return _navigate(data, const [
         'props',
@@ -196,7 +205,7 @@ class SpotifyDataSourceImpl implements SpotifyDataSource {
     if (name.isEmpty || trackList is! List) return null;
 
     final tracks = <Song>[];
-    for (final item in trackList) {
+    for (final item in trackList.take(_maxEmbedTracks)) {
       if (item is! Map<String, dynamic>) continue;
       final song = _mapTrack(item);
       if (song != null) tracks.add(song);

@@ -12,6 +12,10 @@ import '../datasources/remote/lyrics/lyrics_datasource.dart';
 import '../datasources/remote/jiosaavn/jiosaavn_datasource.dart';
 import '../datasources/local/local_datasource.dart';
 
+/// Hard cap on tracks imported from an external provider playlist, so a
+/// hostile or pathological collection cannot exhaust memory.
+const int _maxImportedPlaylistTracks = 1000;
+
 /// Implementation of MusicRepository using mixed data sources
 class MusicRepositoryImpl implements MusicRepository {
   final YouTubeMusicDataSource _youtubeMusicDataSource;
@@ -720,8 +724,11 @@ class MusicRepositoryImpl implements MusicRepository {
       }
 
       // Match each track on YouTube in parallel (small worker pool) so a
-      // 100-track playlist takes seconds instead of minutes.
-      final tracks = details.tracks;
+      // 100-track playlist takes seconds instead of minutes. Oversized
+      // playlists are truncated at [_maxImportedPlaylistTracks].
+      final tracks = details.tracks.length > _maxImportedPlaylistTracks
+          ? details.tracks.sublist(0, _maxImportedPlaylistTracks)
+          : details.tracks;
       final matched = List<Song?>.filled(tracks.length, null);
       var nextIndex = 0;
       var converted = 0;
@@ -818,7 +825,18 @@ class MusicRepositoryImpl implements MusicRepository {
         );
       }
 
-      return Right(playlist.copyWith(isUserCreated: true));
+      final songs = playlist.songs!;
+      final capped = songs.length > _maxImportedPlaylistTracks
+          ? songs.sublist(0, _maxImportedPlaylistTracks)
+          : songs;
+
+      return Right(
+        playlist.copyWith(
+          isUserCreated: true,
+          songs: capped,
+          trackCount: capped.length,
+        ),
+      );
     } catch (e) {
       return Left(UnknownFailure(message: e.toString()));
     }

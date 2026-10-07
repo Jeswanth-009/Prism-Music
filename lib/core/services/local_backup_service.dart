@@ -5,6 +5,9 @@ import 'dart:io';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../utils/logger.dart';
+import '../utils/path_safety.dart';
+
 /// Privacy-first local backup.
 ///
 /// Serializes the user's library boxes to a plain JSON file in *shared*
@@ -24,6 +27,15 @@ class LocalBackupService {
     'search_history',
     'downloads',
   ];
+
+  /// Backup schema version written by this build; restore refuses others.
+  static const int _version = 1;
+
+  /// Restore refuses files larger than this before decoding them.
+  static const int _maxBackupBytes = 50 * 1024 * 1024;
+
+  /// Restore refuses any box with more entries than this.
+  static const int _maxEntriesPerBox = 5000;
 
   Timer? _debounce;
 
@@ -127,39 +139,115 @@ class LocalBackupService {
   /// Restore boxes from the newest reachable backup file, but only when a
   /// box is currently empty (so a fresh install reuses old data without
   /// clobbering new data).
+  ///
+  /// Backup files live in storage other parties may be able to modify, so
+  /// every candidate is size-capped and schema-validated *before* anything
+  /// is written; a corrupt or hostile file is rejected wholesale.
   Future<void> restoreIfNeeded() async {
     try {
       final candidates = await _existingBackupFiles();
       if (candidates.isEmpty) return;
 
-      Map<String, dynamic>? boxes;
       for (final file in candidates) {
         try {
-          final Map<String, dynamic> payload =
-              jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-          boxes =
-              (payload['boxes'] as Map<dynamic, dynamic>?)?.cast<String, dynamic>();
-          if (boxes != null && boxes.isNotEmpty) break;
+          if (await file.length() > _maxBackupBytes) {
+            logError('Backup restore skipped: file too large (${file.path})');
+            continue;
+          }
+
+          final dynamic payload = jsonDecode(await file.readAsString());
+          if (payload is! Map<String, dynamic>) continue;
+
+          final downloadRoots = await DownloadPathGuard.allowedRoots();
+          final boxes = validateRestoredPayload(payload, downloadRoots: downloadRoots);
+          if (boxes == null) {
+            logError('Backup restore rejected: invalid schema (${file.path})');
+            continue;
+          }
+
+          await _writeValidatedBoxes(boxes);
+          return;
         } catch (_) {
           // Corrupt or unreadable candidate — try the next one.
         }
       }
-      if (boxes == null) return;
-
-      for (final String name in _boxes) {
-        final dynamic entries = boxes[name];
-        if (entries is! Map) continue;
-
-        final Box<dynamic> box = await Hive.openBox(name);
-        if (box.isNotEmpty) continue;
-
-        final Map<dynamic, dynamic> map = entries.cast<dynamic, dynamic>();
-        for (final MapEntry<dynamic, dynamic> entry in map.entries) {
-          await box.put(entry.key, entry.value);
-        }
-      }
     } catch (_) {
       // If the backup is corrupt or unreadable, ignore it.
+    }
+  }
+
+  /// Validates a decoded backup payload against the v1 schema.
+  ///
+  /// Returns the normalized box entries eligible for restore, or null when
+  /// the payload must be rejected wholesale (wrong version, unexpected
+  /// structure, or entry/count abuse). Download paths outside the app-owned
+  /// [downloadRoots] are stripped from the returned entries — the file they
+  /// point at must never be deleted or played by this app. Pure function:
+  /// nothing is written to Hive here.
+  static Map<String, Map<String, dynamic>>? validateRestoredPayload(
+    Map<String, dynamic> payload, {
+    List<String> downloadRoots = const [],
+  }) {
+    final dynamic version = payload['version'];
+    if (version is! num || version != _version) return null;
+
+    final dynamic rawBoxes = payload['boxes'];
+    if (rawBoxes is! Map || rawBoxes.isEmpty) return null;
+
+    // Strict v1 schema: any unrecognized box name rejects the payload.
+    for (final dynamic name in rawBoxes.keys) {
+      if (!_boxes.contains(name)) return null;
+    }
+
+    final validated = <String, Map<String, dynamic>>{};
+    for (final String name in _boxes) {
+      final dynamic rawEntries = rawBoxes[name];
+      if (rawEntries == null) continue;
+      if (rawEntries is! Map) return null;
+      if (rawEntries.length > _maxEntriesPerBox) return null;
+
+      final entries = <String, dynamic>{};
+      for (final MapEntry<dynamic, dynamic> entry in rawEntries.entries) {
+        if (entry.key is! String) return null;
+        if (entry.value is! Map) return null;
+        entries[entry.key as String] =
+            _sanitizeRestoredEntry(name, entry.value as Map, downloadRoots);
+      }
+      validated[name] = entries;
+    }
+    return validated;
+  }
+
+  /// Strips untrusted fields from a single restored entry.
+  static Map<String, dynamic> _sanitizeRestoredEntry(
+    String boxName,
+    Map<dynamic, dynamic> value,
+    List<String> downloadRoots,
+  ) {
+    final map = Map<String, dynamic>.from(value);
+    if (boxName == 'downloads') {
+      final dynamic path = map['localPath'];
+      if (path is! String ||
+          path.isEmpty ||
+          !isPathWithinAllowedRoots(path, downloadRoots)) {
+        map.remove('localPath');
+      }
+    }
+    return map;
+  }
+
+  /// Writes validated entries into currently-empty boxes only.
+  Future<void> _writeValidatedBoxes(Map<String, Map<String, dynamic>> boxes) async {
+    for (final String name in _boxes) {
+      final Map<String, dynamic>? entries = boxes[name];
+      if (entries == null || entries.isEmpty) continue;
+
+      final Box<dynamic> box = await Hive.openBox(name);
+      if (box.isNotEmpty) continue; // Never clobber live data.
+
+      for (final MapEntry<String, dynamic> entry in entries.entries) {
+        await box.put(entry.key, entry.value);
+      }
     }
   }
 }
