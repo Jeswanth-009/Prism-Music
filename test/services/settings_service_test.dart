@@ -19,6 +19,8 @@ void main() {
       expect(settings.onboardingComplete, isFalse);
       expect(settings.countryCode, 'US');
       expect(settings.downloadFolderPath, isNull);
+      expect(settings.autoBackupEnabled, isTrue);
+      expect(settings.sharedBackupEnabled, isFalse);
     });
   });
 
@@ -69,6 +71,19 @@ void main() {
     test('theme mode round-trips by name', () async {
       await SettingsService.instance.setThemeMode(ThemeMode.dark);
       expect(SettingsService.instance.themeMode, ThemeMode.dark);
+    });
+
+    test('backup settings persist: auto-backup on, shared copy off', () async {
+      // Defaults are the privacy-safe pair: private auto-backup enabled,
+      // shared-storage copy strictly opt-in.
+      expect(SettingsService.instance.autoBackupEnabled, isTrue);
+      expect(SettingsService.instance.sharedBackupEnabled, isFalse);
+
+      await SettingsService.instance.setAutoBackupEnabled(false);
+      expect(SettingsService.instance.autoBackupEnabled, isFalse);
+
+      await SettingsService.instance.setSharedBackupEnabled(true);
+      expect(SettingsService.instance.sharedBackupEnabled, isTrue);
     });
   });
 }

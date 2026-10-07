@@ -88,6 +88,8 @@ class SettingsService {
   static const String _themeModeKey = 'theme_mode';
   static const String _dynamicAccentKey = 'dynamic_accent';
   static const String _onboardingCompleteKey = 'onboarding_complete';
+  static const String _autoBackupKey = 'auto_backup_enabled';
+  static const String _sharedBackupKey = 'shared_backup_enabled';
   static SettingsService? _instance;
   
   Box? _settingsBox;
@@ -289,6 +291,37 @@ class SettingsService {
   /// Persist onboarding completion
   Future<void> setOnboardingComplete() async {
     await _settingsBox?.put(_onboardingCompleteKey, true);
+  }
+
+  /// Whether the library is backed up automatically after changes.
+  /// The automatic backup goes to app-private storage only.
+  bool get autoBackupEnabled {
+    try {
+      return _settingsBox?.get(_autoBackupKey, defaultValue: true) ?? true;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  /// Persist auto-backup preference
+  Future<void> setAutoBackupEnabled(bool enabled) async {
+    await _settingsBox?.put(_autoBackupKey, enabled);
+  }
+
+  /// Whether an extra backup copy is kept in shared storage (public
+  /// Downloads on Android). That copy survives an uninstall but is readable
+  /// by other apps with storage access, so it is strictly opt-in.
+  bool get sharedBackupEnabled {
+    try {
+      return _settingsBox?.get(_sharedBackupKey, defaultValue: false) ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Persist shared-backup opt-in
+  Future<void> setSharedBackupEnabled(bool enabled) async {
+    await _settingsBox?.put(_sharedBackupKey, enabled);
   }
 
   /// Get custom download folder path (null means use default)

@@ -6,6 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/di/injection.dart';
 import '../../core/services/lastfm_service.dart';
+import '../../core/services/local_backup_service.dart';
 import '../../core/services/recommendation_service.dart';
 import '../../core/services/settings_service.dart';
 import '../../core/services/audio_player_service.dart';
@@ -40,6 +41,8 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _isInitialized = false;
   bool _hasInitialized = false;
   bool _fastStartEnabled = true;
+  bool _autoBackupEnabled = true;
+  bool _sharedBackupEnabled = false;
   int _prefetchLookahead = 1;
   String _appVersion = 'Loading...';
 
@@ -57,6 +60,8 @@ class _SettingsPageState extends State<SettingsPage> {
       await _lastFmService.initialize();
       await _settingsService.initialize();
       _fastStartEnabled = _settingsService.fastStartEnabled;
+      _autoBackupEnabled = _settingsService.autoBackupEnabled;
+      _sharedBackupEnabled = _settingsService.sharedBackupEnabled;
       _prefetchLookahead = _settingsService.prefetchLookahead;
       _recommendationService = getIt<RecommendationService>();
 
@@ -92,6 +97,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   _buildAppExperienceSection(),
                   _buildAudioPlaybackSection(),
                   _buildDataStorageSection(),
+                  _buildBackupPrivacySection(),
                   _buildAboutSection(),
                   const SizedBox(height: 48),
                 ],
@@ -450,6 +456,60 @@ class _SettingsPageState extends State<SettingsPage> {
           title: 'Cache',
           subtitle: 'Clear temporary files',
           onTap: () => SettingsDialogs.showClearCacheDialog(context),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBackupPrivacySection() {
+    return SettingSectionCard(
+      title: 'Backup & Privacy',
+      subtitle: 'Where your library backup lives',
+      icon: Icons.backup_outlined,
+      children: [
+        SettingRow(
+          leading: const Icon(Icons.backup_outlined),
+          title: 'Automatic backup',
+          subtitle: _autoBackupEnabled
+              ? 'Saves your library, history and searches after changes '
+                  '(app-private storage)'
+              : 'Automatic backups are off',
+          trailing: Switch.adaptive(
+            value: _autoBackupEnabled,
+            onChanged: (value) async {
+              await _settingsService.setAutoBackupEnabled(value);
+              if (mounted) setState(() => _autoBackupEnabled = value);
+            },
+          ),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.folder_shared_outlined),
+          title: 'Keep a copy in shared storage',
+          subtitle: _sharedBackupEnabled
+              ? 'Extra copy in Downloads survives an uninstall — but other '
+                  'apps with storage access can read it'
+              : 'Off — backups stay private to the app',
+          trailing: Switch.adaptive(
+            value: _sharedBackupEnabled,
+            onChanged: (value) async {
+              await _settingsService.setSharedBackupEnabled(value);
+              if (mounted) setState(() => _sharedBackupEnabled = value);
+              if (value) await LocalBackupService.instance.backup();
+            },
+          ),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.cloud_sync_outlined),
+          title: 'Back up now',
+          subtitle: 'Write the backup files immediately',
+          onTap: () async {
+            await LocalBackupService.instance.backup();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Backup written')),
+              );
+            }
+          },
         ),
       ],
     );

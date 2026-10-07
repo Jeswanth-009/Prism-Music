@@ -7,13 +7,17 @@ import 'package:path_provider/path_provider.dart';
 
 import '../utils/logger.dart';
 import '../utils/path_safety.dart';
+import 'settings_service.dart';
 
-/// Privacy-first local backup.
+/// Local backup of the user's library.
 ///
-/// Serializes the user's library boxes to a plain JSON file in *shared*
-/// external storage (outside the app sandbox) so the data survives an
-/// uninstall. Nothing is ever uploaded to the cloud. The file is readable
-/// and deletable by the user at any time.
+/// The automatic backup is written to *app-private* storage only. An extra
+/// copy in shared storage (public Downloads on Android) is written only
+/// when the user opts in from Settings — that copy survives an uninstall
+/// but is readable by any app or user with storage access, which is why it
+/// is opt-in and off by default. Nothing is ever uploaded to the cloud.
+/// Restore always validates a candidate file before writing anything
+/// (see [restoreIfNeeded]).
 class LocalBackupService {
   LocalBackupService._();
 
@@ -39,30 +43,39 @@ class LocalBackupService {
 
   Timer? _debounce;
 
-  /// Backup file locations, best first.
-  ///
-  /// The primary location is the *public* Downloads folder: it is visible
-  /// to the user and the only place that survives an uninstall — the
-  /// app-specific dirs returned by getExternalStorageDirectory()
-  /// (`Android/data/<package>/…`) are wiped by Android together with the
-  /// app, which defeated the whole purpose of this backup. The remaining
-  /// candidates are kept so backups written by older builds are still
-  /// readable, and so non-Android platforms have a home.
-  Future<File?> _backupFile() async {
-    for (final Directory base in await _candidateBaseDirs()) {
-      try {
-        final Directory backupDir = Directory('${base.path}/PrismMusic/backup');
-        await backupDir.create(recursive: true);
-        return File('${backupDir.path}/library_backup.json');
-      } catch (_) {
-        // Try the next candidate.
-      }
+  /// Backup read candidates, best first: private locations, then the legacy
+  /// shared Downloads location (older builds wrote there; still restorable
+  /// after validation, even when the opt-in is off).
+  Future<List<Directory>> _candidateBaseDirs() async {
+    final dirs = <Directory>[];
+    try {
+      dirs.add(await getApplicationDocumentsDirectory());
+    } catch (_) {
+      // Not available on this platform.
     }
-    return null;
+    try {
+      final external = await getExternalStorageDirectory();
+      if (external != null) dirs.add(external);
+    } catch (_) {
+      // Not available on this platform.
+    }
+    dirs.add(Directory('/storage/emulated/0/Download'));
+    return dirs;
   }
 
-  /// Existing backup files, newest-preference order. Returns every
-  /// candidate that exists on disk; [restoreIfNeeded] uses the first.
+  /// Creates (if needed) the PrismMusic backup file under [base].
+  Future<File?> _backupFileIn(Directory base) async {
+    try {
+      final Directory backupDir = Directory('${base.path}/PrismMusic/backup');
+      await backupDir.create(recursive: true);
+      return File('${backupDir.path}/library_backup.json');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Existing backup files, best-first order. Returns every candidate that
+  /// exists on disk; [restoreIfNeeded] uses the first valid one.
   Future<List<File>> _existingBackupFiles() async {
     final files = <File>[];
     for (final Directory base in await _candidateBaseDirs()) {
@@ -76,40 +89,56 @@ class LocalBackupService {
     return files;
   }
 
-  Future<List<Directory>> _candidateBaseDirs() async {
+  /// App-private base dirs for *writing* the automatic backup.
+  Future<List<Directory>> _privateBaseDirs() async {
     final dirs = <Directory>[];
-    // Public shared storage (Android). Unreachable paths simply fail the
-    // create() in the caller and fall through to the next candidate.
-    dirs.add(Directory('/storage/emulated/0/Download'));
+    try {
+      dirs.add(await getApplicationDocumentsDirectory());
+    } catch (_) {
+      // Not available on this platform.
+    }
     try {
       final external = await getExternalStorageDirectory();
       if (external != null) dirs.add(external);
     } catch (_) {
       // Not available on this platform.
     }
-    try {
-      dirs.add(await getApplicationDocumentsDirectory());
-    } catch (_) {
-      // Last resort failed — caller handles the empty list.
-    }
     return dirs;
+  }
+
+  /// Shared base dir for *writing* the opt-in extra copy.
+  Future<List<Directory>> _sharedBaseDirs() async =>
+      <Directory>[Directory('/storage/emulated/0/Download')];
+
+  /// The shared-storage copy is written only on explicit opt-in. When the
+  /// setting cannot be read, fail closed: no shared writes.
+  bool _sharedBackupOptIn() {
+    try {
+      return SettingsService.instance.sharedBackupEnabled;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Schedule a debounced backup. Safe to call after every mutation; rapid
   /// successive calls collapse into a single write a few seconds later.
+  /// No-op when the user disabled automatic backups.
   void scheduleBackup() {
+    try {
+      if (!SettingsService.instance.autoBackupEnabled) return;
+    } catch (_) {
+      // Settings unavailable — default to backing up.
+    }
     _debounce?.cancel();
     _debounce = Timer(const Duration(seconds: 3), () async {
       await backup();
     });
   }
 
-  /// Write all tracked boxes to the JSON backup file.
+  /// Write all tracked boxes to the JSON backup file: always to app-private
+  /// storage, plus one shared-storage copy when the user opted in.
   Future<void> backup() async {
     try {
-      final File? file = await _backupFile();
-      if (file == null) return;
-
       final Map<String, dynamic> payload = <String, dynamic>{
         'version': 1,
         'backedUpAt': DateTime.now().toIso8601String(),
@@ -130,7 +159,37 @@ class LocalBackupService {
         }
       }
 
-      await file.writeAsString(jsonEncode(payload));
+      final String encoded = jsonEncode(payload);
+      final List<File> targets = <File>[];
+
+      // Private primary copy — always.
+      for (final Directory base in await _privateBaseDirs()) {
+        final File? file = await _backupFileIn(base);
+        if (file != null) {
+          targets.add(file);
+          break;
+        }
+      }
+
+      // Shared copy — only on explicit opt-in (survives uninstall, but is
+      // readable by other apps with storage access).
+      if (_sharedBackupOptIn()) {
+        for (final Directory base in await _sharedBaseDirs()) {
+          final File? file = await _backupFileIn(base);
+          if (file != null) {
+            targets.add(file);
+            break;
+          }
+        }
+      }
+
+      for (final File file in targets) {
+        try {
+          await file.writeAsString(encoded);
+        } catch (_) {
+          // Best-effort per location.
+        }
+      }
     } catch (_) {
       // Best-effort backup; never crash the app over it.
     }
