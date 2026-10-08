@@ -169,6 +169,194 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
     'snz.saavncdn.com',
   ];
 
+  static const double _confidenceThreshold = 0.65;
+
+  static const List<String> _versionKeywords = [
+    'remix',
+    'mix',
+    'live',
+    'cover',
+    'instrumental',
+    'acoustic',
+    'lofi',
+    'lo-fi',
+    'karaoke',
+    'slowed',
+    'reverb',
+    'sped up',
+    'speed up',
+    'unplugged',
+    'orchestral',
+    'tribute',
+    'mashup',
+    'reprise',
+  ];
+
+  static const List<String> _junkPhrases = [
+    'official video',
+    'official music video',
+    'official audio',
+    'official visualizer',
+    'official lyric video',
+    'lyric video',
+    'lyrics',
+    'lyrics video',
+    'audio',
+    'video',
+    'visualizer',
+    'mv',
+    'm/v',
+    'hd',
+    'hq',
+    '4k',
+    'remaster',
+    'remastered',
+    'full song',
+    'full video',
+    'full audio',
+    'color coded',
+  ];
+
+  static String _unescapeHtml(String input) {
+    return input
+        .replaceAll('&quot;', '"')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&#039;', "'")
+        .replaceAll('&apos;', "'")
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>');
+  }
+
+  static String _cleanText(String input) {
+    return _unescapeHtml(input)
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^\p{L}\p{M}\p{N}\s]', unicode: true), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  static String _stripJunk(String input) {
+    var text = _unescapeHtml(input).toLowerCase();
+    for (final junk in _junkPhrases) {
+      text = text.replaceAll(junk, ' ');
+    }
+    return _cleanText(text);
+  }
+
+  static Set<String> _extractVersionTags(String input) {
+    final clean = _cleanText(input);
+    final tokens = clean.split(' ').where((t) => t.isNotEmpty).toSet();
+    final matched = <String>{};
+    for (final kw in _versionKeywords) {
+      if (tokens.contains(kw) || clean.contains(kw)) {
+        matched.add(kw);
+      }
+    }
+    return matched;
+  }
+
+  /// Score a JioSaavn candidate against the target [Song].
+  /// Returns a confidence score between 0.0 and 1.0.
+  static double scoreCandidate(Song target, Map<String, dynamic> candidate) {
+    // 1. Check verified provider ID match
+    final candidateId = candidate['id']?.toString() ?? candidate['song_id']?.toString();
+    if (target.jioSaavnId != null && target.jioSaavnId!.isNotEmpty && candidateId == target.jioSaavnId) {
+      return 1.0;
+    }
+
+    final candidateTitleRaw = candidate['title']?.toString() ??
+        candidate['song']?.toString() ??
+        candidate['name']?.toString() ??
+        '';
+    if (candidateTitleRaw.isEmpty) return 0.0;
+
+    final targetTitle = target.title;
+
+    // 2. Version Gate: Check version keywords
+    final targetVersions = _extractVersionTags(targetTitle);
+    final candidateVersions = _extractVersionTags(candidateTitleRaw);
+
+    // If candidate has version tags (e.g. remix, live, cover) that target does not have:
+    final unwantedVersions = candidateVersions.difference(targetVersions);
+    if (unwantedVersions.isNotEmpty) {
+      return 0.0; // Strictly reject remixes, covers, instrumental, live recordings
+    }
+
+    // If target has version tags that candidate lacks:
+    final missingVersions = targetVersions.difference(candidateVersions);
+    if (missingVersions.isNotEmpty) {
+      return 0.0;
+    }
+
+    // 3. Title token similarity (Jaccard similarity on Unicode tokens)
+    final targetTitleTokens = _stripJunk(targetTitle).split(' ').where((t) => t.isNotEmpty).toSet();
+    final candidateTitleTokens = _stripJunk(candidateTitleRaw).split(' ').where((t) => t.isNotEmpty).toSet();
+
+    if (targetTitleTokens.isEmpty || candidateTitleTokens.isEmpty) return 0.0;
+
+    final titleIntersection = targetTitleTokens.intersection(candidateTitleTokens).length;
+    final titleUnion = targetTitleTokens.union(candidateTitleTokens).length;
+    final titleScore = titleUnion > 0 ? titleIntersection / titleUnion : 0.0;
+
+    // Require reasonable title overlap
+    if (titleScore < 0.4) return 0.0;
+
+    // 4. Artist matching
+    final moreInfo = candidate['more_info'] as Map<String, dynamic>?;
+    final candidateArtistRaw = [
+      moreInfo?['primary_artists']?.toString() ?? '',
+      moreInfo?['singers']?.toString() ?? '',
+      candidate['subtitle']?.toString() ?? '',
+      candidate['primaryArtists']?.toString() ?? '',
+    ].join(' ');
+
+    final targetArtist = target.artist.trim();
+    double artistScore = 0.5; // Neutral if artist unknown
+
+    if (targetArtist.isNotEmpty && targetArtist.toLowerCase() != 'unknown' && targetArtist.toLowerCase() != 'various artists') {
+      final targetArtistTokens = _cleanText(targetArtist).split(' ').where((t) => t.length >= 2).toSet();
+      final candidateArtistClean = _cleanText(candidateArtistRaw);
+
+      if (targetArtistTokens.isNotEmpty) {
+        final matches = targetArtistTokens.where((token) => candidateArtistClean.contains(token)).length;
+        if (matches > 0) {
+          artistScore = 1.0;
+        } else {
+          // Zero artist token match: heavy penalty or reject if title isn't exact
+          if (titleScore < 0.8) {
+            return 0.0;
+          }
+          artistScore = 0.1;
+        }
+      }
+    }
+
+    // 5. Duration gate
+    double durationScore = 0.5;
+    final targetDurationSec = target.duration.inSeconds;
+    final rawDuration = moreInfo?['duration'] ?? candidate['duration'];
+    final candidateDurationSec = int.tryParse(rawDuration?.toString() ?? '0') ?? 0;
+
+    if (targetDurationSec > 30 && candidateDurationSec > 0) {
+      final diff = (candidateDurationSec - targetDurationSec).abs();
+      if (diff > 30) {
+        // Over 30s discrepancy: reject different recording/cut
+        return 0.0;
+      } else if (diff <= 5) {
+        durationScore = 1.0;
+      } else if (diff <= 15) {
+        durationScore = 0.7;
+      } else {
+        durationScore = 0.3;
+      }
+    }
+
+    // 6. Aggregate score
+    // Title is 50%, Artist is 30%, Duration is 20%
+    final compositeScore = (titleScore * 0.50) + (artistScore * 0.30) + (durationScore * 0.20);
+    return compositeScore.clamp(0.0, 1.0);
+  }
+
   @override
   Future<StreamInfo?> getStreamUrl(Song song) async {
     try {
@@ -184,9 +372,30 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
           data = jsonDecode(data.trim());
         }
 
-        if (data['results'] != null && data['results'].isNotEmpty) {
-          final result = data['results'][0];
-          final moreInfo = result['more_info'];
+        if (data['results'] != null && data['results'] is List) {
+          final results = (data['results'] as List).whereType<Map<String, dynamic>>().toList();
+
+          Map<String, dynamic>? bestCandidate;
+          double bestScore = 0.0;
+
+          for (final item in results) {
+            final moreInfo = item['more_info'];
+            if (moreInfo == null || moreInfo['encrypted_media_url'] == null) continue;
+
+            final score = scoreCandidate(song, item);
+            debugPrint('JioSaavn candidate "${item['title'] ?? item['song']}" score: $score');
+            if (score > bestScore && score >= _confidenceThreshold) {
+              bestScore = score;
+              bestCandidate = item;
+            }
+          }
+
+          if (bestCandidate == null) {
+            debugPrint('JioSaavnDataSource: No candidate passed confidence threshold for "${song.title}"');
+            return null;
+          }
+
+          final moreInfo = bestCandidate['more_info'];
 
           if (moreInfo != null && moreInfo['encrypted_media_url'] != null) {
             String encryptedUrl = moreInfo['encrypted_media_url'];
