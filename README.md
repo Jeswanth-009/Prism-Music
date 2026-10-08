@@ -3,7 +3,7 @@
 <img src="docs/media/banner.png" alt="Prism Music — All your music. One app. No account." width="100%">
 
 **A privacy-first, open-source music player for Android, built with Flutter.**
-Search and stream from YouTube Music and JioSaavn, download for offline, scrobble to Last.fm — and keep every like, playlist and play count on your device. No account. No ads. No tracking.
+Search and stream from YouTube Music and JioSaavn, download for offline, scrobble to Last.fm — and keep every like, playlist and play count on your device. No account. No ads. No first-party tracking. Streams and lyrics are fetched directly from external services over HTTPS without an intermediary backend (see [PRIVACY.md](PRIVACY.md)).
 
 [![CI](https://github.com/Jeswanth-009/Prism-Music/actions/workflows/ci.yml/badge.svg)](https://github.com/Jeswanth-009/Prism-Music/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Jeswanth-009/Prism-Music?include_prereleases&label=release&color=7C6CFF)](https://github.com/Jeswanth-009/Prism-Music/releases)
@@ -12,7 +12,7 @@ Search and stream from YouTube Music and JioSaavn, download for offline, scrobbl
 [![License](https://img.shields.io/badge/license-MIT-35D0B4)](LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-21A366)](CONTRIBUTING.md)
 
-[Download](#download--install) · [Features](#features) · [How it works](#how-it-works) · [Documentation](#documentation) · [Contributing](#contributing) · [Website](https://jeswanth-009.github.io/Prism-Music/)
+[Download](#download--install) · [Features](#features) · [How it works](#how-it-works) · [Privacy](PRIVACY.md) · [Documentation](#documentation) · [Contributing](#contributing) · [Website](https://jeswanth-009.github.io/Prism-Music/)
 
 </div>
 
@@ -29,7 +29,8 @@ Search and stream from YouTube Music and JioSaavn, download for offline, scrobbl
 ## Why Prism Music
 
 - **No account.** Search, play, like and download — nothing in the core flow asks you to sign in.
-- **Local-first.** Likes, playlists, history and stats live in an on-device database, with a backup that survives reinstalls. There is no cloud and no telemetry.
+- **Local-first.** Likes, playlists, history and stats live in an on-device database with zero cloud telemetry. Backups live in app-private storage by default, with an opt-in shared copy or manual export to survive uninstalls.
+- **Direct streaming.** Streams, search results and lyrics are fetched directly from public third-party endpoints over HTTPS with no middleman proxy or logging server.
 - **Fallback-first playback.** Four independent stream sources, request retries and a circuit breaker keep songs playing when one path fails.
 - **Open pipeline.** CI, release automation and architecture docs are public from day one; every push to `main` ships a signed build.
 
@@ -54,7 +55,7 @@ Search and stream from YouTube Music and JioSaavn, download for offline, scrobbl
 - Liked songs, recently played, playlists and downloads
 - Full listening-stats page: plays, unique songs, listening time, a 14-day chart and your top rotation
 - Import playlists from Spotify or YouTube links
-- Local backup to device storage that survives reinstalls — no cloud involved
+- Local backup to app-private storage, with opt-in shared storage copy or manual export that survives reinstalls — no cloud involved
 
 **Personalization**
 
@@ -178,6 +179,7 @@ Contributions are welcome — bug reports, feature ideas and PRs alike. See [CON
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Layered design, DI, BLoC structure, fallback strategy |
 | [STREAM_ARCHITECTURE.md](STREAM_ARCHITECTURE.md) | Stream loading, caching, prefetch, source fallbacks |
 | [BACKEND_INTEGRATION.md](BACKEND_INTEGRATION.md) | Backend-agnostic playback path and song mapping |
+| [PRIVACY.md](PRIVACY.md) | Comprehensive privacy policy, data flow, and permission disclosures |
 | [docs/TESTING.md](docs/TESTING.md) | Test tiers, conventions, golden tests, device matrix |
 | [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | Manual release gates and post-release verification |
 | [LASTFM_SETUP.md](LASTFM_SETUP.md) | Enabling Last.fm scrobbling with your own API key |
