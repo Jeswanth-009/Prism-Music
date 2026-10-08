@@ -8,6 +8,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.31] - 2026-10-08
+
+### Fixed
+
+- Resolve playback lifecycle, command concurrency, native errors, and queue coherence (F01, F02, F03, F08)
+- Route album browse IDs to native album API instead of playlist endpoint (F10)
+- Score and validate stream candidates to prevent mismatch (F04)
+- Relabel search fallbacks as discovery mixes and prevent fake ranks (F05)
+- Resolve partial load failures and durably persist imported playlists (F06, F07)
+- Prevent filter state race condition on query submission (F09)
+- Preserve regional Unicode scripts during text normalization (F11)
+
 ## [0.2.30] - 2026-10-08
 
 ### Changed
@@ -573,3 +585,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.28]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.28-build64
 [0.2.29]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.29-build65
 [0.2.30]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.30-build66
+[0.2.31]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.31-build67
