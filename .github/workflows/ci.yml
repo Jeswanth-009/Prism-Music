@@ -38,13 +38,13 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Java 17
-        uses: actions/setup-java@8df10395026301dbd96443422813ec3be5143789 # v4.3.0
+        uses: actions/setup-java@8df1039502a15bceb9433410b1a100fbe190c53b # v4.5.0
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Set up Flutter (3.38.4 stable)
-        uses: subosito/flutter-action@f2c4f66bb077b9660233633630d71a1727725920 # v2.18.0
+        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff # v2.18.0
         with:
           flutter-version: "3.38.4"
           channel: stable
@@ -63,7 +63,7 @@ jobs:
         run: flutter build apk --debug --android-skip-build-dependency-validation
 
       - name: Upload debug APK artifact
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf6581a12fe429233114 # v4.4.3
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: prism-music-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
@@ -81,7 +81,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Scan dependencies with OSV-Scanner
-        uses: google/osv-scanner-action@555fe237000c01282ec6179e8e040775d790d796 # v1.9.2
+        uses: google/osv-scanner-action@764c91816374ff2d8fc2095dab36eecd42d61638 # v1.9.2
         with:
           scan-args: |-
             --lockfile=pubspec.lock

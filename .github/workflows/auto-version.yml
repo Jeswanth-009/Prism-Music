@@ -296,13 +296,13 @@ jobs:
 
       # ── 8. Java & Flutter setup ───────────────────────────────────
       - name: Set up Java 17
-        uses: actions/setup-java@8df10395026301dbd96443422813ec3be5143789 # v4.3.0
+        uses: actions/setup-java@8df1039502a15bceb9433410b1a100fbe190c53b # v4.5.0
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Set up Flutter (3.38.4 stable)
-        uses: subosito/flutter-action@f2c4f66bb077b9660233633630d71a1727725920 # v2.18.0
+        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff # v2.18.0
         with:
           flutter-version: "3.38.4"
           channel: stable
@@ -446,7 +446,7 @@ jobs:
       # ── 12b. Attest Build Provenance ─────────────────────────────
       - name: Attest Build Provenance
         if: steps.next_version.outputs.should_release == 'true' && env.SIGNED_BUILD == 'true'
-        uses: actions/attest-build-provenance@c074443f1b57207e352717316075b10304c2714a # v2.2.3
+        uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v2.2.3
         with:
           subject-path: |
             ${{ steps.assets.outputs.apk }}
@@ -456,7 +456,7 @@ jobs:
       # ── 13. Upload artifacts (downloadable from Actions UI) ───────
       - name: Upload release artifacts
         if: steps.next_version.outputs.should_release == 'true'
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf6581a12fe429233114 # v4.4.3
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: prism-music-${{ steps.tag.outputs.tag }}
           path: |
@@ -505,7 +505,7 @@ jobs:
       # ── 14. Publish ONE GitHub Release with APK/AAB attached ──────
       - name: Publish GitHub Release
         if: steps.next_version.outputs.should_release == 'true' && env.SIGNED_BUILD == 'true'
-        uses: softprops/action-gh-release@c062e49c716f9f315264b3602d53c30650d32f50 # v2.2.1
+        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda # v2.2.1
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name:     ${{ steps.tag.outputs.release_name }}
