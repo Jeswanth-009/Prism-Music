@@ -102,10 +102,12 @@ jobs:
               echo "storeFile=../release-keystore.jks"
             } > android/key.properties
             echo "SIGNED_BUILD=true" >> "$GITHUB_ENV"
+            echo "SIGNING_FLAG=" >> "$GITHUB_ENV"
             echo "Release signing configured."
           else
             echo "SIGNED_BUILD=false" >> "$GITHUB_ENV"
-            echo "No signing secrets — using debug signing fallback."
+            echo "SIGNING_FLAG=-PdebugSigning=true" >> "$GITHUB_ENV"
+            echo "::warning::No release signing secrets found. Building with debug-signing for CI artifact inspection; public GitHub release publication will be skipped (fail-closed)."
           fi
 
       # ── 6. Build release APK ──────────────────────────────────────
@@ -116,7 +118,8 @@ jobs:
           flutter build apk --release \
             --target-platform android-arm,android-arm64 \
             --build-name "${{ steps.app_version.outputs.build_name }}" \
-            --build-number "${{ steps.app_version.outputs.build_number }}"
+            --build-number "${{ steps.app_version.outputs.build_number }}" \
+            ${{ env.SIGNING_FLAG }}
           mkdir -p build/release-apks
           cp build/app/outputs/flutter-apk/app-release.apk \
             build/release-apks/app-phone-release.apk
@@ -126,7 +129,8 @@ jobs:
           flutter build apk --release \
             --target-platform android-x64 \
             --build-name "${{ steps.app_version.outputs.build_name }}" \
-            --build-number "${{ steps.app_version.outputs.build_number }}"
+            --build-number "${{ steps.app_version.outputs.build_number }}" \
+            ${{ env.SIGNING_FLAG }}
           cp build/app/outputs/flutter-apk/app-release.apk \
             build/release-apks/app-emulator-x86_64-release.apk
 
@@ -135,7 +139,8 @@ jobs:
         run: |
           flutter build appbundle --release \
             --build-name "${{ steps.app_version.outputs.build_name }}" \
-            --build-number "${{ steps.app_version.outputs.build_number }}"
+            --build-number "${{ steps.app_version.outputs.build_number }}" \
+            ${{ env.SIGNING_FLAG }}
 
       # ── 8. Stage assets ───────────────────────────────────────────
       - name: Prepare release assets
@@ -190,6 +195,7 @@ jobs:
 
       # ── 10. Publish / update GitHub Release ───────────────────────
       - name: Publish GitHub Release
+        if: env.SIGNED_BUILD == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name:    ${{ steps.release_tag.outputs.tag }}
@@ -221,3 +227,8 @@ jobs:
             ${{ steps.assets.outputs.aab_sha }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Skip publishing unsigned release
+        if: env.SIGNED_BUILD != 'true'
+        run: |
+          echo "::warning::Release artifacts were built with debug signing and uploaded as workflow artifacts, but will NOT be published as a GitHub release because production signing keys are missing."

@@ -80,13 +80,19 @@ android {
         }
     }
 
+    val allowDebugSigning = project.hasProperty("debugSigning") && project.property("debugSigning") == "true"
+
     buildTypes {
         release {
-            // Use a real keystore when key.properties exists; otherwise fallback to debug signing.
+            // Require production key.properties for signed release builds.
+            // Debug key signing is never used implicitly for release builds;
+            // it requires explicit -PdebugSigning=true for local/CI test builds.
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")
-            } else {
+            } else if (allowDebugSigning) {
                 signingConfigs.getByName("debug")
+            } else {
+                null
             }
         }
     }

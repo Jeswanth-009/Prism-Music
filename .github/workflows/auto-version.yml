@@ -329,12 +329,12 @@ jobs:
               echo "storeFile=../release-keystore.jks"
             } > android/key.properties
             echo "SIGNED_BUILD=true" >> "$GITHUB_ENV"
+            echo "SIGNING_FLAG=" >> "$GITHUB_ENV"
             echo "Release signing configured from secrets."
           else
             echo "SIGNED_BUILD=false" >> "$GITHUB_ENV"
-            echo "No signing secrets found — using debug signing fallback."
-            echo "WARNING: runner debug keys are unique per run, so APKs built"
-            echo "this way can never update an install of a previous release."
+            echo "SIGNING_FLAG=-PdebugSigning=true" >> "$GITHUB_ENV"
+            echo "::warning::No release signing secrets found. Building with debug-signing for CI artifact inspection; public GitHub release publication will be skipped (fail-closed)."
           fi
 
       # ── 10. Build release APK ────────────────────────────────────
@@ -348,7 +348,8 @@ jobs:
             --target-platform android-arm,android-arm64 \
             --build-name "${{ steps.next_version.outputs.next_version }}" \
             --build-number "${{ steps.next_version.outputs.next_build }}" \
-            --android-skip-build-dependency-validation
+            --android-skip-build-dependency-validation \
+            ${{ env.SIGNING_FLAG }}
           mkdir -p build/release-apks
           cp build/app/outputs/flutter-apk/app-release.apk \
             build/release-apks/app-phone-release.apk
@@ -360,7 +361,8 @@ jobs:
             --target-platform android-x64 \
             --build-name "${{ steps.next_version.outputs.next_version }}" \
             --build-number "${{ steps.next_version.outputs.next_build }}" \
-            --android-skip-build-dependency-validation
+            --android-skip-build-dependency-validation \
+            ${{ env.SIGNING_FLAG }}
           cp build/app/outputs/flutter-apk/app-release.apk \
             build/release-apks/app-emulator-x86_64-release.apk
 
@@ -371,7 +373,8 @@ jobs:
           flutter build appbundle --release \
             --build-name "${{ steps.next_version.outputs.next_version }}" \
             --build-number "${{ steps.next_version.outputs.next_build }}" \
-            --android-skip-build-dependency-validation
+            --android-skip-build-dependency-validation \
+            ${{ env.SIGNING_FLAG }}
 
       # ── 12. Stage release assets with descriptive names ──────────
       - name: Prepare release assets
@@ -460,7 +463,7 @@ jobs:
 
       # ── 14. Publish ONE GitHub Release with APK/AAB attached ──────
       - name: Publish GitHub Release
-        if: steps.next_version.outputs.should_release == 'true'
+        if: steps.next_version.outputs.should_release == 'true' && env.SIGNED_BUILD == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
@@ -477,3 +480,8 @@ jobs:
             ${{ steps.assets.outputs.aab_sha }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Skip publishing unsigned release
+        if: steps.next_version.outputs.should_release == 'true' && env.SIGNED_BUILD != 'true'
+        run: |
+          echo "::warning::Release artifacts were built with debug signing and uploaded as workflow artifacts, but will NOT be published as a GitHub release because production signing secrets are missing."
