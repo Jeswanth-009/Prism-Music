@@ -1,4 +1,6 @@
+import 'package:dartz/dartz.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../core/error/failures.dart';
 import '../../../domain/entities/entities.dart';
 import '../../../domain/repositories/repositories.dart';
 import 'library_event.dart';
@@ -37,59 +39,96 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     emit(state.copyWith(status: LibraryStatus.loading));
 
     try {
-      final likedResult = await _libraryRepository.getLikedSongs();
-      final playlistsResult = await _libraryRepository.getUserPlaylists();
-      final historyResult = await _libraryRepository.getListeningHistory(limit: _libraryHistoryLimit);
-      final recentResult = await _libraryRepository.getRecentlyPlayed(limit: _libraryHistoryLimit);
-      final downloadsResult = await _libraryRepository.getDownloadedSongs();
-      final statsResult = await _libraryRepository.getListeningStats();
+      final results = await Future.wait([
+        _libraryRepository.getLikedSongs(),
+        _libraryRepository.getUserPlaylists(),
+        _libraryRepository.getListeningHistory(limit: _libraryHistoryLimit),
+        _libraryRepository.getRecentlyPlayed(limit: _libraryHistoryLimit),
+        _libraryRepository.getDownloadedSongs(),
+        _libraryRepository.getListeningStats(),
+      ]);
 
-      likedResult.fold(
-        (failure) => emit(state.copyWith(
-          status: LibraryStatus.error,
-          errorMessage: failure.message,
-        )),
-        (likedSongs) {
-          final likedIds = likedSongs.map((s) => s.id).toSet();
-          
-          playlistsResult.fold(
-            (failure) => null,
-            (playlists) {
-              historyResult.fold(
-                (failure) => null,
-                (history) {
-                  recentResult.fold(
-                    (failure) => null,
-                    (recent) {
-                      downloadsResult.fold(
-                        (failure) => null,
-                        (downloads) {
-                          final downloadIds = downloads.map((s) => s.id).toSet();
-                          
-                          emit(state.copyWith(
-                            status: LibraryStatus.success,
-                            likedSongs: likedSongs,
-                            likedSongIds: likedIds,
-                            playlists: playlists,
-                            history: history,
-                            recentlyPlayed: recent,
-                            stats: statsResult.fold(
-                              (_) => state.stats,
-                              (s) => s,
-                            ),
-                            downloads: downloads,
-                            downloadedSongIds: downloadIds,
-                          ));
-                        },
-                      );
-                    },
-                  );
-                },
-              );
-            },
-          );
+      final likedResult = results[0] as Either<Failure, List<Song>>;
+      final playlistsResult = results[1] as Either<Failure, List<Playlist>>;
+      final historyResult = results[2] as Either<Failure, List<Song>>;
+      final recentResult = results[3] as Either<Failure, List<Song>>;
+      final downloadsResult = results[4] as Either<Failure, List<Song>>;
+      final statsResult = results[5] as Either<Failure, ListeningStats>;
+
+      final errors = <String>[];
+
+      final likedSongs = likedResult.fold(
+        (f) {
+          errors.add('Liked songs: ${f.message}');
+          return state.likedSongs;
         },
+        (s) => s,
       );
+      final likedIds = likedSongs.map((s) => s.id).toSet();
+
+      final playlists = playlistsResult.fold(
+        (f) {
+          errors.add('Playlists: ${f.message}');
+          return state.playlists;
+        },
+        (p) => p,
+      );
+
+      final history = historyResult.fold(
+        (f) {
+          errors.add('History: ${f.message}');
+          return state.history;
+        },
+        (h) => h,
+      );
+
+      final recent = recentResult.fold(
+        (f) {
+          errors.add('Recent: ${f.message}');
+          return state.recentlyPlayed;
+        },
+        (r) => r,
+      );
+
+      final downloads = downloadsResult.fold(
+        (f) {
+          errors.add('Downloads: ${f.message}');
+          return state.downloads;
+        },
+        (d) => d,
+      );
+      final downloadIds = downloads.map((s) => s.id).toSet();
+
+      final stats = statsResult.fold(
+        (f) => state.stats,
+        (s) => s,
+      );
+
+      final allFailed = likedResult.isLeft() &&
+          playlistsResult.isLeft() &&
+          historyResult.isLeft() &&
+          recentResult.isLeft() &&
+          downloadsResult.isLeft();
+
+      if (allFailed) {
+        emit(state.copyWith(
+          status: LibraryStatus.error,
+          errorMessage: errors.isNotEmpty ? errors.join('; ') : 'Failed to load library',
+        ));
+      } else {
+        emit(state.copyWith(
+          status: LibraryStatus.success,
+          likedSongs: likedSongs,
+          likedSongIds: likedIds,
+          playlists: playlists,
+          history: history,
+          recentlyPlayed: recent,
+          stats: stats,
+          downloads: downloads,
+          downloadedSongIds: downloadIds,
+          errorMessage: errors.isNotEmpty ? errors.join('; ') : null,
+        ));
+      }
     } catch (e) {
       emit(state.copyWith(
         status: LibraryStatus.error,
@@ -210,17 +249,30 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
         event.onDone?.call(failure.message);
       },
       (playlist) async {
-        final (saved, isNew) = await _persistImportedPlaylist(playlist);
-        emit(state.copyWith(
-          status: LibraryStatus.success,
-          playlists: isNew
-              ? [saved, ...state.playlists]
-              : state.playlists
-                  .map((p) => p.id == saved.id ? saved : p)
-                  .toList(),
-          importProgress: null,
-        ));
-        event.onDone?.call(null);
+        final persistResult = await _persistImportedPlaylist(playlist);
+        persistResult.fold(
+          (failure) {
+            emit(state.copyWith(
+              status: LibraryStatus.error,
+              errorMessage: failure.message,
+              importProgress: null,
+            ));
+            event.onDone?.call(failure.message);
+          },
+          (savedPair) {
+            final (saved, isNew) = savedPair;
+            emit(state.copyWith(
+              status: LibraryStatus.success,
+              playlists: isNew
+                  ? <Playlist>[saved, ...state.playlists]
+                  : state.playlists
+                      .map((p) => p.id == saved.id ? saved : p)
+                      .toList(),
+              importProgress: null,
+            ));
+            event.onDone?.call(null);
+          },
+        );
       },
     );
   }
@@ -249,29 +301,38 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
         event.onDone?.call(failure.message);
       },
       (playlist) async {
-        final (saved, isNew) = await _persistImportedPlaylist(playlist);
-        emit(state.copyWith(
-          status: LibraryStatus.success,
-          playlists: isNew
-              ? [saved, ...state.playlists]
-              : state.playlists
-                  .map((p) => p.id == saved.id ? saved : p)
-                  .toList(),
-          importProgress: null,
-        ));
-        event.onDone?.call(null);
+        final persistResult = await _persistImportedPlaylist(playlist);
+        persistResult.fold(
+          (failure) {
+            emit(state.copyWith(
+              status: LibraryStatus.error,
+              errorMessage: failure.message,
+              importProgress: null,
+            ));
+            event.onDone?.call(failure.message);
+          },
+          (savedPair) {
+            final (saved, isNew) = savedPair;
+            emit(state.copyWith(
+              status: LibraryStatus.success,
+              playlists: isNew
+                  ? <Playlist>[saved, ...state.playlists]
+                  : state.playlists
+                      .map((p) => p.id == saved.id ? saved : p)
+                      .toList(),
+              importProgress: null,
+            ));
+            event.onDone?.call(null);
+          },
+        );
       },
     );
   }
 
   /// Save an imported playlist into the local library so it survives app
   /// restarts. When the same Spotify/YouTube playlist was imported before,
-  /// its songs are refreshed in place instead of creating a duplicate.
-  ///
-  /// Returns the playlist as it should appear in state, plus whether it is
-  /// a new entry. Falls back to the in-memory playlist when persistence
-  /// fails.
-  Future<(Playlist, bool)> _persistImportedPlaylist(Playlist playlist) async {
+  /// its metadata and songs are refreshed atomically.
+  Future<Either<Failure, (Playlist, bool)>> _persistImportedPlaylist(Playlist playlist) async {
     final songs = playlist.songs ?? const <Song>[];
 
     final existing = state.playlists
@@ -280,44 +341,31 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     if (existing != null) {
       final updated = existing.copyWith(
         name: playlist.name,
-        thumbnails: playlist.thumbnails,
-        author: playlist.author,
-        description: playlist.description,
+        thumbnails: playlist.thumbnails ?? existing.thumbnails,
+        author: playlist.author ?? existing.author,
+        description: playlist.description ?? existing.description,
         songs: songs.toList(),
         trackCount: songs.length,
+        spotifyPlaylistId: playlist.spotifyPlaylistId ?? existing.spotifyPlaylistId,
+        youtubePlaylistId: playlist.youtubePlaylistId ?? existing.youtubePlaylistId,
         updatedAt: DateTime.now(),
       );
-      final result =
-          await _libraryRepository.updatePlaylistSongs(existing.id, songs);
-      // Keep the refreshed copy even when the write fails — the listener
-      // gets correct state either way.
-      result.fold((_) => null, (_) => null);
-      return (updated, false);
+      final result = await _libraryRepository.saveImportedPlaylist(updated);
+      return result.fold(
+        (failure) => Left(failure),
+        (saved) => Right((saved, false)),
+      );
     }
 
-    final createdResult = await _libraryRepository.createPlaylist(
-      playlist.name,
-      description: playlist.description,
+    final toCreate = playlist.copyWith(
+      songs: songs.toList(),
+      trackCount: songs.length,
+      updatedAt: DateTime.now(),
     );
-
+    final createdResult = await _libraryRepository.saveImportedPlaylist(toCreate);
     return createdResult.fold(
-      (failure) async => (playlist, true),
-      (created) async {
-        for (final song in songs) {
-          await _libraryRepository.addSongToPlaylist(created.id, song);
-        }
-        return (
-          created.copyWith(
-            songs: songs.toList(),
-            trackCount: songs.length,
-            thumbnails: playlist.thumbnails,
-            author: playlist.author,
-            spotifyPlaylistId: playlist.spotifyPlaylistId,
-            youtubePlaylistId: playlist.youtubePlaylistId,
-          ),
-          true,
-        );
-      },
+      (failure) => Left(failure),
+      (created) => Right((created, true)),
     );
   }
 

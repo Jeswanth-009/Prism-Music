@@ -268,6 +268,12 @@ class FakeLibraryRepository implements LibraryRepository {
   ListeningStats? stats;
 
   bool failLoad = false;
+  bool failLikedSongs = false;
+  bool failPlaylists = false;
+  bool failHistory = false;
+  bool failRecentlyPlayed = false;
+  bool failDownloads = false;
+  bool failStats = false;
   Either<Failure, Playlist> createPlaylistResult = Left(
     const UnknownFailure(message: 'not configured'),
   );
@@ -285,34 +291,44 @@ class FakeLibraryRepository implements LibraryRepository {
 
   @override
   Future<Either<Failure, List<Song>>> getLikedSongs() async {
-    if (failLoad) return const Left(UnknownFailure(message: 'load failed'));
+    if (failLoad || failLikedSongs) return const Left(UnknownFailure(message: 'liked load failed'));
     return Right(likedSongs);
   }
 
   @override
-  Future<Either<Failure, List<Playlist>>> getUserPlaylists() async =>
-      Right(playlists);
+  Future<Either<Failure, List<Playlist>>> getUserPlaylists() async {
+    if (failLoad || failPlaylists) return const Left(UnknownFailure(message: 'playlists load failed'));
+    return Right(playlists);
+  }
 
   @override
   Future<Either<Failure, List<Song>>> getListeningHistory({
     int limit = 50,
     DateTime? since,
-  }) async =>
-      Right(history);
+  }) async {
+    if (failLoad || failHistory) return const Left(UnknownFailure(message: 'history load failed'));
+    return Right(history);
+  }
 
   @override
   Future<Either<Failure, List<Song>>> getRecentlyPlayed({
     int limit = 20,
-  }) async =>
-      Right(recentlyPlayed);
+  }) async {
+    if (failLoad || failRecentlyPlayed) return const Left(UnknownFailure(message: 'recent load failed'));
+    return Right(recentlyPlayed);
+  }
 
   @override
-  Future<Either<Failure, List<Song>>> getDownloadedSongs() async =>
-      Right(downloads);
+  Future<Either<Failure, List<Song>>> getDownloadedSongs() async {
+    if (failLoad || failDownloads) return const Left(UnknownFailure(message: 'downloads load failed'));
+    return Right(downloads);
+  }
 
   @override
-  Future<Either<Failure, ListeningStats>> getListeningStats() async =>
-      Right(stats ?? const ListeningStats(totalPlays: 0, uniqueSongs: 0));
+  Future<Either<Failure, ListeningStats>> getListeningStats() async {
+    if (failLoad || failStats) return const Left(UnknownFailure(message: 'stats load failed'));
+    return Right(stats ?? const ListeningStats(totalPlays: 0, uniqueSongs: 0));
+  }
 
   @override
   Future<Either<Failure, Playlist>> createPlaylist(
@@ -321,6 +337,33 @@ class FakeLibraryRepository implements LibraryRepository {
   }) async {
     createdPlaylistNames.add(name);
     return createPlaylistResult;
+  }
+
+  Either<Failure, Playlist>? saveImportedPlaylistResult;
+  final List<Playlist> savedImportedPlaylists = [];
+
+  @override
+  Future<Either<Failure, Playlist>> saveImportedPlaylist(Playlist playlist) async {
+    savedImportedPlaylists.add(playlist);
+    if (saveImportedPlaylistResult != null) {
+      return saveImportedPlaylistResult!;
+    }
+    final isExisting = playlists.any((p) => p.id == playlist.id);
+    if (isExisting) {
+      final songs = (playlist.songs ?? const []).toList();
+      playlistSongsUpdated[playlist.id] = songs;
+      return Right(playlist);
+    } else {
+      createdPlaylistNames.add(playlist.name);
+      final id = createPlaylistResult.fold(
+        (_) => playlist.id.isNotEmpty ? playlist.id : 'local_${savedImportedPlaylists.length}',
+        (c) => c.id,
+      );
+      final songs = (playlist.songs ?? const []).toList();
+      songsAddedByPlaylist[id] = songs;
+      playlistSongsUpdated[id] = songs;
+      return Right(playlist.copyWith(id: id));
+    }
   }
 
   @override

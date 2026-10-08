@@ -53,6 +53,9 @@ abstract class LocalDataSource {
   /// Get playlist with songs
   Future<Playlist?> getPlaylist(String playlistId);
 
+  /// Save an entire imported playlist with metadata and songs atomically
+  Future<Playlist> saveImportedPlaylist(Playlist playlist);
+
   // ============ LISTENING HISTORY ============
   
   /// Get listening history
@@ -342,6 +345,26 @@ class LocalDataSourceImpl implements LocalDataSource {
     await box.put(playlist.id, _playlistToMap(playlist));
     _triggerBackup();
     return playlist;
+  }
+
+  @override
+  Future<Playlist> saveImportedPlaylist(Playlist playlist) async {
+    final box = await _getPlaylistsBox();
+    final songs = playlist.songs ?? const [];
+    final id = playlist.id.isNotEmpty ? playlist.id : _newPlaylistId();
+    final completePlaylist = playlist.copyWith(
+      id: id,
+      isUserCreated: true,
+      createdAt: playlist.createdAt ?? DateTime.now(),
+      updatedAt: DateTime.now(),
+      trackCount: songs.length,
+      totalDuration: Duration(
+        milliseconds: songs.fold(0, (sum, s) => sum + s.duration.inMilliseconds),
+      ),
+    );
+    await box.put(completePlaylist.id, _playlistToMap(completePlaylist));
+    _triggerBackup();
+    return completePlaylist;
   }
 
   @override

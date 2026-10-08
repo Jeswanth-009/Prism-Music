@@ -58,6 +58,9 @@ abstract class LibraryRepository {
     String songId,
   );
 
+  /// Persist a complete imported playlist with all metadata (author, artwork, source IDs, songs) atomically
+  Future<Either<Failure, Playlist>> saveImportedPlaylist(Playlist playlist);
+
   /// Reorder songs in a playlist
   Future<Either<Failure, void>> reorderPlaylistSongs(
     String playlistId,

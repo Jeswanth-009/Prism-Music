@@ -169,6 +169,18 @@ class LibraryRepositoryImpl implements LibraryRepository {
   }
 
   @override
+  Future<Either<Failure, Playlist>> saveImportedPlaylist(Playlist playlist) async {
+    try {
+      final saved = await _localDataSource.saveImportedPlaylist(playlist);
+      return Right(saved);
+    } on CacheException catch (e) {
+      return Left(CacheFailure(message: e.message));
+    } catch (e) {
+      return Left(UnknownFailure(message: e.toString()));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> reorderPlaylistSongs(
     String playlistId,
     int oldIndex,

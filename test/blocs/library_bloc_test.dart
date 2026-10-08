@@ -65,6 +65,27 @@ void main() {
 
       expect(bloc.state.errorMessage, contains('load failed'));
     });
+
+    test('partial failure loads available sections and emits success (F06)',
+        () async {
+      final liked = [song('l1', 'Liked Song')];
+      final history = [song('h1', 'History Song')];
+      libraryRepo
+        ..likedSongs = liked
+        ..history = history
+        ..failPlaylists = true
+        ..failDownloads = true;
+
+      bloc.add(const LoadLibraryEvent());
+      await waitFor(() => bloc.state.status == LibraryStatus.success);
+
+      expect(bloc.state.status, LibraryStatus.success);
+      expect(bloc.state.likedSongs, liked);
+      expect(bloc.state.history, history);
+      expect(bloc.state.playlists, isEmpty);
+      expect(bloc.state.downloads, isEmpty);
+      expect(bloc.state.errorMessage, contains('Playlists'));
+    });
   });
 
   group('CreatePlaylistEvent / DeletePlaylistEvent', () {
@@ -248,6 +269,31 @@ void main() {
       expect(musicRepo.lastImportUrl, contains('PL123'));
       expect(libraryRepo.songsAddedByPlaylist['local_2'], hasLength(1));
       expect(bloc.state.playlists.single.youtubePlaylistId, 'PL123');
+    });
+
+    test('persistence failure surfaces error and calls onDone with message (F07)',
+        () async {
+      musicRepo.importResult = Right(
+        playlist(
+          'PL_fail',
+          'Failed Import',
+          songs: [song('y1', 'Song')],
+          youtubePlaylistId: 'PL_fail',
+        ),
+      );
+      libraryRepo.saveImportedPlaylistResult =
+          const Left(CacheFailure(message: 'disk write failed'));
+
+      final done = Completer<String?>();
+      bloc.add(ImportYouTubePlaylistEvent(
+        'https://youtube.com/playlist?list=PL_fail',
+        onDone: done.complete,
+      ));
+      final errorMessage = await done.future;
+
+      expect(errorMessage, contains('disk write failed'));
+      expect(bloc.state.status, LibraryStatus.error);
+      expect(bloc.state.errorMessage, contains('disk write failed'));
     });
   });
 
