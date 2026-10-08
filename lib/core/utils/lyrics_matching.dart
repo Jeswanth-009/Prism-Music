@@ -123,11 +123,12 @@ String normalizeArtistName(String rawArtist) {
   return _collapseForMatch(artist);
 }
 
-/// Split a normalized string into comparable tokens: lowercase, letters and
-/// digits only.
+/// Split a normalized string into comparable tokens: lowercase, Unicode
+/// letters, marks (vowel signs/accents) and digits only, preserving regional
+/// scripts (Tamil, Telugu, Hindi, Korean, etc.).
 String _collapseForMatch(String input) => input
     .toLowerCase()
-    .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+    .replaceAll(RegExp(r'[^\p{L}\p{M}\p{N}\s]', unicode: true), ' ')
     .replaceAll(RegExp(r'\s+'), ' ')
     .trim();
 
