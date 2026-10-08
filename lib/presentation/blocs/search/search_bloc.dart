@@ -17,6 +17,7 @@ EventTransformer<E> _restartableDebounce<E>(Duration duration) {
 class SearchBloc extends Bloc<SearchEvent, SearchState> {
   final MusicRepository _musicRepository;
   final LocalDataSource _localDataSource;
+  int _searchGeneration = 0;
 
   SearchBloc({
     required MusicRepository musicRepository,
@@ -49,6 +50,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     SearchQueryEvent event,
     Emitter<SearchState> emit,
   ) async {
+    final generation = ++_searchGeneration;
     final query = event.query.trim();
     Logger.root.info('SearchBloc: _onSearchQuery (queryLength=${query.length}) filter=${event.filter}');
     if (query.length < 2) {
@@ -77,17 +79,17 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
             'SearchBloc: searchSongs filter=${event.filter}',
           );
           final result = await _musicRepository.searchSongs(query, limit: 30);
-          if (emit.isDone) return;
+          if (emit.isDone || generation != _searchGeneration) return;
           result.fold(
             (failure) {
-              if (emit.isDone) return;
+              if (emit.isDone || generation != _searchGeneration) return;
               emit(state.copyWith(
                 status: SearchStatus.error,
                 errorMessage: failure.message,
               ));
             },
             (songs) {
-              if (emit.isDone) return;
+              if (emit.isDone || generation != _searchGeneration) return;
               emit(state.copyWith(
                 status: SearchStatus.success,
                 results: SearchResults(songs: songs),
@@ -100,17 +102,17 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
           break;
         case SearchFilter.artists:
           final result = await _musicRepository.searchArtists(query, limit: 30);
-          if (emit.isDone) return;
+          if (emit.isDone || generation != _searchGeneration) return;
           result.fold(
             (failure) {
-              if (emit.isDone) return;
+              if (emit.isDone || generation != _searchGeneration) return;
               emit(state.copyWith(
                 status: SearchStatus.error,
                 errorMessage: failure.message,
               ));
             },
             (artists) {
-              if (emit.isDone) return;
+              if (emit.isDone || generation != _searchGeneration) return;
               emit(state.copyWith(
                 status: SearchStatus.success,
                 results: SearchResults(artists: artists),
@@ -123,17 +125,17 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
           break;
         case SearchFilter.albums:
           final result = await _musicRepository.searchAlbums(query, limit: 30);
-          if (emit.isDone) return;
+          if (emit.isDone || generation != _searchGeneration) return;
           result.fold(
             (failure) {
-              if (emit.isDone) return;
+              if (emit.isDone || generation != _searchGeneration) return;
               emit(state.copyWith(
                 status: SearchStatus.error,
                 errorMessage: failure.message,
               ));
             },
             (albums) {
-              if (emit.isDone) return;
+              if (emit.isDone || generation != _searchGeneration) return;
               emit(state.copyWith(
                 status: SearchStatus.success,
                 results: SearchResults(albums: albums),
@@ -146,17 +148,17 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
           break;
         case SearchFilter.playlists:
           final result = await _musicRepository.searchPlaylists(query, limit: 30);
-          if (emit.isDone) return;
+          if (emit.isDone || generation != _searchGeneration) return;
           result.fold(
             (failure) {
-              if (emit.isDone) return;
+              if (emit.isDone || generation != _searchGeneration) return;
               emit(state.copyWith(
                 status: SearchStatus.error,
                 errorMessage: failure.message,
               ));
             },
             (playlists) {
-              if (emit.isDone) return;
+              if (emit.isDone || generation != _searchGeneration) return;
               emit(state.copyWith(
                 status: SearchStatus.success,
                 results: SearchResults(playlists: playlists),
@@ -172,17 +174,17 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
             'SearchBloc: searchAll filter=${event.filter}',
           );
           final result = await _musicRepository.searchAll(query, limit: 30);
-          if (emit.isDone) return;
+          if (emit.isDone || generation != _searchGeneration) return;
           result.fold(
             (failure) {
-              if (emit.isDone) return;
+              if (emit.isDone || generation != _searchGeneration) return;
               emit(state.copyWith(
                 status: SearchStatus.error,
                 errorMessage: failure.message,
               ));
             },
             (searchResults) {
-              if (emit.isDone) return;
+              if (emit.isDone || generation != _searchGeneration) return;
               emit(state.copyWith(
                 status: SearchStatus.success,
                 results: searchResults,
@@ -195,7 +197,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
           break;
       }
     } catch (e) {
-      if (emit.isDone) return;
+      if (emit.isDone || generation != _searchGeneration) return;
       emit(state.copyWith(
         status: SearchStatus.error,
         errorMessage: e.toString(),
@@ -207,6 +209,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     ClearSearchEvent event,
     Emitter<SearchState> emit,
   ) {
+    _searchGeneration++;
     emit(SearchState(
       filter: state.filter,
       history: state.history,
@@ -234,10 +237,9 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     UpdateFilterEvent event,
     Emitter<SearchState> emit,
   ) async {
-    if (state.query.isNotEmpty) {
+    emit(state.copyWith(filter: event.filter));
+    if (state.query.trim().length >= 2) {
       add(SearchQueryEvent(query: state.query, filter: event.filter));
-    } else {
-      emit(state.copyWith(filter: event.filter));
     }
   }
 

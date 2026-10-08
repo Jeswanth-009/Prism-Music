@@ -165,6 +165,31 @@ void main() {
       expect(bloc.state.status, SearchStatus.success);
       expect(bloc.state.results.artists.single.id, 'ar1');
     });
+
+    test('rapidly switching filters respects the latest filter selection (F09)',
+        () async {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      musicRepo.albumsResult = Right([
+        Album(
+          id: 'alb1',
+          title: 'Imagine Album',
+          artist: 'Imagine Fan',
+          thumbnails: const Thumbnails(),
+        ),
+      ]);
+
+      bloc.add(const SearchQueryEvent(query: 'imagine', filter: SearchFilter.songs));
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+
+      bloc.add(const UpdateFilterEvent(SearchFilter.artists));
+      bloc.add(const UpdateFilterEvent(SearchFilter.albums));
+
+      await Future<void>.delayed(const Duration(milliseconds: 700));
+
+      expect(bloc.state.filter, SearchFilter.albums);
+      expect(bloc.state.status, SearchStatus.success);
+      expect(bloc.state.results.albums.single.id, 'alb1');
+    });
   });
 
   group('ClearSearchEvent', () {
@@ -185,6 +210,24 @@ void main() {
       expect(bloc.state.results.songs, isEmpty);
       expect(bloc.state.status, SearchStatus.initial);
       expect(bloc.state.history, isNotEmpty);
+    });
+
+    test('clearing search while request is in-flight invalidates late response (F09)',
+        () async {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      musicRepo.searchResult = Right([song('s_late', 'Late Arrival')]);
+
+      // Trigger search with delay
+      bloc.add(const SearchQueryEvent(query: 'delayed query', filter: SearchFilter.songs));
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+
+      // Clear immediately while debounced/in-flight
+      bloc.add(const ClearSearchEvent());
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+
+      expect(bloc.state.status, SearchStatus.initial);
+      expect(bloc.state.results.songs, isEmpty);
+      expect(bloc.state.query, isEmpty);
     });
   });
 

@@ -58,21 +58,25 @@ class _SearchPageState extends State<SearchPage> {
 
   // ── actions ──────────────────────────────────────────────────────────
 
-  void _onSearch(String query) {
-    if (query.trim().length >= 2) {
+  void _onSearch(String query, {SearchFilter? filter}) {
+    final trimmed = query.trim();
+    if (trimmed.length >= 2) {
+      final activeFilter = filter ?? context.read<SearchBloc>().state.filter;
       context.read<SearchBloc>().add(
         SearchQueryEvent(
-          query: query.trim(),
-          filter: context.read<SearchBloc>().state.filter,
+          query: trimmed,
+          filter: activeFilter,
         ),
       );
     }
   }
 
   void _onFilterChanged(SearchFilter filter) {
-    context.read<SearchBloc>().add(UpdateFilterEvent(filter));
-    if (_searchController.text.trim().length >= 2) {
-      _onSearch(_searchController.text.trim());
+    final query = _searchController.text.trim();
+    if (query.length >= 2) {
+      _onSearch(query, filter: filter);
+    } else {
+      context.read<SearchBloc>().add(UpdateFilterEvent(filter));
     }
   }
 
