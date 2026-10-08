@@ -80,61 +80,110 @@ class AudioPlayerService {
     _initStreams();
   }
 
+  final List<StreamSubscription> _subscriptions = [];
+
+  void _handleNativeError(String source, Object error) {
+    if (kDebugMode) {
+      debugPrint('AudioPlayerService: Native error from $source: $error');
+    }
+    final message = _mapPlayerExceptionToMessage(error.toString());
+    if (!_errorController.isClosed) {
+      _errorController.add(message);
+    }
+  }
+
   void _initStreams() {
     // Position updates
-    _player.positionStream.listen((position) {
-      _positionController.add(position);
-    });
+    _subscriptions.add(
+      _player.positionStream.listen(
+        _positionController.add,
+        onError: (e) => _handleNativeError('positionStream', e),
+      ),
+    );
 
     // Buffered position updates
-    _player.bufferedPositionStream.listen((buffered) {
-      _bufferedPositionController.add(buffered);
-    });
+    _subscriptions.add(
+      _player.bufferedPositionStream.listen(
+        _bufferedPositionController.add,
+        onError: (e) => _handleNativeError('bufferedPositionStream', e),
+      ),
+    );
 
     // Duration updates
-    _player.durationStream.listen((duration) {
-      _durationController.add(duration);
-    });
+    _subscriptions.add(
+      _player.durationStream.listen(
+        _durationController.add,
+        onError: (e) => _handleNativeError('durationStream', e),
+      ),
+    );
 
     // Playing state updates
-    _player.playingStream.listen((isPlaying) {
-      _playingController.add(isPlaying);
-    });
+    _subscriptions.add(
+      _player.playingStream.listen(
+        _playingController.add,
+        onError: (e) => _handleNativeError('playingStream', e),
+      ),
+    );
 
     // Processing state updates for buffering
-    _player.processingStateStream.listen((state) {
-      final isBuffering =
-          state == ProcessingState.buffering ||
-          state == ProcessingState.loading;
-      _bufferingController.add(isBuffering);
+    _subscriptions.add(
+      _player.processingStateStream.listen(
+        (state) {
+          final isBuffering =
+              state == ProcessingState.buffering ||
+              state == ProcessingState.loading;
+          _bufferingController.add(isBuffering);
 
-      // Emit completed state - but only for single-track mode
-      // When using queue (ConcatenatingAudioSource), auto-advance handles this
-      final isCompleted = state == ProcessingState.completed;
-      if (isCompleted && _playlist == null) {
-        _completedController.add(true);
-      }
-    });
+          // Emit completed state - but only for single-track mode
+          // When using queue (ConcatenatingAudioSource), auto-advance handles this
+          final isCompleted = state == ProcessingState.completed;
+          if (isCompleted && _playlist == null) {
+            _completedController.add(true);
+          }
+        },
+        onError: (e) => _handleNativeError('processingStateStream', e),
+      ),
+    );
 
     // Track changes in queue mode - emit completed when reaching end of queue
-    _player.currentIndexStream.listen((index) {
-      if (_playlist == null) {
-        return;
-      }
-      _currentIndexController.add(index);
-      if (kDebugMode) debugPrint('AudioPlayerService: Current index changed to $index');
-    });
+    _subscriptions.add(
+      _player.currentIndexStream.listen(
+        (index) {
+          if (_playlist == null) {
+            return;
+          }
+          _currentIndexController.add(index);
+          if (kDebugMode) {
+            debugPrint('AudioPlayerService: Current index changed to $index');
+          }
+        },
+        onError: (e) => _handleNativeError('currentIndexStream', e),
+      ),
+    );
 
     // Player state stream for comprehensive error handling
-    _player.playerStateStream.listen((state) {
-      if (state.processingState == ProcessingState.completed) {
-        if (kDebugMode) debugPrint('AudioPlayerService: Playback completed');
-        // In queue mode, check if we're at the last song
-        if (_playlist != null && !_player.hasNext) {
-          _completedController.add(true);
-        }
-      }
-    });
+    _subscriptions.add(
+      _player.playerStateStream.listen(
+        (state) {
+          if (state.processingState == ProcessingState.completed) {
+            if (kDebugMode) debugPrint('AudioPlayerService: Playback completed');
+            // In queue mode, check if we're at the last song
+            if (_playlist != null && !_player.hasNext) {
+              _completedController.add(true);
+            }
+          }
+        },
+        onError: (e) => _handleNativeError('playerStateStream', e),
+      ),
+    );
+
+    // Monitor playback event stream for native pipeline events and decoder errors
+    _subscriptions.add(
+      _player.playbackEventStream.listen(
+        (_) {},
+        onError: (e) => _handleNativeError('playbackEventStream', e),
+      ),
+    );
   }
 
   /// Set and prepare audio from URL or YouTube video ID
@@ -299,10 +348,19 @@ class AudioPlayerService {
     return null;
   }
 
-  /// Play audio
+  /// Play audio. Decouples startup from lifetime completion so callers are not suspended.
   Future<void> play() async {
     if (!_initialized) return;
-    await _player.play();
+    try {
+      unawaited(
+        _player.play().catchError((error, stackTrace) {
+          debugPrint('AudioPlayerService: Asynchronous play() failed: $error');
+          _handleNativeError('play', error);
+        }),
+      );
+    } catch (e) {
+      _handleNativeError('play', e);
+    }
   }
 
   /// Pause audio
@@ -696,6 +754,10 @@ class AudioPlayerService {
 
   /// Dispose resources
   void dispose() {
+    for (final sub in _subscriptions) {
+      sub.cancel();
+    }
+    _subscriptions.clear();
     _player.dispose();
     _positionController.close();
     _bufferedPositionController.close();

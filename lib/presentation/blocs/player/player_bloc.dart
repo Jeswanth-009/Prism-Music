@@ -386,6 +386,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         position: Duration.zero,
         duration: Duration.zero,
         queue: initialQueue,
+        originalQueue: List<Song>.from(initialQueue),
         queueIndex: initialQueueIndex,
       ),
     );
@@ -514,23 +515,19 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
           throw Exception('Unable to decode selected audio source');
         }
 
-        if (!shouldCrossfade) {
-          await _audioPlayer.play();
-        }
-        if (generation != _playbackGeneration) return; // user moved on
-
         _log('PlayerBloc: Playback started, duration: $duration');
 
-        _prefetchAhead(state.queue, queueIndex, quality: playbackQuality);
-
-        // Use state.queue (not local queue var) — recommendations may
-        // already be in the queue via _AddRecommendationsEvent
+        // F01: Treat playback startup and lifetime completion as separate operations.
+        // Commit playing status, metadata, and history immediately without awaiting
+        // the entire playback lifetime of the song.
         emit(
           state.copyWith(
             status: PlayerStatus.playing,
             currentSong: event.song,
             currentStreamInfo: resolvedSource.streamInfo,
-            originalQueue: state.queue,
+            originalQueue: state.originalQueue.isNotEmpty
+                ? state.originalQueue
+                : state.queue,
             queueIndex: queueIndex,
             position: Duration.zero,
           ),
@@ -544,6 +541,29 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         // Position in the queue changed → notification skip buttons may
         // have become usable/unusable.
         MediaSessionCoordinator.instance.notifyQueueChanged();
+
+        if (!shouldCrossfade) {
+          unawaited(
+            _audioPlayer.play().catchError((playError, st) {
+              _log('PlayerBloc: Async play execution error: $playError');
+              if (generation == _playbackGeneration && !isClosed) {
+                _handlePlaybackError(
+                  emit,
+                  failedSong: event.song,
+                  error: playError,
+                  queue: state.queue,
+                  queueIndex: queueIndex,
+                  stackTrace: st,
+                  generation: generation,
+                );
+              }
+            }),
+          );
+        }
+
+        if (generation != _playbackGeneration) return; // user moved on
+
+        _prefetchAhead(state.queue, queueIndex, quality: playbackQuality);
       } catch (playbackError, stackTrace) {
         if (generation != _playbackGeneration) return; // user moved on
         _handlePlaybackError(
@@ -638,6 +658,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   }
 
   Future<void> _onPause(PauseEvent event, Emitter<PlayerState> emit) async {
+    _playbackGeneration++;
     await _audioPlayer.pause();
     await _audioFocus.deactivate();
     emit(state.copyWith(status: PlayerStatus.paused));
@@ -752,12 +773,57 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     Emitter<PlayerState> emit,
   ) async {
     if (event.enabled && !state.isShuffleEnabled) {
-      // Enable shuffle - shuffle the queue
-      final shuffled = List<Song>.from(state.queue)..shuffle();
-      emit(state.copyWith(isShuffleEnabled: true, queue: shuffled));
+      // Enable shuffle - preserve the active track pointer
+      final current = state.currentSong;
+      final currentIdx = state.queueIndex;
+      final original = List<Song>.from(
+        state.originalQueue.isNotEmpty ? state.originalQueue : state.queue,
+      );
+
+      final shuffled = List<Song>.from(state.queue);
+      if (current != null && currentIdx >= 0 && currentIdx < shuffled.length) {
+        final activeSong = shuffled.removeAt(currentIdx);
+        shuffled.shuffle();
+        shuffled.insert(0, activeSong);
+        emit(state.copyWith(
+          isShuffleEnabled: true,
+          queue: shuffled,
+          originalQueue: original,
+          queueIndex: 0,
+        ));
+      } else {
+        shuffled.shuffle();
+        emit(state.copyWith(
+          isShuffleEnabled: true,
+          queue: shuffled,
+          originalQueue: original,
+        ));
+      }
+      MediaSessionCoordinator.instance.notifyQueueChanged();
     } else if (!event.enabled && state.isShuffleEnabled) {
-      // Disable shuffle - restore original queue
-      emit(state.copyWith(isShuffleEnabled: false, queue: state.originalQueue));
+      // Disable shuffle - restore original queue while preserving active track
+      final restored = List<Song>.from(
+        state.originalQueue.isNotEmpty ? state.originalQueue : state.queue,
+      );
+      int originalIndex = -1;
+      if (state.currentSong != null) {
+        originalIndex = restored.indexWhere(
+          (s) => s.playableId == state.currentSong!.playableId,
+        );
+      }
+      if (originalIndex == -1) {
+        originalIndex = state.queueIndex.clamp(
+          0,
+          (restored.length - 1).clamp(0, 999999),
+        );
+      }
+
+      emit(state.copyWith(
+        isShuffleEnabled: false,
+        queue: restored,
+        queueIndex: originalIndex,
+      ));
+      MediaSessionCoordinator.instance.notifyQueueChanged();
     }
   }
 
@@ -790,20 +856,23 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     Emitter<PlayerState> emit,
   ) async {
     final updatedQueue = List<Song>.from(state.queue);
+    final updatedOriginal = List<Song>.from(
+      state.originalQueue.isNotEmpty ? state.originalQueue : state.queue,
+    );
     if (event.playNext) {
-      updatedQueue.insert(state.queueIndex + 1, event.song);
+      final insertIndex = (state.queueIndex + 1).clamp(0, updatedQueue.length);
+      updatedQueue.insert(insertIndex, event.song);
+      updatedOriginal.add(event.song);
     } else {
       updatedQueue.add(event.song);
+      updatedOriginal.add(event.song);
     }
 
-    // Update state first
-    emit(state.copyWith(queue: updatedQueue));
+    emit(state.copyWith(queue: updatedQueue, originalQueue: updatedOriginal));
+    MediaSessionCoordinator.instance.notifyQueueChanged();
 
     final preferredQuality = _startupQuality(state.audioQuality);
-    // Prefetch the new song (non-blocking)
     _streamLoader.prefetch(event.song, preferredQuality: preferredQuality);
-
-    // Also prefetch ahead based on configured lookahead
     _prefetchAhead(updatedQueue, state.queueIndex, quality: preferredQuality);
   }
 
@@ -811,20 +880,74 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     RemoveFromQueueEvent event,
     Emitter<PlayerState> emit,
   ) async {
-    if (event.index >= 0 && event.index < state.queue.length) {
-      final updatedQueue = List<Song>.from(state.queue)..removeAt(event.index);
-      int newIndex = state.queueIndex;
-      if (event.index < state.queueIndex) {
-        newIndex--;
-      }
-      emit(state.copyWith(queue: updatedQueue, queueIndex: newIndex));
+    if (event.index < 0 || event.index >= state.queue.length) return;
+
+    final removedSong = state.queue[event.index];
+    final updatedQueue = List<Song>.from(state.queue)..removeAt(event.index);
+
+    final updatedOriginal = List<Song>.from(
+      state.originalQueue.isNotEmpty ? state.originalQueue : state.queue,
+    );
+    final origIdx = updatedOriginal.indexWhere(
+      (s) => s.playableId == removedSong.playableId,
+    );
+    if (origIdx != -1) {
+      updatedOriginal.removeAt(origIdx);
     }
+
+    int newIndex = state.queueIndex;
+    if (event.index < state.queueIndex) {
+      newIndex--;
+    } else if (event.index == state.queueIndex) {
+      // Removing the currently active track
+      if (updatedQueue.isEmpty) {
+        add(const StopEvent());
+        emit(state.copyWith(
+          queue: const [],
+          originalQueue: const [],
+          queueIndex: 0,
+          currentSong: null,
+        ));
+        MediaSessionCoordinator.instance.notifyQueueChanged();
+        return;
+      } else {
+        if (newIndex >= updatedQueue.length) {
+          newIndex = updatedQueue.length - 1;
+        }
+        final nextSong = updatedQueue[newIndex];
+        add(PlaySongEvent(
+          song: nextSong,
+          queue: updatedQueue,
+          queueIndex: newIndex,
+        ));
+        return;
+      }
+    }
+
+    if (updatedQueue.isNotEmpty && newIndex >= updatedQueue.length) {
+      newIndex = updatedQueue.length - 1;
+    }
+
+    emit(state.copyWith(
+      queue: updatedQueue,
+      originalQueue: updatedOriginal,
+      queueIndex: newIndex,
+    ));
+    MediaSessionCoordinator.instance.notifyQueueChanged();
   }
 
   Future<void> _onReorderQueue(
     ReorderQueueEvent event,
     Emitter<PlayerState> emit,
   ) async {
+    if (event.oldIndex < 0 ||
+        event.oldIndex >= state.queue.length ||
+        event.newIndex < 0 ||
+        event.newIndex >= state.queue.length ||
+        event.oldIndex == event.newIndex) {
+      return;
+    }
+
     final updatedQueue = List<Song>.from(state.queue);
     final song = updatedQueue.removeAt(event.oldIndex);
     updatedQueue.insert(event.newIndex, song);
@@ -841,18 +964,24 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     }
 
     emit(state.copyWith(queue: updatedQueue, queueIndex: newIndex));
+    MediaSessionCoordinator.instance.notifyQueueChanged();
   }
 
   Future<void> _onClearQueue(
     ClearQueueEvent event,
     Emitter<PlayerState> emit,
   ) async {
+    final preserved = state.currentSong != null
+        ? [state.currentSong!]
+        : <Song>[];
     emit(
       state.copyWith(
-        queue: state.currentSong != null ? [state.currentSong!] : [],
+        queue: preserved,
+        originalQueue: preserved,
         queueIndex: 0,
       ),
     );
+    MediaSessionCoordinator.instance.notifyQueueChanged();
   }
 
   Future<void> _onSetPlaybackSpeed(
@@ -901,10 +1030,12 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   }
 
   Future<void> _onStop(StopEvent event, Emitter<PlayerState> emit) async {
+    _playbackGeneration++;
     await _audioPlayer.stop();
     await _audioFocus.deactivate();
     _reliability.resetCircuitBreaker();
     emit(const PlayerState());
+    MediaSessionCoordinator.instance.notifyQueueChanged();
   }
 
   void _onPositionUpdate(PositionUpdateEvent event, Emitter<PlayerState> emit) {
