@@ -32,6 +32,8 @@ on:
 # ─────────────────────────────────────────────────────────────────
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 # Only one release at a time; never cancel an in-flight release.
 concurrency:
@@ -57,7 +59,7 @@ jobs:
     steps:
       # ── 1. Checkout ──────────────────────────────────────────────
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           # Use a PAT or the built-in token; the bot token cannot
@@ -294,14 +296,15 @@ jobs:
 
       # ── 8. Java & Flutter setup ───────────────────────────────────
       - name: Set up Java 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@8df10395026301dbd96443422813ec3be5143789 # v4.3.0
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Flutter (stable)
-        uses: subosito/flutter-action@v2
+      - name: Set up Flutter (3.38.4 stable)
+        uses: subosito/flutter-action@f2c4f66bb077b9660233633630d71a1727725920 # v2.18.0
         with:
+          flutter-version: "3.38.4"
           channel: stable
           cache: true
 
@@ -376,6 +379,23 @@ jobs:
             --android-skip-build-dependency-validation \
             ${{ env.SIGNING_FLAG }}
 
+      # ── 11b. Certificate check ────────────────────────────────────
+      - name: Verify signing certificate fingerprint
+        if: steps.next_version.outputs.should_release == 'true' && env.SIGNED_BUILD == 'true'
+        shell: bash
+        run: |
+          echo "Verifying APK signing certificate fingerprint..."
+          keytool -printcert -jarfile build/release-apks/app-phone-release.apk
+
+      # ── 11c. Generate SBOM ────────────────────────────────────────
+      - name: Generate Software Bill of Materials (SBOM)
+        if: steps.next_version.outputs.should_release == 'true'
+        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.17.9
+        with:
+          path: .
+          format: spdx-json
+          output-file: "prism-music-${{ steps.tag.outputs.tag }}-sbom.spdx.json"
+
       # ── 12. Stage release assets with descriptive names ──────────
       - name: Prepare release assets
         id: assets
@@ -386,9 +406,12 @@ jobs:
           APK_SRC="build/release-apks/app-phone-release.apk"
           EMULATOR_APK_SRC="build/release-apks/app-emulator-x86_64-release.apk"
           AAB_SRC="build/app/outputs/bundle/release/app-release.aab"
+          SBOM_SRC="prism-music-${TAG}-sbom.spdx.json"
+
           APK_OUT="prism-music-${TAG}-android.apk"
           EMULATOR_APK_OUT="prism-music-${TAG}-android-emulator-x86_64.apk"
           AAB_OUT="prism-music-${TAG}.aab"
+          SBOM_OUT="prism-music-${TAG}-sbom.spdx.json"
 
           if [[ ! -f "$APK_SRC" ]]; then
             echo "ERROR: Release APK not found at $APK_SRC"; exit 1
@@ -407,6 +430,12 @@ jobs:
           sha256sum "$EMULATOR_APK_OUT" > "${EMULATOR_APK_OUT}.sha256"
           sha256sum "$AAB_OUT" > "${AAB_OUT}.sha256"
 
+          if [[ -f "$SBOM_SRC" ]]; then
+            sha256sum "$SBOM_OUT" > "${SBOM_OUT}.sha256"
+            echo "sbom=$SBOM_OUT"                   >> "$GITHUB_OUTPUT"
+            echo "sbom_sha=${SBOM_OUT}.sha256"       >> "$GITHUB_OUTPUT"
+          fi
+
           echo "apk=$APK_OUT"                     >> "$GITHUB_OUTPUT"
           echo "emulator_apk=$EMULATOR_APK_OUT"   >> "$GITHUB_OUTPUT"
           echo "aab=$AAB_OUT"                     >> "$GITHUB_OUTPUT"
@@ -414,10 +443,20 @@ jobs:
           echo "emulator_apk_sha=${EMULATOR_APK_OUT}.sha256" >> "$GITHUB_OUTPUT"
           echo "aab_sha=${AAB_OUT}.sha256"         >> "$GITHUB_OUTPUT"
 
+      # ── 12b. Attest Build Provenance ─────────────────────────────
+      - name: Attest Build Provenance
+        if: steps.next_version.outputs.should_release == 'true' && env.SIGNED_BUILD == 'true'
+        uses: actions/attest-build-provenance@c074443f1b57207e352717316075b10304c2714a # v2.2.3
+        with:
+          subject-path: |
+            ${{ steps.assets.outputs.apk }}
+            ${{ steps.assets.outputs.emulator_apk }}
+            ${{ steps.assets.outputs.aab }}
+
       # ── 13. Upload artifacts (downloadable from Actions UI) ───────
       - name: Upload release artifacts
         if: steps.next_version.outputs.should_release == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf6581a12fe429233114 # v4.4.3
         with:
           name: prism-music-${{ steps.tag.outputs.tag }}
           path: |
@@ -427,6 +466,8 @@ jobs:
             ${{ steps.assets.outputs.apk_sha }}
             ${{ steps.assets.outputs.emulator_apk_sha }}
             ${{ steps.assets.outputs.aab_sha }}
+            ${{ steps.assets.outputs.sbom }}
+            ${{ steps.assets.outputs.sbom_sha }}
           if-no-files-found: error
 
       # ── 13b. Assemble the release body ────────────────────────────
@@ -464,7 +505,7 @@ jobs:
       # ── 14. Publish ONE GitHub Release with APK/AAB attached ──────
       - name: Publish GitHub Release
         if: steps.next_version.outputs.should_release == 'true' && env.SIGNED_BUILD == 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@c062e49c716f9f315264b3602d53c30650d32f50 # v2.2.1
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name:     ${{ steps.tag.outputs.release_name }}
@@ -478,6 +519,8 @@ jobs:
             ${{ steps.assets.outputs.apk_sha }}
             ${{ steps.assets.outputs.emulator_apk_sha }}
             ${{ steps.assets.outputs.aab_sha }}
+            ${{ steps.assets.outputs.sbom }}
+            ${{ steps.assets.outputs.sbom_sha }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
