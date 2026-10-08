@@ -73,16 +73,18 @@ void main() {
       expect(songs, isNotEmpty, reason: 'stale cache beats an error');
     });
 
-    test('returns an empty list when fetch fails with no cache', () async {
+    test('propagates error when fetch fails with no cache', () async {
       // Use a chart no earlier test has fetched — the singleton cache
       // persists across tests in this file.
       final chart = ChartService.getAvailableCharts('US', 'United States').last;
       musicRepo.throwOnSearch = true;
 
-      // The service swallows search errors and degrades to an empty chart
-      // (UI shows the empty state) rather than crashing the page.
-      final songs = await ChartService.instance.getChartSongs(chart);
-      expect(songs, isEmpty);
+      // The service rethrows search errors so caller can distinguish provider failure
+      // from an empty chart.
+      expect(
+        () => ChartService.instance.getChartSongs(chart),
+        throwsA(isA<Exception>()),
+      );
     });
   });
 }

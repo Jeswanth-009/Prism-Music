@@ -6,6 +6,7 @@ import 'package:prism_music/domain/repositories/music_repository.dart';
 import 'package:prism_music/presentation/blocs/player/player_bloc.dart';
 import 'package:prism_music/presentation/pages/chart_page.dart';
 import 'package:prism_music/presentation/pages/charts_hub_page.dart';
+import 'package:prism_music/presentation/widgets/prism/prism_states.dart';
 
 import '../helpers/fakes.dart';
 
@@ -49,10 +50,26 @@ void main() {
     expect(find.text('United States'), findsOneWidget);
   });
 
-  testWidgets('chart page shows the empty state when fetch degrades',
+  testWidgets('chart page shows the error state when fetch fails',
       (tester) async {
     musicRepo.throwOnSearch = true;
     final chart = ChartService.getAvailableCharts('US', 'United States')[3];
+
+    await tester.pumpWidget(wrapForTests(
+      ChartPage(chart: chart),
+      playerBloc: playerBloc,
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byType(PrismErrorState), findsOneWidget);
+  });
+
+  testWidgets('chart page shows the empty state when search returns no songs',
+      (tester) async {
+    musicRepo.searchResult = const Right([]);
+    final chart = ChartService.getAvailableCharts('US', 'United States')[2];
 
     await tester.pumpWidget(wrapForTests(
       ChartPage(chart: chart),
@@ -86,6 +103,7 @@ void main() {
     expect(find.text('Chart Topper'), findsOneWidget);
     expect(find.text('Runner Up'), findsOneWidget);
     expect(find.text('Play all'), findsOneWidget);
+    expect(find.textContaining('Curated Discovery Mix'), findsOneWidget);
   });
 
   testWidgets('Play all button is present above the numbered queue',

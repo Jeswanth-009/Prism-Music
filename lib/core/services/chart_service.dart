@@ -24,6 +24,8 @@ class ChartService {
         source: ChartSource.billboard,
         description: 'The week\'s most popular songs in the US',
         iconType: ChartIconType.chart,
+        isDiscoveryMix: true,
+        provenance: 'Curated via YouTube search for Billboard Hot 100 hits',
       ),
       ChartDefinition(
         id: 'billboard_global200',
@@ -31,22 +33,28 @@ class ChartService {
         source: ChartSource.billboard,
         description: 'Top 200 songs worldwide',
         iconType: ChartIconType.global,
+        isDiscoveryMix: true,
+        provenance: 'Curated via YouTube search for Global 200 hits',
       ),
       ChartDefinition(
         id: 'youtube_trending_$countryCode',
         name: 'YouTube Trending',
         source: ChartSource.youtube,
-        description: 'Trending music on YouTube',
+        description: 'Trending music on YouTube ($countryName)',
         iconType: ChartIconType.trending,
         region: countryCode,
+        isDiscoveryMix: true,
+        provenance: 'Curated via YouTube search for trending songs in $countryCode',
       ),
       ChartDefinition(
         id: 'youtube_top_music_$countryCode',
         name: 'YouTube Top Music',
         source: ChartSource.youtube,
-        description: 'Top music videos on YouTube',
+        description: 'Top music videos on YouTube ($countryName)',
         iconType: ChartIconType.top,
         region: countryCode,
+        isDiscoveryMix: true,
+        provenance: 'Curated via YouTube search for top music in $countryCode',
       ),
       ChartDefinition(
         id: 'billboard_tiktok',
@@ -54,6 +62,8 @@ class ChartService {
         source: ChartSource.billboard,
         description: 'Top songs on TikTok',
         iconType: ChartIconType.viral,
+        isDiscoveryMix: true,
+        provenance: 'Curated via YouTube search for TikTok viral songs',
       ),
       ChartDefinition(
         id: 'youtube_new_releases',
@@ -62,6 +72,8 @@ class ChartService {
         description: 'Latest music releases',
         iconType: ChartIconType.newRelease,
         region: countryCode,
+        isDiscoveryMix: true,
+        provenance: 'Curated via YouTube search for new music releases',
       ),
     ];
   }
@@ -130,14 +142,8 @@ class ChartService {
 
   /// Fetch new releases from YouTube
   Future<List<Song>> _fetchYouTubeNewReleases(String region) async {
-    // Single search for new releases
-    try {
-      final results = await _searchMultipleSongs('new music releases ${DateTime.now().year}', limit: 25);
-      return results.where(_isValidSong).toList();
-    } catch (e) {
-      debugPrint('ChartService: Error fetching new releases: $e');
-      return [];
-    }
+    final results = await _searchMultipleSongs('new music releases ${DateTime.now().year}', limit: 25);
+    return results.where(_isValidSong).toList();
   }
 
   /// Fallback: Fetch chart songs via search queries
@@ -167,16 +173,12 @@ class ChartService {
     
     final songs = <Song>[];
     
-    try {
-      // Single search to avoid rate limiting
-      final results = await _searchMultipleSongs(query, limit: 25);
-      for (final song in results) {
-        if (_isValidSong(song)) {
-          songs.add(song);
-        }
+    // Single search to avoid rate limiting
+    final results = await _searchMultipleSongs(query, limit: 25);
+    for (final song in results) {
+      if (_isValidSong(song)) {
+        songs.add(song);
       }
-    } catch (e) {
-      debugPrint('ChartService: Search error for "$query": $e');
     }
     
     return songs;
@@ -184,18 +186,15 @@ class ChartService {
 
   /// Search for multiple songs on YouTube
   Future<List<Song>> _searchMultipleSongs(String query, {int limit = 10}) async {
-    try {
-      final musicRepository = getIt<MusicRepository>();
-      return await musicRepository.searchSongs(query, limit: limit).then(
-        (result) => result.fold(
-          (failure) => <Song>[],
-          (songs) => songs.where(_isValidSong).toList(),
-        ),
-      );
-    } catch (e) {
-      debugPrint('ChartService: Search error: $e');
-      return [];
-    }
+    final musicRepository = getIt<MusicRepository>();
+    final result = await musicRepository.searchSongs(query, limit: limit);
+    return result.fold(
+      (failure) {
+        debugPrint('ChartService: Search failed for "$query": ${failure.message}');
+        throw Exception('Failed to load chart songs: ${failure.message}');
+      },
+      (songs) => songs.where(_isValidSong).toList(),
+    );
   }
 
   /// Check if a song is valid (not a playlist, reasonable duration)
@@ -266,6 +265,8 @@ class ChartDefinition {
   final String description;
   final ChartIconType iconType;
   final String? region;
+  final bool isDiscoveryMix;
+  final String? provenance;
 
   const ChartDefinition({
     required this.id,
@@ -274,6 +275,8 @@ class ChartDefinition {
     required this.description,
     required this.iconType,
     this.region,
+    this.isDiscoveryMix = true,
+    this.provenance,
   });
 }
 

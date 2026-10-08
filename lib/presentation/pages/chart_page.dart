@@ -143,6 +143,7 @@ class _ChartPageState extends State<ChartPage> {
                                             const SizedBox(height: 3),
                                             Text(
                                               '${chartSourceLabel(widget.chart.source)}'
+                                              '${widget.chart.isDiscoveryMix ? ' · Discovery Mix' : ''}'
                                               '${widget.chart.region == null ? '' : ' · ${widget.chart.region}'}'
                                               ' · ${_songs.length} songs',
                                               style: theme.textTheme.bodySmall
@@ -163,6 +164,43 @@ class _ChartPageState extends State<ChartPage> {
                                       color: theme.colorScheme.onSurfaceVariant,
                                     ),
                                   ),
+                                  if (widget.chart.isDiscoveryMix) ...[
+                                    const SizedBox(height: 10),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: spec.accentSoft,
+                                        borderRadius: BorderRadius.circular(
+                                          PrismRadius.sm,
+                                        ),
+                                        border: Border.all(color: spec.hairline),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.info_outline_rounded,
+                                            size: 14,
+                                            color: theme.colorScheme.primary,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              'Curated Discovery Mix — Based on trending search popularity, not certified official ranks.',
+                                              style: theme.textTheme.labelSmall
+                                                  ?.copyWith(
+                                                color:
+                                                    theme.colorScheme.onSurface,
+                                                height: 1.3,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                   const SizedBox(height: 14),
                                   Row(
                                     children: [
@@ -204,7 +242,7 @@ class _ChartPageState extends State<ChartPage> {
                                     PrismSongTile(
                                   song: song,
                                   index: index,
-                                  numbered: true,
+                                  numbered: !widget.chart.isDiscoveryMix,
                                   isPlaying:
                                       playerState.currentSong?.id == song.id,
                                   isPlayingPaused: !playerState.isPlaying,
