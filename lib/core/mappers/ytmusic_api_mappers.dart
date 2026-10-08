@@ -50,14 +50,27 @@ Album albumFromYtMusicApi(Map<String, dynamic> item) {
   final id = _readString(item, const ['browseId', 'albumId', 'id']);
   final type = (_readString(item, const ['type'])).toLowerCase();
 
+  final rawTracks = item['tracks'] ?? item['songs'];
+  List<Song> songs = [];
+  if (rawTracks is List) {
+    songs = rawTracks
+        .whereType<Map<String, dynamic>>()
+        .map(songFromYtMusicApi)
+        .toList();
+  }
+
+  final playlistId = _readString(item, const ['playlistId', 'youtubePlaylistId']);
+
   return Album(
     id: id,
     title: _readString(item, const ['title', 'name']),
     artist: _readString(item, const ['artist', 'author']),
     thumbnails: Thumbnails.fromUrl(_extractThumbnailUrl(item) ?? ''),
-    trackCount: int.tryParse(_readString(item, const ['trackCount', 'count'])),
-    youtubePlaylistId: _readString(item, const ['playlistId']),
+    trackCount: int.tryParse(_readString(item, const ['trackCount', 'count'])) ?? (songs.isNotEmpty ? songs.length : null),
+    youtubePlaylistId: playlistId.isNotEmpty ? playlistId : id,
     type: type == 'single' ? AlbumType.single : AlbumType.album,
+    songs: songs.isNotEmpty ? songs : null,
+    year: int.tryParse(_readString(item, const ['year'])),
   );
 }
 

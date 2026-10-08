@@ -253,6 +253,22 @@ class FakeMusicRepository implements MusicRepository {
     return newReleasesResult;
   }
 
+  Either<Failure, Album> albumResult = const Right(
+    Album(
+      id: 'album-1',
+      title: 'Test Album',
+      artist: 'Test Artist',
+      thumbnails: Thumbnails(),
+    ),
+  );
+  String? lastAlbumIdRequested;
+
+  @override
+  Future<Either<Failure, Album>> getAlbumDetails(String albumId) async {
+    lastAlbumIdRequested = albumId;
+    return albumResult;
+  }
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

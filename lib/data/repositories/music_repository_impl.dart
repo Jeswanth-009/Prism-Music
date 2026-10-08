@@ -308,16 +308,33 @@ class MusicRepositoryImpl implements MusicRepository {
   @override
   Future<Either<Failure, Album>> getAlbumDetails(String albumId) async {
     try {
+      // 1. If it's a YouTube Music album browse ID (starts with MPREb_), or not a standard playlist ID (PL/OLAK/RD/VL),
+      // fetch via native YtMusicApiService.getAlbum
+      if (albumId.startsWith('MPREb_') || (!albumId.startsWith('PL') && !albumId.startsWith('OLAK') && !albumId.startsWith('RD') && !albumId.startsWith('VL'))) {
+        try {
+          final albumData = await _ytMusicApiService.getAlbum(albumId);
+          if (albumData.isNotEmpty) {
+            final album = albumFromYtMusicApi(albumData);
+            if (album.songs != null && album.songs!.isNotEmpty) {
+              return Right(album);
+            }
+          }
+        } catch (e) {
+          debugPrint('MusicRepositoryImpl: Native getAlbum failed for $albumId: $e');
+        }
+      }
+
+      // 2. Fallback to playlist details using playlist endpoint
       final playlist = await _youtubeMusicDataSource.getPlaylistDetails(albumId);
       
       return Right(Album(
-        id: playlist.id,
+        id: albumId,
         title: playlist.name,
         artist: playlist.author ?? 'Unknown Artist',
         thumbnails: playlist.thumbnails ?? const Thumbnails(),
         trackCount: playlist.trackCount,
         songs: playlist.songs,
-        youtubePlaylistId: playlist.youtubePlaylistId,
+        youtubePlaylistId: playlist.youtubePlaylistId ?? playlist.id,
       ));
     } catch (e) {
       return Left(UnknownFailure(message: e.toString()));

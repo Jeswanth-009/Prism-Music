@@ -40,12 +40,15 @@ class _AlbumPageState extends State<AlbumPage> {
       _album.songs!.length < (_album.trackCount ?? 1);
 
   Future<void> _load() async {
-    if (_album.id.isEmpty || !_needsLoad) return;
+    final albumIdToFetch = _album.id.isNotEmpty
+        ? _album.id
+        : (_album.youtubePlaylistId ?? '');
+    if (albumIdToFetch.isEmpty || !_needsLoad) return;
     setState(() {
       _loading = true;
       _error = null;
     });
-    final result = await getIt<MusicRepository>().getAlbumDetails(_album.id);
+    final result = await getIt<MusicRepository>().getAlbumDetails(albumIdToFetch);
     if (!mounted) return;
     result.fold(
       (failure) => setState(() {
@@ -53,7 +56,20 @@ class _AlbumPageState extends State<AlbumPage> {
         _loading = false;
       }),
       (album) => setState(() {
-        _album = album;
+        _album = _album.copyWith(
+          title: _album.title.isNotEmpty ? _album.title : album.title,
+          artist: _album.artist.isNotEmpty && _album.artist != 'Unknown Artist'
+              ? _album.artist
+              : album.artist,
+          thumbnails: _album.thumbnails.best != null
+              ? _album.thumbnails
+              : album.thumbnails,
+          songs: album.songs,
+          trackCount: album.trackCount ?? _album.trackCount,
+          youtubePlaylistId:
+              album.youtubePlaylistId ?? _album.youtubePlaylistId,
+          year: _album.year ?? album.year,
+        );
         _loading = false;
       }),
     );

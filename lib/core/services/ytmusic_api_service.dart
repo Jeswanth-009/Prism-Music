@@ -38,6 +38,17 @@ class YtMusicApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getAlbum(String albumId) async {
+    await _ensureInitialized();
+    try {
+      final raw = await _ytMusic.getAlbum(albumId);
+      return _toMap(raw) ?? <String, dynamic>{};
+    } catch (e, st) {
+      _logger.severe('getAlbum failed for "$albumId"', e, st);
+      return <String, dynamic>{};
+    }
+  }
+
   Future<List<Map<String, dynamic>>> searchSongs(String query) async {
     await _ensureInitialized();
     try {
@@ -733,6 +744,36 @@ class YtMusicApiService {
                   'width': t.width,
                   'height': t.height,
                 })
+            .toList(),
+      };
+    }
+
+    if (raw is AlbumFull) {
+      return {
+        'type': raw.type,
+        'albumId': raw.albumId,
+        'browseId': raw.albumId,
+        'id': raw.albumId,
+        'playlistId': raw.playlistId,
+        'youtubePlaylistId': raw.playlistId,
+        'title': raw.name,
+        'name': raw.name,
+        'artist': raw.artist.name,
+        'year': raw.year,
+        'thumbnails': raw.thumbnails
+            .map((t) => {
+                  'url': t.url,
+                  'width': t.width,
+                  'height': t.height,
+                })
+            .toList(),
+        'tracks': raw.songs
+            .map((s) => _toMap(s))
+            .whereType<Map<String, dynamic>>()
+            .toList(),
+        'songs': raw.songs
+            .map((s) => _toMap(s))
+            .whereType<Map<String, dynamic>>()
             .toList(),
       };
     }
