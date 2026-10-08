@@ -8,6 +8,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.29] - 2026-10-08
+
+### Fixed
+
+- Fail closed on unsigned release builds and skip publish (S02)
+
+### Changed
+
+- Fix workflow action commit SHAs with verified commit hashes
+- Add PRIVACY.md and qualify privacy claims in README and website (S13)
+- Pin actions and Flutter version, scope permissions, add SBOM, provenance and OSV scans (S12)
+
 ## [0.2.28] - 2026-10-07
 
 ### Added
@@ -553,3 +565,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.26]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.26-build62
 [0.2.27]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.27-build63
 [0.2.28]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.28-build64
+[0.2.29]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.29-build65
