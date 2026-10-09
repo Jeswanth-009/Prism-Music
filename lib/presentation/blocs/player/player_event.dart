@@ -179,11 +179,12 @@ class SetAudioQualityEvent extends PlayerEvent {
 /// Set the sleep timer. [duration] of null cancels an active timer.
 class SetSleepTimerEvent extends PlayerEvent {
   final Duration? duration;
+  final bool endOfTrack;
 
-  const SetSleepTimerEvent(this.duration);
+  const SetSleepTimerEvent(this.duration, {this.endOfTrack = false});
 
   @override
-  List<Object?> get props => [duration];
+  List<Object?> get props => [duration, endOfTrack];
 }
 
 /// Stop playback completely

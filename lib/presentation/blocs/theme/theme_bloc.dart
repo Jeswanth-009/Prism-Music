@@ -7,6 +7,9 @@ import 'theme_state.dart';
 
 /// BLoC for managing app theme and dynamic colors
 class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
+  static final Map<String, Color> _colorCache = {};
+  int _colorExtractionGen = 0;
+
   ThemeBloc({ThemeMode initialThemeMode = ThemeMode.system})
       : super(
           ThemeState(
@@ -39,19 +42,33 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
 
     // If a direct color is provided, use it
     if (event.primaryColor != null) {
-      emit(state.copyWith(primaryColor: event.primaryColor));
+      if (state.primaryColor != event.primaryColor) {
+        emit(state.copyWith(primaryColor: event.primaryColor));
+      }
       return;
     }
 
     // If an image URL is provided, extract color
-    if (event.imageUrl != null && event.imageUrl!.isNotEmpty) {
+    final imageUrl = event.imageUrl;
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      if (_colorCache.containsKey(imageUrl)) {
+        final cached = _colorCache[imageUrl]!;
+        if (state.primaryColor != cached) {
+          emit(state.copyWith(primaryColor: cached));
+        }
+        return;
+      }
+
+      final gen = ++_colorExtractionGen;
       emit(state.copyWith(isExtractingColor: true));
 
       try {
         final paletteGenerator = await PaletteGenerator.fromImageProvider(
-          NetworkImage(event.imageUrl!),
+          NetworkImage(imageUrl),
           maximumColorCount: 20,
         );
+
+        if (gen != _colorExtractionGen) return;
 
         // Get the dominant color or vibrant color
         Color? extractedColor = paletteGenerator.dominantColor?.color ??
@@ -65,6 +82,7 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
             // If color is too muted, increase saturation
             extractedColor = hsl.withSaturation(0.5).toColor();
           }
+          _colorCache[imageUrl] = extractedColor;
           emit(state.copyWith(
             primaryColor: extractedColor,
             isExtractingColor: false,
@@ -73,11 +91,13 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
           emit(state.copyWith(isExtractingColor: false));
         }
       } catch (e) {
-        // Fallback to default on error
-        emit(state.copyWith(
-          primaryColor: state.defaultPrimaryColor,
-          isExtractingColor: false,
-        ));
+        if (gen == _colorExtractionGen) {
+          // Fallback to default on error
+          emit(state.copyWith(
+            primaryColor: state.defaultPrimaryColor,
+            isExtractingColor: false,
+          ));
+        }
       }
     }
   }

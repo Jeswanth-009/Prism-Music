@@ -35,9 +35,20 @@ class PlayerPage extends StatefulWidget {
 }
 
 class _PlayerPageState extends State<PlayerPage> {
+  static final Map<String, Color?> _paletteCache = {};
   Color? _dominantColor;
   bool _showLyrics = false;
-  String? _lastImageUrl;
+  String? _lastSongId;
+  int _colorExtractionGen = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final currentSong = context.read<PlayerBloc>().state.currentSong;
+    if (currentSong != null) {
+      _extractDominantColor(currentSong);
+    }
+  }
 
   void _openArtistPage(String artistName) {
     Navigator.of(context).push(
@@ -45,28 +56,51 @@ class _PlayerPageState extends State<PlayerPage> {
     );
   }
 
-  Future<void> _extractDominantColor(String imageUrl) async {
-    if (imageUrl == _lastImageUrl) return;
-    _lastImageUrl = imageUrl;
+  Future<void> _extractDominantColor(Song song) async {
+    final songId = song.playableId;
+    if (songId == _lastSongId) return;
+    _lastSongId = songId;
+
+    final cached = _paletteCache[songId];
+    if (cached != null) {
+      if (mounted) setState(() => _dominantColor = cached);
+      return;
+    }
+
+    final imageUrl = song.thumbnailUrl;
+    if (imageUrl.isEmpty) {
+      if (mounted) setState(() => _dominantColor = null);
+      return;
+    }
+
+    final gen = ++_colorExtractionGen;
     try {
       final palette = await PaletteGenerator.fromImageProvider(
         CachedNetworkImageProvider(imageUrl),
       );
-      if (!mounted) return;
-      setState(() {
-        _dominantColor =
-            palette.dominantColor?.color ??
-            palette.vibrantColor?.color ??
-            palette.mutedColor?.color;
-      });
+      if (!mounted || gen != _colorExtractionGen) return;
+      final extracted = palette.dominantColor?.color ??
+          palette.vibrantColor?.color ??
+          palette.mutedColor?.color;
+      _paletteCache[songId] = extracted;
+      setState(() => _dominantColor = extracted);
     } catch (_) {
-      if (mounted) setState(() => _dominantColor = null);
+      if (mounted && gen == _colorExtractionGen) {
+        setState(() => _dominantColor = null);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<PlayerBloc, PlayerState>(
+    return BlocConsumer<PlayerBloc, PlayerState>(
+      listenWhen: (prev, curr) =>
+          prev.currentSong?.playableId != curr.currentSong?.playableId,
+      listener: (context, state) {
+        if (state.currentSong != null) {
+          _extractDominantColor(state.currentSong!);
+        }
+      },
       builder: (context, state) {
         final song = state.currentSong;
         if (song == null) {
@@ -76,10 +110,6 @@ class _PlayerPageState extends State<PlayerPage> {
               message: 'No song playing',
             ),
           );
-        }
-
-        if (song.thumbnailUrl.isNotEmpty) {
-          _extractDominantColor(song.thumbnailUrl);
         }
 
         final theme = Theme.of(context);
@@ -324,16 +354,15 @@ class _PlayerPageState extends State<PlayerPage> {
   /// Off / end-of-track / fixed durations. Dispatches [SetSleepTimerEvent];
   /// null cancels an active timer.
   void _showSleepTimerSheet(BuildContext context, PlayerState state) {
-    final endOfTrack = state.duration > Duration.zero
-        ? state.duration - state.position
-        : null;
-    final options = <({String label, Duration? duration})>[
-      const (label: 'Off', duration: null),
-      if (endOfTrack != null && !endOfTrack.isNegative)
-        (label: 'End of track', duration: endOfTrack),
+    final options = <({String label, Duration? duration, bool endOfTrack})>[
+      const (label: 'Off', duration: null, endOfTrack: false),
+      const (label: 'End of track', duration: null, endOfTrack: true),
       ...const [5, 10, 15, 30, 45, 60, 90].map(
-        (minutes) =>
-            (label: '$minutes minutes', duration: Duration(minutes: minutes)),
+        (minutes) => (
+          label: '$minutes minutes',
+          duration: Duration(minutes: minutes),
+          endOfTrack: false,
+        ),
       ),
     ];
 
@@ -362,9 +391,12 @@ class _PlayerPageState extends State<PlayerPage> {
                 onTap: () {
                   Navigator.pop(sheetContext);
                   context.read<PlayerBloc>().add(
-                    SetSleepTimerEvent(option.duration),
+                    SetSleepTimerEvent(
+                      option.duration,
+                      endOfTrack: option.endOfTrack,
+                    ),
                   );
-                  if (option.duration != null) {
+                  if (option.duration != null || option.endOfTrack) {
                     showPrismToast(context, 'Sleep timer set: ${option.label}');
                   }
                 },
@@ -623,10 +655,17 @@ class _ClickableArtistTextState extends State<_ClickableArtistText> {
 // Progress + controls
 // ════════════════════════════════════════════════════════════════════════════
 
-class _ProgressBar extends StatelessWidget {
+class _ProgressBar extends StatefulWidget {
   const _ProgressBar({required this.state});
 
   final PlayerState state;
+
+  @override
+  State<_ProgressBar> createState() => _ProgressBarState();
+}
+
+class _ProgressBarState extends State<_ProgressBar> {
+  double? _dragValue;
 
   String _format(Duration d) =>
       '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
@@ -634,13 +673,20 @@ class _ProgressBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final duration = state.duration;
+    final duration = widget.state.duration;
     final progress = duration.inMilliseconds > 0
-        ? (state.position.inMilliseconds / duration.inMilliseconds).clamp(
+        ? (widget.state.position.inMilliseconds / duration.inMilliseconds).clamp(
             0.0,
             1.0,
           )
         : 0.0;
+
+    final displayProgress = _dragValue ?? progress;
+    final displayPosition = _dragValue != null
+        ? Duration(
+            milliseconds: (_dragValue! * duration.inMilliseconds).round(),
+          )
+        : widget.state.position;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -653,12 +699,16 @@ class _ProgressBar extends StatelessWidget {
               overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
             ),
             child: Slider(
-              value: progress,
+              value: displayProgress.clamp(0.0, 1.0),
               onChanged: (value) {
+                setState(() => _dragValue = value);
+              },
+              onChangeEnd: (value) {
                 final newPosition = Duration(
                   milliseconds: (value * duration.inMilliseconds).round(),
                 );
                 context.read<PlayerBloc>().add(SeekEvent(newPosition));
+                setState(() => _dragValue = null);
               },
             ),
           ),
@@ -668,14 +718,14 @@ class _ProgressBar extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  _format(state.position),
+                  _format(displayPosition),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
                 Text(
-                  '-${_format(duration - state.position)}',
+                  '-${_format(duration - displayPosition > Duration.zero ? duration - displayPosition : Duration.zero)}',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                     fontFeatures: const [FontFeature.tabularFigures()],

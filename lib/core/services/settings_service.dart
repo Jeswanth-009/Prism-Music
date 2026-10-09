@@ -90,6 +90,7 @@ class SettingsService {
   static const String _onboardingCompleteKey = 'onboarding_complete';
   static const String _autoBackupKey = 'auto_backup_enabled';
   static const String _sharedBackupKey = 'shared_backup_enabled';
+  static const String _autoPlayKey = 'auto_play_enabled';
   static SettingsService? _instance;
   
   Box? _settingsBox;
@@ -187,6 +188,20 @@ class SettingsService {
   /// Set auto shuffle
   Future<void> setAutoShuffle(bool enabled) async {
     await _settingsBox?.put('auto_shuffle', enabled);
+  }
+
+  /// Whether infinite autoplay/recommendations is enabled when queue ends
+  bool get autoPlay {
+    try {
+      return _settingsBox?.get(_autoPlayKey, defaultValue: true) ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// Persist autoplay preference
+  Future<void> setAutoPlay(bool enabled) async {
+    await _settingsBox?.put(_autoPlayKey, enabled);
   }
 
   /// Get bass boost setting

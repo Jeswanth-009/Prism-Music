@@ -58,6 +58,9 @@ class PlayerState extends Equatable {
   /// When the sleep timer will pause playback (null = no timer)
   final DateTime? sleepTimerEnd;
 
+  /// Whether the sleep timer is waiting for track completion
+  final bool sleepTimerEndOfTrack;
+
   /// Original queue (before shuffle)
   final List<Song> originalQueue;
 
@@ -82,6 +85,7 @@ class PlayerState extends Equatable {
     this.currentStreamInfo,
     this.queue = const [],
     this.sleepTimerEnd,
+    this.sleepTimerEndOfTrack = false,
     this.originalQueue = const [],
     this.queueIndex = 0,
     this.errorMessage,
@@ -151,6 +155,7 @@ class PlayerState extends Equatable {
     int? queueIndex,
     String? errorMessage,
     DateTime? sleepTimerEnd,
+    bool? sleepTimerEndOfTrack,
     bool clearSleepTimer = false,
   }) {
     return PlayerState(
@@ -172,6 +177,9 @@ class PlayerState extends Equatable {
       errorMessage: errorMessage ?? this.errorMessage,
       sleepTimerEnd:
           clearSleepTimer ? null : (sleepTimerEnd ?? this.sleepTimerEnd),
+      sleepTimerEndOfTrack: clearSleepTimer
+          ? false
+          : (sleepTimerEndOfTrack ?? this.sleepTimerEndOfTrack),
     );
   }
 
@@ -191,6 +199,7 @@ class PlayerState extends Equatable {
     currentStreamInfo,
     queue,
     sleepTimerEnd,
+    sleepTimerEndOfTrack,
     originalQueue,
         queueIndex,
         errorMessage,

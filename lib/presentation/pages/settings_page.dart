@@ -12,7 +12,6 @@ import '../../core/services/permission_service.dart';
 import '../../core/services/recommendation_service.dart';
 import '../../core/services/settings_service.dart';
 import '../../core/services/audio_player_service.dart';
-import '../../domain/entities/entities.dart';
 
 import '../blocs/theme/theme_bloc.dart';
 import '../blocs/theme/theme_event.dart';
@@ -339,12 +338,7 @@ class _SettingsPageState extends State<SettingsPage> {
             final quality = state.audioQuality;
             // Keep these in sync with the AudioQuality entity bitrates —
             // the labels previously advertised 96/192 kbps.
-            final subtitle = switch (quality) {
-              AudioQuality.low => 'Low (64 kbps)',
-              AudioQuality.medium => 'Medium (128 kbps)',
-              AudioQuality.high => 'High (256 kbps)',
-              AudioQuality.lossless => 'Lossless (320 kbps)',
-            };
+            final subtitle = quality.displayName;
             return SettingRow(
               leading: const Icon(Icons.waves_rounded),
               title: 'Audio Quality',
@@ -410,6 +404,18 @@ class _SettingsPageState extends State<SettingsPage> {
             value: _settingsService.autoShuffle,
             onChanged: (value) async {
               await _settingsService.setAutoShuffle(value);
+              setState(() {});
+            },
+          ),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.autorenew_rounded),
+          title: 'Auto-Play',
+          subtitle: 'Keep playing similar songs when queue ends',
+          trailing: Switch.adaptive(
+            value: _settingsService.autoPlay,
+            onChanged: (value) async {
+              await _settingsService.setAutoPlay(value);
               setState(() {});
             },
           ),

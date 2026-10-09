@@ -38,6 +38,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   Timer? _sleepTimer;
   final LastFmService _lastFmService = LastFmService();
   RecommendationService? _recommendationService;
+  int _recommendationGeneration = 0;
 
   StreamSubscription<Duration>? _positionSubscription;
   StreamSubscription<Duration>? _bufferedSubscription;
@@ -378,6 +379,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       initialQueueIndex = 0;
     }
 
+    final Song? previousSong = state.currentSong;
+
     // Update UI immediately with the song info (before loading)
     emit(
       state.copyWith(
@@ -400,6 +403,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
     try {
       _refreshRuntimeSettings();
+      _audioFocus.notifyUserPaused(false);
       // JIT permission: ask for notification permission on initial playback so
       // media playback controls work on Android 13+ lock screen / status bar.
       unawaited(PermissionService.requestNotificationPermissionOnce());
@@ -456,9 +460,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
         final shouldCrossfade =
             _crossfadeDurationSeconds > 0 &&
-            state.currentSong != null &&
+            previousSong != null &&
             _audioPlayer.playing &&
-            state.currentSong!.playableId != event.song.playableId;
+            previousSong.playableId != event.song.playableId;
 
         final setSourceStopwatch = Stopwatch()..start();
         // Notification artwork prefers the medium thumbnail: YouTube's
@@ -480,7 +484,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
                     duration: Duration(
                       milliseconds: (_crossfadeDurationSeconds * 1000)
                           .round()
-                          .clamp(0, 6000),
+                          .clamp(0, 10000),
                     ),
                   )
                   .timeout(_setSourceTimeout)
@@ -648,6 +652,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       }
 
       _log('  - Calling _audioPlayer.play()');
+      _audioFocus.notifyUserPaused(false);
       await _audioPlayer.play();
       emit(state.copyWith(status: PlayerStatus.playing));
     } else {
@@ -659,6 +664,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
   Future<void> _onPause(PauseEvent event, Emitter<PlayerState> emit) async {
     _playbackGeneration++;
+    _audioFocus.notifyUserPaused(true);
     await _audioPlayer.pause();
     await _audioFocus.deactivate();
     emit(state.copyWith(status: PlayerStatus.paused));
@@ -676,6 +682,12 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   }
 
   Future<void> _onNext(NextEvent event, Emitter<PlayerState> emit) async {
+    if (state.sleepTimerEndOfTrack) {
+      _sleepTimer?.cancel();
+      _sleepTimer = null;
+      emit(state.copyWith(clearSleepTimer: true, sleepTimerEndOfTrack: false));
+    }
+
     if (state.hasNext) {
       // A manual skip is explicit user intent: clear any open circuit and
       // per-song retry budgets so the target song always gets a real attempt.
@@ -713,6 +725,12 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     PreviousEvent event,
     Emitter<PlayerState> emit,
   ) async {
+    if (state.sleepTimerEndOfTrack) {
+      _sleepTimer?.cancel();
+      _sleepTimer = null;
+      emit(state.copyWith(clearSleepTimer: true, sleepTimerEndOfTrack: false));
+    }
+
     if (state.hasPrevious) {
       // Same as _onNext: user intent overrides the circuit breaker.
       _reliability.resetCircuitBreaker();
@@ -1007,13 +1025,28 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     _sleepTimer?.cancel();
     _sleepTimer = null;
 
-    final duration = event.duration;
-    if (duration == null || duration <= Duration.zero) {
-      emit(state.copyWith(clearSleepTimer: true));
+    if (event.endOfTrack) {
+      emit(
+        state.copyWith(
+          sleepTimerEndOfTrack: true,
+          clearSleepTimer: true,
+        ),
+      );
       return;
     }
 
-    emit(state.copyWith(sleepTimerEnd: DateTime.now().add(duration)));
+    final duration = event.duration;
+    if (duration == null || duration <= Duration.zero) {
+      emit(state.copyWith(clearSleepTimer: true, sleepTimerEndOfTrack: false));
+      return;
+    }
+
+    emit(
+      state.copyWith(
+        sleepTimerEnd: DateTime.now().add(duration),
+        sleepTimerEndOfTrack: false,
+      ),
+    );
     _sleepTimer = Timer(duration, () {
       _sleepTimer = null;
       // Two events: pause playback first, then surface the cleared timer.
@@ -1026,11 +1059,13 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     _SleepTimerClearedEvent event,
     Emitter<PlayerState> emit,
   ) {
-    emit(state.copyWith(clearSleepTimer: true));
+    emit(state.copyWith(clearSleepTimer: true, sleepTimerEndOfTrack: false));
   }
 
   Future<void> _onStop(StopEvent event, Emitter<PlayerState> emit) async {
     _playbackGeneration++;
+    _sleepTimer?.cancel();
+    _sleepTimer = null;
     await _audioPlayer.stop();
     await _audioFocus.deactivate();
     _reliability.resetCircuitBreaker();
@@ -1100,6 +1135,14 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   }
 
   void _onCompleted(_CompletedEvent event, Emitter<PlayerState> emit) async {
+    if (state.sleepTimerEndOfTrack) {
+      _sleepTimer?.cancel();
+      _sleepTimer = null;
+      add(const PauseEvent());
+      add(const _SleepTimerClearedEvent());
+      return;
+    }
+
     // Auto-play next song if available
     if (state.repeatMode == RepeatMode.one) {
       // Repeat current song - BUT only if it actually played (not an immediate 0-duration abort)
@@ -1347,6 +1390,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   void _checkAndAddRecommendations() {
     if (_isFetchingRecommendations || _recommendationService == null) return;
     if (state.currentSong == null || state.queue.isEmpty) return;
+    if (!_settingsService.autoPlay) return;
+    if (state.queue.length >= 50) return;
 
     final currentSong = state.currentSong!;
     final int currentIndex = state.queueIndex;
@@ -1368,6 +1413,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     _lastRecommendationSongId =
         currentSong.playableId; // Mark this song as processed
 
+    final requestGen = ++_recommendationGeneration;
+
     // If queue is empty after current song, fetch immediately so Up Next is ready.
     // Otherwise use a short delay to avoid rapid calls.
     final delay = songsRemaining == 0
@@ -1375,18 +1422,21 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         : const Duration(milliseconds: 500);
 
     Future.delayed(delay, () async {
-      // Skip if the user has already moved on to a different song
-      if (state.currentSong?.playableId != currentSong.playableId) return;
+      // Skip if the user has already moved on to a different song or generation changed
+      if (requestGen != _recommendationGeneration ||
+          state.currentSong?.playableId != currentSong.playableId) {
+        return;
+      }
 
       _log('Fetching recommendations for: ${currentSong.title}');
-      await _fetchAndAppendRecommendations(currentSong);
+      await _fetchAndAppendRecommendations(currentSong, requestGen);
     });
   }
 
   /// Fetch recommendations for [seedSong] and append them to the queue.
   /// Falls back to the repository's own recommendation feed when the
   /// recommendation service returns nothing (e.g. algorithmic sources down).
-  Future<void> _fetchAndAppendRecommendations(Song seedSong) async {
+  Future<void> _fetchAndAppendRecommendations(Song seedSong, int requestGen) async {
     final recommendationService = _recommendationService;
     if (recommendationService == null || _isFetchingRecommendations) return;
 
@@ -1396,6 +1446,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         currentSong: seedSong,
         limit: _recommendationBatchSize,
       );
+
+      if (requestGen != _recommendationGeneration) return;
 
       if (recommendations.isNotEmpty) {
         // Use batch event for single state emission (add() instead of emit()
@@ -1408,12 +1460,15 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       final fallback = await _musicRepository.getRecommendations(
         limit: _recommendationBatchSize,
       );
+
+      if (requestGen != _recommendationGeneration) return;
+
       fallback.fold(
         (failure) => _log(
           'Repository recommendation fallback failed: ${failure.message}',
         ),
         (songs) {
-          if (songs.isNotEmpty) {
+          if (songs.isNotEmpty && requestGen == _recommendationGeneration) {
             _log(
               'Repository recommendation fallback returned ${songs.length} songs',
             );
@@ -1433,6 +1488,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     _AddRecommendationsEvent event,
     Emitter<PlayerState> emit,
   ) {
+    final availableCapacity = 50 - state.queue.length;
+    if (availableCapacity <= 0) return;
+
     final uniqueSongs = <Song>[];
     final seenKeys = state.queue
         .map(
@@ -1446,6 +1504,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         .toSet();
 
     for (final song in event.songs) {
+      if (uniqueSongs.length >= availableCapacity) break;
       final key =
           '${song.title.toLowerCase().trim()}|${song.artist.toLowerCase().trim()}';
       if (seenKeys.contains(key)) continue;
@@ -1564,8 +1623,6 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     await _completedSubscription?.cancel();
     await _errorSubscription?.cancel();
     await _indexSubscription?.cancel();
-    await _recommendationService?.dispose();
-    await _audioFocus.dispose();
     await super.close();
   }
 }
