@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../domain/entities/song.dart';
+import '../../domain/entities/stream_info.dart';
 
 import 'stream_loader_service.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -98,6 +99,12 @@ class DownloadService {
       listener(info);
     }
   }
+
+  /// Map of all current download progresses/statuses keyed by songId
+  Map<String, DownloadInfo> get activeDownloads => Map.unmodifiable(_downloadProgress);
+
+  /// Get status info for a specific song
+  DownloadInfo? getDownloadInfo(String songId) => _downloadProgress[songId];
 
   /// Get download directory (uses custom path from settings if available)
   Future<Directory> _getDownloadDirectory() async {
@@ -204,7 +211,7 @@ class DownloadService {
   }
 
   /// Download a song
-  Future<bool> downloadSong(Song song) async {
+  Future<bool> downloadSong(Song song, {StreamInfo? resolvedStream}) async {
     if (isDownloaded(song.playableId)) {
       logDebug('Song already downloaded: ${song.title}');
       return true;
@@ -249,6 +256,7 @@ class DownloadService {
     // Create cancel token for this download
     final cancelToken = CancelToken();
     _cancelTokens[song.playableId] = cancelToken;
+    String? tempFilePath;
 
     try {
       // Update status to downloading
@@ -261,16 +269,28 @@ class DownloadService {
       _notifyListeners(downloadInfo);
 
       String? streamUrl;
-      try {
-        final streamInfo = await _streamLoaderService.loadStream(
-          song,
-          useCache: false, // Force fresh stream URL for downloading
-          preferredQuality: AudioQuality.high,
-        );
-        streamUrl = streamInfo.url;
-      } catch (e) {
-        logError('Failed to get stream URL: $e');
-        streamUrl = null;
+      Map<String, String>? headers;
+
+      if (resolvedStream != null) {
+        streamUrl = resolvedStream.url;
+        headers = resolvedStream.headers;
+      } else if (song.streamUrl != null &&
+          song.streamUrl!.isNotEmpty &&
+          isAcceptableStreamUrl(song.streamUrl!)) {
+        streamUrl = song.streamUrl!;
+      } else {
+        try {
+          final streamInfo = await _streamLoaderService.loadStream(
+            song,
+            useCache: false, // Force fresh stream URL for downloading
+            preferredQuality: AudioQuality.high,
+          );
+          streamUrl = streamInfo.url;
+          headers = streamInfo.headers;
+        } catch (e) {
+          logError('Failed to get stream URL: $e');
+          streamUrl = null;
+        }
       }
 
       if (streamUrl == null || !isAcceptableStreamUrl(streamUrl)) {
@@ -294,16 +314,26 @@ class DownloadService {
       // Create safe filename (id and title are untrusted provider data)
       final fileName = downloadFileName(song.playableId, song.title);
       final filePath = '${downloadDir.path}/$fileName';
+      tempFilePath = '$filePath.tmp';
 
-      // Download file with progress tracking and proper headers
+      // Ensure any leftover temp file from an earlier interrupted attempt is removed
+      final tempFile = File(tempFilePath);
+      if (await tempFile.exists()) {
+        await tempFile.delete();
+      }
+
+      // Download file to temp destination with progress tracking and proper headers
       final response = await _dio.download(
         streamUrl,
-        filePath,
+        tempFilePath,
         cancelToken: cancelToken,
         options: Options(
+          headers: headers,
           responseType: ResponseType.stream,
           followRedirects: true,
           validateStatus: (status) => status != null && (status == 200 || status == 206),
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 60),
         ),
         onReceiveProgress: (received, total) {
           if (total > 0) {
@@ -315,23 +345,29 @@ class DownloadService {
         },
       );
 
-      final downloadedFile = File(filePath);
       final contentType = response.headers.value(Headers.contentTypeHeader) ?? '';
 
-      if (!await downloadedFile.exists()) {
+      if (!await tempFile.exists()) {
         throw Exception('Download finished but file was not created');
       }
 
-      final fileSize = await downloadedFile.length();
+      final fileSize = await tempFile.length();
       if (fileSize < _minValidAudioBytes) {
-        await downloadedFile.delete();
+        await tempFile.delete();
         throw Exception('Downloaded file is too small ($fileSize bytes) and likely invalid');
       }
 
-      if (!_isLikelyAudioContentType(contentType) || !await _looksLikeAudioFile(downloadedFile)) {
-        await downloadedFile.delete();
+      if (!_isLikelyAudioContentType(contentType) || !await _looksLikeAudioFile(tempFile)) {
+        await tempFile.delete();
         throw Exception('Downloaded content is not a valid audio file (content-type: $contentType)');
       }
+
+      // Atomically promote validated temp file to target path
+      final targetFile = File(filePath);
+      if (await targetFile.exists()) {
+        await targetFile.delete();
+      }
+      await tempFile.rename(filePath);
 
       // Save metadata to Hive
       await _downloadBox?.put(song.playableId, {
@@ -360,6 +396,13 @@ class DownloadService {
       logDebug('Successfully downloaded: ${song.title} to $filePath');
       return true;
     } catch (e, stack) {
+      if (tempFilePath != null) {
+        try {
+          final tf = File(tempFilePath);
+          if (await tf.exists()) await tf.delete();
+        } catch (_) {}
+      }
+
       // Check if download was cancelled
       if (e is DioException && e.type == DioExceptionType.cancel) {
         logDebug('Download cancelled for: ${song.title}');
@@ -394,7 +437,13 @@ class DownloadService {
       }
 
       await _downloadBox?.delete(songId);
+      final removedInfo = DownloadInfo(
+        songId: songId,
+        status: DownloadStatus.notDownloaded,
+        progress: 0.0,
+      );
       _downloadProgress.remove(songId);
+      _notifyListeners(removedInfo);
       
       logDebug('Deleted downloaded song: $songId');
       return true;

@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/di/injection.dart';
 import '../../core/services/download_service.dart';
 import '../../domain/entities/song.dart';
+import '../blocs/library/library_bloc.dart';
+import '../blocs/library/library_event.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
 import '../theme/prism_theme.dart';
@@ -26,7 +28,23 @@ class _DownloadsPageState extends State<DownloadsPage> {
   @override
   void initState() {
     super.initState();
+    _downloadService.addListener(_onDownloadProgress);
     _loadDownloads();
+  }
+
+  @override
+  void dispose() {
+    _downloadService.removeListener(_onDownloadProgress);
+    super.dispose();
+  }
+
+  void _onDownloadProgress(DownloadInfo info) {
+    if (!mounted) return;
+    if (info.status == DownloadStatus.completed || info.status == DownloadStatus.notDownloaded) {
+      _loadDownloads();
+    } else {
+      setState(() {});
+    }
   }
 
   Future<void> _loadDownloads() async {
@@ -46,6 +64,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
   Future<void> _deleteSong(String songId, String title) async {
     final success = await _downloadService.deleteSong(songId);
     if (success && mounted) {
+      context.read<LibraryBloc>().add(DeleteDownloadEvent(songId));
       showPrismToast(context, 'Deleted $title');
       _loadDownloads();
     }
