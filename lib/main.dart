@@ -41,70 +41,151 @@ void main() async {
     Logger.root.level = Level.OFF;
   }
 
-  // Initialize Hive FIRST, before any services that depend on it
-  await Hive.initFlutter();
+  try {
+    // Initialize Hive FIRST, before any services that depend on it
+    await Hive.initFlutter();
 
-  // 1. Initialize dependencies so we can access AudioPlayerService
-  await initializeDependencies();
+    // 1. Initialize dependencies so we can access AudioPlayerService
+    await initializeDependencies().timeout(const Duration(seconds: 8));
 
-  // Settings must be ready before the app builds so the persisted theme
-  // mode is available to ThemeBloc on first frame.
-  await SettingsService.instance.initialize();
+    // Settings must be ready before the app builds so the persisted theme
+    // mode is available to ThemeBloc on first frame.
+    await SettingsService.instance.initialize().timeout(const Duration(seconds: 5));
 
-  // 2. Get the AudioPlayerService instance
-  final audioPlayerService = getIt<AudioPlayerService>();
+    // 2. Get the AudioPlayerService instance
+    final audioPlayerService = getIt<AudioPlayerService>();
 
-  // 3. Initialize AudioService with our custom handler, passing the existing player.
-  //    Keep the handler reference so MediaSessionCoordinator can route the
-  //    notification's next/previous/stop buttons into the PlayerBloc and
-  //    re-render controls when the queue changes.
-  final audioHandler = PrismAudioHandler(audioPlayerService.player);
-  await AudioService.init(
-    builder: () => audioHandler,
-    config: const AudioServiceConfig(
-      // Use a dedicated v2 playback channel. Android persists the old
-      // channel's visibility/importance across app upgrades, so a channel
-      // created by an earlier build can remain silently suppressed even when
-      // POST_NOTIFICATIONS is granted.
-      androidNotificationChannelId:
-          'com.prismmusic.app.channel.audio.playback.v2',
-      androidNotificationChannelName: 'Prism Music',
-      androidNotificationChannelDescription:
-          'Now-playing controls and media session for Prism Music',
-      // Brand accent tint for the media notification card.
-      notificationColor: Color(0xFF8B7BFF),
-      // Monochrome white glyph for the status bar (Android renders small
-      // notification icons as silhouettes); the colorful prism artwork still
-      // shows in the expanded card. Tapping the card reopens the app via the
-      // default androidNotificationClickStartsActivity.
-      androidNotificationIcon: 'drawable/ic_notification',
-      // While the service remains foregrounded Android makes the media card
-      // ongoing automatically. This must be false when
-      // androidStopForegroundOnPause is false (audio_service enforces that
-      // configuration invariant).
-      androidNotificationOngoing: false,
-      // Real devices frequently report a short paused state while a source is
-      // prepared or audio focus is re-acquired. Stopping foreground service
-      // at that point prevents some OEMs from ever posting the media card.
-      androidStopForegroundOnPause: false,
-      // Decode notification artwork at a bounded size: crisp on the card
-      // without decoding full-resolution (up to 1280px) bitmaps.
-      artDownscaleWidth: 512,
-      artDownscaleHeight: 512,
-    ),
-  );
-  MediaSessionCoordinator.instance.attachHandler(audioHandler);
+    // 3. Initialize AudioService with our custom handler, passing the existing player.
+    final audioHandler = PrismAudioHandler(audioPlayerService.player);
+    await AudioService.init(
+      builder: () => audioHandler,
+      config: const AudioServiceConfig(
+        androidNotificationChannelId:
+            'com.prismmusic.app.channel.audio.playback.v2',
+        androidNotificationChannelName: 'Prism Music',
+        androidNotificationChannelDescription:
+            'Now-playing controls and media session for Prism Music',
+        notificationColor: Color(0xFF8B7BFF),
+        androidNotificationIcon: 'drawable/ic_notification',
+        androidNotificationOngoing: false,
+        androidStopForegroundOnPause: false,
+        artDownscaleWidth: 512,
+        artDownscaleHeight: 512,
+      ),
+    ).timeout(const Duration(seconds: 8));
+    MediaSessionCoordinator.instance.attachHandler(audioHandler);
 
-  // Restore user library from the on-device backup (survives uninstall).
-  await LocalBackupService.instance.restoreIfNeeded();
+    // Restore user library from the on-device backup (survives uninstall).
+    try {
+      await LocalBackupService.instance.restoreIfNeeded().timeout(const Duration(seconds: 5));
+    } catch (e) {
+      debugPrint('Backup restore skipped due to timeout or error: $e');
+    }
 
-  // Set preferred orientations
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+    // Set preferred orientations
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
 
-  runApp(const PrismMusicApp());
+    runApp(const PrismMusicApp());
+  } catch (e, stack) {
+    debugPrint('Fatal initialization error: $e\n$stack');
+    runApp(StartupErrorApp(errorMessage: e.toString()));
+  }
+}
+
+/// Fallback recovery screen when unexpected fatal error occurs during startup (M27)
+class StartupErrorApp extends StatelessWidget {
+  final String errorMessage;
+
+  const StartupErrorApp({super.key, required this.errorMessage});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Prism Music Recovery',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark(useMaterial3: true).copyWith(
+        scaffoldBackgroundColor: const Color(0xFF0D0D12),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF8B7BFF),
+          surface: Color(0xFF181822),
+        ),
+      ),
+      home: Scaffold(
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Color(0xFFFF6B6B),
+                  size: 64,
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Prism Music Startup Issue',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'The application encountered a problem during initialization. Your downloads and library data are preserved.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFFB0B0C0),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF181822),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF2E2E3E)),
+                  ),
+                  child: Text(
+                    errorMessage,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                      color: Color(0xFFFF9E9E),
+                    ),
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () => main(),
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Retry Startup'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF8B7BFF),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// The main Prism Music application widget

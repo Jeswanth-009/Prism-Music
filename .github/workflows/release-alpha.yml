@@ -53,6 +53,13 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
+      # ── Quality Gates (M32) ───────────────────────────────────────
+      - name: Run static analysis
+        run: flutter analyze --no-fatal-infos
+
+      - name: Run automated tests
+        run: flutter test
+
       # ── 3. Read version from pubspec.yaml ─────────────────────────
       - name: Read app version
         id: app_version
