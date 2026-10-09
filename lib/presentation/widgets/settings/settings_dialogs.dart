@@ -1,6 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../../core/di/injection.dart';
 import '../../../core/services/settings_service.dart';
@@ -19,14 +22,14 @@ extension _AudioQualityLabel on AudioQuality {
     AudioQuality.low => 'Low',
     AudioQuality.medium => 'Medium',
     AudioQuality.high => 'High',
-    AudioQuality.lossless => 'Lossless',
+    AudioQuality.lossless => 'Ultra',
   };
 
   String get subtitle => switch (this) {
     AudioQuality.low => '64 kbps — saves the most data',
     AudioQuality.medium => '128 kbps — balanced',
     AudioQuality.high => '256 kbps — detailed',
-    AudioQuality.lossless => '320 kbps — maximum fidelity',
+    AudioQuality.lossless => '320 kbps (Opus) — maximum fidelity',
   };
 }
 
@@ -185,9 +188,32 @@ class SettingsDialogs {
     );
   }
 
-  static void showClearCacheDialog(BuildContext context) {
+  static Future<int> _getDiskCacheBytes() async {
+    int total = 0;
+    try {
+      final tempDir = await getTemporaryDirectory();
+      if (await tempDir.exists()) {
+        await for (final entity in tempDir.list(recursive: true, followLinks: false)) {
+          if (entity is File) {
+            try {
+              total += await entity.length();
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (_) {}
+    return total;
+  }
+
+  static void showClearCacheDialog(BuildContext context) async {
     final stats = getIt<StreamCacheService>().getStats();
     final validStreams = stats['valid'] as int? ?? 0;
+    final diskBytes = await _getDiskCacheBytes();
+    final diskFormatted = diskBytes < 1024 * 1024
+        ? '${(diskBytes / 1024).toStringAsFixed(1)} KB'
+        : '${(diskBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+
+    if (!context.mounted) return;
 
     showDialog<void>(
       context: context,
@@ -195,8 +221,9 @@ class SettingsDialogs {
         return AlertDialog(
           title: const Text('Clear cache?'),
           content: Text(
-            'This drops $validStreams pre-resolved stream${validStreams == 1 ? '' : 's'} '
-            'and the in-memory artwork cache. Downloads are kept.',
+            'This frees approximately $diskFormatted of temporary storage, clearing '
+            '$validStreams pre-resolved stream${validStreams == 1 ? '' : 's'}, cached album art, '
+            'and lyrics cache. Downloaded songs are safely kept.',
           ),
           actions: [
             TextButton(
@@ -204,12 +231,30 @@ class SettingsDialogs {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () {
+              onPressed: () async {
                 getIt<StreamCacheService>().clearAll();
                 PaintingBinding.instance.imageCache.clear();
                 PaintingBinding.instance.imageCache.clearLiveImages();
-                showPrismToast(context, 'Cache cleared');
-                Navigator.pop(dialogContext);
+                try {
+                  await DefaultCacheManager().emptyCache();
+                } catch (_) {}
+                try {
+                  if (Hive.isBoxOpen('lyrics_cache')) {
+                    await Hive.box<Map>('lyrics_cache').clear();
+                  } else {
+                    final b = await Hive.openBox<Map>('lyrics_cache');
+                    await b.clear();
+                  }
+                } catch (_) {}
+                try {
+                  if (Hive.isBoxOpen('song_cache')) {
+                    await Hive.box('song_cache').clear();
+                  }
+                } catch (_) {}
+                if (dialogContext.mounted) {
+                  showPrismToast(dialogContext, 'Cache cleared ($diskFormatted freed)');
+                  Navigator.pop(dialogContext);
+                }
               },
               style: FilledButton.styleFrom(
                 backgroundColor: Theme.of(dialogContext).colorScheme.error,

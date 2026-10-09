@@ -48,6 +48,9 @@ class ListeningStats extends Equatable {
   /// Timestamp of the most recent play.
   final DateTime? lastPlayed;
 
+  /// Sample size of retained history records (capped at local storage limit of 500).
+  final int historySampleSize;
+
   const ListeningStats({
     this.totalPlays = 0,
     this.totalListeningTime = Duration.zero,
@@ -58,6 +61,7 @@ class ListeningStats extends Equatable {
     this.topArtist,
     this.topArtistCount = 0,
     this.uniqueSongs = 0,
+    this.historySampleSize = 0,
     this.firstPlayed,
     this.lastPlayed,
   });
@@ -79,6 +83,7 @@ class ListeningStats extends Equatable {
         topArtist,
         topArtistCount,
         uniqueSongs,
+        historySampleSize,
         firstPlayed,
         lastPlayed,
       ];

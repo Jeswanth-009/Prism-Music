@@ -279,7 +279,9 @@ class LibraryRepositoryImpl implements LibraryRepository {
         final id = song.playableId;
         playCounts[id] = (playCounts[id] ?? 0) + 1;
         uniqueIds.add(id);
-        totalListeningSeconds += song.duration.inSeconds;
+        // Clamp nominal duration to realistic track length (0 to 4 hours)
+        final trackSeconds = song.duration.inSeconds.clamp(0, 14400);
+        totalListeningSeconds += trackSeconds;
 
         final genre = song.genre;
         if (genre != null && genre.trim().isNotEmpty) {
@@ -329,6 +331,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
           topArtist: topArtist,
           topArtistCount: topArtistCount,
           uniqueSongs: uniqueIds.length,
+          historySampleSize: entries.length,
           firstPlayed: firstPlayed,
           lastPlayed: lastPlayed,
         ),

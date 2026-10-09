@@ -142,23 +142,49 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     Emitter<LibraryState> emit,
   ) async {
     final isCurrentlyLiked = state.isSongLiked(event.song.id);
+    final previousLiked = state.likedSongs;
+    final previousIds = state.likedSongIds;
 
     if (isCurrentlyLiked) {
-      await _libraryRepository.unlikeSong(event.song.id);
       final updatedLiked = state.likedSongs.where((s) => s.id != event.song.id).toList();
       final updatedIds = Set<String>.from(state.likedSongIds)..remove(event.song.id);
       emit(state.copyWith(
         likedSongs: updatedLiked,
         likedSongIds: updatedIds,
       ));
+
+      final result = await _libraryRepository.unlikeSong(event.song.id);
+      result.fold(
+        (failure) {
+          emit(state.copyWith(
+            likedSongs: previousLiked,
+            likedSongIds: previousIds,
+            status: LibraryStatus.error,
+            errorMessage: failure.message,
+          ));
+        },
+        (_) {},
+      );
     } else {
-      await _libraryRepository.likeSong(event.song);
       final updatedLiked = [event.song, ...state.likedSongs];
       final updatedIds = Set<String>.from(state.likedSongIds)..add(event.song.id);
       emit(state.copyWith(
         likedSongs: updatedLiked,
         likedSongIds: updatedIds,
       ));
+
+      final result = await _libraryRepository.likeSong(event.song);
+      result.fold(
+        (failure) {
+          emit(state.copyWith(
+            likedSongs: previousLiked,
+            likedSongIds: previousIds,
+            status: LibraryStatus.error,
+            errorMessage: failure.message,
+          ));
+        },
+        (_) {},
+      );
     }
   }
 
@@ -207,21 +233,31 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     AddToPlaylistEvent event,
     Emitter<LibraryState> emit,
   ) async {
-    await _libraryRepository.addSongToPlaylist(event.playlistId, event.song);
-    // Reload the library to get updated playlist
-    add(const LoadLibraryEvent());
+    final result = await _libraryRepository.addSongToPlaylist(event.playlistId, event.song);
+    result.fold(
+      (failure) => emit(state.copyWith(
+        status: LibraryStatus.error,
+        errorMessage: failure.message,
+      )),
+      (_) => add(const LoadLibraryEvent()),
+    );
   }
 
   Future<void> _onRemoveFromPlaylist(
     RemoveFromPlaylistEvent event,
     Emitter<LibraryState> emit,
   ) async {
-    await _libraryRepository.removeSongFromPlaylist(
+    final result = await _libraryRepository.removeSongFromPlaylist(
       event.playlistId,
       event.songId,
     );
-    // Reload the library to get updated playlist
-    add(const LoadLibraryEvent());
+    result.fold(
+      (failure) => emit(state.copyWith(
+        status: LibraryStatus.error,
+        errorMessage: failure.message,
+      )),
+      (_) => add(const LoadLibraryEvent()),
+    );
   }
 
   Future<void> _onImportSpotifyPlaylist(
@@ -394,7 +430,11 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     Emitter<LibraryState> emit,
   ) async {
     await _libraryRepository.clearHistory();
-    emit(state.copyWith(history: []));
+    emit(state.copyWith(
+      history: const [],
+      recentlyPlayed: const [],
+      stats: const ListeningStats(),
+    ));
   }
 
   Future<void> _onDownloadSong(

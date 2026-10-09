@@ -185,7 +185,12 @@ class LocalBackupService {
 
       for (final File file in targets) {
         try {
-          await file.writeAsString(encoded);
+          final tempFile = File('${file.path}.tmp');
+          await tempFile.writeAsString(encoded, flush: true);
+          if (await file.exists()) {
+            await file.delete();
+          }
+          await tempFile.rename(file.path);
         } catch (_) {
           // Best-effort per location.
         }
@@ -195,7 +200,7 @@ class LocalBackupService {
     }
   }
 
-  /// Restore boxes from the newest reachable backup file, but only when a
+  /// Restore boxes from the newest reachable valid backup file, but only when a
   /// box is currently empty (so a fresh install reuses old data without
   /// clobbering new data).
   ///
@@ -207,6 +212,9 @@ class LocalBackupService {
       final candidates = await _existingBackupFiles();
       if (candidates.isEmpty) return;
 
+      final List<(DateTime, Map<String, Map<String, dynamic>>)> validBackups = [];
+      final downloadRoots = await DownloadPathGuard.allowedRoots();
+
       for (final file in candidates) {
         try {
           if (await file.length() > _maxBackupBytes) {
@@ -217,19 +225,33 @@ class LocalBackupService {
           final dynamic payload = jsonDecode(await file.readAsString());
           if (payload is! Map<String, dynamic>) continue;
 
-          final downloadRoots = await DownloadPathGuard.allowedRoots();
           final boxes = validateRestoredPayload(payload, downloadRoots: downloadRoots);
           if (boxes == null) {
             logError('Backup restore rejected: invalid schema (${file.path})');
             continue;
           }
 
-          await _writeValidatedBoxes(boxes);
-          return;
+          DateTime backupTime;
+          final backedUpAtStr = payload['backedUpAt']?.toString();
+          if (backedUpAtStr != null) {
+            backupTime = DateTime.tryParse(backedUpAtStr) ?? await file.lastModified();
+          } else {
+            backupTime = await file.lastModified();
+          }
+
+          validBackups.add((backupTime, boxes));
         } catch (_) {
           // Corrupt or unreadable candidate — try the next one.
         }
       }
+
+      if (validBackups.isEmpty) return;
+
+      // Sort newest first
+      validBackups.sort((a, b) => b.$1.compareTo(a.$1));
+
+      // Restore from the newest valid backup
+      await _writeValidatedBoxes(validBackups.first.$2);
     } catch (_) {
       // If the backup is corrupt or unreadable, ignore it.
     }

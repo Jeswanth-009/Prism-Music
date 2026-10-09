@@ -132,14 +132,46 @@ class LocalDataSourceImpl implements LocalDataSource {
   static const String _downloadsBoxName = 'downloads';
   static const String _playlistsBoxName = 'playlists';
   static const String _cacheBoxName = 'song_cache';
+  static const String _metaBoxName = 'app_metadata';
+  static const String _schemaVersionKey = 'schema_version';
+  static const int currentSchemaVersion = 2;
+
   Box? _historyBox;
   Box? _likedBox;
   Box? _searchHistoryBox;
   Box? _downloadsBox;
   Box? _playlistsBox;
   Box? _cacheBox;
+  Box? _metaBox;
 
-  LocalDataSourceImpl();
+  final Map<String, Future<void>> _playlistLocks = {};
+
+  LocalDataSourceImpl() {
+    _ensureSchemaVersion();
+  }
+
+  Future<void> _ensureSchemaVersion() async {
+    try {
+      final box = await _getMetaBox();
+      final current = box.get(_schemaVersionKey) as int?;
+      if (current == null || current < currentSchemaVersion) {
+        await box.put(_schemaVersionKey, currentSchemaVersion);
+      }
+    } catch (_) {}
+  }
+
+  Future<Box> _getMetaBox() async {
+    if (_metaBox != null && _metaBox!.isOpen) return _metaBox!;
+    _metaBox = await Hive.openBox(_metaBoxName);
+    return _metaBox!;
+  }
+
+  Future<T> _withPlaylistLock<T>(String playlistId, Future<T> Function() action) {
+    final prev = _playlistLocks[playlistId] ?? Future.value();
+    final next = prev.then((_) => action(), onError: (_) => action());
+    _playlistLocks[playlistId] = next.then((_) {}, onError: (_) {});
+    return next;
+  }
 
   Future<Box> _getHistoryBox() async {
     if (_historyBox != null && _historyBox!.isOpen) return _historyBox!;
@@ -193,6 +225,8 @@ class LocalDataSourceImpl implements LocalDataSource {
     'thumbnailHigh': song.thumbnails.high,
     'thumbnailMax': song.thumbnails.max,
     'source': song.source.index,
+    'sourceName': song.source.name,
+    'jioSaavnId': song.jioSaavnId,
     'youtubeId': song.youtubeId,
     'spotifyId': song.spotifyId,
     'isExplicit': song.isExplicit,
@@ -201,28 +235,41 @@ class LocalDataSourceImpl implements LocalDataSource {
     'playCount': song.playCount,
   };
 
-  Song _mapToSong(Map data) => Song(
-    id: data['id'] as String? ?? '',
-    title: data['title'] as String? ?? '',
-    artist: data['artist'] as String? ?? '',
-    artists: (data['artists'] as List?)?.cast<String>() ?? const [],
-    album: data['album'] as String?,
-    albumId: data['albumId'] as String?,
-    duration: Duration(milliseconds: data['durationMs'] as int? ?? 0),
-    thumbnails: Thumbnails(
-      low: data['thumbnailLow'] as String?,
-      medium: data['thumbnailMed'] as String?,
-      high: data['thumbnailHigh'] as String?,
-      max: data['thumbnailMax'] as String?,
-    ),
-    source: MusicSource.values.elementAtOrNull(data['source'] as int? ?? 4) ?? MusicSource.unknown,
-    youtubeId: data['youtubeId'] as String?,
-    spotifyId: data['spotifyId'] as String?,
-    isExplicit: data['isExplicit'] as bool? ?? false,
-    year: data['year'] as int?,
-    genre: data['genre'] as String?,
-    playCount: data['playCount'] as int?,
-  );
+  Song _mapToSong(Map data) {
+    MusicSource source = MusicSource.unknown;
+    if (data['sourceName'] != null) {
+      source = MusicSource.values.firstWhere(
+        (s) => s.name == data['sourceName'],
+        orElse: () => MusicSource.unknown,
+      );
+    } else if (data['source'] is int) {
+      source = MusicSource.values.elementAtOrNull(data['source'] as int) ?? MusicSource.unknown;
+    }
+
+    return Song(
+      id: data['id'] as String? ?? '',
+      title: data['title'] as String? ?? '',
+      artist: data['artist'] as String? ?? '',
+      artists: (data['artists'] as List?)?.cast<String>() ?? const [],
+      album: data['album'] as String?,
+      albumId: data['albumId'] as String?,
+      duration: Duration(milliseconds: data['durationMs'] as int? ?? 0),
+      thumbnails: Thumbnails(
+        low: data['thumbnailLow'] as String?,
+        medium: data['thumbnailMed'] as String?,
+        high: data['thumbnailHigh'] as String?,
+        max: data['thumbnailMax'] as String?,
+      ),
+      source: source,
+      jioSaavnId: data['jioSaavnId'] as String?,
+      youtubeId: data['youtubeId'] as String?,
+      spotifyId: data['spotifyId'] as String?,
+      isExplicit: data['isExplicit'] as bool? ?? false,
+      year: data['year'] as int?,
+      genre: data['genre'] as String?,
+      playCount: data['playCount'] as int?,
+    );
+  }
 
   Map<String, dynamic> _playlistToMap(Playlist playlist) => {
     'id': playlist.id,
@@ -379,7 +426,7 @@ class LocalDataSourceImpl implements LocalDataSource {
     String playlistId, {
     String? name,
     String? description,
-  }) async {
+  }) => _withPlaylistLock(playlistId, () async {
     final box = await _getPlaylistsBox();
     final data = box.get(playlistId);
     if (data == null) {
@@ -393,10 +440,11 @@ class LocalDataSourceImpl implements LocalDataSource {
     await box.put(playlistId, _playlistToMap(updated));
     _triggerBackup();
     return updated;
-  }
+  });
 
   @override
-  Future<void> addSongToPlaylist(String playlistId, Song song) async {
+  Future<void> addSongToPlaylist(String playlistId, Song song) =>
+      _withPlaylistLock(playlistId, () async {
     final box = await _getPlaylistsBox();
     final data = box.get(playlistId);
     if (data == null) {
@@ -414,10 +462,11 @@ class LocalDataSourceImpl implements LocalDataSource {
     );
     await box.put(playlistId, _playlistToMap(updated));
     _triggerBackup();
-  }
+  });
 
   @override
-  Future<void> removeSongFromPlaylist(String playlistId, String songId) async {
+  Future<void> removeSongFromPlaylist(String playlistId, String songId) =>
+      _withPlaylistLock(playlistId, () async {
     final box = await _getPlaylistsBox();
     final data = box.get(playlistId);
     if (data == null) {
@@ -438,10 +487,11 @@ class LocalDataSourceImpl implements LocalDataSource {
     );
     await box.put(playlistId, _playlistToMap(updated));
     _triggerBackup();
-  }
+  });
 
   @override
-  Future<void> updatePlaylistSongs(String playlistId, List<Song> songs) async {
+  Future<void> updatePlaylistSongs(String playlistId, List<Song> songs) =>
+      _withPlaylistLock(playlistId, () async {
     final box = await _getPlaylistsBox();
     final data = box.get(playlistId);
     if (data == null) {
@@ -458,7 +508,7 @@ class LocalDataSourceImpl implements LocalDataSource {
     );
     await box.put(playlistId, _playlistToMap(updated));
     _triggerBackup();
-  }
+  });
 
   @override
   Future<Playlist?> getPlaylist(String playlistId) async {
@@ -603,6 +653,11 @@ class LocalDataSourceImpl implements LocalDataSource {
       'localPath': filePath,
       'downloadedAt': DateTime.now().toIso8601String(),
     });
+    // M20: Cache song metadata with local stream URL so offline search & offline cache can retrieve full song details without network.
+    await cacheSong(song.copyWith(
+      streamUrl: filePath,
+      source: MusicSource.local,
+    ));
     _triggerBackup();
   }
 
@@ -799,17 +854,20 @@ class LocalDataSourceImpl implements LocalDataSource {
         await box.delete(k);
       }
     }
+    _triggerBackup();
   }
 
   @override
   Future<void> removeSearchHistory(String id) async {
     final box = await _getSearchHistoryBox();
     await box.delete(id);
+    _triggerBackup();
   }
 
   @override
   Future<void> clearSearchHistory() async {
     final box = await _getSearchHistoryBox();
     await box.clear();
+    _triggerBackup();
   }
 }
