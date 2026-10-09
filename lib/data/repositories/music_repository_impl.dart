@@ -258,6 +258,39 @@ class MusicRepositoryImpl implements MusicRepository {
   @override
   Future<Either<Failure, ArtistDetails>> getArtistDetails(String artistId) async {
     try {
+      // 1. If artistId is a canonical YouTube channel/browse ID (starts with UC),
+      // query the native getArtist endpoint directly to get verified discography.
+      if (artistId.startsWith('UC')) {
+        try {
+          final artistData = await _ytMusicApiService.getArtist(artistId);
+          if (artistData.isNotEmpty) {
+            final artist = artistFromYtMusicApi(artistData);
+            final rawSongs = artistData['topSongs'] ?? artistData['songs'];
+            final topSongs = rawSongs is List
+                ? rawSongs
+                    .map((item) => songFromYtMusicApi(item as Map<String, dynamic>))
+                    .where((s) => s.playableId.isNotEmpty)
+                    .toList()
+                : <Song>[];
+            final rawAlbums = artistData['topAlbums'] ?? artistData['albums'];
+            final albums = rawAlbums is List
+                ? rawAlbums
+                    .map((item) => albumFromYtMusicApi(item as Map<String, dynamic>))
+                    .where((a) => a.id.isNotEmpty)
+                    .toList()
+                : <Album>[];
+
+            return Right(ArtistDetails(
+              artist: artist.copyWith(youtubeChannelId: artistId),
+              topSongs: topSongs,
+              albums: albums,
+            ));
+          }
+        } catch (e) {
+          debugPrint('MusicRepositoryImpl: Native getArtist failed for $artistId: $e');
+        }
+      }
+
       // First, try to get the channel info to resolve the real name
       String artistName = artistId;
       String? thumbnailUrl;
@@ -718,7 +751,13 @@ class MusicRepositoryImpl implements MusicRepository {
         index++;
       }
 
-      return Right(albums.take(limit).toList());
+      final currentYear = DateTime.now().year;
+      final recentAlbums = albums.where((a) {
+        if (a.year == null) return true;
+        return a.year! >= currentYear - 1;
+      }).toList();
+
+      return Right(recentAlbums.take(limit).toList());
     } catch (e) {
       return Left(UnknownFailure(message: e.toString()));
     }
@@ -784,11 +823,19 @@ class MusicRepositoryImpl implements MusicRepository {
         );
       }
 
+      final unmatchedCount = tracks.length - convertedSongs.length;
+      if (unmatchedCount > 0) {
+        Logger.root.info(
+          'Spotify import: $unmatchedCount of ${tracks.length} tracks could not be matched with high confidence.',
+        );
+      }
+
       final playlist = Playlist(
         id: 'spotify_${details.id}',
         name: details.name,
-        description:
-            details.owner == null ? null : 'Imported from Spotify • ${details.owner}',
+        description: details.owner == null
+            ? 'Imported from Spotify • ${convertedSongs.length}/${tracks.length} tracks matched'
+            : 'Imported from Spotify • ${details.owner} (${convertedSongs.length}/${tracks.length} tracks matched)',
         thumbnails: details.coverUrl == null
             ? null
             : Thumbnails.fromUrl(details.coverUrl!),
@@ -806,7 +853,7 @@ class MusicRepositoryImpl implements MusicRepository {
     }
   }
 
-  /// Search YT Music for the closest match to a Spotify track.
+  /// Search YT Music for the closest match to a Spotify track with token scoring.
   Future<Song?> _searchYoutubeMatch(String trackTitle, String artistName) async {
     try {
       final items = await _ytMusicApiService.searchSongs(
@@ -816,10 +863,47 @@ class MusicRepositoryImpl implements MusicRepository {
           .map((item) => songFromYtMusicApi(item))
           .where((song) => song.playableId.isNotEmpty)
           .toList();
-      return results.isEmpty ? null : results.first;
+      if (results.isEmpty) return null;
+      return _bestYoutubeMatch(trackTitle, artistName, results);
     } catch (_) {
       return null;
     }
+  }
+
+  Song? _bestYoutubeMatch(String trackTitle, String artistName, List<Song> candidates) {
+    if (candidates.isEmpty) return null;
+    final titleNorm = trackTitle.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
+    final artistNorm = artistName.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
+    final titleTokens = titleNorm.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toSet();
+    final artistTokens = artistNorm.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toSet();
+
+    Song? best;
+    double highestScore = -1.0;
+
+    for (final candidate in candidates) {
+      final candTitleNorm = candidate.title.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
+      final candArtistNorm = candidate.artist.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
+      final candTitleTokens = candTitleNorm.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toSet();
+      final candArtistTokens = candArtistNorm.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toSet();
+
+      final matchingTitle = titleTokens.intersection(candTitleTokens).length;
+      final titleScore = titleTokens.isEmpty ? 0.0 : matchingTitle / titleTokens.length;
+
+      final matchingArtist = artistTokens.intersection(candArtistTokens).length;
+      final artistScore = artistTokens.isEmpty ? 0.0 : matchingArtist / artistTokens.length;
+
+      final totalScore = (titleScore * 0.6) + (artistScore * 0.4);
+
+      if (totalScore > highestScore) {
+        highestScore = totalScore;
+        best = candidate;
+      }
+    }
+
+    if (highestScore >= 0.35) {
+      return best;
+    }
+    return candidates.first;
   }
 
   @override

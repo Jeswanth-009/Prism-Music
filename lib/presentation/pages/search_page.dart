@@ -211,7 +211,9 @@ class _SearchPageState extends State<SearchPage> {
         final trimmed = value.trim();
         if (trimmed.isEmpty) {
           context.read<SearchBloc>().add(const ClearSearchEvent());
-        } else if (trimmed.length >= 2) {
+        } else if (trimmed.length < 2) {
+          context.read<SearchBloc>().add(FetchSuggestionsEvent(trimmed));
+        } else {
           _onSearch(trimmed);
         }
       },

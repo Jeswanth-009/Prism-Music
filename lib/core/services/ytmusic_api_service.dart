@@ -27,13 +27,38 @@ class YtMusicApiService {
       _logger.warning('YTMusic initialization failed, will retry on next request: $e');
     }
   }
-    Future<Map<String, dynamic>> getPlaylist(String playlistId) async {
+  Future<Map<String, dynamic>> getPlaylist(String playlistId) async {
     await _ensureInitialized();
     try {
       final raw = await _ytMusic.getPlaylist(playlistId);
-      return _toMap(raw) ?? <String, dynamic>{};
+      final map = _toMap(raw) ?? <String, dynamic>{};
+      try {
+        final videos = await _ytMusic.getPlaylistVideos(playlistId);
+        final tracksList = (videos as List)
+            .map((v) => _toMap(v))
+            .whereType<Map<String, dynamic>>()
+            .toList();
+        if (tracksList.isNotEmpty) {
+          map['tracks'] = tracksList;
+          map['songs'] = tracksList;
+        }
+      } catch (e) {
+        _logger.warning('getPlaylistVideos failed for "$playlistId": $e');
+      }
+      return map;
     } catch (e, st) {
       _logger.severe('getPlaylist failed for "$playlistId"', e, st);
+      return <String, dynamic>{};
+    }
+  }
+
+  Future<Map<String, dynamic>> getArtist(String artistId) async {
+    await _ensureInitialized();
+    try {
+      final raw = await _ytMusic.getArtist(artistId);
+      return _toMap(raw) ?? <String, dynamic>{};
+    } catch (e, st) {
+      _logger.severe('getArtist failed for "$artistId"', e, st);
       return <String, dynamic>{};
     }
   }
@@ -778,12 +803,7 @@ class YtMusicApiService {
       };
     }
 
-            if (raw is PlaylistDetailed) {
-      // We cast 'raw' to dynamic so Flutter doesn't throw a 
-      // compile error if the 'tracks' getter name is different 
-      // across package versions.
-      final dynamic rawDyn = raw; 
-      
+    if (raw is PlaylistFull) {
       return {
         'type': raw.type,
         'playlistId': raw.playlistId,
@@ -795,7 +815,54 @@ class YtMusicApiService {
         'thumbnails': raw.thumbnails
             .map((t) => {'url': t.url, 'width': t.width, 'height': t.height})
             .toList(),
-        'tracks': rawDyn.tracks, // Now it will compile!
+        'tracks': <Map<String, dynamic>>[],
+        'songs': <Map<String, dynamic>>[],
+      };
+    }
+
+    if (raw is PlaylistDetailed) {
+      return {
+        'type': raw.type,
+        'playlistId': raw.playlistId,
+        'browseId': raw.playlistId,
+        'id': raw.playlistId,
+        'title': raw.name,
+        'name': raw.name,
+        'artist': raw.artist.name,
+        'thumbnails': raw.thumbnails
+            .map((t) => {'url': t.url, 'width': t.width, 'height': t.height})
+            .toList(),
+        'tracks': <Map<String, dynamic>>[],
+        'songs': <Map<String, dynamic>>[],
+      };
+    }
+
+    if (raw is ArtistFull) {
+      return {
+        'type': raw.type,
+        'artistId': raw.artistId,
+        'browseId': raw.artistId,
+        'id': raw.artistId,
+        'name': raw.name,
+        'thumbnails': raw.thumbnails
+            .map((t) => {'url': t.url, 'width': t.width, 'height': t.height})
+            .toList(),
+        'topSongs': raw.topSongs
+            .map((s) => _toMap(s))
+            .whereType<Map<String, dynamic>>()
+            .toList(),
+        'songs': raw.topSongs
+            .map((s) => _toMap(s))
+            .whereType<Map<String, dynamic>>()
+            .toList(),
+        'topAlbums': raw.topAlbums
+            .map((a) => _toMap(a))
+            .whereType<Map<String, dynamic>>()
+            .toList(),
+        'albums': raw.topAlbums
+            .map((a) => _toMap(a))
+            .whereType<Map<String, dynamic>>()
+            .toList(),
       };
     }
 

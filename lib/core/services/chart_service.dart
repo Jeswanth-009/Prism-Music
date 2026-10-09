@@ -142,7 +142,11 @@ class ChartService {
 
   /// Fetch new releases from YouTube
   Future<List<Song>> _fetchYouTubeNewReleases(String region) async {
-    final results = await _searchMultipleSongs('new music releases ${DateTime.now().year}', limit: 25);
+    final regionName = _getRegionName(region);
+    final results = await _searchMultipleSongs(
+      'new music releases $regionName ${DateTime.now().year}',
+      limit: 25,
+    );
     return results.where(_isValidSong).toList();
   }
 

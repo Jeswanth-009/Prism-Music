@@ -325,13 +325,18 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     FetchSuggestionsEvent event,
     Emitter<SearchState> emit,
   ) async {
+    final generation = ++_searchGeneration;
     final query = event.query.trim();
 
     // If query is empty, show recent history
     if (query.isEmpty) {
       try {
         final historyEntries = await _localDataSource.getSearchHistory(limit: 10);
+        if (emit.isDone || generation != _searchGeneration) return;
         emit(state.copyWith(
+          status: SearchStatus.initial,
+          query: '',
+          results: const SearchResults(),
           historyEntries: historyEntries,
           entitySuggestions: [],
         ));
@@ -341,11 +346,15 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
       return;
     }
 
-    // If query is too short, just show matching history
+    // If query is too short, just show matching history and clear older search results
     if (query.length < 2) {
       try {
         final pastSearches = await _localDataSource.getSimilarSearches(query, limit: 5);
+        if (emit.isDone || generation != _searchGeneration) return;
         emit(state.copyWith(
+          status: SearchStatus.initial,
+          query: query,
+          results: const SearchResults(),
           historyEntries: pastSearches,
           entitySuggestions: [],
         ));
@@ -361,6 +370,8 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
         _localDataSource.getSimilarSearches(query, limit: 3),
         _fetchEntitySuggestions(query),
       ]);
+
+      if (emit.isDone || generation != _searchGeneration) return;
 
       final pastSearches = results[0] as List<Map<String, String>>;
       final entitySuggestions = results[1] as List<EntitySuggestion>;
