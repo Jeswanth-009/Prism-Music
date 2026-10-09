@@ -8,6 +8,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.32] - 2026-10-09
+
+### Fixed
+
+- Add startup recovery, macos entitlements, monotonic versioning, and release gates (M27-M32)
+- Version hive schema, serialize writes, accurate stats, backup sync, and cache clean (M21-M26)
+- Reuse resolved streams, atomic files, live download queue, and offline UX (M17-M20)
+- Refine search state, typed ytmusic parser, artist browse identity, new releases, and spotify import (M11-M16)
+- Add autoplay setting, fix sleep timer track completion, seek dragging, and theme palette (M07, M09, M10, M33)
+- Enforce resolution budget, circuit breakers, cache policy, and quality labels (M05, M06, M08)
+- Bind native equalizer session, correct treble units, fix crossfade and audio focus (M01-M04)
+
+### Changed
+
+- Update README with audio engine, offline resilience, and architectural enhancements
+
 ## [0.2.31] - 2026-10-08
 
 ### Fixed
@@ -586,3 +602,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.29]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.29-build65
 [0.2.30]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.30-build66
 [0.2.31]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.31-build67
+[0.2.32]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.32-build68
