@@ -36,33 +36,41 @@ Search and stream from YouTube Music and JioSaavn, download for offline, scrobbl
 
 ## Features
 
-**Streaming**
+**Streaming & Audio Engine**
 
 - YouTube Music catalog search — songs, artists, albums and playlists
-- Multi-source playback with an automatic fallback chain: JioSaavn (up to 320 kbps) → YouTube Explode → Piped → Invidious
-- Quality tiers: Low (64 kbps), Medium (128), High (256), Lossless (320)
-- Stream caching with prefetch, so repeat plays start instantly
+- Multi-source playback with an automatic fallback chain: JioSaavn (up to 320 kbps) → YouTube Explode → Piped → Invidious with 15s overall resolution budget and circuit breakers
+- Quality tiers: Low (64 kbps), Medium (128 kbps), High (256 kbps), Ultra (320 kbps Opus) / Lossless
+- Stream caching with composite keying (`videoId` + quality) and expiration parsing, so repeat plays start instantly
+- Dynamic native equalizer and audio effects dynamically bound to the active audio session ID, with ±6 dB treble shelf and bass boost
+- Seamless crossfade (0–10s configurable) and authoritative audio focus orchestration that never auto-resumes after an explicit user pause
 
-**Player**
+**Player & UI**
 
 - Background playback with lock-screen and media-notification controls
 - Synced lyrics from LRCLIB with auto-scroll, plus an offline lyrics cache
-- Editable queue — play next, reorder, remove — with shuffle, repeat, sleep timer, crossfade and 0.25–2.0× speed
-- Equalizer presets with bass boost and reverb, applied through Android's native audio effects
+- Editable queue — play next, reorder, remove — with shuffle, repeat, sleep timer (including true end-of-track completion mode), and 0.25–2.0× speed
+- Jitter-free seek slider with local drag preview and seek on release
+- Adaptive accent color dynamically extracted from artwork and cached per track identity
+- AutoPlay toggle switch with generation tracking to prevent queue flooding
 
-**Library**
+**Downloads & Offline Experience**
 
-- Liked songs, recently played, playlists and downloads
-- Full listening-stats page: plays, unique songs, listening time, a 14-day chart and your top rotation
-- Import playlists from Spotify or YouTube links
-- Local backup to app-private storage, with opt-in shared storage copy or manual export that survives reinstalls — no cloud involved
+- Resilient offline download pipeline: atomic temporary file download (`.tmp` → validated rename), 60s timeout, and audio container integrity checks
+- Direct stream reuse eliminating redundant network resolutions
+- Offline metadata and artwork caching for uninterrupted offline library search and playback
+- Real-time download progress updates and delete notifications synchronized across the app
 
-**Personalization**
+**Library & Persistence**
 
-- Recommended-for-you rail with similar-artists and discover modes, plus trending, new releases and regional charts (Billboard and YouTube, with a region picker)
-- Dynamic accent color sampled from the playing song's artwork
-- Optional Last.fm scrobbling and now-playing reports
-- Material 3 interface with light/dark themes and Inter typography
+- Liked songs, recently played, playlists, and downloads
+- Full listening-stats page: plays, unique songs, listening time, a 14-day chart, and top rotation based on retained history
+- Safe optimistic library mutations with automatic rollback on persistence errors
+- Serialized playlist mutations preventing race conditions
+- Import playlists from Spotify or YouTube links with token-based fuzzy confidence scoring
+- Atomic on-device JSON backups (app-private storage by default, with opt-in shared storage copy or export) with newest-timestamp restoration
+- Granular cache controls showing measured disk usage and comprehensive cleanup (image disk cache, lyrics, and streams)
+- Fail-safe startup with bounded initialization timeouts and a `StartupErrorApp` recovery screen
 
 ## Download & install
 
@@ -141,7 +149,7 @@ flutter test integration_test     # on a booted device or emulator
 
 ## Releases & versioning
 
-Releases are fully automated: push to `main` and the [auto-version workflow](.github/workflows/auto-version.yml) bumps the version, tags `alpha-v<version>-build<build>`, builds a signed APK/AAB and publishes a GitHub prerelease with checksums. Include `[minor]` or `[major]` in a commit message to force a bigger bump; doc-only changes skip the release entirely. The Android `versionCode` is derived from the commit count, so every build installs over the previous one. The manual process is documented in [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
+Releases are fully automated: push to `main` and the [auto-version workflow](.github/workflows/auto-version.yml) verifies quality gates (`flutter analyze` and `flutter test`), bumps the version, tags `alpha-v<version>-build<build>`, builds a signed APK/AAB and publishes a GitHub prerelease with checksums. Include `[minor]` or `[major]` in a commit message to force a bigger bump; doc-only changes skip the release entirely. The Android `versionCode` strictly matches the monotonic Flutter build number. The manual process is documented in [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
 
 <details>
 <summary>Release signing details</summary>
