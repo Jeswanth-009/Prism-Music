@@ -72,8 +72,8 @@ class AudioPlayerService {
           bufferForPlaybackAfterRebufferDuration: const Duration(seconds: 3),
         ),
       ),
-      // Enable background playback and handle interruptions
-      handleInterruptions: true,
+      // AudioFocusOrchestratorService handles interruptions and focus exclusively
+      handleInterruptions: false,
     );
     _equalizerService = EqualizerService();
     _initialized = true;
@@ -93,6 +93,18 @@ class AudioPlayerService {
   }
 
   void _initStreams() {
+    // Android audio session ID updates for native equalizer effects binding
+    _subscriptions.add(
+      _player.androidAudioSessionIdStream.listen(
+        (sessionId) {
+          if (sessionId != null && sessionId > 0) {
+            _equalizerService.bindAudioSession(sessionId);
+          }
+        },
+        onError: (e) => _handleNativeError('androidAudioSessionIdStream', e),
+      ),
+    );
+
     // Position updates
     _subscriptions.add(
       _player.positionStream.listen(
@@ -410,7 +422,7 @@ class AudioPlayerService {
     if (!_initialized) return null;
 
     final initialVolume = _player.volume;
-    final fadeMs = duration.inMilliseconds.clamp(0, 6000);
+    final fadeMs = duration.inMilliseconds.clamp(0, 10000);
     final steps = math.max(1, math.min(16, fadeMs ~/ 100));
     final stepDuration = Duration(
       milliseconds: steps == 0 ? 0 : fadeMs ~/ steps,
@@ -440,7 +452,7 @@ class AudioPlayerService {
       return null;
     }
 
-    await play();
+    unawaited(play());
 
     if (fadeMs > 0) {
       for (int i = 1; i <= steps; i++) {

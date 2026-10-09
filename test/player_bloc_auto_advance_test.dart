@@ -102,7 +102,11 @@ class FakeAudioFocusOrchestratorService implements AudioFocusOrchestratorService
   @override
   Future<bool> activateForPlayback() async => true;
   @override
+  Future<void> keepAlive() async {}
+  @override
   Future<void> deactivate() async {}
+  @override
+  void notifyUserPaused(bool paused) {}
   @override
   Future<void> dispose() async {}
   @override

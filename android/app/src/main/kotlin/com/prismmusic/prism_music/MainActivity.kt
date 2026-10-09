@@ -21,8 +21,14 @@ class MainActivity : AudioServiceActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "initialize" -> {
-                        audioSessionId = call.argument<Int>("audioSessionId") ?: 0
-                        result.success(null)
+                        val newSessionId = call.argument<Int>("audioSessionId") ?: 0
+                        if (newSessionId != 0 && newSessionId != audioSessionId) {
+                            releaseEffects()
+                            audioSessionId = newSessionId
+                        } else if (newSessionId != 0) {
+                            audioSessionId = newSessionId
+                        }
+                        result.success(audioSessionId != 0)
                     }
                     "setBassBoost" -> {
                         val level = call.argument<Double>("level") ?: 0.5
@@ -42,6 +48,7 @@ class MainActivity : AudioServiceActivity() {
                     }
                     "release" -> {
                         releaseEffects()
+                        audioSessionId = 0
                         result.success(null)
                     }
                     else -> result.notImplemented()
@@ -75,6 +82,8 @@ class MainActivity : AudioServiceActivity() {
     /**
      * Treble shaping via the platform Equalizer effect: 0.5 is neutral
      * (0 dB), below 0.5 cuts and above 0.5 boosts the highest band.
+     * Note: Android band levels are in millibels (1 dB = 100 mB).
+     * To achieve subtle ±6 dB (±600 mB) adjustment, the span is 1200 mB.
      */
     private fun setTreble(level: Double) {
         try {
@@ -87,9 +96,10 @@ class MainActivity : AudioServiceActivity() {
             val bands = eq.numberOfBands.toShort()
             val topBand = (bands - 1).toShort()
             val range = eq.bandLevelRange
+            val targetSpanMb = 1200.0 // ±600 millibels = ±6 dB
             val span = minOf(
                 (range[1] - range[0]).toDouble(),
-                12.0, // keep the adjustment subtle: ±6 dB around 0.5
+                targetSpanMb,
             )
             val db = ((level - 0.5) * span)
                 .coerceIn(range[0].toDouble(), range[1].toDouble())

@@ -119,6 +119,33 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
                 ),
               ),
 
+              if (!widget.equalizerService.isSupported)
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.errorContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline_rounded,
+                          size: 16, color: theme.colorScheme.error),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          widget.equalizerService.audioSessionId == 0
+                              ? 'Native effects activate once playback begins on Android.'
+                              : 'Native audio effects are unsupported on this session.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onErrorContainer,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               // Tabs header
               TabBar(
                 controller: _tabController,

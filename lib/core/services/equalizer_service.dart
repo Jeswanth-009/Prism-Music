@@ -65,21 +65,67 @@ class EqualizerService {
     ),
   };
   
+  int _audioSessionId = 0;
+  bool _isSupported = false;
+
   EqualizerService();
 
-  /// Initialize audio effects with player's audio session
-  Future<void> initialize() async {
-    if (_isInitialized) return;
-    
+  /// Whether native audio effects are supported and bound to a valid session
+  bool get isSupported => _isSupported;
+
+  /// Whether audio effects have been initialized
+  bool get isInitialized => _isInitialized;
+
+  /// The active audio session ID bound to this service
+  int get audioSessionId => _audioSessionId;
+
+  /// Bind audio effects to a specific player audio session ID.
+  /// Reapplies active preset/custom effects when bound successfully.
+  Future<bool> bindAudioSession(int sessionId) async {
+    if (sessionId <= 0) {
+      _audioSessionId = 0;
+      _isSupported = false;
+      _isInitialized = false;
+      return false;
+    }
+
+    _audioSessionId = sessionId;
     try {
-      // Get audio session ID from just_audio player
-      // Note: just_audio doesn't expose audioSessionId directly
-      // We'll use 0 which creates a new session in Android
-      await AudioEffectsChannel.initialize(0);
-      _isInitialized = true;
-      debugPrint('EqualizerService: Initialized audio effects');
+      final success = await AudioEffectsChannel.initialize(sessionId);
+      _isSupported = success;
+      _isInitialized = success;
+      if (success) {
+        debugPrint('EqualizerService: Bound audio effects to session $sessionId');
+        await _reapplyEffects();
+      } else {
+        debugPrint('EqualizerService: Native effects unavailable for session $sessionId');
+      }
+      return success;
     } catch (e) {
-      debugPrint('EqualizerService: Failed to initialize: $e');
+      debugPrint('EqualizerService: Failed to bind session $sessionId: $e');
+      _isSupported = false;
+      _isInitialized = false;
+      return false;
+    }
+  }
+
+  /// Initialize audio effects with current or provided session
+  Future<bool> initialize([int? sessionId]) async {
+    final targetSessionId = sessionId ?? _audioSessionId;
+    if (targetSessionId > 0) {
+      return bindAudioSession(targetSessionId);
+    }
+    return false;
+  }
+
+  Future<void> _reapplyEffects() async {
+    if (!_isSupported) return;
+    try {
+      await AudioEffectsChannel.setBassBoost(_bassBoostLevel, _bassBoostEnabled);
+      await AudioEffectsChannel.setTreble(_trebleLevel);
+      await AudioEffectsChannel.setReverb(_reverbPreset.value);
+    } catch (e) {
+      debugPrint('EqualizerService: Failed to reapply effects: $e');
     }
   }
   
@@ -103,73 +149,61 @@ class EqualizerService {
     final preset = presets[presetName];
     if (preset == null) return;
 
-    await initialize();
-    
-    try {
-      _currentPresetName = presetName;
-      _bassBoostLevel = preset.bassBoost;
-      _trebleLevel = preset.treble;
-      _reverbPreset = preset.reverb;
-      _bassBoostEnabled = preset.bassBoost > 0.0;
+    _currentPresetName = presetName;
+    _bassBoostLevel = preset.bassBoost;
+    _trebleLevel = preset.treble;
+    _reverbPreset = preset.reverb;
+    _bassBoostEnabled = preset.bassBoost > 0.0;
 
-      // Apply bass boost
-      await AudioEffectsChannel.setBassBoost(_bassBoostLevel, _bassBoostEnabled);
-
-      // Apply treble
-      await AudioEffectsChannel.setTreble(_trebleLevel);
-
-      // Apply reverb
-      await AudioEffectsChannel.setReverb(_reverbPreset.value);
-
+    if (_isSupported) {
+      await _reapplyEffects();
       debugPrint('EqualizerService: Applied preset: $presetName (Bass: $_bassBoostLevel, Treble: $_trebleLevel, Reverb: ${_reverbPreset.displayName})');
-    } catch (e) {
-      debugPrint('EqualizerService: Failed to apply preset: $e');
     }
   }
 
   /// Set bass boost level manually (0.0 - 1.0)
   Future<void> setBassBoost(double level, bool enabled) async {
-    await initialize();
-    
-    try {
-      _bassBoostLevel = level.clamp(0.0, 1.0);
-      _bassBoostEnabled = enabled;
-      _currentPresetName = 'Custom';
-      
-      await AudioEffectsChannel.setBassBoost(_bassBoostLevel, _bassBoostEnabled);
-      debugPrint('EqualizerService: Set bass boost: $level (enabled: $enabled)');
-    } catch (e) {
-      debugPrint('EqualizerService: Failed to set bass boost: $e');
+    _bassBoostLevel = level.clamp(0.0, 1.0);
+    _bassBoostEnabled = enabled;
+    _currentPresetName = 'Custom';
+
+    if (_isSupported) {
+      try {
+        await AudioEffectsChannel.setBassBoost(_bassBoostLevel, _bassBoostEnabled);
+        debugPrint('EqualizerService: Set bass boost: $level (enabled: $enabled)');
+      } catch (e) {
+        debugPrint('EqualizerService: Failed to set bass boost: $e');
+      }
     }
   }
 
   /// Set treble level manually (0.0 - 1.0); 0.5 is neutral
   Future<void> setTreble(double level) async {
-    await initialize();
+    _trebleLevel = level.clamp(0.0, 1.0);
+    _currentPresetName = 'Custom';
 
-    try {
-      _trebleLevel = level.clamp(0.0, 1.0);
-      _currentPresetName = 'Custom';
-
-      await AudioEffectsChannel.setTreble(_trebleLevel);
-      debugPrint('EqualizerService: Set treble: $_trebleLevel');
-    } catch (e) {
-      debugPrint('EqualizerService: Failed to set treble: $e');
+    if (_isSupported) {
+      try {
+        await AudioEffectsChannel.setTreble(_trebleLevel);
+        debugPrint('EqualizerService: Set treble: $_trebleLevel');
+      } catch (e) {
+        debugPrint('EqualizerService: Failed to set treble: $e');
+      }
     }
   }
 
   /// Set reverb preset manually
   Future<void> setReverb(ReverbPreset preset) async {
-    await initialize();
-    
-    try {
-      _reverbPreset = preset;
-      _currentPresetName = 'Custom';
-      
-      await AudioEffectsChannel.setReverb(preset.value);
-      debugPrint('EqualizerService: Set reverb: ${preset.displayName}');
-    } catch (e) {
-      debugPrint('EqualizerService: Failed to set reverb: $e');
+    _reverbPreset = preset;
+    _currentPresetName = 'Custom';
+
+    if (_isSupported) {
+      try {
+        await AudioEffectsChannel.setReverb(preset.value);
+        debugPrint('EqualizerService: Set reverb: ${preset.displayName}');
+      } catch (e) {
+        debugPrint('EqualizerService: Failed to set reverb: $e');
+      }
     }
   }
   
@@ -183,6 +217,8 @@ class EqualizerService {
     try {
       await AudioEffectsChannel.release();
       _isInitialized = false;
+      _isSupported = false;
+      _audioSessionId = 0;
       debugPrint('EqualizerService: Disposed audio effects');
     } catch (e) {
       debugPrint('EqualizerService: Failed to dispose: $e');

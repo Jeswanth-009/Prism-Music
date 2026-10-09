@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -6,14 +7,20 @@ class AudioEffectsChannel {
   static const MethodChannel _channel =
       MethodChannel('com.prismmusic/audio_effects');
 
-  /// Initialize audio effects with the audio session ID from just_audio player
-  static Future<void> initialize(int audioSessionId) async {
+  /// Initialize audio effects with the audio session ID from just_audio player.
+  /// Returns true if native effects were successfully initialized.
+  static Future<bool> initialize(int audioSessionId) async {
+    if (kIsWeb || !Platform.isAndroid || audioSessionId <= 0) {
+      return false;
+    }
     try {
-      await _channel.invokeMethod('initialize', {
+      final result = await _channel.invokeMethod<bool>('initialize', {
         'audioSessionId': audioSessionId,
       });
+      return result ?? false;
     } catch (e) {
       debugPrint('AudioEffectsChannel: Failed to initialize: $e');
+      return false;
     }
   }
 

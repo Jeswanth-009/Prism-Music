@@ -16,6 +16,7 @@ class AudioFocusOrchestratorService {
   bool _configured = false;
   DateTime? _lastConfiguredAt;
   bool _resumeAfterInterruption = false;
+  bool _userPaused = false;
   double? _volumeBeforeDuck;
 
   AudioFocusOrchestratorService({
@@ -23,6 +24,14 @@ class AudioFocusOrchestratorService {
     required Future<void> Function() pausePlayback,
   })  : _audioPlayer = audioPlayer,
         _pausePlayback = pausePlayback;
+
+  /// Notify focus service of user's intentional pause / play action.
+  void notifyUserPaused(bool paused) {
+    _userPaused = paused;
+    if (paused) {
+      _resumeAfterInterruption = false;
+    }
+  }
 
   Future<void> initialize() async {
     final session = _session ?? await AudioSession.instance;
@@ -35,6 +44,7 @@ class AudioFocusOrchestratorService {
 
     await _noisySub?.cancel();
     _noisySub = session.becomingNoisyEventStream.listen((_) async {
+      _resumeAfterInterruption = false;
       if (_audioPlayer.playing) {
         await _pausePlayback();
       }
@@ -112,7 +122,7 @@ class AudioFocusOrchestratorService {
           break;
         case AudioInterruptionType.pause:
         case AudioInterruptionType.unknown:
-          _resumeAfterInterruption = _audioPlayer.playing;
+          _resumeAfterInterruption = _audioPlayer.playing && !_userPaused;
           if (_audioPlayer.playing) {
             await _pausePlayback();
           }
@@ -130,7 +140,7 @@ class AudioFocusOrchestratorService {
         }
         break;
       case AudioInterruptionType.pause:
-        if (_resumeAfterInterruption) {
+        if (_resumeAfterInterruption && !_userPaused) {
           final granted = await activateForPlayback();
           if (granted) {
             await _audioPlayer.play();
