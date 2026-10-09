@@ -35,6 +35,16 @@ class StreamLoaderService {
   final JioSaavnDataSource _jioSaavn = JioSaavnDataSourceImpl();
 
   static const Duration _streamFetchTimeout = Duration(seconds: 10);
+  static const Duration _overallResolutionBudget = Duration(seconds: 15);
+
+  // Circuit breaker state per source
+  final Map<StreamSource, DateTime> _circuitCooldownUntil = {};
+  final Map<StreamSource, int> _consecutiveErrors = {};
+  static const int _circuitErrorThreshold = 3;
+  static const Duration _circuitCooldownDuration = Duration(seconds: 60);
+
+  // Set of videoIds invalidated while prefetching was in-flight
+  final Set<String> _invalidatedVideoIds = {};
 
   // Prefetch queue to load next songs in background
   final Map<String, Future<StreamInfo?>> _prefetchQueue = {};
@@ -44,6 +54,34 @@ class StreamLoaderService {
   static const int _maxRecentAttempts = 20;
 
   StreamLoaderService(this._datasource, this._cache);
+
+  bool _isCircuitOpen(StreamSource source) {
+    final cooldownUntil = _circuitCooldownUntil[source];
+    if (cooldownUntil == null) return false;
+    if (DateTime.now().isAfter(cooldownUntil)) {
+      _circuitCooldownUntil.remove(source);
+      _consecutiveErrors[source] = 0;
+      return false;
+    }
+    return true;
+  }
+
+  void _recordSourceSuccess(StreamSource source) {
+    _consecutiveErrors[source] = 0;
+    _circuitCooldownUntil.remove(source);
+  }
+
+  void _recordSourceFailure(StreamSource source) {
+    final count = (_consecutiveErrors[source] ?? 0) + 1;
+    _consecutiveErrors[source] = count;
+    if (count >= _circuitErrorThreshold) {
+      _circuitCooldownUntil[source] =
+          DateTime.now().add(_circuitCooldownDuration);
+      debugPrint(
+        'StreamLoader: Circuit OPEN for ${source.name} for 60s ($count consecutive failures)',
+      );
+    }
+  }
 
   /// Load stream URL with cache check and parallel fetching
   Future<StreamInfo> loadStream(
@@ -56,7 +94,7 @@ class StreamLoaderService {
 
     // Check cache first - instant return if available
     if (useCache) {
-      final cached = _cache.getCached(videoId);
+      final cached = _cache.getCached(videoId, preferredQuality);
       if (cached != null) {
         overallStopwatch.stop();
         debugPrint(
@@ -87,12 +125,19 @@ class StreamLoaderService {
       }
     }
 
-    // Fetch with optimized strategy (primary source only to reduce latency)
+    // Fetch with bounded overall resolution budget
     debugPrint('StreamLoader: Loading stream for ${song.title}');
-    final streamInfo = await _fetchOptimized(song, preferredQuality);
+    final streamInfo = await _fetchOptimized(
+      song,
+      preferredQuality,
+    ).timeout(
+      _overallResolutionBudget,
+      onTimeout: () =>
+          throw TimeoutException('Overall stream resolution budget (15s) exceeded for $videoId'),
+    );
 
     // Cache the result
-    _cache.cache(videoId, streamInfo);
+    _cache.cache(videoId, streamInfo, quality: preferredQuality);
 
     overallStopwatch.stop();
     debugPrint(
@@ -111,64 +156,109 @@ class StreamLoaderService {
     final videoId = song.playableId;
     final stopwatch = Stopwatch()..start();
 
-    // Primary: JioSaavn
-    debugPrint('StreamLoader: Trying JioSaavn primary...');
-    StreamInfo? jioStream;
-    try {
-      jioStream = await _jioSaavn.getStreamUrl(song).timeout(_streamFetchTimeout);
-    } catch (e) {
-      debugPrint('StreamLoader: JioSaavn timed out or failed: $e');
-    }
-    
-    if (jioStream != null) {
-      debugPrint('StreamLoader: JioSaavn succeeded in ${stopwatch.elapsedMilliseconds}ms');
-      _recordAttempt(_FetchResult(source: StreamSource.jioSaavn, streamInfo: jioStream, error: null, fetchTime: stopwatch.elapsed));
-      return jioStream;
+    // Primary: JioSaavn (check circuit breaker)
+    if (!_isCircuitOpen(StreamSource.jioSaavn)) {
+      debugPrint('StreamLoader: Trying JioSaavn primary...');
+      StreamInfo? jioStream;
+      try {
+        jioStream = await _jioSaavn
+            .getStreamUrl(song)
+            .timeout(_streamFetchTimeout);
+      } catch (e) {
+        debugPrint('StreamLoader: JioSaavn timed out or failed: $e');
+      }
+
+      if (jioStream != null) {
+        debugPrint(
+          'StreamLoader: JioSaavn succeeded in ${stopwatch.elapsedMilliseconds}ms',
+        );
+        _recordSourceSuccess(StreamSource.jioSaavn);
+        _recordAttempt(
+          _FetchResult(
+            source: StreamSource.jioSaavn,
+            streamInfo: jioStream,
+            error: null,
+            fetchTime: stopwatch.elapsed,
+          ),
+        );
+        return jioStream;
+      } else {
+        _recordSourceFailure(StreamSource.jioSaavn);
+      }
+    } else {
+      debugPrint('StreamLoader: JioSaavn circuit is OPEN; skipping.');
     }
 
-    debugPrint('StreamLoader: JioSaavn failed, trying YouTube Explode fallback...');
+    debugPrint('StreamLoader: JioSaavn unavailable, trying YouTube Explode fallback...');
 
     // Fallback 1: YouTube Explode
-    final ytResult = await _fetchFromSource(
-      videoId,
-      StreamSource.youtubeExplode,
-      preferredQuality,
-    );
-    _recordAttempt(ytResult);
+    if (!_isCircuitOpen(StreamSource.youtubeExplode)) {
+      final ytResult = await _fetchFromSource(
+        videoId,
+        StreamSource.youtubeExplode,
+        preferredQuality,
+      );
+      _recordAttempt(ytResult);
 
-    if (ytResult.isSuccess) {
-      debugPrint('StreamLoader: YouTube Explode succeeded in ${stopwatch.elapsedMilliseconds}ms');
-      return ytResult.streamInfo!;
+      if (ytResult.isSuccess) {
+        debugPrint(
+          'StreamLoader: YouTube Explode succeeded in ${stopwatch.elapsedMilliseconds}ms',
+        );
+        _recordSourceSuccess(StreamSource.youtubeExplode);
+        return ytResult.streamInfo!;
+      } else {
+        _recordSourceFailure(StreamSource.youtubeExplode);
+      }
+    } else {
+      debugPrint('StreamLoader: YouTube Explode circuit is OPEN; skipping.');
     }
-    
+
     debugPrint('StreamLoader: YouTube Explode failed, trying Piped fallback...');
 
-    // Fallback 1: Piped (Alternative)
-    final pipedResult = await _fetchFromSource(
-      videoId,
-      StreamSource.alternative,
-      preferredQuality,
-    );
-    _recordAttempt(pipedResult);
+    // Fallback 2: Piped (Alternative)
+    if (!_isCircuitOpen(StreamSource.alternative)) {
+      final pipedResult = await _fetchFromSource(
+        videoId,
+        StreamSource.alternative,
+        preferredQuality,
+      );
+      _recordAttempt(pipedResult);
 
-    if (pipedResult.isSuccess) {
-      debugPrint('StreamLoader: Piped fallback succeeded in ${stopwatch.elapsedMilliseconds}ms');
-      return pipedResult.streamInfo!;
+      if (pipedResult.isSuccess) {
+        debugPrint(
+          'StreamLoader: Piped fallback succeeded in ${stopwatch.elapsedMilliseconds}ms',
+        );
+        _recordSourceSuccess(StreamSource.alternative);
+        return pipedResult.streamInfo!;
+      } else {
+        _recordSourceFailure(StreamSource.alternative);
+      }
+    } else {
+      debugPrint('StreamLoader: Piped circuit is OPEN; skipping.');
     }
 
     debugPrint('StreamLoader: Piped failed, trying Invidious fallback...');
 
-    // Fallback 2: Invidious
-    final invResult = await _fetchFromSource(
-      videoId,
-      StreamSource.invidious,
-      preferredQuality,
-    );
-    _recordAttempt(invResult);
+    // Fallback 3: Invidious
+    if (!_isCircuitOpen(StreamSource.invidious)) {
+      final invResult = await _fetchFromSource(
+        videoId,
+        StreamSource.invidious,
+        preferredQuality,
+      );
+      _recordAttempt(invResult);
 
-    if (invResult.isSuccess) {
-      debugPrint('StreamLoader: Invidious fallback succeeded in ${stopwatch.elapsedMilliseconds}ms');
-      return invResult.streamInfo!;
+      if (invResult.isSuccess) {
+        debugPrint(
+          'StreamLoader: Invidious fallback succeeded in ${stopwatch.elapsedMilliseconds}ms',
+        );
+        _recordSourceSuccess(StreamSource.invidious);
+        return invResult.streamInfo!;
+      } else {
+        _recordSourceFailure(StreamSource.invidious);
+      }
+    } else {
+      debugPrint('StreamLoader: Invidious circuit is OPEN; skipping.');
     }
 
     stopwatch.stop();
@@ -181,9 +271,11 @@ class StreamLoaderService {
     AudioQuality preferredQuality = AudioQuality.high,
   }) {
     final videoId = song.playableId; // Use playableId (youtubeId ?? id)
+    _invalidatedVideoIds.remove(videoId);
 
     // Skip if already cached or prefetching
-    if (_cache.isCached(videoId) || _prefetchQueue.containsKey(videoId)) {
+    if (_cache.isCached(videoId, preferredQuality) ||
+        _prefetchQueue.containsKey(videoId)) {
       debugPrint(
         'StreamLoader: Skip prefetch for ${song.title} (already cached/queued)',
       );
@@ -193,8 +285,14 @@ class StreamLoaderService {
     debugPrint('StreamLoader: Prefetching ${song.title}');
     _prefetchQueue[videoId] = _fetchOptimized(song, preferredQuality)
         .then<StreamInfo?>((streamInfo) {
-          _cache.cache(videoId, streamInfo);
-          debugPrint('StreamLoader: Prefetch complete for ${song.title}');
+          if (!_invalidatedVideoIds.contains(videoId)) {
+            _cache.cache(videoId, streamInfo, quality: preferredQuality);
+            debugPrint('StreamLoader: Prefetch complete for ${song.title}');
+          } else {
+            debugPrint(
+              'StreamLoader: Discarding late prefetch for invalidated $videoId',
+            );
+          }
           return streamInfo;
         })
         .catchError((error) {
@@ -208,10 +306,12 @@ class StreamLoaderService {
 
   /// Invalidate cached stream for a song
   void invalidateCache(String videoId) {
+    _invalidatedVideoIds.add(videoId);
     _cache.invalidate(videoId);
     _prefetchQueue.remove(videoId);
     debugPrint('StreamLoader: Invalidated cache and prefetch for $videoId');
   }
+
 
   /// Fetch from a specific source with timeout
   Future<_FetchResult> _fetchFromSource(

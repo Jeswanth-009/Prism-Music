@@ -42,12 +42,20 @@ class YouTubeAudioSource extends StreamAudioSource {
     super.tag,
   });
 
+  /// Clear cached stream manifests globally for a videoId
+  static void invalidate(String videoId) {
+    _globalCache.removeWhere(
+      (k, _) => k == videoId || k.startsWith('${videoId}_'),
+    );
+  }
+
   /// Get stream info with global + instance caching
   Future<AudioOnlyStreamInfo> _getStreamInfo({bool forceRefresh = false}) async {
+    final cacheKey = '${videoId}_$quality';
     // Check global cache first (shared across all instances)
-    final globalCached = _globalCache[videoId];
+    final globalCached = _globalCache[cacheKey];
     if (!forceRefresh && globalCached != null && !globalCached.isExpired) {
-      debugPrint('YouTubeAudioSource: Global cache HIT for $videoId');
+      debugPrint('YouTubeAudioSource: Global cache HIT for $cacheKey');
       _cachedStreamInfo = globalCached.streamInfo;
       _cacheTime = globalCached.cachedAt;
       return globalCached.streamInfo;
@@ -129,7 +137,7 @@ class YouTubeAudioSource extends StreamAudioSource {
           _globalCache.remove(oldestKey);
         }
       }
-      _globalCache[videoId] = _CachedStream(audioStream);
+      _globalCache[cacheKey] = _CachedStream(audioStream);
       
       return audioStream;
     } catch (e) {

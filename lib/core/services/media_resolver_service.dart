@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../domain/entities/entities.dart';
 import 'download_service.dart';
 import 'stream_loader_service.dart';
+import 'youtube_audio_source.dart';
 
 /// Result of resolving a [Song] into a playable media source.
 class ResolvedMediaSource {
@@ -116,6 +117,7 @@ class MediaResolverService {
   void invalidate(String songId) {
     _preResolved.remove(songId);
     _streamLoader.invalidateCache(songId);
+    YouTubeAudioSource.invalidate(songId);
   }
 
   bool _hasDirectStream(Song song) {

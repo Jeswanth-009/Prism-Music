@@ -15,10 +15,23 @@ enum AudioQuality {
   low(64),      // 64 kbps
   medium(128),  // 128 kbps
   high(256),    // 256 kbps
-  lossless(320); // 320 kbps (Opus)
+  lossless(320); // 320 kbps (Ultra / Opus)
 
   final int bitrate;
   const AudioQuality(this.bitrate);
+
+  String get displayName {
+    switch (this) {
+      case AudioQuality.low:
+        return 'Low (64 kbps)';
+      case AudioQuality.medium:
+        return 'Medium (128 kbps)';
+      case AudioQuality.high:
+        return 'High (256 kbps)';
+      case AudioQuality.lossless:
+        return 'Ultra (320 kbps)';
+    }
+  }
 }
 
 /// Represents a music track/song
