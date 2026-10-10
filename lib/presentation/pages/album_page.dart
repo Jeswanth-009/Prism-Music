@@ -1,3 +1,4 @@
+import 'package:dartz/dartz.dart' hide State;
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -7,6 +8,7 @@ import '../../domain/entities/song.dart';
 import '../../domain/repositories/music_repository.dart';
 import '../blocs/player/player.dart';
 import '../theme/prism_theme.dart';
+import '../widgets/player/mini_player.dart';
 import '../widgets/prism/prism_artwork.dart';
 import '../widgets/prism/prism_skeleton.dart';
 import '../widgets/prism/prism_song_tile.dart';
@@ -48,7 +50,28 @@ class _AlbumPageState extends State<AlbumPage> {
       _loading = true;
       _error = null;
     });
-    final result = await getIt<MusicRepository>().getAlbumDetails(albumIdToFetch);
+
+    final repo = getIt<MusicRepository>();
+    var result = await repo.getAlbumDetails(albumIdToFetch);
+    if (result.isLeft() &&
+        (albumIdToFetch.startsWith('MPREb_') ||
+            albumIdToFetch.startsWith('OLAK_') ||
+            albumIdToFetch.startsWith('VL'))) {
+      final playlistResult = await repo.getPlaylistDetails(albumIdToFetch);
+      playlistResult.fold(
+        (_) => null,
+        (p) {
+          result = Right(Album(
+            id: p.id,
+            title: p.name,
+            artist: p.author ?? _album.artist,
+            thumbnails: p.thumbnails ?? _album.thumbnails,
+            songs: p.songs,
+            trackCount: p.trackCount,
+          ));
+        },
+      );
+    }
     if (!mounted) return;
     result.fold(
       (failure) => setState(() {
@@ -102,6 +125,7 @@ class _AlbumPageState extends State<AlbumPage> {
     final songs = _songs;
 
     return Scaffold(
+      bottomNavigationBar: const PrismPersistentMiniPlayer(),
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [

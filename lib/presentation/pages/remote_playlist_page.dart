@@ -5,8 +5,11 @@ import '../../core/di/injection.dart';
 import '../../domain/entities/playlist.dart';
 import '../../domain/entities/song.dart';
 import '../../domain/repositories/music_repository.dart';
+import '../blocs/library/library.dart';
 import '../blocs/player/player.dart';
 import '../theme/prism_theme.dart';
+import '../widgets/player/mini_player.dart';
+import '../widgets/prism/prism_sheet.dart';
 import '../widgets/prism/prism_skeleton.dart';
 import '../widgets/prism/prism_song_tile.dart';
 import '../widgets/prism/prism_states.dart';
@@ -91,6 +94,7 @@ class _RemotePlaylistPageState extends State<RemotePlaylistPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      bottomNavigationBar: const PrismPersistentMiniPlayer(),
       appBar: AppBar(
         title: Text(
           widget.playlist.name,
@@ -99,6 +103,27 @@ class _RemotePlaylistPageState extends State<RemotePlaylistPage> {
         ),
         actions: [
           if (_songs.isNotEmpty) ...[
+            BlocBuilder<LibraryBloc, LibraryState>(
+              builder: (context, libState) {
+                final isSaved = libState.playlists.any((p) => p.id == widget.playlist.id);
+                return IconButton(
+                  tooltip: isSaved ? 'Saved in library' : 'Save to library',
+                  icon: Icon(isSaved
+                      ? Icons.bookmark_added_rounded
+                      : Icons.bookmark_add_outlined),
+                  onPressed: isSaved
+                      ? null
+                      : () {
+                          final toSave = widget.playlist.copyWith(
+                            isUserCreated: true,
+                            songs: _songs,
+                          );
+                          context.read<LibraryBloc>().add(SavePlaylistEvent(toSave));
+                          showPrismToast(context, 'Saved "${widget.playlist.name}" to library');
+                        },
+                );
+              },
+            ),
             IconButton(
               tooltip: 'Shuffle',
               onPressed: _playShuffled,

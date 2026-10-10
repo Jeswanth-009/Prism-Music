@@ -295,10 +295,17 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
 
       // Remove from current state
       final updatedEntries = state.historyEntries
-          .where((entry) => entry['id'] != event.id)
+          .where((entry) => entry['id'] != event.id && entry['query'] != event.id)
           .toList();
 
-      emit(state.copyWith(historyEntries: updatedEntries));
+      final updatedHistory = state.history
+          .where((q) => q != event.id)
+          .toList();
+
+      emit(state.copyWith(
+        history: updatedHistory,
+        historyEntries: updatedEntries,
+      ));
     } catch (e) {
       debugPrint('SearchBloc: Error removing search history: $e');
     }

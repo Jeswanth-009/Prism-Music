@@ -11,6 +11,10 @@ import '../../domain/entities/song.dart';
 import '../../domain/repositories/music_repository.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
+import '../blocs/player/player_state.dart';
+import '../widgets/player/mini_player.dart';
+import '../widgets/prism/prism_sheet.dart';
+import '../widgets/prism/prism_song_tile.dart';
 import '../widgets/prism/prism_states.dart';
 import 'album_page.dart';
 
@@ -36,6 +40,7 @@ class _ArtistPageState extends State<ArtistPage> {
   final MusicRepository _musicRepository = getIt<MusicRepository>();
 
   bool _loading = true;
+  bool _isFavorite = false;
   String? _error;
   Artist? _artist;
   List<Song> _topSongs = const [];
@@ -181,6 +186,16 @@ class _ArtistPageState extends State<ArtistPage> {
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
+      bottomNavigationBar: const PrismPersistentMiniPlayer(),
+      appBar: (_loading || _error != null)
+          ? AppBar(
+              title: Text(widget.artistName),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: () => Navigator.of(context).maybePop(),
+              ),
+            )
+          : null,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -318,12 +333,24 @@ class _ArtistPageState extends State<ArtistPage> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(
-                        Icons.favorite_outline_rounded,
-                        color: Colors.white,
-                        size: 22,
+                      icon: Icon(
+                        _isFavorite
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_outline_rounded,
+                        color: _isFavorite
+                            ? theme.colorScheme.primary
+                            : Colors.white,
+                        size: 24,
                       ),
-                      onPressed: () {},
+                      onPressed: () {
+                        setState(() => _isFavorite = !_isFavorite);
+                        showPrismToast(
+                          context,
+                          _isFavorite
+                              ? 'Added ${artist.name} to favorites'
+                              : 'Removed ${artist.name} from favorites',
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -339,54 +366,28 @@ class _ArtistPageState extends State<ArtistPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Top Songs',
-            style: theme.textTheme.titleLarge
-                ?.copyWith(fontWeight: FontWeight.w700)),
+        Text(
+          'Top Songs',
+          style: theme.textTheme.titleLarge
+              ?.copyWith(fontWeight: FontWeight.w700),
+        ),
         const SizedBox(height: 10),
-        ..._topSongs.asMap().entries.map((entry) {
-          final song = entry.value;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              onTap: () => _playSong(song, _topSongs),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              tileColor:
-                  theme.colorScheme.surfaceContainer.withValues(alpha: .6),
-              leading: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: song.thumbnailUrl.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: song.thumbnailUrl, fit: BoxFit.cover)
-                      : Container(
-                          color: theme.colorScheme.surfaceContainerHighest,
-                        ),
-                ),
-              ),
-              title: Text(
-                song.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              subtitle: Text(
-                song.artist,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall,
-              ),
-              trailing: IconButton(
-                icon: const Icon(Icons.play_arrow_rounded),
-                onPressed: () => _playSong(song, _topSongs),
-              ),
-            ),
-          );
-        }),
+        BlocBuilder<PlayerBloc, PlayerState>(
+          builder: (context, playerState) => Column(
+            children: _topSongs.asMap().entries.map((entry) {
+              final song = entry.value;
+              final index = entry.key;
+              return PrismSongTile(
+                song: song,
+                index: index,
+                numbered: true,
+                isPlaying: playerState.currentSong?.id == song.id,
+                isPlayingPaused: !playerState.isPlaying,
+                onTap: () => _playSong(song, _topSongs),
+              );
+            }).toList(),
+          ),
+        ),
       ],
     );
   }
@@ -462,23 +463,20 @@ class _ArtistPageState extends State<ArtistPage> {
   Widget _buildStatsRow(ThemeData theme) {
     final albumsCount = _albums.length;
     final tracksCount = _topSongs.length;
-    final favorites = _artist?.subscriberCount ?? 0;
 
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         _StatBubble(
-            label: 'albums',
-            value: albumsCount.toString(),
-            icon: Icons.album_rounded),
+          label: 'Albums',
+          value: albumsCount.toString(),
+          icon: Icons.album_rounded,
+        ),
         _StatBubble(
-            label: 'tracks',
-            value: tracksCount.toString(),
-            icon: Icons.music_note_rounded),
-        _StatBubble(
-            label: 'favorites',
-            value: favorites.toString(),
-            icon: Icons.favorite_rounded),
+          label: 'Top Tracks',
+          value: tracksCount.toString(),
+          icon: Icons.music_note_rounded,
+        ),
       ],
     );
   }

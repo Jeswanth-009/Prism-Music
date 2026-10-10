@@ -15,6 +15,7 @@ import '../widgets/prism/prism_states.dart';
 import 'album_page.dart';
 import 'artist_page.dart';
 import 'remote_playlist_page.dart';
+import '../widgets/player/mini_player.dart';
 
 /// Search: filter chips, full-bleed results, genre/vibe discovery.
 class SearchPage extends StatefulWidget {
@@ -29,6 +30,7 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
 
   static const _genres = [
     'Pop', 'Rock', 'Jazz', 'Metal', 'Hip-Hop', 'Classical', 'Latin', 'Indie',
@@ -47,12 +49,23 @@ class _SearchPageState extends State<SearchPage> {
       context.read<SearchBloc>().add(const UpdateFilterEvent(SearchFilter.songs));
     });
     _focusNode.addListener(() => setState(() {}));
+    _scrollController.addListener(() {
+      if (_scrollController.hasClients &&
+          _scrollController.position.pixels >=
+              _scrollController.position.maxScrollExtent - 240) {
+        final state = context.read<SearchBloc>().state;
+        if (state.hasMore && !state.isLoadingMore) {
+          context.read<SearchBloc>().add(const LoadMoreResultsEvent());
+        }
+      }
+    });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     _focusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -100,6 +113,8 @@ class _SearchPageState extends State<SearchPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      bottomNavigationBar:
+          widget.embedded ? null : const PrismPersistentMiniPlayer(),
       body: SafeArea(
         bottom: !widget.embedded,
         child: BlocBuilder<SearchBloc, SearchState>(
@@ -109,6 +124,7 @@ class _SearchPageState extends State<SearchPage> {
             final canClear = hasQuery || _searchController.text.isNotEmpty;
             return CustomScrollView(
               key: const PageStorageKey('prism_search'),
+              controller: _scrollController,
               physics: const BouncingScrollPhysics(),
               slivers: [
                 SliverPadding(
@@ -232,7 +248,9 @@ class _SearchPageState extends State<SearchPage> {
     final recentQueries = state.history.take(6).toList();
     return [
       SliverToBoxAdapter(
-        child: PrismSectionHeader(title: 'Browse moods', padding: const EdgeInsets.fromLTRB(20, 24, 20, 10)),
+        child: PrismSectionHeader(
+            title: 'Browse genres',
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 10)),
       ),
       SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -244,7 +262,9 @@ class _SearchPageState extends State<SearchPage> {
         ),
       ),
       SliverToBoxAdapter(
-        child: PrismSectionHeader(title: 'Start with a vibe', padding: const EdgeInsets.fromLTRB(20, 22, 20, 10)),
+        child: PrismSectionHeader(
+            title: 'Moods & vibes',
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 10)),
       ),
       SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -259,7 +279,7 @@ class _SearchPageState extends State<SearchPage> {
         SliverToBoxAdapter(
           child: PrismSectionHeader(
             title: 'Recent searches',
-            actionLabel: 'Clear',
+            actionLabel: 'Clear all',
             onAction: () =>
                 context.read<SearchBloc>().add(const ClearHistoryEvent()),
             padding: const EdgeInsets.fromLTRB(20, 22, 20, 4),
@@ -279,7 +299,21 @@ class _SearchPageState extends State<SearchPage> {
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 title: Text(query, maxLines: 1, overflow: TextOverflow.ellipsis),
-                trailing: const Icon(Icons.north_west_rounded, size: 16),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 16),
+                      tooltip: 'Remove',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => context
+                          .read<SearchBloc>()
+                          .add(RemoveFromHistoryEvent(query)),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.north_west_rounded, size: 16),
+                  ],
+                ),
               );
             },
           ),

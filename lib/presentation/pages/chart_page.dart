@@ -9,6 +9,7 @@ import '../widgets/prism/prism_chart_chip.dart';
 import '../widgets/prism/prism_skeleton.dart';
 import '../widgets/prism/prism_song_tile.dart';
 import '../widgets/prism/prism_states.dart';
+import '../widgets/player/mini_player.dart';
 
 class ChartPage extends StatefulWidget {
   const ChartPage({super.key, required this.chart});
@@ -68,6 +69,7 @@ class _ChartPageState extends State<ChartPage> {
     final theme = Theme.of(context);
     final spec = context.prismSpec;
     return Scaffold(
+      bottomNavigationBar: const PrismPersistentMiniPlayer(),
       appBar: AppBar(
         title: Text(
           widget.chart.name,

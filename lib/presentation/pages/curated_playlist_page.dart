@@ -3,12 +3,16 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/di/injection.dart';
 import '../../core/services/curated_playlists.dart';
+import '../../domain/entities/playlist.dart';
 import '../../domain/entities/song.dart';
 import '../../domain/repositories/music_repository.dart';
+import '../blocs/library/library.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
 import '../blocs/player/player_state.dart';
 import '../theme/prism_theme.dart';
+import '../widgets/player/mini_player.dart';
+import '../widgets/prism/prism_sheet.dart';
 import '../widgets/prism/prism_skeleton.dart';
 import '../widgets/prism/prism_song_tile.dart';
 import '../widgets/prism/prism_states.dart';
@@ -26,6 +30,7 @@ class CuratedPlaylistPage extends StatefulWidget {
 class _CuratedPlaylistPageState extends State<CuratedPlaylistPage> {
   List<Song> _songs = [];
   bool _isLoading = true;
+  bool _isFallback = false;
   String? _error;
   Duration? _totalDuration;
 
@@ -39,6 +44,7 @@ class _CuratedPlaylistPageState extends State<CuratedPlaylistPage> {
     if (!mounted) return;
     setState(() {
       _isLoading = true;
+      _isFallback = false;
       _error = null;
     });
 
@@ -96,6 +102,7 @@ class _CuratedPlaylistPageState extends State<CuratedPlaylistPage> {
           } else {
             setState(() {
               _songs = songs;
+              _isFallback = true;
               _isLoading = false;
             });
           }
@@ -130,6 +137,7 @@ class _CuratedPlaylistPageState extends State<CuratedPlaylistPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      bottomNavigationBar: const PrismPersistentMiniPlayer(),
       appBar: AppBar(
         title: Text(
           widget.playlist.name,
@@ -138,6 +146,38 @@ class _CuratedPlaylistPageState extends State<CuratedPlaylistPage> {
         ),
         actions: [
           if (_songs.isNotEmpty) ...[
+            BlocBuilder<LibraryBloc, LibraryState>(
+              builder: (context, libState) {
+                final playlistId = 'curated_${widget.playlist.playlistId}';
+                final isSaved =
+                    libState.playlists.any((p) => p.id == playlistId);
+                return IconButton(
+                  tooltip: isSaved ? 'Saved in library' : 'Save to library',
+                  icon: Icon(isSaved
+                      ? Icons.bookmark_added_rounded
+                      : Icons.bookmark_add_outlined),
+                  onPressed: isSaved
+                      ? null
+                      : () {
+                          final toSave = Playlist(
+                            id: playlistId,
+                            name: widget.playlist.name,
+                            description: widget.playlist.category,
+                            author: 'Prism Discovery',
+                            isUserCreated: true,
+                            songs: _songs,
+                            trackCount: _songs.length,
+                            totalDuration: _totalDuration,
+                          );
+                          context
+                              .read<LibraryBloc>()
+                              .add(SavePlaylistEvent(toSave));
+                          showPrismToast(
+                              context, 'Saved "${widget.playlist.name}" to library');
+                        },
+                );
+              },
+            ),
             IconButton(
               tooltip: 'Shuffle',
               onPressed: _shufflePlay,
@@ -198,6 +238,17 @@ class _CuratedPlaylistPageState extends State<CuratedPlaylistPage> {
                                               .colorScheme.onSurfaceVariant,
                                         ),
                                       ),
+                                      if (_isFallback)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 2),
+                                          child: Text(
+                                            'Discovery mix · Search fallback',
+                                            style: theme.textTheme.labelSmall?.copyWith(
+                                              color: theme.colorScheme.tertiary,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
                                       if (_totalDuration != null)
                                         Text(
                                           '${_songs.length} songs · ${_formatDuration(_totalDuration!)}',

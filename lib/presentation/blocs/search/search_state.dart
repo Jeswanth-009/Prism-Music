@@ -78,6 +78,9 @@ class SearchState extends Equatable {
   bool get isLoading =>
       status == SearchStatus.loading || status == SearchStatus.loadingMore;
 
+  /// Whether loading additional search results page
+  bool get isLoadingMore => status == SearchStatus.loadingMore;
+
   /// Whether there are any results
   bool get hasResults => !results.isEmpty;
 
