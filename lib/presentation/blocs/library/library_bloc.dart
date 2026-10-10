@@ -30,6 +30,9 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     on<ClearHistoryEvent>(_onClearHistory);
     on<DownloadSongEvent>(_onDownloadSong);
     on<DeleteDownloadEvent>(_onDeleteDownload);
+    on<RenamePlaylistEvent>(_onRenamePlaylist);
+    on<ReorderPlaylistSongsEvent>(_onReorderPlaylistSongs);
+    on<SavePlaylistEvent>(_onSavePlaylist);
   }
 
   Future<void> _onLoadLibrary(
@@ -497,6 +500,74 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
           downloads: updatedDownloads,
           downloadedSongIds: updatedIds,
         ));
+      },
+    );
+  }
+
+  Future<void> _onRenamePlaylist(
+    RenamePlaylistEvent event,
+    Emitter<LibraryState> emit,
+  ) async {
+    final result = await _libraryRepository.updatePlaylist(
+      event.playlistId,
+      name: event.name,
+    );
+    result.fold(
+      (failure) => emit(state.copyWith(errorMessage: failure.message)),
+      (updated) {
+        final updatedPlaylists = state.playlists.map((p) {
+          return p.id == updated.id ? updated : p;
+        }).toList();
+        emit(state.copyWith(playlists: updatedPlaylists));
+      },
+    );
+  }
+
+  Future<void> _onReorderPlaylistSongs(
+    ReorderPlaylistSongsEvent event,
+    Emitter<LibraryState> emit,
+  ) async {
+    final target =
+        state.playlists.where((p) => p.id == event.playlistId).firstOrNull;
+    if (target == null) return;
+    final currentSongs = List<Song>.from(target.songs ?? []);
+    if (event.oldIndex < 0 ||
+        event.oldIndex >= currentSongs.length ||
+        event.newIndex < 0 ||
+        event.newIndex >= currentSongs.length) {
+      return;
+    }
+
+    final song = currentSongs.removeAt(event.oldIndex);
+    currentSongs.insert(event.newIndex, song);
+
+    final updatedPlaylist = target.copyWith(songs: currentSongs);
+    final updatedPlaylists = state.playlists.map((p) {
+      return p.id == target.id ? updatedPlaylist : p;
+    }).toList();
+    emit(state.copyWith(playlists: updatedPlaylists));
+
+    await _libraryRepository.reorderPlaylistSongs(
+      event.playlistId,
+      event.oldIndex,
+      event.newIndex,
+    );
+  }
+
+  Future<void> _onSavePlaylist(
+    SavePlaylistEvent event,
+    Emitter<LibraryState> emit,
+  ) async {
+    final result =
+        await _libraryRepository.saveImportedPlaylist(event.playlist);
+    result.fold(
+      (failure) => emit(state.copyWith(errorMessage: failure.message)),
+      (saved) {
+        final exists = state.playlists.any((p) => p.id == saved.id);
+        final updated = exists
+            ? state.playlists.map((p) => p.id == saved.id ? saved : p).toList()
+            : [saved, ...state.playlists];
+        emit(state.copyWith(playlists: updated));
       },
     );
   }

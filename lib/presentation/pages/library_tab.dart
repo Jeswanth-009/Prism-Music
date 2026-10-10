@@ -88,12 +88,14 @@ class _LibraryTabState extends State<LibraryTab>
             const SliverPadding(padding: EdgeInsets.only(top: 20)),
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              sliver: SliverGrid.count(
-                crossAxisCount: 2,
-                childAspectRatio: 1.45,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                children: [
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 220,
+                  mainAxisExtent: 96,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                delegate: SliverChildListDelegate([
                   PrismQuickTile(
                     icon: Icons.favorite_rounded,
                     label: 'Liked songs',
@@ -130,7 +132,7 @@ class _LibraryTabState extends State<LibraryTab>
                     meta: 'Create from scratch',
                     onTap: _createPlaylist,
                   ),
-                ],
+                ]),
               ),
             ),
             SliverPadding(

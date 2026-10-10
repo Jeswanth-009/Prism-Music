@@ -9,6 +9,9 @@ import '../blocs/library/library_event.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
 import '../theme/prism_theme.dart';
+import '../widgets/player/mini_player.dart';
+import '../widgets/prism/prism_artwork.dart';
+import '../widgets/prism/prism_dialog.dart';
 import '../widgets/prism/prism_sheet.dart';
 import '../widgets/prism/prism_states.dart';
 
@@ -40,7 +43,8 @@ class _DownloadsPageState extends State<DownloadsPage> {
 
   void _onDownloadProgress(DownloadInfo info) {
     if (!mounted) return;
-    if (info.status == DownloadStatus.completed || info.status == DownloadStatus.notDownloaded) {
+    if (info.status == DownloadStatus.completed ||
+        info.status == DownloadStatus.notDownloaded) {
       _loadDownloads();
     } else {
       setState(() {});
@@ -70,11 +74,11 @@ class _DownloadsPageState extends State<DownloadsPage> {
     }
   }
 
-  void _playSong(Map<String, dynamic> songData) {
-    final song = Song(
+  Song _mapToSong(Map<String, dynamic> songData) {
+    return Song(
       id: songData['songId'],
-      title: songData['title'],
-      artist: songData['artist'],
+      title: songData['title'] ?? 'Unknown',
+      artist: songData['artist'] ?? 'Unknown Artist',
       duration: Duration(seconds: songData['duration'] ?? 0),
       thumbnails: songData['thumbnailUrl'] != null
           ? Thumbnails.fromUrl(songData['thumbnailUrl'])
@@ -83,64 +87,222 @@ class _DownloadsPageState extends State<DownloadsPage> {
       streamUrl: songData['localPath'],
       source: MusicSource.local,
     );
+  }
 
-    context.read<PlayerBloc>().add(PlaySongEvent(song: song));
+  void _playSong(Map<String, dynamic> songData) {
+    final song = _mapToSong(songData);
+    final allSongs = _downloadedSongs.map(_mapToSong).toList();
+    final index = allSongs.indexWhere((s) => s.id == song.id);
+    context.read<PlayerBloc>().add(
+          PlaySongEvent(
+            song: song,
+            queue: allSongs,
+            queueIndex: index >= 0 ? index : 0,
+          ),
+        );
+  }
+
+  void _playAll({bool shuffle = false}) {
+    if (_downloadedSongs.isEmpty) return;
+    final allSongs = _downloadedSongs.map(_mapToSong).toList();
+    final queue = shuffle ? ([...allSongs]..shuffle()) : allSongs;
+    context.read<PlayerBloc>().add(
+          PlaySongEvent(
+            song: queue.first,
+            queue: queue,
+            queueIndex: 0,
+          ),
+        );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final activeDownloads = _downloadService.activeDownloads.values
+        .where((d) =>
+            d.status == DownloadStatus.downloading ||
+            d.status == DownloadStatus.failed)
+        .toList();
 
     return Scaffold(
+      bottomNavigationBar: const PrismPersistentMiniPlayer(),
       appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Back',
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.arrow_back_rounded),
+        ),
         title: const Text('Downloads'),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _downloadedSongs.isEmpty
+          : (_downloadedSongs.isEmpty && activeDownloads.isEmpty)
               ? const PrismEmptyState(
                   icon: Icons.download_rounded,
                   message: 'No downloads yet',
-                  hint: 'Songs you download will appear here',
+                  hint:
+                      'Songs you download for offline playback will appear here.',
                 )
-              : _buildList(theme),
-    );
-  }
-
-  Widget _buildList(ThemeData theme) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '${_downloadedSongs.length} songs',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
+              : CustomScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  slivers: [
+                    if (activeDownloads.isNotEmpty) ...[
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                          child: Text(
+                            'Transfer Queue',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        sliver: SliverList.separated(
+                          itemCount: activeDownloads.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 6),
+                          itemBuilder: (context, index) {
+                            final info = activeDownloads[index];
+                            final isFailed =
+                                info.status == DownloadStatus.failed;
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.surfaceContainerHigh,
+                                borderRadius:
+                                    BorderRadius.circular(PrismRadius.md),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    isFailed
+                                        ? Icons.error_outline_rounded
+                                        : Icons.downloading_rounded,
+                                    color: isFailed
+                                        ? theme.colorScheme.error
+                                        : theme.colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          info.songId,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                                  fontWeight: FontWeight.w600),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        LinearProgressIndicator(
+                                          value: isFailed
+                                              ? 0
+                                              : (info.progress > 0
+                                                  ? info.progress
+                                                  : null),
+                                          backgroundColor: theme
+                                              .colorScheme.surfaceContainerHighest,
+                                          color: isFailed
+                                              ? theme.colorScheme.error
+                                              : theme.colorScheme.primary,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.close_rounded,
+                                        size: 18),
+                                    tooltip: 'Cancel',
+                                    onPressed: () => _downloadService
+                                        .cancelDownload(info.songId),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: 16),
+                      ),
+                    ],
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${_downloadedSongs.length} ${_downloadedSongs.length == 1 ? 'song' : 'songs'}',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        theme.colorScheme.surfaceContainerHigh,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    _downloadService.formatBytes(_totalSize),
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color:
+                                          theme.colorScheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (_downloadedSongs.isNotEmpty) ...[
+                              const SizedBox(height: 14),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: FilledButton.icon(
+                                      onPressed: () => _playAll(),
+                                      icon: const Icon(Icons.play_arrow_rounded,
+                                          size: 22),
+                                      label: const Text('Play all'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  IconButton.filledTonal(
+                                    onPressed: () => _playAll(shuffle: true),
+                                    tooltip: 'Shuffle downloads',
+                                    icon: const Icon(Icons.shuffle_rounded),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 32),
+                      sliver: SliverList.builder(
+                        itemCount: _downloadedSongs.length,
+                        itemBuilder: (context, index) {
+                          final songData = _downloadedSongs[index];
+                          return _buildSongItem(context, theme, songData);
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              Text(
-                _downloadService.formatBytes(_totalSize),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 32),
-            itemCount: _downloadedSongs.length,
-            itemBuilder: (context, index) {
-              final songData = _downloadedSongs[index];
-              return _buildSongItem(context, theme, songData);
-            },
-          ),
-        ),
-      ],
     );
   }
 
@@ -152,23 +314,27 @@ class _DownloadsPageState extends State<DownloadsPage> {
     final title = songData['title'] ?? 'Unknown';
     final artist = songData['artist'] ?? 'Unknown Artist';
     final size = songData['fileSize'] as int?;
+    final thumbUrl = songData['thumbnailUrl'] as String?;
 
     return ListTile(
       onTap: () => _playSong(songData),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(PrismRadius.md),
       ),
-      leading: Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(PrismRadius.sm),
-        ),
-        child: Icon(
-          Icons.download_done_rounded,
-          color: theme.colorScheme.primary,
-          size: 22,
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(PrismRadius.sm),
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: thumbUrl != null && thumbUrl.isNotEmpty
+              ? PrismArtwork(url: thumbUrl, fit: BoxFit.cover)
+              : Container(
+                  color: theme.colorScheme.surfaceContainerHigh,
+                  child: Icon(
+                    Icons.music_note_rounded,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
         ),
       ),
       title: Text(
@@ -196,31 +362,13 @@ class _DownloadsPageState extends State<DownloadsPage> {
   }
 
   void _showDeleteDialog(String songId, String title) {
-    showDialog<void>(
+    showPrismConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete download?'),
-        content: Text(
-          'Are you sure you want to delete "$title" from your device?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _deleteSong(songId, title);
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+      title: 'Delete download?',
+      message: 'Are you sure you want to remove "$title" from offline storage?',
+      confirmLabel: 'Delete',
+      isDestructive: true,
+      onConfirm: () => _deleteSong(songId, title),
     );
   }
 }
