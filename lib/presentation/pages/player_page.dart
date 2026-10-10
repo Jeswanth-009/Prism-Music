@@ -158,29 +158,19 @@ class _PlayerPageState extends State<PlayerPage> {
                               ),
                       ),
                     ),
-                    if (!_showLyrics) ...[
-                      _ProgressBar(state: state),
-                      const SizedBox(height: 14),
-                      _MainControls(state: state),
-                      const SizedBox(height: 10),
-                      _SecondaryControls(
-                        song: song,
-                        state: state,
-                        showLyrics: _showLyrics,
-                        onToggleLyrics: () =>
-                            setState(() => _showLyrics = !_showLyrics),
-                      ),
-                    ] else ...[
-                      const SizedBox(height: 10),
-                      _SecondaryControls(
-                        song: song,
-                        state: state,
-                        showLyrics: _showLyrics,
-                        onToggleLyrics: () =>
-                            setState(() => _showLyrics = !_showLyrics),
-                      ),
-                    ],
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 8),
+                    _ProgressBar(state: state),
+                    const SizedBox(height: 12),
+                    _MainControls(state: state),
+                    const SizedBox(height: 8),
+                    _SecondaryControls(
+                      song: song,
+                      state: state,
+                      showLyrics: _showLyrics,
+                      onToggleLyrics: () =>
+                          setState(() => _showLyrics = !_showLyrics),
+                    ),
+                    const SizedBox(height: 18),
                   ],
                 ),
               ),
@@ -753,7 +743,7 @@ class _MainControls extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           IconButton(
-            onPressed: state.hasPrevious || state.position.inSeconds > 3
+            onPressed: state.canSkipPrevious
                 ? () => context.read<PlayerBloc>().add(const PreviousEvent())
                 : null,
             iconSize: 30,
@@ -761,7 +751,7 @@ class _MainControls extends StatelessWidget {
           ),
           _PlayPauseButton(state: state),
           IconButton(
-            onPressed: state.hasNext
+            onPressed: state.canSkipNext
                 ? () => context.read<PlayerBloc>().add(const NextEvent())
                 : null,
             iconSize: 30,
@@ -872,10 +862,29 @@ class _SecondaryControls extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Repeat',
-                onPressed: () => context.read<PlayerBloc>().add(
-                  const CycleRepeatModeEvent(),
-                ),
+                tooltip: switch (state.repeatMode) {
+                  RepeatMode.off => 'Repeat: Off',
+                  RepeatMode.all => 'Repeat: All',
+                  RepeatMode.one => 'Repeat: One',
+                },
+                onPressed: () {
+                  context.read<PlayerBloc>().add(
+                    const CycleRepeatModeEvent(),
+                  );
+                  final nextMode = switch (state.repeatMode) {
+                    RepeatMode.off => 'Repeat All',
+                    RepeatMode.all => 'Repeat One',
+                    RepeatMode.one => 'Repeat Off',
+                  };
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(nextMode),
+                      duration: const Duration(milliseconds: 900),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
                 icon: Icon(
                   switch (state.repeatMode) {
                     RepeatMode.one => Icons.repeat_one_rounded,

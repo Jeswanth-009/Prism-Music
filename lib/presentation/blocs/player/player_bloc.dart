@@ -98,8 +98,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       onStop: () async {
         if (!isClosed) add(const StopEvent());
       },
-      hasNext: () => !isClosed && state.hasNext,
-      hasPrevious: () => !isClosed && state.hasPrevious,
+      hasNext: () => !isClosed && state.canSkipNext,
+      hasPrevious: () => !isClosed && state.canSkipPrevious,
     );
 
     // Register event handlers
@@ -1145,17 +1145,26 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
     // Auto-play next song if available
     if (state.repeatMode == RepeatMode.one) {
-      // Repeat current song - BUT only if it actually played (not an immediate 0-duration abort)
-      if (state.duration > const Duration(seconds: 2) &&
-          state.position > Duration.zero) {
-        await _audioPlayer.seek(Duration.zero);
-        await _audioPlayer.play();
+      if (state.currentSong != null) {
+        if (_consecutiveFailureSkips >= 3) {
+          _consecutiveFailureSkips = 0;
+          emit(
+            state.copyWith(status: PlayerStatus.paused, position: Duration.zero),
+          );
+          return;
+        }
         emit(
-          state.copyWith(position: Duration.zero, status: PlayerStatus.playing),
+          state.copyWith(status: PlayerStatus.loading, position: Duration.zero),
+        );
+        add(
+          PlaySongEvent(
+            song: state.currentSong!,
+            queue: state.queue,
+            queueIndex: state.queueIndex,
+          ),
         );
         return;
       }
-      // If duration was 0 or never played, advance to next track or stop rather than infinite loop
       if (state.hasNext) {
         add(const NextEvent());
         return;
@@ -1391,6 +1400,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     if (_isFetchingRecommendations || _recommendationService == null) return;
     if (state.currentSong == null || state.queue.isEmpty) return;
     if (!_settingsService.autoPlay) return;
+    // Do not append recommendations when looping track or full queue
+    if (state.repeatMode != RepeatMode.off) return;
     if (state.queue.length >= 50) return;
 
     final currentSong = state.currentSong!;

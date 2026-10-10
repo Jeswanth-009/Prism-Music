@@ -107,6 +107,16 @@ class PlayerState extends Equatable {
   /// Whether there's a previous song in queue
   bool get hasPrevious => queueIndex > 0;
 
+  /// Whether skipping forward is actionable (standard queue progression or repeat all looping)
+  bool get canSkipNext =>
+      hasNext || (repeatMode == RepeatMode.all && queue.isNotEmpty);
+
+  /// Whether skipping backward is actionable (standard previous, track restart, or repeat all looping)
+  bool get canSkipPrevious =>
+      hasPrevious ||
+      position.inSeconds > 3 ||
+      (repeatMode == RepeatMode.all && queue.isNotEmpty);
+
   /// Progress as percentage (0.0 to 1.0)
   double get progress {
     if (duration.inMilliseconds == 0) return 0.0;
