@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -6,8 +7,8 @@ import '../../domain/entities/listening_stats.dart';
 import '../../domain/repositories/library_repository.dart';
 import '../blocs/library/library.dart';
 import '../theme/prism_theme.dart';
+import '../widgets/player/mini_player.dart';
 import '../widgets/prism/prism_states.dart';
-import 'dart:math' as math;
 
 /// Full listening overview: headline numbers, a plays-per-day chart for the
 /// last two weeks, and the current top artists / songs / genres.
@@ -103,6 +104,8 @@ class _StatsPageState extends State<StatsPage> {
                   title: stats.topGenre!,
                   meta: '${stats.topGenreCount} plays',
                 ),
+              const SizedBox(height: 16),
+              const _DataRetentionCard(),
               if (stats.firstPlayed != null) ...[
                 const SizedBox(height: 18),
                 Text(
@@ -118,6 +121,7 @@ class _StatsPageState extends State<StatsPage> {
           );
         },
       ),
+      bottomNavigationBar: const PrismPersistentMiniPlayer(),
     );
   }
 
@@ -130,6 +134,55 @@ class _StatsPageState extends State<StatsPage> {
   }
 }
 
+class _DataRetentionCard extends StatelessWidget {
+  const _DataRetentionCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(PrismRadius.md),
+        border: Border.all(color: context.prismSpec.hairline),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.privacy_tip_outlined,
+            size: 20,
+            color: theme.colorScheme.primary,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Private & On-Device',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Listening history and play counts are stored strictly on this device to calculate your personal trends. You can clear your history anytime from Recently Played.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _HeadlineStats extends StatelessWidget {
   const _HeadlineStats({required this.stats});
 
@@ -139,16 +192,36 @@ class _HeadlineStats extends StatelessWidget {
   Widget build(BuildContext context) {
     final hours = stats.totalListeningTime.inHours;
     final minutes = stats.totalListeningTime.inMinutes % 60;
-    final listeningTime = hours > 0 ? '$hours hr $minutes min' : '$minutes min';
+    final listeningTime = hours > 0 ? '$hours hr $minutes m' : '$minutes min';
 
-    return Row(
-      children: [
-        _StatTile(value: '${stats.totalPlays}', label: 'Plays'),
-        const SizedBox(width: 12),
-        _StatTile(value: '${stats.uniqueSongs}', label: 'Unique songs'),
-        const SizedBox(width: 12),
-        _StatTile(value: listeningTime, label: 'Listening time'),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 340;
+        if (isNarrow) {
+          return Column(
+            children: [
+              Row(
+                children: [
+                  _StatTile(value: '${stats.totalPlays}', label: 'Plays'),
+                  const SizedBox(width: 10),
+                  _StatTile(value: '${stats.uniqueSongs}', label: 'Unique songs'),
+                ],
+              ),
+              const SizedBox(height: 10),
+              _StatTile(value: listeningTime, label: 'Listening time'),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            _StatTile(value: '${stats.totalPlays}', label: 'Plays'),
+            const SizedBox(width: 10),
+            _StatTile(value: '${stats.uniqueSongs}', label: 'Unique songs'),
+            const SizedBox(width: 10),
+            _StatTile(value: listeningTime, label: 'Listening time'),
+          ],
+        );
+      },
     );
   }
 }

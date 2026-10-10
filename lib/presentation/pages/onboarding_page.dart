@@ -22,22 +22,22 @@ class _OnboardingPageState extends State<OnboardingPage> {
       icon: Icons.music_note_rounded,
       title: 'All your music,\none app',
       body:
-          'Search and stream millions of songs from YouTube Music — no '
-          'account, no sign-up, no waiting.',
+          'Search and stream millions of songs from YouTube Music and '
+          'JioSaavn with fast playback — no account, no sign-up required.',
     ),
     (
       icon: Icons.shield_outlined,
       title: 'Private by design',
       body:
-          'Your likes, playlists and history stay on your device and survive '
-          'reinstalls. Nothing is tracked.',
+          'Your likes, playlists, and listening history stay strictly on '
+          'your device. Zero trackers, zero profiling.',
     ),
     (
       icon: Icons.equalizer_rounded,
       title: 'Made for listening',
       body:
-          'Synced lyrics, a bass-boost equalizer, sleep timer and offline '
-          'downloads — tuned the way you like it.',
+          'Synced lyrics, a 10-band equalizer, sleep timer, and offline '
+          'downloads. Fine-tune your audio and trending region anytime in Settings.',
     ),
   ];
 
@@ -78,44 +78,47 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 onPageChanged: (index) => setState(() => _page = index),
                 itemBuilder: (context, index) {
                   final slide = _slides[index];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 36),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 108,
-                          height: 108,
-                          decoration: BoxDecoration(
-                            color: context.prismSpec.accentSoft,
-                            borderRadius: BorderRadius.circular(32),
+                  return Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 12),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 108,
+                            height: 108,
+                            decoration: BoxDecoration(
+                              color: context.prismSpec.accentSoft,
+                              borderRadius: BorderRadius.circular(32),
+                            ),
+                            child: Icon(
+                              slide.icon,
+                              size: 52,
+                              color: theme.colorScheme.primary,
+                            ),
                           ),
-                          child: Icon(
-                            slide.icon,
-                            size: 52,
-                            color: theme.colorScheme.primary,
+                          const SizedBox(height: 36),
+                          Text(
+                            slide.title,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.headlineLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -1,
+                              height: 1.1,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 36),
-                        Text(
-                          slide.title,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.headlineLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -1,
-                            height: 1.1,
+                          const SizedBox(height: 14),
+                          Text(
+                            slide.body,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              height: 1.45,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          slide.body,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            height: 1.45,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   );
                 },

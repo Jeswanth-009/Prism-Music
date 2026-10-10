@@ -21,6 +21,7 @@ import '../blocs/player/player_state.dart';
 
 import 'downloads_page.dart';
 import '../widgets/equalizer/equalizer_bottom_sheet.dart';
+import '../widgets/player/mini_player.dart';
 import '../widgets/prism/prism_sheet.dart';
 import '../widgets/settings/setting_row.dart';
 import '../widgets/settings/setting_section_card.dart';
@@ -110,12 +111,18 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ],
       ),
+      bottomNavigationBar: const PrismPersistentMiniPlayer(),
     );
   }
 
   Widget _buildSliverAppBar(ThemeData theme) {
     final connected = _lastFmService.isAuthenticated;
     final recoMode = _recommendationService?.mode;
+    final isDark = theme.brightness == Brightness.dark;
+    final titleColor = isDark ? Colors.white : theme.colorScheme.onSurface;
+    final subtitleColor = isDark
+        ? Colors.white.withValues(alpha: 0.85)
+        : theme.colorScheme.onSurfaceVariant;
 
     return SliverAppBar(
       expandedHeight: 190.0,
@@ -127,11 +134,17 @@ class _SettingsPageState extends State<SettingsPage> {
         background: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                theme.colorScheme.primary.withValues(alpha: 0.55),
-                theme.colorScheme.primary.withValues(alpha: 0.12),
-                theme.colorScheme.surface,
-              ],
+              colors: isDark
+                  ? [
+                      theme.colorScheme.primary.withValues(alpha: 0.55),
+                      theme.colorScheme.primary.withValues(alpha: 0.12),
+                      theme.colorScheme.surface,
+                    ]
+                  : [
+                      theme.colorScheme.primary.withValues(alpha: 0.16),
+                      theme.colorScheme.primary.withValues(alpha: 0.05),
+                      theme.colorScheme.surface,
+                    ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -145,7 +158,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Text(
                   'Settings',
                   style: theme.textTheme.headlineMedium?.copyWith(
-                    color: Colors.white,
+                    color: titleColor,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.6,
                   ),
@@ -154,7 +167,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Text(
                   'Tune Prism to match your mood.',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.85),
+                    color: subtitleColor,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -599,22 +612,35 @@ class _PillBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.22),
+        color: isDark
+            ? Colors.black.withValues(alpha: 0.22)
+            : theme.colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.25)
+              : theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: Colors.white),
+          Icon(
+            icon,
+            size: 14,
+            color: isDark ? Colors.white : theme.colorScheme.primary,
+          ),
           const SizedBox(width: 6),
           Text(
             text,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: isDark ? Colors.white : theme.colorScheme.onSurface,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
