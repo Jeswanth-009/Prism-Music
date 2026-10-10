@@ -21,6 +21,7 @@ import '../widgets/prism/prism_song_tile.dart';
 import '../widgets/prism/prism_states.dart';
 import 'album_page.dart';
 import 'chart_page.dart';
+import 'charts_hub_page.dart';
 import 'curated_playlist_page.dart';
 import 'recently_played_page.dart';
 import 'settings_page.dart';
@@ -171,11 +172,26 @@ class _HomeTabState extends State<HomeTab>
                         greeting: _greeting,
                         song: song,
                         isLoading: _loading,
-                        onPlay: song == null ? null : () => _play(song),
-                        onShuffle: _songs.isEmpty
+                        onPlay: song == null
                             ? null
                             : () {
-                                final shuffled = [..._songs]..shuffle();
+                                if (fromHistory) {
+                                  _play(song,
+                                      queue: library.recentlyPlayed, index: 0);
+                                } else {
+                                  _play(song, queue: _songs, index: 0);
+                                }
+                              },
+                        onShuffle: (fromHistory
+                                    ? library.recentlyPlayed
+                                    : _songs)
+                                .isEmpty
+                            ? null
+                            : () {
+                                final source = fromHistory
+                                    ? library.recentlyPlayed
+                                    : _songs;
+                                final shuffled = [...source]..shuffle();
                                 _play(shuffled.first,
                                     queue: shuffled, index: 0);
                               },
@@ -208,31 +224,34 @@ class _HomeTabState extends State<HomeTab>
             else ...[
               BlocBuilder<LibraryBloc, LibraryState>(
                 builder: (context, library) {
-                  if (library.recentlyPlayed.length < 2) {
+                  // If hero is showing the first item, show subsequent items so we don't duplicate
+                  final continueSongs = library.recentlyPlayed.length > 1
+                      ? library.recentlyPlayed.skip(1).take(10).toList()
+                      : <Song>[];
+                  if (continueSongs.isEmpty) {
                     return const SliverToBoxAdapter(
                       child: SizedBox.shrink(),
                     );
                   }
                   return _sliverSection(
                     title: 'Jump back in',
+                    subtitle: 'Continue listening from your recent tracks',
                     child: SizedBox(
                       height: 190,
                       child: ListView.separated(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         scrollDirection: Axis.horizontal,
-                        itemCount: library.recentlyPlayed
-                            .take(10)
-                            .length,
+                        itemCount: continueSongs.length,
                         separatorBuilder: (_, __) =>
                             const SizedBox(width: 14),
                         itemBuilder: (_, index) {
-                          final songs = library.recentlyPlayed.take(10).toList();
-                          final song = songs[index];
+                          final song = continueSongs[index];
                           return PrismMediaCard(
                             url: song.thumbnailUrl,
                             title: song.title,
                             subtitle: song.artist,
-                            onTap: () => _play(song, index: index, queue: songs),
+                            onTap: () => _play(song,
+                                index: index + 1, queue: library.recentlyPlayed),
                           );
                         },
                       ),
@@ -406,16 +425,9 @@ class _HomeTabState extends State<HomeTab>
   }
 
   void _openCharts() {
-    // Charts live in tab 2; from Home the quickest path is a chart hub push
-    // is not available (it is a tab), so open the first chart's hub instead.
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ChartPage(
-          chart: ChartService.getAvailableCharts(
-            _settings.countryCode,
-            _settings.selectedCountry.name,
-          ).first,
-        ),
+        builder: (_) => const ChartsHubPage(),
       ),
     );
   }
@@ -533,11 +545,12 @@ class _Hero extends StatelessWidget {
     return GestureDetector(
       onTap: onPlay,
       child: Container(
-        height: 296,
+        height: 200,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(PrismRadius.xl),
           color: theme.colorScheme.surfaceContainerHigh,
+          border: Border.all(color: context.prismSpec.hairline),
         ),
         child: Stack(
           fit: StackFit.expand,
@@ -553,7 +566,7 @@ class _Hero extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Icon(
                   Icons.music_note_rounded,
-                  size: 56,
+                  size: 48,
                   color: theme.colorScheme.onSurfaceVariant
                       .withValues(alpha: .4),
                 ),
@@ -565,25 +578,33 @@ class _Hero extends StatelessWidget {
                   begin: Alignment.bottomLeft,
                   end: Alignment.topRight,
                   colors: [
-                    Colors.black.withValues(alpha: .88),
-                    Colors.black.withValues(alpha: .35),
-                    Colors.transparent,
+                    Colors.black.withValues(alpha: .90),
+                    Colors.black.withValues(alpha: .45),
+                    Colors.black.withValues(alpha: .15),
                   ],
-                  stops: const [0, .55, 1],
+                  stops: const [0, .6, 1],
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    greeting.toUpperCase(),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: Colors.white.withValues(alpha: .85),
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.4,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      greeting.toUpperCase(),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                        fontSize: 10,
+                      ),
                     ),
                   ),
                   const Spacer(),
@@ -593,36 +614,38 @@ class _Hero extends StatelessWidget {
                             ? 'Finding music for you…'
                             : 'Find your next favourite')
                         : song!.title,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.headlineMedium?.copyWith(
+                    style: theme.textTheme.titleLarge?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
-                      height: 1.1,
+                      letterSpacing: -0.3,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
                     song?.artist ?? 'Search millions of songs',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withValues(alpha: .75),
+                      color: Colors.white.withValues(alpha: .80),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       FilledButton.icon(
                         onPressed: onPlay,
-                        icon: const Icon(Icons.play_arrow_rounded, size: 22),
+                        icon: const Icon(Icons.play_arrow_rounded, size: 20),
                         label: const Text('Play'),
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.white,
                           foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          visualDensity: VisualDensity.compact,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       _HeroIconButton(
                         icon: Icons.shuffle_rounded,
                         tooltip: 'Shuffle all',
@@ -639,6 +662,7 @@ class _Hero extends StatelessWidget {
     );
   }
 }
+
 
 /// Translucent white icon button used on the dark hero scrim.
 class _HeroIconButton extends StatelessWidget {

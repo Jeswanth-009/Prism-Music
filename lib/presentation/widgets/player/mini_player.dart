@@ -134,7 +134,7 @@ class MiniPlayer extends StatelessWidget {
                             _MiniAction(
                               label: 'Next',
                               icon: Icons.skip_next_rounded,
-                              onPressed: state.hasNext
+                              onPressed: state.canSkipNext
                                   ? () => context
                                       .read<PlayerBloc>()
                                       .add(const NextEvent())
@@ -192,3 +192,27 @@ class _MiniAction extends StatelessWidget {
     );
   }
 }
+
+/// Persistent mini player wrapper for subpage and collection routes.
+/// Renders the mini player with safe area padding when a song is active,
+/// and collapses smoothly when inactive.
+class PrismPersistentMiniPlayer extends StatelessWidget {
+  const PrismPersistentMiniPlayer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<PlayerBloc, PlayerState>(
+      builder: (context, state) {
+        if (state.currentSong == null) return const SizedBox.shrink();
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: const MiniPlayer(),
+          ),
+        );
+      },
+    );
+  }
+}
+
