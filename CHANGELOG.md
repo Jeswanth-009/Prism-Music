@@ -8,6 +8,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.33] - 2026-10-10
+
+### Added
+
+- Refine stats, settings, and onboarding pages with theme-aware contrast and retention disclosures
+- Enhance search taxonomy, charts hub text resilience, and remote playlist saving
+- Overhaul liked songs, playlists, recently played, and downloads with persistent mini-player and actions
+- Upgrade navigation bar with opaque background, accessibility semantics, and focus contract
+
+### Fixed
+
+- Resolve single-track repeat socket EOF and queue loop-around (RepeatMode.one & all)
+
 ## [0.2.32] - 2026-10-09
 
 ### Fixed
@@ -603,3 +616,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.30]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.30-build66
 [0.2.31]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.31-build67
 [0.2.32]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.32-build68
+[0.2.33]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.33-build69
