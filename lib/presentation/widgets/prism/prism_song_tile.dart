@@ -24,6 +24,8 @@ class PrismSongTile extends StatelessWidget {
     this.artSize = 48,
     this.onLongPress,
     this.numbered = false,
+    this.showOverflowAction = true,
+    this.isDownloaded = false,
   });
 
   final Song song;
@@ -36,6 +38,8 @@ class PrismSongTile extends StatelessWidget {
   final double artSize;
   final VoidCallback? onLongPress;
   final bool numbered;
+  final bool showOverflowAction;
+  final bool isDownloaded;
 
   @override
   Widget build(BuildContext context) {
@@ -43,94 +47,128 @@ class PrismSongTile extends StatelessWidget {
     final spec = context.prismSpec;
     final accent = isPlaying ? spec.accent : null;
 
-    return InkWell(
-      onTap: onTap,
-      onLongPress: onLongPress ?? () => showPrismSongActions(context, song),
-      borderRadius: BorderRadius.circular(PrismRadius.md),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          children: [
-            if (numbered && index != null) ...[
-              SizedBox(
-                width: 26,
-                child: Text(
-                  '${index! + 1}',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: accent ??
-                        theme.colorScheme.onSurfaceVariant.withValues(
-                          alpha: .8,
-                        ),
-                    fontWeight: FontWeight.w700,
-                    fontFeatures: [FontFeature.tabularFigures()],
+    return Semantics(
+      button: true,
+      selected: isPlaying,
+      label: '${song.title} by ${song.artist}',
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress ?? () => showPrismSongActions(context, song),
+        borderRadius: BorderRadius.circular(PrismRadius.md),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              if (numbered && index != null) ...[
+                SizedBox(
+                  width: 26,
+                  child: Text(
+                    '${index! + 1}',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: accent ??
+                          theme.colorScheme.onSurfaceVariant.withValues(
+                            alpha: .8,
+                          ),
+                      fontWeight: FontWeight.w700,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-            ],
-            SizedBox.square(
-              dimension: artSize,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  PrismArtwork(
-                    url: song.thumbnailUrl,
-                    borderRadius: PrismRadius.sm,
-                  ),
-                  if (isPlaying)
-                    Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: .45),
-                          borderRadius: BorderRadius.circular(PrismRadius.sm),
-                        ),
-                        child: Center(
-                          child: _PlayingBars(
-                            color: Colors.white,
-                            paused: isPlayingPaused,
+                const SizedBox(width: 10),
+              ],
+              SizedBox.square(
+                dimension: artSize,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    PrismArtwork(
+                      url: song.thumbnailUrl,
+                      borderRadius: PrismRadius.sm,
+                    ),
+                    if (isPlaying)
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: .45),
+                            borderRadius: BorderRadius.circular(PrismRadius.sm),
+                          ),
+                          child: Center(
+                            child: _PlayingBars(
+                              color: Colors.white,
+                              paused: isPlayingPaused,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    song.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: accent,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      song.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: accent,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle ?? song.artist,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        if (isDownloaded) ...[
+                          Icon(
+                            Icons.download_done_rounded,
+                            size: 13,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        Expanded(
+                          child: Text(
+                            subtitle ?? song.artist,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            trailing ??
+              const SizedBox(width: 8),
+              if (trailing != null)
+                trailing!
+              else ...[
                 Text(
                   song.durationFormatted,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
-                    fontFeatures: [FontFeature.tabularFigures()],
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
-          ],
+                if (showOverflowAction) ...[
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.more_vert_rounded, size: 18),
+                    tooltip: 'More options for ${song.title}',
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 36, minHeight: 36),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => showPrismSongActions(context, song),
+                  ),
+                ],
+              ],
+            ],
+          ),
         ),
       ),
     );
