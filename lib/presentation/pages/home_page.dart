@@ -29,10 +29,9 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
-      extendBody: true,
+      extendBody: false,
       body: BlocListener<PlayerBloc, PlayerState>(
         listenWhen: (prev, next) =>
             prev.currentSong?.id != next.currentSong?.id,
@@ -46,53 +45,54 @@ class _HomePageState extends State<HomePage> {
           }
         },
         child: Stack(
-        children: [
-          // Subtle single-hue tint at the top; otherwise flat surface.
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    scheme.primary.withValues(alpha: 0.04),
-                    scheme.surface,
-                    scheme.surface,
-                  ],
-                  stops: const [0, 0.22, 1],
+          children: [
+            // Subtle single-hue tint at the top; otherwise flat surface.
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      scheme.primary.withValues(alpha: 0.04),
+                      scheme.surface,
+                      scheme.surface,
+                    ],
+                    stops: const [0, 0.22, 1],
+                  ),
                 ),
               ),
             ),
-          ),
-          IndexedStack(
-            index: _currentIndex,
-            children: const [
-              HomeTab(),
-              SearchPage(embedded: true),
-              ChartsHubPage(),
-              LibraryTab(),
-            ],
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: bottomPadding + _kNavBarHeight + _kNavBarBottomPadding + 10,
-            child: BlocBuilder<PlayerBloc, PlayerState>(
+            IndexedStack(
+              index: _currentIndex,
+              children: const [
+                HomeTab(),
+                SearchPage(embedded: true),
+                ChartsHubPage(),
+                LibraryTab(),
+              ],
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            BlocBuilder<PlayerBloc, PlayerState>(
               builder: (context, state) {
                 if (state.currentSong == null) return const SizedBox.shrink();
-                return const MiniPlayer();
+                return const Padding(
+                  padding: EdgeInsets.only(bottom: 6),
+                  child: MiniPlayer(),
+                );
               },
             ),
-          ),
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: bottomPadding > 0 ? bottomPadding : _kNavBarBottomPadding,
-            child: _PrismNavBar(
+            _PrismNavBar(
               currentIndex: _currentIndex,
               onSelect: (index) => setState(() => _currentIndex = index),
             ),
-          ),
           ],
         ),
       ),
@@ -126,83 +126,84 @@ class _PrismNavBar extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final spec = context.prismSpec;
 
-    return Material(
-      color: Colors.transparent,
-      elevation: 4,
-      borderRadius: BorderRadius.circular(26),
-      child: Container(
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainer,
-          borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: spec.hairline),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.22),
-              blurRadius: 22,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: List.generate(_items.length, (i) {
-            final item = _items[i];
-            final isSelected = i == currentIndex;
-            return Expanded(
-              child: Semantics(
-                button: true,
-                selected: isSelected,
-                label: '${item.label} tab',
-                child: Tooltip(
-                  message: item.label,
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => onSelect(i),
-                      borderRadius: BorderRadius.circular(18),
-                      child: AnimatedContainer(
-                        duration: PrismMotion.base,
-                        curve: PrismMotion.curve,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        decoration: BoxDecoration(
-                          color: isSelected ? spec.accentSoft : Colors.transparent,
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              isSelected ? item.selected : item.icon,
-                              size: 21,
-                              color: isSelected
-                                  ? scheme.primary
-                                  : scheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              item.label,
-                              maxLines: 1,
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                fontWeight:
-                                    isSelected ? FontWeight.w700 : FontWeight.w500,
-                                color: isSelected
-                                    ? scheme.primary
-                                    : scheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainer,
+        border: Border(top: BorderSide(color: spec.hairline)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: List.generate(_items.length, (i) {
+          final item = _items[i];
+          final isSelected = i == currentIndex;
+          return Expanded(
+            child: Semantics(
+              button: true,
+              selected: isSelected,
+              label: '${item.label} tab',
+              child: Tooltip(
+                message: item.label,
+                child: FocusableActionDetector(
+                  actions: {
+                    ActivateIntent: CallbackAction<ActivateIntent>(
+                      onInvoke: (_) => onSelect(i),
+                    ),
+                  },
+                  child: InkWell(
+                    onTap: () => onSelect(i),
+                    borderRadius: BorderRadius.circular(PrismRadius.md),
+                    child: AnimatedContainer(
+                      duration: PrismMotion.baseOf(context),
+                      curve: PrismMotion.curve,
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      decoration: BoxDecoration(
+                        color:
+                            isSelected ? spec.accentSoft : Colors.transparent,
+                        borderRadius: BorderRadius.circular(PrismRadius.md),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isSelected ? item.selected : item.icon,
+                            size: 22,
+                            color: isSelected
+                                ? scheme.primary
+                                : scheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            item.label,
+                            maxLines: 1,
+                            style:
+                                Theme.of(context).textTheme.labelSmall?.copyWith(
+                                      fontWeight: isSelected
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                      color: isSelected
+                                          ? scheme.primary
+                                          : scheme.onSurfaceVariant,
+                                    ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
               ),
-            );
-          }),
-        ),
+            ),
+          );
+        }),
       ),
     );
-
   }
 }
+
