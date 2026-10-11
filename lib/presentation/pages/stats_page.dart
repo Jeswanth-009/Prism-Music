@@ -300,73 +300,76 @@ class _PlaysChart extends StatelessWidget {
     final maxCount = counts.fold(1, math.max);
     final spec = context.prismSpec;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(PrismRadius.lg),
-        border: Border.all(color: spec.hairline),
-      ),
-      child: Column(
-        children: [
-          SizedBox(
-            height: 96,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                for (var i = 0; i < counts.length; i++)
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 3),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          if (counts[i] > 0)
-                            Text(
-                              '${counts[i]}',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                                fontFeatures: const [
-                                  FontFeature.tabularFigures(),
-                                ],
-                              ),
-                            ),
-                          const SizedBox(height: 4),
-                          Flexible(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: counts[i] == 0
-                                    ? theme.colorScheme.surfaceContainerHigh
-                                    : (i == counts.length - 1
-                                        ? theme.colorScheme.primary
-                                        : spec.accentSoft.withValues(
-                                            alpha: .55 + .45 * (counts[i] / maxCount),
-                                          )),
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(4),
+    return Semantics(
+      label: 'Listening activity chart for the last 14 days. Today: ${counts.last} plays.',
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(PrismRadius.lg),
+          border: Border.all(color: spec.hairline),
+        ),
+        child: Column(
+          children: [
+            SizedBox(
+              height: 96,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  for (var i = 0; i < counts.length; i++)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            if (counts[i] > 0)
+                              Text(
+                                '${counts[i]}',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
                                 ),
                               ),
-                              height: counts[i] == 0
-                                  ? 4
-                                  : (counts[i] / maxCount) * 64,
+                            const SizedBox(height: 4),
+                            Flexible(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: counts[i] == 0
+                                      ? theme.colorScheme.surfaceContainerHigh
+                                      : (i == counts.length - 1
+                                          ? theme.colorScheme.primary
+                                          : spec.accentSoft.withValues(
+                                              alpha: .55 + .45 * (counts[i] / maxCount),
+                                            )),
+                                  borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(4),
+                                  ),
+                                ),
+                                height: counts[i] == 0
+                                    ? 4
+                                    : (counts[i] / maxCount) * 64,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          DefaultTextStyle(
-            style: theme.textTheme.labelSmall ?? const TextStyle(fontSize: 11),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [Text('14 days ago'), Text('Today')],
+            const SizedBox(height: 8),
+            DefaultTextStyle(
+              style: theme.textTheme.labelSmall ?? const TextStyle(fontSize: 11),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [Text('14 days ago'), Text('Today')],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -431,11 +434,16 @@ class _TopRow extends StatelessWidget {
               ),
             ),
             if (meta != null)
-              Text(
-                meta!,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: Text(
+                  meta!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
               ),
           ],

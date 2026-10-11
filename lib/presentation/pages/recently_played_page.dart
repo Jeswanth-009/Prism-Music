@@ -78,31 +78,43 @@ class RecentlyPlayedPage extends StatelessWidget {
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                  child: Row(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Row(
+                        children: [
+                          Text(
+                            '${songs.length} ${songs.length == 1 ? 'song' : 'songs'} in history',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const Spacer(),
+                          FilledButton.tonalIcon(
+                            onPressed: () => _playAll(context, songs),
+                            icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                            label: const Text('Play all'),
+                            style: FilledButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton.filledTonal(
+                            tooltip: 'Shuffle history',
+                            onPressed: () => _playAll(context, songs, shuffle: true),
+                            icon: const Icon(Icons.shuffle_rounded, size: 18),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                       Text(
-                        '${songs.length} ${songs.length == 1 ? 'song' : 'songs'} in history',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
+                        'Stored privately on your device. Cleared history does not affect lifetime play statistics.',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
                         ),
-                      ),
-                      const Spacer(),
-                      FilledButton.tonalIcon(
-                        onPressed: () => _playAll(context, songs),
-                        icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                        label: const Text('Play all'),
-                        style: FilledButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton.filledTonal(
-                        tooltip: 'Shuffle history',
-                        onPressed: () => _playAll(context, songs, shuffle: true),
-                        icon: const Icon(Icons.shuffle_rounded, size: 18),
-                        visualDensity: VisualDensity.compact,
                       ),
                     ],
                   ),
@@ -117,6 +129,7 @@ class RecentlyPlayedPage extends StatelessWidget {
                     return BlocBuilder<PlayerBloc, PlayerState>(
                       builder: (context, playerState) => PrismSongTile(
                         song: song,
+                        showOverflowAction: true,
                         isPlaying: playerState.currentSong?.id == song.id,
                         isPlayingPaused: !playerState.isPlaying,
                         onTap: () => context.read<PlayerBloc>().add(

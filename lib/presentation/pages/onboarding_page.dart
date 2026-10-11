@@ -29,8 +29,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       icon: Icons.shield_outlined,
       title: 'Private by design',
       body:
-          'Your likes, playlists, and listening history stay strictly on '
-          'your device. Zero trackers, zero profiling.',
+          'Your likes, playlists, and listening history stay on your device without user tracking. Streams are fetched directly from external providers (YouTube/JioSaavn), and optional features like Last.fm scrobbling are entirely up to you.',
     ),
     (
       icon: Icons.equalizer_rounded,
