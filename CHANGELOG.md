@@ -8,6 +8,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.35] - 2026-10-11
+
+### Added
+
+- Add history retention notices, stats semantics, and transparent onboarding disclosures
+- Add error recovery banner, stream format badge, and persistent controls in lyrics mode
+- Expose song metadata and album artwork in download transfer queue
+- Enhance charts, library import flow, and playlist detail robustness
+- Preserve full playback queue and add pagination progress indicator
+- Compact editorial hero and deduplicate continue-listening recommendations
+- Dock bottom navigation bar and add reliable bottom insets
+- Add PrismCollectionHeader and enhance PrismSongTile with overflow actions
+- Add spacing tokens, pill radius, reduced motion, and safe sheet scrolling
+
+### Fixed
+
+- Remove unused constants in home_page and unused import in test
+
 ## [0.2.34] - 2026-10-11
 
 ### Added
@@ -625,3 +643,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.32]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.32-build68
 [0.2.33]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.33-build69
 [0.2.34]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.34-build70
+[0.2.35]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.35-build71
