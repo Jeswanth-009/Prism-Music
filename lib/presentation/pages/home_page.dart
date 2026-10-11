@@ -11,8 +11,6 @@ import 'home_tab.dart';
 import 'library_tab.dart';
 import 'search_page.dart';
 
-const double _kNavBarHeight = 62;
-const double _kNavBarBottomPadding = 12;
 
 /// App shell: tabbed content with a floating navigation pill and the
 /// persistent mini player above it.
