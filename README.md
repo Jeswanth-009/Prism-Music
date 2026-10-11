@@ -2,206 +2,246 @@
 
 <img src="docs/media/banner.png" alt="Prism Music — All your music. One app. No account." width="100%">
 
-**A privacy-first, open-source music player for Android, built with Flutter.**
-Search and stream from YouTube Music and JioSaavn, download for offline, scrobble to Last.fm — and keep every like, playlist and play count on your device. No account. No ads. No first-party tracking. Streams and lyrics are fetched directly from external services over HTTPS without an intermediary backend (see [PRIVACY.md](PRIVACY.md)).
+# Prism Music
+
+**A privacy-first, open-source music streaming and offline player for Android, built with Flutter.**
+
+Search and stream millions of songs from YouTube Music and JioSaavn with line-synced lyrics, lossless audio, smart radio recommendations, and native equalizer — completely free, open-source, and on-device. No accounts. No subscriptions. No ads. No telemetry.
 
 [![CI](https://github.com/Jeswanth-009/Prism-Music/actions/workflows/ci.yml/badge.svg)](https://github.com/Jeswanth-009/Prism-Music/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Jeswanth-009/Prism-Music?include_prereleases&label=release&color=7C6CFF)](https://github.com/Jeswanth-009/Prism-Music/releases)
-[![Platform](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)](https://github.com/Jeswanth-009/Prism-Music/releases)
-[![Made with Flutter](https://img.shields.io/badge/made%20with-Flutter-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
+[![Platform](https://img.shields.io/badge/platform-Android%207.0%2B-3DDC84?logo=android&logoColor=white)](https://github.com/Jeswanth-009/Prism-Music/releases)
+[![Made with Flutter](https://img.shields.io/badge/made%20with-Flutter%203.38-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
 [![License](https://img.shields.io/badge/license-MIT-35D0B4)](LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-21A366)](CONTRIBUTING.md)
+[![Direct APK Download](https://img.shields.io/badge/download-latest%20APK-FB8A5A?logo=android&logoColor=white)](https://github.com/Jeswanth-009/Prism-Music/releases/latest)
 
-[Download](#download--install) · [Features](#features) · [How it works](#how-it-works) · [Privacy](PRIVACY.md) · [Documentation](#documentation) · [Contributing](#contributing) · [Website](https://jeswanth-009.github.io/Prism-Music/)
+[⬇️ Download](#download--install) · [✨ Features](#features) · [📸 Screenshots](#screenshots) · [⚡ How It Works](#how-it-works) · [🔒 Privacy](PRIVACY.md) · [🌐 Website](https://jeswanth-009.github.io/Prism-Music/) · [📚 Documentation](#documentation) · [🤝 Contributing](#contributing)
 
 </div>
 
-## Screenshots
+---
 
-| Home | Now Playing | Search |
+## 📸 Screenshots
+
+<div align="center">
+
+| Home | Now Playing | Search & Radio |
 | :---: | :---: | :---: |
-| <img src="docs/media/screenshots/framed-home.png" width="230" alt="Home screen"> | <img src="docs/media/screenshots/framed-player.png" width="230" alt="Now Playing screen"> | <img src="docs/media/screenshots/framed-search.png" width="230" alt="Search screen"> |
+| <img src="docs/media/screenshots/framed-home.png" width="240" alt="Home Screen"> | <img src="docs/media/screenshots/framed-player.png" width="240" alt="Now Playing Screen"> | <img src="docs/media/screenshots/framed-search.png" width="240" alt="Search Screen"> |
 
-| Charts | Listening stats | |
+| Charts Hub | Listening Stats | |
 | :---: | :---: | :---: |
-| <img src="docs/media/screenshots/framed-charts.png" width="230" alt="Charts screen"> | <img src="docs/media/screenshots/framed-stats.png" width="230" alt="Listening stats screen"> | |
+| <img src="docs/media/screenshots/framed-charts.png" width="240" alt="Charts Screen"> | <img src="docs/media/screenshots/framed-stats.png" width="240" alt="Listening Stats Screen"> | |
 
-## Why Prism Music
+</div>
 
-- **No account.** Search, play, like and download — nothing in the core flow asks you to sign in.
-- **Local-first.** Likes, playlists, history and stats live in an on-device database with zero cloud telemetry. Backups live in app-private storage by default, with an opt-in shared copy or manual export to survive uninstalls.
-- **Direct streaming.** Streams, search results and lyrics are fetched directly from public third-party endpoints over HTTPS with no middleman proxy or logging server.
-- **Fallback-first playback.** Four independent stream sources, request retries and a circuit breaker keep songs playing when one path fails.
-- **Open pipeline.** CI, release automation and architecture docs are public from day one; every push to `main` ships a signed build.
+---
 
-## Features
+## 💡 Why Prism Music?
 
-**Streaming & Audio Engine**
+- 🚫 **Zero accounts or logins**: Search, stream, like, and download directly without ever signing up or handing over an email address.
+- 🔒 **100% Local-first data**: Likes, playlists, history, and listening metrics live strictly in an encrypted on-device database with zero cloud telemetry. Backups live in app-private storage with optional manual JSON export.
+- ⚡ **Direct HTTPS streaming**: Audio streams, catalog metadata, and lyrics are fetched directly from external services over HTTPS without intermediary proxy servers or logging middleboxes.
+- 🛡️ **Four-tier fallback resilience**: Automated stream failover (JioSaavn up to 320 kbps → YouTube Explode → Piped → Invidious) backed by a circuit breaker ensures playback never freezes when a provider experiences downtime.
+- 📻 **Infinite Radio recommendations**: Tap any searched track to immediately seed playback and trigger continuous algorithmic recommendations that learn from your listening habits.
+- 🚀 **Automated CI/CD pipeline**: Every commit to `main` passes full static analysis (`flutter analyze`), automated tests, and publishes signed Android APKs and AABs with SHA-256 checksums.
 
-- YouTube Music catalog search — songs, artists, albums and playlists
-- Multi-source playback with an automatic fallback chain: JioSaavn (up to 320 kbps) → YouTube Explode → Piped → Invidious with 15s overall resolution budget and circuit breakers
-- Quality tiers: Low (64 kbps), Medium (128 kbps), High (256 kbps), Ultra (320 kbps Opus) / Lossless
-- Stream caching with composite keying (`videoId` + quality) and expiration parsing, so repeat plays start instantly
-- Dynamic native equalizer and audio effects dynamically bound to the active audio session ID, with ±6 dB treble shelf and bass boost
-- Seamless crossfade (0–10s configurable) and authoritative audio focus orchestration that never auto-resumes after an explicit user pause
+---
 
-**Player & UI**
+## ✨ Features
 
-- Background playback with lock-screen and media-notification controls
-- Synced lyrics from LRCLIB with auto-scroll, plus an offline lyrics cache
-- Editable queue — play next, reorder, remove — with shuffle, repeat, sleep timer (including true end-of-track completion mode), and 0.25–2.0× speed
-- Jitter-free seek slider with local drag preview and seek on release
-- Adaptive accent color dynamically extracted from artwork and cached per track identity
-- AutoPlay toggle switch with generation tracking to prevent queue flooding
+### 🎧 Streaming Engine & Audio Architecture
+- **Multi-Source Fallback Chain**: Resolves tracks with high availability: JioSaavn (up to 320 kbps) → YouTube Explode → Piped (4 public mirrors) → Invidious (6 public mirrors) with a 15-second total resolution budget.
+- **Audio Quality Tiers & Format Badging**: Low (64 kbps), Medium (128 kbps), High (256 kbps), and Ultra (320 kbps Opus/AAC). The full player prominently displays live stream format badges (e.g. `160 kbps · OPUS` or `OFFLINE`).
+- **Composite Stream Caching**: Keyed by `videoId` and quality tier with expiration parsing, enabling instantaneous repeat playback and reduced bandwidth usage.
+- **Native Equalizer & Audio Effects**: Dynamically bound to the active audio session ID with ±6 dB treble shelf, bass boost, and presets.
+- **Seamless Crossfade & Audio Focus**: 0–10 second configurable crossfade with authoritative audio focus orchestration that respects system interruptions and never auto-resumes after an explicit user pause.
 
-**Downloads & Offline Experience**
+### 📱 Full Player, Lyrics & UI Polish
+- **Line-Synced Lyrics (LRCLIB)**: Real-time karaoke-style auto-scroll, manual timing sync offset adjustment, and offline lyrics caching.
+- **Persistent Transport Controls**: Lyrics mode preserves prominent Play/Pause, Skip, and seek controls without obscuring lyrics.
+- **Playback Error Recovery**: If an audio stream fails mid-session, an inline recovery banner provides instant one-tap retry without disrupting the user.
+- **Dynamic Artwork Accent**: Palette extracted in real time from album art, dynamically tinting the player and background glow.
+- **Docked Navigation & Unified Spacing**: Docked bottom navigation bar with keyboard focus accessibility and consistent `PrismSpacing` tokens across every collection view.
 
-- Resilient offline download pipeline: atomic temporary file download (`.tmp` → validated rename), 60s timeout, and audio container integrity checks
-- Direct stream reuse eliminating redundant network resolutions
-- Offline metadata and artwork caching for uninterrupted offline library search and playback
-- Real-time download progress updates and delete notifications synchronized across the app
+### 📥 Offline Downloads & Transfer Queue
+- **Atomic Download Pipeline**: Temporary `.tmp` file downloads with atomic renaming, 60-second timeouts, and audio container integrity checks.
+- **Rich Transfer Queue**: View active downloads with real-time percentage progress, cancel actions, song titles, artist names, and album art thumbnails.
+- **Offline Library Search**: Metadata and artwork cached locally for fully functional offline playback.
 
-**Library & Persistence**
+### 📚 Library, Persistence & Smart Discovery
+- **Infinite Radio from Search**: Tapping any song from search seeds the playback queue and automatically populates continuous recommended tracks.
+- **Universal Playlist Import**: Import public Spotify and YouTube playlists via URL with token-based fuzzy matching and local storage.
+- **14-Day Listening Analytics**: Visual play history chart with screen reader semantics, top artists, top songs, and lifetime statistics.
+- **Privacy Disclosures**: Clear on-device storage notices explaining that play counts and history remain strictly on your phone.
+- **Last.fm Scrobbling**: Optional integration to scrobble plays directly to your Last.fm profile.
 
-- Liked songs, recently played, playlists, and downloads
-- Full listening-stats page: plays, unique songs, listening time, a 14-day chart, and top rotation based on retained history
-- Safe optimistic library mutations with automatic rollback on persistence errors
-- Serialized playlist mutations preventing race conditions
-- Import playlists from Spotify or YouTube links with token-based fuzzy confidence scoring
-- Atomic on-device JSON backups (app-private storage by default, with opt-in shared storage copy or export) with newest-timestamp restoration
-- Granular cache controls showing measured disk usage and comprehensive cleanup (image disk cache, lyrics, and streams)
-- Fail-safe startup with bounded initialization timeouts and a `StartupErrorApp` recovery screen
+---
 
-## Download & install
+## 📊 Feature Comparison
 
-1. Grab the latest APK from [Releases](https://github.com/Jeswanth-009/Prism-Music/releases) — every push to `main` publishes a signed `alpha-vX.Y.Z-buildN` prerelease with APK, AAB and SHA-256 checksums.
-2. On the device, open the APK and allow installs from your browser or files app when prompted.
-3. Requires **Android 7.0 or newer**.
+| Feature | Prism Music | Spotify Free | YouTube Music Free | Generic Players |
+|---|:---:|:---:|:---:|:---:|
+| **Account Required** | ❌ **No** | ✅ Yes | ✅ Yes | ❌ No |
+| **Advertisements** | ❌ **None** | ⚠️ Audio & Video Ads | ⚠️ Video Ads | ⚠️ Banner Ads |
+| **Offline Downloads** | ✅ **Free & Local** | ❌ Paywalled | ❌ Paywalled | ⚠️ Local files only |
+| **Line-Synced Lyrics** | ✅ **Included (LRCLIB)** | ⚠️ Restricted | ⚠️ Basic | ❌ Missing |
+| **Multi-Source Failover** | ✅ **4 Independent Sources** | ❌ Single CDN | ❌ Single CDN | ❌ N/A |
+| **Native Equalizer** | ✅ **Built-in** | ⚠️ Basic | ⚠️ Basic | ⚠️ Varies |
+| **First-Party Tracking** | ❌ **Zero Telemetry** | ⚠️ Extensive | ⚠️ Extensive | ⚠️ Ad trackers |
+| **Open Source** | ✅ **MIT License** | ❌ Proprietary | ❌ Proprietary | ⚠️ Varies |
 
-<details>
-<summary>Updating from a build older than <code>alpha-v0.2.21</code>?</summary>
+---
 
-Releases before `alpha-v0.2.21` were signed with per-run debug keys, so Android rejects them as an update ("package conflict"). Uninstall the old build once, then install `alpha-v0.2.21` or newer — all later releases share a stable signing key and update in place.
-</details>
+## ⚡ How It Works
 
-## How it works
-
-Prism Music follows a layered architecture — presentation (pages, widgets, BLoCs), domain (entities, repository contracts), data (repository implementations, remote/local data sources) and core (DI, services, mappers). Deep dives live in [ARCHITECTURE.md](ARCHITECTURE.md) and [STREAM_ARCHITECTURE.md](STREAM_ARCHITECTURE.md).
+Prism Music is built on a clean, layered architectural model:
+- **Presentation**: Pages, widgets, and BLoC state managers (`PlayerBloc`, `SearchBloc`, `LibraryBloc`, `ThemeCubit`).
+- **Domain**: Pure entities (`Song`, `Album`, `Artist`, `Playlist`, `Lyrics`) and repository contracts.
+- **Data**: Implementations of repositories, local Hive data sources, and remote clients.
+- **Core**: Dependency injection (`get_it`), audio session coordination, stream loading, and download management.
 
 ```mermaid
-flowchart LR
-    Q["PlayerBloc"] --> R["Media resolver"]
-    R --> D{"Already downloaded?"}
-    D -- "yes" --> L["Local file"]
-    D -- "no" --> C["Stream cache<br/>45-min TTL · prefetch"]
-    C --> F["Source fallback chain"]
-    F --> J["JioSaavn<br/>up to 320 kbps"]
-    F --> Y["YouTube Explode"]
-    F --> P["Piped"]
-    F --> I["Invidious"]
-    L --> A["just_audio<br/>+ audio_service"]
-    J --> A
-    Y --> A
-    P --> A
-    I --> A
+flowchart TD
+    subgraph UI ["Presentation Layer"]
+        Search["Search Page"]
+        Player["Full Player & Mini Player"]
+        Lib["Library & Playlists"]
+    end
+
+    subgraph Bloc ["State Management"]
+        PB["PlayerBloc"]
+        SB["SearchBloc"]
+        LB["LibraryBloc"]
+    end
+
+    subgraph AudioEngine ["Core Audio & Resolver"]
+        MR["MediaResolver"]
+        SC["StreamCache (45-min TTL)"]
+        RS["RecommendationService"]
+        DL["DownloadService"]
+    end
+
+    subgraph FallbackChain ["Multi-Source Fallback Chain"]
+        JIO["1. JioSaavn (up to 320 kbps)"]
+        YTE["2. YouTube Explode"]
+        PIP["3. Piped Mirrors"]
+        INV["4. Invidious Mirrors"]
+    end
+
+    subgraph PlayerService ["Audio Output"]
+        JA["just_audio + audio_service"]
+    end
+
+    Search -->|Tap Song| PB
+    PB -->|Seed track| RS
+    RS -->|Append recommended tracks| PB
+    PB --> MR
+    MR -->|Check downloaded| DL
+    MR -->|Check cache| SC
+    SC -->|Cache miss| FallbackChain
+    FallbackChain --> JA
+    DL -->|Offline file| JA
 ```
 
-```text
-lib/
-├── core/           # DI, services (audio, streams, lyrics, recs), mappers, utils
-├── data/           # repository implementations, remote + local data sources
-├── domain/         # entities (Song, Album, Artist, Playlist, Lyrics, ...) and contracts
-└── presentation/   # BLoCs, pages, theme tokens, shared widget library
-```
+---
 
-**Tech stack**
+## ⬇️ Download & Install
 
-| Concern | Stack |
-| --- | --- |
-| Framework | Flutter · Dart 3 · Material 3 |
-| State | flutter_bloc · equatable · rxdart |
-| Audio | just_audio · audio_service · audio_session |
-| Sources | dart_ytmusic_api · youtube_explode_dart · darttubefix |
-| Persistence | Hive (fully on-device) |
-| DI | get_it · injectable |
-| Network | dio · connectivity_plus |
-| UI | google_fonts (Inter) · cached_network_image · palette_generator |
+### Installation Steps
+1. Download the latest APK from the [Releases](https://github.com/Jeswanth-009/Prism-Music/releases) page.
+2. Open the downloaded `.apk` file on your Android device.
+3. If prompted, enable **"Install from unknown sources"** for your browser or file manager.
+4. Tap **Install** and launch Prism Music.
 
-## Development
+> [!NOTE]
+> **System Requirements**: Android 7.0 (Nougat, API level 24) or higher.
+> Architectures supported: `arm64-v8a`, `armeabi-v7a`, `x86_64`.
 
-**Prerequisites:** Flutter stable (3.38.4+ recommended), an Android SDK, and a device or emulator.
+<details>
+<summary>Updating from builds older than <code>alpha-v0.2.21</code>?</summary>
+
+Releases before `alpha-v0.2.21` used temporary debug signatures. If Android shows a "package conflict" error when updating from an older build, uninstall the legacy version once and install the new release. All modern builds share a stable release signature and update seamlessly in place.
+</details>
+
+---
+
+## 🛠️ Local Development
+
+### Prerequisites
+- **Flutter SDK**: 3.38.4+ (stable channel)
+- **Dart SDK**: 3.8+
+- **Android Studio / Android SDK**: Platform API 34+
+- Physical Android device or emulator
+
+### Getting Started
 
 ```bash
+# Clone the repository
 git clone https://github.com/Jeswanth-009/Prism-Music.git
 cd Prism-Music
+
+# Install dependencies
 flutter pub get
+
+# Run static analysis
+flutter analyze
+
+# Run full automated test suite
+flutter test
+
+# Launch on connected device
 flutter run
 ```
 
-Release builds: `flutter build apk --release` (or `flutter build appbundle`).
-
-**Testing** — four tiers: unit/BLoC, widget, golden (dark/light × common phone sizes) and an on-device integration flow. See [docs/TESTING.md](docs/TESTING.md) for the inventory, conventions and the Android 13/14/15 regression matrix.
+### Build Release Artifacts
 
 ```bash
-flutter analyze && flutter test    # everything except integration
-flutter test integration_test     # on a booted device or emulator
+# Release APK
+flutter build apk --release
+
+# Android App Bundle (AAB)
+flutter build appbundle --release
 ```
 
-## Releases & versioning
+---
 
-Releases are fully automated: push to `main` and the [auto-version workflow](.github/workflows/auto-version.yml) verifies quality gates (`flutter analyze` and `flutter test`), bumps the version, tags `alpha-v<version>-build<build>`, builds a signed APK/AAB and publishes a GitHub prerelease with checksums. Include `[minor]` or `[major]` in a commit message to force a bigger bump; doc-only changes skip the release entirely. The Android `versionCode` strictly matches the monotonic Flutter build number. The manual process is documented in [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
+## 📚 Documentation Index
 
-<details>
-<summary>Release signing details</summary>
+| Guide | Description |
+|---|---|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Architectural layers, dependency injection, and BLoC contracts |
+| [STREAM_ARCHITECTURE.md](STREAM_ARCHITECTURE.md) | Multi-source resolution, stream caching, prefetching, and fallback rules |
+| [PRIVACY.md](PRIVACY.md) | Transparent privacy disclosures, permission usage, and local data storage |
+| [BACKEND_INTEGRATION.md](BACKEND_INTEGRATION.md) | Direct API mappings for catalog search, metadata, and lyrics |
+| [docs/TESTING.md](docs/TESTING.md) | Testing strategy across unit, widget, golden, and integration tests |
+| [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | Automated CI/CD release pipeline and verification steps |
+| [LASTFM_SETUP.md](LASTFM_SETUP.md) | Guide to configuring your Last.fm API credentials for scrobbling |
+| [CHANGELOG.md](CHANGELOG.md) | Complete release notes and monotonic version history |
+| [SECURITY.md](SECURITY.md) | Security policy and vulnerability disclosure guidelines |
 
-Signing is enabled automatically when these repository secrets are set: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEY_ALIAS`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`. Releases are signed with the project keystore at `android/release-keystore.jks` (kept out of git; credentials live in the gitignored `android/key.properties`). Without the secrets, builds fall back to debug signing — and since each CI runner generates its own throwaway debug key, those APKs can never update an install of another build.
+---
 
-> Keep `android/release-keystore.jks` and `android/key.properties` backed up somewhere safe. If both are lost, no future APK can update existing installs.
-</details>
+## 🤝 Contributing
 
-## Roadmap
+Contributions are warmly welcome! Whether fixing bugs, submitting feature suggestions, or polishing translations:
+- Please check existing [Issues](https://github.com/Jeswanth-009/Prism-Music/issues) before opening a new one.
+- Follow the conventional commit style (e.g. `feat(player): ...`, `fix(search): ...`).
+- Ensure all tests pass (`flutter analyze && flutter test`) before submitting pull requests.
+- Read [CONTRIBUTING.md](CONTRIBUTING.md) for full contribution guidelines.
 
-| Milestone | Status | Scope |
-| --- | --- | --- |
-| Material 3 UI revamp | Done | Design system, home, search, library, player, lyrics |
-| P1 feature gaps | Done | Song actions, playlist import, theme persistence, remote playlists |
-| Playback polish | Done | Crossfade, audio-quality selection, sleep timer, treble, cache management |
-| Experience depth | Done | Full stats page, dynamic accent color, onboarding |
-| Beta readiness | Next | Regression pass, quality gates, iOS evaluation |
+---
 
-## Known limitations
+## 📄 License & Acknowledgments
 
-- Treble applies a single top-band EQ shelf (±6 dB), not a full multi-band equalizer
-- Audio-quality changes apply from the next song onward, not mid-track
-- Android-first — the iOS and desktop folders exist but are untested
-- Streaming depends on public third-party endpoints (YouTube, JioSaavn, Piped/Invidious mirrors); individual sources can break between builds until a fallback picks up the slack
+Prism Music is open-source software licensed under the [MIT License](LICENSE).
 
-## Contributing
-
-Contributions are welcome — bug reports, feature ideas and PRs alike. See [CONTRIBUTING.md](CONTRIBUTING.md) for dev setup and the conventional-commit style (`feat(player): ...`). Bug reports and feature requests have ready-made [issue templates](.github/ISSUE_TEMPLATE), and security issues are handled privately per [SECURITY.md](SECURITY.md).
-
-## Documentation
-
-| Doc | Contents |
-| --- | --- |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Layered design, DI, BLoC structure, fallback strategy |
-| [STREAM_ARCHITECTURE.md](STREAM_ARCHITECTURE.md) | Stream loading, caching, prefetch, source fallbacks |
-| [BACKEND_INTEGRATION.md](BACKEND_INTEGRATION.md) | Backend-agnostic playback path and song mapping |
-| [PRIVACY.md](PRIVACY.md) | Comprehensive privacy policy, data flow, and permission disclosures |
-| [docs/TESTING.md](docs/TESTING.md) | Test tiers, conventions, golden tests, device matrix |
-| [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | Manual release gates and post-release verification |
-| [LASTFM_SETUP.md](LASTFM_SETUP.md) | Enabling Last.fm scrobbling with your own API key |
-| [CHANGELOG.md](CHANGELOG.md) | Release history |
-| [SECURITY.md](SECURITY.md) | Supported versions and private vulnerability reporting |
-
-Historical research and design notes: [PRISM_MUSIC_DOCUMENTATION.md](PRISM_MUSIC_DOCUMENTATION.md), [MUSIC_APPS_DOCUMENTATION.md](MUSIC_APPS_DOCUMENTATION.md), [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md).
-
-## Acknowledgments
-
-Prism Music stands on a lot of open work: the [Flutter](https://flutter.dev) team and the authors of `just_audio`, `audio_service`, `flutter_bloc` and `hive`; `youtube_explode_dart` and `dart_ytmusic_api`; the [Piped](https://github.com/TeamPiped/Piped) and [Invidious](https://github.com/iv-org/invidious) communities; [LRCLIB](https://lrclib.net) for synced lyrics; and [Last.fm](https://www.last.fm) for scrobbling.
-
-Prism Music is an independent, community project. It is not affiliated with or endorsed by Google/YouTube, JioSaavn, Spotify, Billboard or Last.fm, and it streams through public APIs provided by those and other parties.
-
-## License
-
-[MIT](LICENSE) — free to use, modify and distribute.
+Special thanks to the open-source projects and communities that make Prism Music possible:
+- [Flutter](https://flutter.dev) & [Dart](https://dart.dev)
+- [`just_audio`](https://pub.dev/packages/just_audio) & [`audio_service`](https://pub.dev/packages/audio_service) by Ryan Heise
+- [`flutter_bloc`](https://pub.dev/packages/flutter_bloc) by Felix Angelov
+- [`hive`](https://pub.dev/packages/hive) by Simon Leier
+- [`youtube_explode_dart`](https://pub.dev/packages/youtube_explode_dart)
+- [LRCLIB](https://lrclib.net) for synced lyrics
+- [Piped](https://github.com/TeamPiped/Piped) & [Invidious](https://github.com/iv-org/invidious) communities
