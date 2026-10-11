@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/di/injection.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../domain/entities/song.dart';
+import '../../domain/entities/stream_info.dart';
 import '../blocs/library/library_bloc.dart';
 import '../blocs/library/library_event.dart' hide DownloadSongEvent;
 import '../blocs/library/library_state.dart';
@@ -124,6 +125,50 @@ class _PlayerPageState extends State<PlayerPage> {
                 child: Column(
                   children: [
                     _buildHeader(context, theme, song),
+                    if (state.errorMessage != null &&
+                        state.status == PlayerStatus.error)
+                      Container(
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.errorContainer
+                              .withValues(alpha: 0.88),
+                          borderRadius:
+                              BorderRadius.circular(PrismRadius.md),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.error_outline_rounded,
+                                color: theme.colorScheme.error, size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                state.errorMessage!,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onErrorContainer,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                context.read<PlayerBloc>().add(
+                                      PlaySongEvent(
+                                        song: song,
+                                        queue: state.queue,
+                                        queueIndex: state.queueIndex,
+                                      ),
+                                    );
+                              },
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      ),
                     Expanded(
                       child: AnimatedSwitcher(
                         duration: PrismMotion.base,
@@ -150,6 +195,7 @@ class _PlayerPageState extends State<PlayerPage> {
                                       const SizedBox(height: 28),
                                       _SongInfo(
                                         song: song,
+                                        streamInfo: state.currentStreamInfo,
                                         onArtistTap: _openArtistPage,
                                       ),
                                     ],
@@ -511,9 +557,14 @@ class _AlbumArtwork extends StatelessWidget {
 }
 
 class _SongInfo extends StatelessWidget {
-  const _SongInfo({required this.song, required this.onArtistTap});
+  const _SongInfo({
+    required this.song,
+    this.streamInfo,
+    required this.onArtistTap,
+  });
 
   final Song song;
+  final StreamInfo? streamInfo;
   final void Function(String) onArtistTap;
 
   @override
@@ -543,6 +594,45 @@ class _SongInfo extends StatelessWidget {
             ),
             onArtistTap: onArtistTap,
           ),
+          if (streamInfo != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest
+                    .withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(PrismRadius.pill),
+              ),
+              child: Text(
+                '${streamInfo!.bitrate > 0 ? '${streamInfo!.bitrate} kbps · ' : ''}${streamInfo!.codec.toUpperCase()}',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ] else if (song.source == MusicSource.local) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest
+                    .withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(PrismRadius.pill),
+              ),
+              child: Text(
+                'OFFLINE',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
