@@ -224,10 +224,14 @@ class _HomeTabState extends State<HomeTab>
             else ...[
               BlocBuilder<LibraryBloc, LibraryState>(
                 builder: (context, library) {
-                  // If hero is showing the first item, show subsequent items so we don't duplicate
-                  final continueSongs = library.recentlyPlayed.length > 1
-                      ? library.recentlyPlayed.skip(1).take(10).toList()
-                      : <Song>[];
+                  final heroSong = library.recentlyPlayed.isNotEmpty
+                      ? library.recentlyPlayed.first
+                      : (_songs.isEmpty ? null : _songs.first);
+                  // Exclude hero song so we never duplicate covers above the fold
+                  final continueSongs = library.recentlyPlayed
+                      .where((s) => s.id != heroSong?.id)
+                      .take(10)
+                      .toList();
                   if (continueSongs.isEmpty) {
                     return const SliverToBoxAdapter(
                       child: SizedBox.shrink(),
@@ -322,26 +326,33 @@ class _HomeTabState extends State<HomeTab>
                     ),
                   ),
                 ),
-              _sliverSection(
-                title: 'Trending now',
-                subtitle:
-                    '${_settings.selectedCountry.flag} ${_settings.selectedCountry.name}',
-                actionLabel: 'Refresh',
-                onAction: _load,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < _songs.take(8).length; i++)
-                        PrismSongTile(
-                          song: _songs[i],
-                          index: i,
-                          numbered: true,
-                          onTap: () => _play(_songs[i], index: i),
-                        ),
-                    ],
-                  ),
-                ),
+              BlocBuilder<LibraryBloc, LibraryState>(
+                builder: (context, library) {
+                  final fromHistory = library.recentlyPlayed.isNotEmpty;
+                  final startIndex = fromHistory ? 0 : 1;
+                  final displayTrending = _songs.skip(startIndex).take(8).toList();
+                  return _sliverSection(
+                    title: 'Trending now',
+                    subtitle:
+                        '${_settings.selectedCountry.flag} ${_settings.selectedCountry.name}',
+                    actionLabel: 'Refresh',
+                    onAction: _load,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < displayTrending.length; i++)
+                            PrismSongTile(
+                              song: displayTrending[i],
+                              index: startIndex + i,
+                              numbered: true,
+                              onTap: () => _play(displayTrending[i], index: startIndex + i),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
               _sliverSection(
                 title: 'Top charts',
@@ -397,7 +408,7 @@ class _HomeTabState extends State<HomeTab>
                 ),
               ),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 145),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
                 sliver: SliverToBoxAdapter(
                   child: BlocBuilder<LibraryBloc, LibraryState>(
                     builder: (context, state) => _HistoryPrompt(
@@ -545,10 +556,10 @@ class _Hero extends StatelessWidget {
     return GestureDetector(
       onTap: onPlay,
       child: Container(
-        height: 200,
+        height: 152,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(PrismRadius.xl),
+          borderRadius: BorderRadius.circular(PrismRadius.lg),
           color: theme.colorScheme.surfaceContainerHigh,
           border: Border.all(color: context.prismSpec.hairline),
         ),
@@ -566,7 +577,7 @@ class _Hero extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Icon(
                   Icons.music_note_rounded,
-                  size: 48,
+                  size: 40,
                   color: theme.colorScheme.onSurfaceVariant
                       .withValues(alpha: .4),
                 ),
@@ -587,23 +598,23 @@ class _Hero extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       greeting.toUpperCase(),
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
-                        fontSize: 10,
+                        letterSpacing: 1.1,
+                        fontSize: 9.5,
                       ),
                     ),
                   ),
@@ -616,32 +627,32 @@ class _Hero extends StatelessWidget {
                         : song!.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleLarge?.copyWith(
+                    style: theme.textTheme.titleMedium?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: -0.3,
+                      letterSpacing: -0.2,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 1),
                   Text(
                     song?.artist ?? 'Search millions of songs',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium?.copyWith(
+                    style: theme.textTheme.bodySmall?.copyWith(
                       color: Colors.white.withValues(alpha: .80),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
                       FilledButton.icon(
                         onPressed: onPlay,
-                        icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                        icon: const Icon(Icons.play_arrow_rounded, size: 18),
                         label: const Text('Play'),
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.white,
                           foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                           visualDensity: VisualDensity.compact,
                         ),
                       ),
