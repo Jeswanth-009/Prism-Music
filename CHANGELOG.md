@@ -8,6 +8,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.34] - 2026-10-11
+
+### Added
+
+- Add tap-to-seek, sync correction, and manual scroll toggle for lyrics
+- Preserve regional scripts, strengthen artist confidence, and enhance cache identity
+
 ## [0.2.33] - 2026-10-10
 
 ### Added
@@ -617,3 +624,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.31]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.31-build67
 [0.2.32]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.32-build68
 [0.2.33]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.33-build69
+[0.2.34]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.34-build70
