@@ -85,11 +85,10 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void _onFilterChanged(SearchFilter filter) {
+    context.read<SearchBloc>().add(UpdateFilterEvent(filter));
     final query = _searchController.text.trim();
     if (query.length >= 2) {
       _onSearch(query, filter: filter);
-    } else {
-      context.read<SearchBloc>().add(UpdateFilterEvent(filter));
     }
   }
 
@@ -154,7 +153,7 @@ class _SearchPageState extends State<SearchPage> {
                 if (!hasQuery)
                   ..._browseSlivers(state)
                 else ..._resultsSlivers(state),
-                const SliverPadding(padding: EdgeInsets.only(bottom: 140)),
+                const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
               ],
             );
           },
@@ -385,7 +384,7 @@ class _SearchPageState extends State<SearchPage> {
                 isPlayingPaused: !playerState.isPlaying,
                 onTap: () {
                   context.read<PlayerBloc>().add(
-                    PlaySongEvent(song: song, queue: [song], queueIndex: 0),
+                    PlaySongEvent(song: song, queue: songs, queueIndex: index),
                   );
                   if (!widget.embedded) Navigator.of(context).maybePop();
                 },
@@ -394,6 +393,19 @@ class _SearchPageState extends State<SearchPage> {
           },
         ),
       ),
+      if (state.isLoadingMore)
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
+            ),
+          ),
+        ),
     ];
   }
 
