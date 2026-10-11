@@ -1,6 +1,8 @@
 import 'package:dartz/dartz.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_music/core/di/injection.dart';
+import 'package:prism_music/core/error/error.dart';
 import 'package:prism_music/domain/entities/entities.dart';
 import 'package:prism_music/domain/repositories/music_repository.dart';
 import 'package:prism_music/presentation/widgets/player/player_lyrics_sheet.dart';
@@ -144,5 +146,92 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('First line one'), findsOneWidget);
     expect(find.textContaining('Song A'), findsNothing);
+  });
+
+  testWidgets('tapping a lyric line triggers seek on the player',
+      (tester) async {
+    final audio = FakeAudioPlayerService();
+    final bloc = buildTestPlayerBloc(audioPlayerService: audio);
+    addTearDown(bloc.close);
+
+    musicRepo.lyricsResult = Right(syncedLyrics('Seek'));
+
+    await pumpTestWidget(
+      tester,
+      const PlayerLyricsView(song: Song(
+        id: 's1',
+        title: 'Song One',
+        artist: 'Artist',
+        duration: Duration(seconds: 200),
+        thumbnails: Thumbnails(),
+      )),
+      playerBloc: bloc,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Seek line two'), findsOneWidget);
+
+    await tester.tap(find.text('Seek line two'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(audio.seekCalls, greaterThan(0));
+    expect(audio.lastSeekPosition, const Duration(milliseconds: 5000));
+  });
+
+  testWidgets('outage state displays outage error message', (tester) async {
+    musicRepo.lyricsResult = const Left(
+      ServerFailure(message: 'Lyrics service temporarily unavailable'),
+    );
+
+    await pumpTestWidget(
+      tester,
+      const PlayerLyricsView(song: Song(
+        id: 's1',
+        title: 'Song One',
+        artist: 'Artist',
+        duration: Duration(seconds: 200),
+        thumbnails: Thumbnails(),
+      )),
+      playerBloc: buildTestPlayerBloc(),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Lyrics service temporarily unavailable'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
+  });
+
+  testWidgets('sync adjustment modal opens and adjusts offset', (tester) async {
+    musicRepo.lyricsResult = Right(syncedLyrics('SyncTest'));
+
+    await pumpTestWidget(
+      tester,
+      const PlayerLyricsView(song: Song(
+        id: 's1',
+        title: 'Song One',
+        artist: 'Artist',
+        duration: Duration(seconds: 200),
+        thumbnails: Thumbnails(),
+      )),
+      playerBloc: buildTestPlayerBloc(),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.byIcon(Icons.tune_rounded), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Lyrics Sync Correction'), findsOneWidget);
+    expect(find.text('+0.5s'), findsOneWidget);
+
+    await tester.tap(find.text('+0.5s'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('+0.5s'), findsOneWidget);
   });
 }
