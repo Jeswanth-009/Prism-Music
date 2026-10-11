@@ -381,6 +381,7 @@ class _ArtistPageState extends State<ArtistPage> {
                 song: song,
                 index: index,
                 numbered: true,
+                showOverflowAction: true,
                 isPlaying: playerState.currentSong?.id == song.id,
                 isPlayingPaused: !playerState.isPlaying,
                 onTap: () => _playSong(song, _topSongs),

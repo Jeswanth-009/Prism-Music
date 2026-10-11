@@ -145,10 +145,13 @@ class _LibraryTabState extends State<LibraryTab>
                           prev.status == LibraryStatus.importing),
                   listener: (context, importState) {
                     if (importState.status == LibraryStatus.importing) {
-                      showPrismToast(context, 'Importing playlist…');
+                      showPrismToast(context, 'Importing playlist in background…');
                     }
                   },
-                  child: _ImportTile(onTap: _importPlaylist),
+                  child: _ImportTile(
+                    onTap: _importPlaylist,
+                    isImporting: state.status == LibraryStatus.importing,
+                  ),
                 ),
               ),
             ),
@@ -176,7 +179,7 @@ class _LibraryTabState extends State<LibraryTab>
                     maxCrossAxisExtent: 220,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
-                    childAspectRatio: 0.82,
+                    childAspectRatio: 0.8,
                   ),
                   itemCount: state.playlists.length,
                   itemBuilder: (context, index) {
@@ -204,7 +207,7 @@ class _LibraryTabState extends State<LibraryTab>
               ),
             ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 150),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
               sliver: SliverToBoxAdapter(
                 child: Column(
                   children: [
@@ -636,9 +639,10 @@ class _CardDeleteButton extends StatelessWidget {
 
 /// Full-width entry pointing at the Spotify/YouTube import flow.
 class _ImportTile extends StatelessWidget {
-  const _ImportTile({required this.onTap});
+  const _ImportTile({required this.onTap, this.isImporting = false});
 
   final VoidCallback onTap;
+  final bool isImporting;
 
   @override
   Widget build(BuildContext context) {
@@ -650,27 +654,39 @@ class _ImportTile extends StatelessWidget {
         side: BorderSide(color: context.prismSpec.hairline),
       ),
       child: InkWell(
-        onTap: onTap,
+        onTap: isImporting ? null : onTap,
         borderRadius: BorderRadius.circular(PrismRadius.lg),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
-              Icon(Icons.download_for_offline_outlined,
-                  color: theme.colorScheme.primary),
-              const SizedBox(width: 12),
+              if (isImporting)
+                SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: theme.colorScheme.primary,
+                  ),
+                )
+              else
+                Icon(Icons.download_for_offline_outlined,
+                    color: theme.colorScheme.primary),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Import playlist',
+                      isImporting ? 'Import in progress…' : 'Import playlist',
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     Text(
-                      'Bring a Spotify or YouTube playlist into Prism',
+                      isImporting
+                          ? 'Extracting tracks and matching songs…'
+                          : 'Bring a Spotify or YouTube playlist into Prism',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -678,10 +694,11 @@ class _ImportTile extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              if (!isImporting)
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
             ],
           ),
         ),

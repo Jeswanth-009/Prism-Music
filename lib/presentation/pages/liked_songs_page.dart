@@ -288,6 +288,7 @@ class _LikedSongsPageState extends State<LikedSongsPage> {
                       return BlocBuilder<PlayerBloc, PlayerState>(
                         builder: (context, playerState) => PrismSongTile(
                           song: song,
+                          showOverflowAction: true,
                           isPlaying: playerState.currentSong?.id == song.id,
                           isPlayingPaused: !playerState.isPlaying,
                           onTap: () => context.read<PlayerBloc>().add(

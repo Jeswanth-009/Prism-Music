@@ -144,76 +144,83 @@ class _RemotePlaylistPageState extends State<RemotePlaylistPage> {
             )
           : _error != null
               ? PrismErrorState(message: _error, onRetry: _load)
-              : CustomScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 52,
-                              height: 52,
-                              decoration: BoxDecoration(
-                                color: context.prismSpec.accentSoft,
-                                borderRadius:
-                                    BorderRadius.circular(PrismRadius.md),
-                              ),
-                              child: widget.playlist.thumbnails?.medium !=
-                                      null
-                                  ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(
-                                        PrismRadius.md,
-                                      ),
-                                      child: Image.network(
-                                        widget.playlist.thumbnails!.medium!,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => Icon(
-                                          Icons.queue_music_rounded,
-                                          color: theme.colorScheme.primary,
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  color: theme.colorScheme.primary,
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 52,
+                                height: 52,
+                                decoration: BoxDecoration(
+                                  color: context.prismSpec.accentSoft,
+                                  borderRadius:
+                                      BorderRadius.circular(PrismRadius.md),
+                                ),
+                                child: widget.playlist.thumbnails?.medium !=
+                                        null
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(
+                                          PrismRadius.md,
                                         ),
+                                        child: Image.network(
+                                          widget.playlist.thumbnails!.medium!,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) => Icon(
+                                            Icons.queue_music_rounded,
+                                            color: theme.colorScheme.primary,
+                                          ),
+                                        ),
+                                      )
+                                    : Icon(
+                                        Icons.queue_music_rounded,
+                                        color: theme.colorScheme.primary,
                                       ),
-                                    )
-                                  : Icon(
-                                      Icons.queue_music_rounded,
-                                      color: theme.colorScheme.primary,
-                                    ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Text(
-                                '${_songs.length} songs · from search',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Text(
+                                  '${_songs.length} songs · from search',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 100),
-                      sliver: SliverList.builder(
-                        itemCount: _songs.length,
-                        itemBuilder: (context, index) {
-                          final song = _songs[index];
-                          return BlocBuilder<PlayerBloc, PlayerState>(
-                            builder: (context, playerState) => PrismSongTile(
-                              song: song,
-                              index: index,
-                              numbered: true,
-                              isPlaying:
-                                  playerState.currentSong?.id == song.id,
-                              isPlayingPaused: !playerState.isPlaying,
-                              onTap: () => _playAt(index),
-                            ),
-                          );
-                        },
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(8, 0, 8, 32),
+                        sliver: SliverList.builder(
+                          itemCount: _songs.length,
+                          itemBuilder: (context, index) {
+                            final song = _songs[index];
+                            return BlocBuilder<PlayerBloc, PlayerState>(
+                              builder: (context, playerState) => PrismSongTile(
+                                song: song,
+                                index: index,
+                                numbered: true,
+                                showOverflowAction: true,
+                                isPlaying:
+                                    playerState.currentSong?.id == song.id,
+                                isPlayingPaused: !playerState.isPlaying,
+                                onTap: () => _playAt(index),
+                              ),
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
     );
   }

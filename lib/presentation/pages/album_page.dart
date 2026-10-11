@@ -186,7 +186,7 @@ class _AlbumPageState extends State<AlbumPage> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            _album.artist,
+                            '${_album.artist}${_album.year != null ? ' · ${_album.year}' : ''}${songs.isNotEmpty ? ' · ${songs.length} tracks' : ''}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodyMedium?.copyWith(
@@ -245,7 +245,7 @@ class _AlbumPageState extends State<AlbumPage> {
               ),
             ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 40),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 32),
               sliver: SliverList.builder(
                 itemCount: songs.length,
                 itemBuilder: (context, index) {
@@ -255,6 +255,7 @@ class _AlbumPageState extends State<AlbumPage> {
                       song: song,
                       index: index,
                       numbered: true,
+                      showOverflowAction: true,
                       isPlaying: playerState.currentSong?.id == song.id,
                       isPlayingPaused: !playerState.isPlaying,
                       onTap: () => _playAt(index),

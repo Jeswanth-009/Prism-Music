@@ -203,103 +203,110 @@ class _CuratedPlaylistPageState extends State<CuratedPlaylistPage> {
                       icon: Icons.music_note_rounded,
                       message: 'No songs found',
                     )
-                  : CustomScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      slivers: [
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 52,
-                                  height: 52,
-                                  decoration: BoxDecoration(
-                                    color: context.prismSpec.accentSoft,
-                                    borderRadius:
-                                        BorderRadius.circular(PrismRadius.md),
+                  : RefreshIndicator(
+                      onRefresh: _loadPlaylist,
+                      color: theme.colorScheme.primary,
+                      child: CustomScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(
+                          parent: BouncingScrollPhysics(),
+                        ),
+                        slivers: [
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 52,
+                                    height: 52,
+                                    decoration: BoxDecoration(
+                                      color: context.prismSpec.accentSoft,
+                                      borderRadius:
+                                          BorderRadius.circular(PrismRadius.md),
+                                    ),
+                                    child: Icon(
+                                      widget.playlist.icon,
+                                      color: theme.colorScheme.primary,
+                                    ),
                                   ),
-                                  child: Icon(
-                                    widget.playlist.icon,
-                                    color: theme.colorScheme.primary,
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        widget.playlist.category,
-                                        style: theme.textTheme.labelMedium
-                                            ?.copyWith(
-                                          color: theme
-                                              .colorScheme.onSurfaceVariant,
-                                        ),
-                                      ),
-                                      if (_isFallback)
-                                        Padding(
-                                          padding: const EdgeInsets.only(top: 2),
-                                          child: Text(
-                                            'Discovery mix · Search fallback',
-                                            style: theme.textTheme.labelSmall?.copyWith(
-                                              color: theme.colorScheme.tertiary,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      if (_totalDuration != null)
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
                                         Text(
-                                          '${_songs.length} songs · ${_formatDuration(_totalDuration!)}',
-                                          style: theme.textTheme.bodySmall
+                                          widget.playlist.category,
+                                          style: theme.textTheme.labelMedium
                                               ?.copyWith(
                                             color: theme
                                                 .colorScheme.onSurfaceVariant,
                                           ),
                                         ),
-                                    ],
+                                        if (_isFallback)
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 2),
+                                            child: Text(
+                                              'Discovery mix · Search fallback',
+                                              style: theme.textTheme.labelSmall?.copyWith(
+                                                color: theme.colorScheme.tertiary,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        if (_totalDuration != null)
+                                          Text(
+                                            '${_songs.length} songs · ${_formatDuration(_totalDuration!)}',
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                              color: theme
+                                                  .colorScheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                FilledButton.icon(
-                                  onPressed: _playAll,
-                                  icon: const Icon(Icons.play_arrow_rounded),
-                                  label: const Text('Play'),
-                                ),
-                              ],
+                                  FilledButton.icon(
+                                    onPressed: _playAll,
+                                    icon: const Icon(Icons.play_arrow_rounded),
+                                    label: const Text('Play'),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                        SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(8, 4, 8, 100),
-                          sliver: SliverList.builder(
-                            itemCount: _songs.length,
-                            itemBuilder: (context, index) {
-                              final song = _songs[index];
-                              return BlocBuilder<PlayerBloc, PlayerState>(
-                                builder: (context, playerState) =>
-                                    PrismSongTile(
-                                  song: song,
-                                  index: index,
-                                  numbered: true,
-                                  isPlaying:
-                                      playerState.currentSong?.id == song.id,
-                                  isPlayingPaused: !playerState.isPlaying,
-                                  onTap: () {
-                                    context.read<PlayerBloc>().add(
-                                      PlaySongEvent(
-                                        song: song,
-                                        queue: _songs,
-                                        queueIndex: index,
-                                      ),
-                                    );
-                                  },
-                                ),
-                              );
-                            },
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(8, 4, 8, 32),
+                            sliver: SliverList.builder(
+                              itemCount: _songs.length,
+                              itemBuilder: (context, index) {
+                                final song = _songs[index];
+                                return BlocBuilder<PlayerBloc, PlayerState>(
+                                  builder: (context, playerState) =>
+                                      PrismSongTile(
+                                    song: song,
+                                    index: index,
+                                    numbered: true,
+                                    showOverflowAction: true,
+                                    isPlaying:
+                                        playerState.currentSong?.id == song.id,
+                                    isPlayingPaused: !playerState.isPlaying,
+                                    onTap: () {
+                                      context.read<PlayerBloc>().add(
+                                        PlaySongEvent(
+                                          song: song,
+                                          queue: _songs,
+                                          queueIndex: index,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
     );
   }
