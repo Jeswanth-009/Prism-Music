@@ -984,6 +984,8 @@ class MusicRepositoryImpl implements MusicRepository {
       }
 
       return Right(lyrics);
+    } on LyricsOutageException catch (e) {
+      return Left(ServerFailure(message: e.message));
     } catch (e) {
       return Left(UnknownFailure(message: e.toString()));
     }

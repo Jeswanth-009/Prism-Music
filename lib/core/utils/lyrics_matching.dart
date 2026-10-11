@@ -11,24 +11,33 @@ import '../../../../domain/entities/entities.dart';
 
 /// Tags that commonly trail YouTube music titles inside brackets or
 /// parentheses, case-insensitively.
+/// Tags that commonly trail YouTube music titles inside brackets or
+/// parentheses, case-insensitively, including regional and non-Latin tags.
 const List<String> _junkPhrases = [
   'official video',
   'official music video',
   'official audio',
   'official visualizer',
   'official lyric video',
+  'official mv',
   'lyric video',
   'lyrics',
   'lyrics video',
   'audio',
+  'audio song',
   'video',
+  'video song',
+  'full video',
+  'full audio',
   'visualizer',
   'mv',
   'm/v',
   'hd',
   'hq',
   '4k',
+  '4k 60fps',
   'remaster', // also matches "remastered" via prefix matching below
+  'remastered',
   'color coded',
   'explicit',
   'clean',
@@ -37,10 +46,64 @@ const List<String> _junkPhrases = [
   'snippet',
   'preview',
   'full episode', // music-show uploads ("BRS Episode 3")
+  '가사', // Korean: lyrics
+  '뮤직비디오', // Korean: music video
+  '歌詞', // Japanese/Chinese: lyrics
+  '官方mv', // Chinese: official MV
+  '完整版', // Chinese: full version
 ];
 
-/// Regex for bracketed/parenthesized segments: (…), […], {…}
-final RegExp _bracketSegment = RegExp(r'[\(\[\{][^\)\]\}]*[\)\]\}]');
+/// Known version keywords to distinguish live/remix/acoustic/remaster
+/// recordings from studio versions.
+const List<String> _versionKeywords = [
+  'live',
+  'remix',
+  'acoustic',
+  'instrumental',
+  'remaster',
+  'remastered',
+  'deluxe',
+  'radio edit',
+  'extended',
+  'orchestral',
+  'unplugged',
+  'version',
+  'session',
+];
+
+/// Stop-words to filter when computing token overlap for artists.
+const Set<String> _artistStopWords = {
+  'the',
+  'and',
+  '&',
+  'feat',
+  'ft',
+  'featuring',
+  'with',
+  'or',
+  'of',
+  'band',
+  'orchestra',
+};
+
+/// Regex for bracketed/parenthesized segments: (…), […], {…}, as well as
+/// full-width and CJK bracket types: （…）, 【…】, 〔…〕, 《…》, 「…」, 『…』, 〖…〗, ［…］, ｛…｝.
+final RegExp _bracketSegment = RegExp(
+  r'[\(\[\{\uFF08\uFF3B\uFF5B\u3010\u3014\u300A\u300C\u300E\u3016\u3008]'
+  r'[^\)\]\}\uFF09\uFF3D\uFF5D\u3011\u3015\u300B\u300D\u300F\u3017\u3009]*'
+  r'[\)\]\}\uFF09\uFF3D\uFF5D\u3011\u3015\u300B\u300D\u300F\u3017\u3009]',
+);
+
+/// Extract version signature from raw track title for cache partitioning.
+String extractVersionTag(String rawTitle) {
+  final lower = rawTitle.toLowerCase();
+  for (final keyword in _versionKeywords) {
+    if (lower.contains(keyword)) {
+      return keyword;
+    }
+  }
+  return 'standard';
+}
 
 /// Strip the noise that keeps YouTube titles from matching clean track
 /// names: bracketed junk segments, trailing "ft. …" suffixes (both
@@ -49,16 +112,18 @@ final RegExp _bracketSegment = RegExp(r'[\(\[\{][^\)\]\}]*[\)\]\}]');
 /// "Shape of You (Official Video)" -> "shape of you"
 /// "Levitating (feat. DaBaby)"     -> "levitating"
 /// "Blinding Lights [Lyrics]"      -> "blinding lights"
+/// "夜に駆ける 【Official Music Video】" -> "夜に駆ける"
 String normalizeTrackTitle(String rawTitle) {
-  var title = rawTitle.trim();
+  var title = rawTitle.replaceAll('\u3000', ' ').trim();
 
   // Repeatedly drop bracketed segments whose content is junk. Iterative
   // because tags nest or stack: "(Official Video) [HD]".
   for (var pass = 0; pass < 4; pass++) {
     var changed = false;
     title = title.replaceAllMapped(_bracketSegment, (match) {
-      final inner = match.group(0)!
-          .substring(1, match.group(0)!.length - 1)
+      final fullMatch = match.group(0)!;
+      final inner = fullMatch
+          .substring(1, fullMatch.length - 1)
           .trim()
           .toLowerCase();
       // Keep segments that look like real title content (e.g. "(Live from
@@ -67,7 +132,7 @@ String normalizeTrackTitle(String rawTitle) {
         (phrase) => inner == phrase || inner.startsWith('$phrase '),
       );
       changed = changed || isJunk;
-      return isJunk ? ' ' : match.group(0)!;
+      return isJunk ? ' ' : fullMatch;
     });
     if (!changed) break;
   }
@@ -90,13 +155,13 @@ String normalizeTrackTitle(String rawTitle) {
 /// "(with …)" segments from a title (recursively, so "feat. A ft. B"
 /// collapses too).
 String _stripTrailingFeat(String input) {
-  var text = input.trim();
+  var text = input.replaceAll('\u3000', ' ').trim();
   var previous = '';
   while (text != previous) {
     previous = text;
     text = text.replaceAll(
       RegExp(
-        r'[\(\[\{]?\s*(feat\.?|ft\.?|featuring)\s+.*$',
+        r'[\(\[\{\uFF08\uFF3B\u3010]?\s*(feat\.?|ft\.?|featuring)\s+.*$',
         caseSensitive: false,
       ),
       '',
@@ -104,7 +169,10 @@ String _stripTrailingFeat(String input) {
     // "(with X)" / "[with X]" at the very end — bracketed only, so plain
     // titles like "With or Without You" are never touched.
     text = text.replaceAll(
-      RegExp(r'\s*[\(\[\{]\s*with\s+.*[\)\]\}]\s*$', caseSensitive: false),
+      RegExp(
+        r'\s*[\(\[\{\uFF08\uFF3B\u3010]\s*with\s+.*[\)\]\}\uFF09\uFF3D\u3011]\s*$',
+        caseSensitive: false,
+      ),
       '',
     ).trim();
   }
@@ -113,7 +181,7 @@ String _stripTrailingFeat(String input) {
 
 /// Strip channel artifacts from artist names: " - Topic" and "VEVO".
 String normalizeArtistName(String rawArtist) {
-  var artist = rawArtist.trim();
+  var artist = rawArtist.replaceAll('\u3000', ' ').trim();
   artist = artist.replaceAll(
     RegExp(r'\s*-\s*Topic$', caseSensitive: false),
     '',
@@ -128,17 +196,28 @@ String normalizeArtistName(String rawArtist) {
 /// scripts (Tamil, Telugu, Hindi, Korean, etc.).
 String _collapseForMatch(String input) => input
     .toLowerCase()
+    .replaceAll('\u3000', ' ')
     .replaceAll(RegExp(r'[^\p{L}\p{M}\p{N}\s]', unicode: true), ' ')
     .replaceAll(RegExp(r'\s+'), ' ')
     .trim();
 
 /// Parse an LRC document into timed lines. Handles multiple timestamps per
 /// line (`[00:12.00][00:45.10]text`), comma decimal separators
-/// (`[00:12,50]`), and skips metadata lines ([ti:], [ar:] …) and empty
-/// lines.
+/// (`[00:12,50]`), LRC offset metadata (`[offset:+/-ms]`), and skips metadata
+/// lines ([ti:], [ar:] …) and empty lines.
 List<LyricLine> parseLrc(String lrc) {
   final lines = <LyricLine>[];
   final timestamp = RegExp(r'\[(\d{1,2}):(\d{2})(?:[.,:](\d{1,3}))?\]');
+  final offsetRegex =
+      RegExp(r'\[offset:\s*([+-]?\d+)\s*\]', caseSensitive: false);
+
+  int offsetMs = 0;
+  for (final rawLine in lrc.split('\n')) {
+    final offsetMatch = offsetRegex.firstMatch(rawLine);
+    if (offsetMatch != null) {
+      offsetMs = int.tryParse(offsetMatch.group(1) ?? '0') ?? 0;
+    }
+  }
 
   for (final rawLine in lrc.split('\n')) {
     final matches = timestamp.allMatches(rawLine).toList();
@@ -151,9 +230,12 @@ List<LyricLine> parseLrc(String lrc) {
       final minutes = int.parse(match.group(1)!);
       final seconds = int.parse(match.group(2)!);
       final fraction = match.group(3) ?? '0';
-      final milliseconds = int.parse(fraction.padRight(3, '0').substring(0, 3));
+      final milliseconds =
+          int.parse(fraction.padRight(3, '0').substring(0, 3));
+      final lineTimeMs =
+          (minutes * 60 + seconds) * 1000 + milliseconds + offsetMs;
       lines.add(LyricLine(
-        startTimeMs: (minutes * 60 + seconds) * 1000 + milliseconds,
+        startTimeMs: lineTimeMs < 0 ? 0 : lineTimeMs,
         text: text,
       ));
     }
@@ -208,14 +290,18 @@ class LyricsQuery {
 }
 
 /// Minimum score for a search candidate to be accepted.
-const double lyricsAcceptScore = 0.55;
+const double lyricsAcceptScore = 0.60;
 
 /// Score how well a candidate matches the query on a 0..1 scale:
-/// - title (0–0.5): exact normalized match, then containment
-/// - artist (0–0.3): exact normalized match, then any-token overlap
-/// - duration (0–0.2): proximity so studio/live/remastered versions stay
+/// - title (0–0.45): exact normalized match, then containment
+/// - artist (0–0.35): exact normalized match, then containment/token overlap
+/// - duration (0–0.15): proximity so studio/live/remastered versions stay
 ///   distinguishable
 /// - +0.05 bonus for synced lyrics (capped at 1.0)
+///
+/// If [query.artist] is non-empty, the candidate MUST have positive artist
+/// match confidence; unrelated artists with identical song titles are
+/// disqualified immediately (return 0.0).
 double scoreLyricsCandidate(LyricsQuery query, LyricsCandidate candidate) {
   final normalizedQueryTitle = normalizeTrackTitle(query.title);
   final normalizedCandidateTitle = normalizeTrackTitle(candidate.trackName);
@@ -226,42 +312,61 @@ double scoreLyricsCandidate(LyricsQuery query, LyricsCandidate candidate) {
   }
 
   if (normalizedCandidateTitle == normalizedQueryTitle) {
-    score += 0.5;
+    score += 0.45;
   } else if (normalizedCandidateTitle.contains(normalizedQueryTitle) ||
       normalizedQueryTitle.contains(normalizedCandidateTitle)) {
     // Partial containment — long descriptive queries against short
     // canonical titles still deserve credit.
-    score += 0.35;
+    score += 0.30;
   }
 
   final normalizedQueryArtist = normalizeArtistName(query.artist);
   final normalizedCandidateArtist = normalizeArtistName(candidate.artistName);
+
+  var artistScore = 0.0;
   if (normalizedQueryArtist.isNotEmpty &&
       normalizedCandidateArtist.isNotEmpty) {
     if (normalizedCandidateArtist == normalizedQueryArtist) {
-      score += 0.3;
+      artistScore = 0.35;
+    } else if (normalizedCandidateArtist.contains(normalizedQueryArtist) ||
+        normalizedQueryArtist.contains(normalizedCandidateArtist)) {
+      artistScore = 0.25;
     } else {
-      // Any shared artist token (e.g. "Arijit Singh" vs "Singh, Arijit").
-      final queryTokens = normalizedQueryArtist.split(' ').toSet();
-      final candidateTokens = normalizedCandidateArtist.split(' ').toSet();
-      if (queryTokens.intersection(candidateTokens).isNotEmpty) {
-        score += 0.15;
+      // Shared non-stopword tokens (e.g. "Arijit Singh" vs "Singh, Arijit").
+      final queryTokens = normalizedQueryArtist
+          .split(' ')
+          .where((t) => t.isNotEmpty && !_artistStopWords.contains(t))
+          .toSet();
+      final candidateTokens = normalizedCandidateArtist
+          .split(' ')
+          .where((t) => t.isNotEmpty && !_artistStopWords.contains(t))
+          .toSet();
+      if (queryTokens.isNotEmpty &&
+          candidateTokens.isNotEmpty &&
+          queryTokens.intersection(candidateTokens).isNotEmpty) {
+        artistScore = 0.15;
       }
     }
+
+    // When query artist is given, a candidate with zero artist confidence
+    // is disqualified to prevent false positive matches on common titles.
+    if (artistScore == 0.0) {
+      return 0.0;
+    }
   }
+
+  score += artistScore;
 
   final querySeconds = query.plausibleSeconds;
   final candidateSeconds = candidate.durationSeconds;
   if (querySeconds != null && candidateSeconds != null && candidateSeconds > 0) {
     final difference = (querySeconds - candidateSeconds).abs();
     if (difference <= 2) {
-      score += 0.2;
+      score += 0.15;
     } else if (difference <= 7) {
-      score += 0.12;
-    } else {
-      // Right title, wrong version (live vs studio) — heavy penalty.
-      score += 0.02;
+      score += 0.08;
     }
+    // Greater differences receive 0 bonus to separate versions.
   }
 
   if (candidate.hasSynced) score += 0.05;

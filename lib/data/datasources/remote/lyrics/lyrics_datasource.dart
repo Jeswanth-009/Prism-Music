@@ -28,6 +28,16 @@ abstract class LyricsDataSource {
   Future<String?> getPlainLyrics(String title, String artist);
 }
 
+/// Thrown when the lyrics service is unreachable or encounters an outage
+/// (5xx, timeouts, connection errors).
+class LyricsOutageException implements Exception {
+  final String message;
+  const LyricsOutageException(this.message);
+
+  @override
+  String toString() => 'LyricsOutageException: $message';
+}
+
 /// Implementation using the public LRCLIB API.
 class LyricsDataSourceImpl implements LyricsDataSource {
   final Dio _dio;
@@ -55,7 +65,12 @@ class LyricsDataSourceImpl implements LyricsDataSource {
     final songId = '${artist}_$title';
 
     if (!forceRefresh) {
-      final cached = await _cache.get(title, artist, songId);
+      final cached = await _cache.get(
+        title,
+        artist,
+        songId,
+        duration: duration,
+      );
       if (cached != null) return cached;
     }
 
@@ -65,14 +80,14 @@ class LyricsDataSourceImpl implements LyricsDataSource {
     //    sometimes carry 0 or a placeholder that would poison matching.
     final exact = await _fetchFromGet(query);
     if (exact != null) {
-      await _cacheSuccess(title, artist, exact);
+      await _cacheSuccess(title, artist, exact, duration: duration);
       return exact;
     }
 
     // 2. Candidate search with scoring.
     final scored = await _fetchFromSearch(query);
     if (scored != null) {
-      await _cacheSuccess(title, artist, scored);
+      await _cacheSuccess(title, artist, scored, duration: duration);
       return scored;
     }
 
@@ -91,7 +106,7 @@ class LyricsDataSourceImpl implements LyricsDataSource {
         '$_lrclibBaseUrl/get',
         queryParameters: {
           'track_name': _usable(query.title) ?? query.title,
-          'artist_name': _usable(query.artist) ?? query.artist,
+          'artist_name': _usableArtist(query.artist) ?? query.artist,
           if (query.plausibleSeconds != null)
             'duration': query.plausibleSeconds,
         },
@@ -102,7 +117,18 @@ class LyricsDataSourceImpl implements LyricsDataSource {
         return null;
       }
       return _mapLrclibEntry(response.data as Map<String, dynamic>, query);
-    } catch (_) {
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        return null;
+      }
+      if (_isOutage(e)) {
+        throw LyricsOutageException(
+          'Lyrics service temporarily unavailable (${e.response?.statusCode ?? e.type.name})',
+        );
+      }
+      return null;
+    } catch (e) {
+      if (e is LyricsOutageException) rethrow;
       return null;
     }
   }
@@ -113,7 +139,7 @@ class LyricsDataSourceImpl implements LyricsDataSource {
         '$_lrclibBaseUrl/search',
         queryParameters: {
           'track_name': _usable(query.title) ?? query.title,
-          'artist_name': _usable(query.artist) ?? query.artist,
+          'artist_name': _usableArtist(query.artist) ?? query.artist,
         },
         options: Options(headers: _lrclibHeaders),
       );
@@ -142,9 +168,28 @@ class LyricsDataSourceImpl implements LyricsDataSource {
         }
       }
       return best;
-    } catch (_) {
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        return null;
+      }
+      if (_isOutage(e)) {
+        throw LyricsOutageException(
+          'Lyrics service temporarily unavailable (${e.response?.statusCode ?? e.type.name})',
+        );
+      }
+      return null;
+    } catch (e) {
+      if (e is LyricsOutageException) rethrow;
       return null;
     }
+  }
+
+  bool _isOutage(DioException e) {
+    return e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.sendTimeout ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.connectionError ||
+        (e.response?.statusCode != null && e.response!.statusCode! >= 500);
   }
 
   Lyrics? _mapLrclibEntry(
@@ -181,11 +226,13 @@ class LyricsDataSourceImpl implements LyricsDataSource {
   Future<void> _cacheSuccess(
     String title,
     String artist,
-    Lyrics lyrics,
-  ) async {
+    Lyrics lyrics, {
+    Duration? duration,
+  }) async {
     await _cache.put(
       title,
       artist,
+      duration: duration,
       plainLyrics: lyrics.plainLyrics,
       syncedLrc: _encodeLrc(lyrics.syncedLyrics),
     );
@@ -204,10 +251,17 @@ class LyricsDataSourceImpl implements LyricsDataSource {
     }).join('\n');
   }
 
-  /// Normalized value for an LRCLIB query parameter, or null when
+  /// Normalized value for an LRCLIB track title query parameter, or null when
   /// normalization emptied the string (then the caller sends the raw one).
   String? _usable(String raw) {
     final normalized = normalizeTrackTitle(raw);
+    return normalized.isEmpty ? null : normalized;
+  }
+
+  /// Normalized value for an LRCLIB artist query parameter using artist-specific
+  /// normalization (stripping channel suffixes like " - Topic" and "VEVO").
+  String? _usableArtist(String raw) {
+    final normalized = normalizeArtistName(raw);
     return normalized.isEmpty ? null : normalized;
   }
 }

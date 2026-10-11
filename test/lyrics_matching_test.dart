@@ -59,8 +59,44 @@ void main() {
       );
     });
 
-    test('never empties a bare title', () {
-      expect(normalizeTrackTitle('Believer'), 'believer');
+    test('strips CJK brackets and multilingual junk tags', () {
+      expect(
+        normalizeTrackTitle('夜に駆ける 【Official Music Video】'),
+        '夜に駆ける',
+      );
+      expect(
+        normalizeTrackTitle('Dynamite （Official MV）'),
+        'dynamite',
+      );
+      expect(
+        normalizeTrackTitle('Track Title 【歌詞】'),
+        'track title',
+      );
+      expect(
+        normalizeTrackTitle('Track Title （가사）'),
+        'track title',
+      );
+      expect(
+        normalizeTrackTitle('Song [4K 60fps]'),
+        'song',
+      );
+    });
+
+    test('handles ideographic spaces correctly', () {
+      expect(
+        normalizeTrackTitle('Title　Name　(Official Video)'),
+        'title name',
+      );
+    });
+  });
+
+  group('extractVersionTag', () {
+    test('extracts live, remix, acoustic, and remaster keywords', () {
+      expect(extractVersionTag('Hotel California (Live)'), 'live');
+      expect(extractVersionTag('Song (Remix)'), 'remix');
+      expect(extractVersionTag('Song (Acoustic Version)'), 'acoustic');
+      expect(extractVersionTag('Song [2011 Remaster]'), 'remaster');
+      expect(extractVersionTag('Standard Song'), 'standard');
     });
   });
 
@@ -103,6 +139,16 @@ void main() {
     test('handles two-digit minute and comma fractions', () {
       final lines = parseLrc('[99:59,99]End');
       expect(lines.single.startTimeMs, 99 * 60 * 1000 + 59990);
+    });
+
+    test('applies positive and negative LRC offset metadata', () {
+      const lrcPositive = '[offset:500]\n[00:10.00]Line one';
+      final linesPos = parseLrc(lrcPositive);
+      expect(linesPos.single.startTimeMs, 10500);
+
+      const lrcNegative = '[offset:-500]\n[00:10.00]Line one';
+      final linesNeg = parseLrc(lrcNegative);
+      expect(linesNeg.single.startTimeMs, 9500);
     });
   });
 
@@ -167,7 +213,25 @@ void main() {
       expect(live, greaterThanOrEqualTo(lyricsAcceptScore));
     });
 
-    test('wrong artist scores below acceptance', () {
+    test('wrong artist scores zero and is disqualified even with identical title, duration, and synced lyrics', () {
+      final score = scoreLyricsCandidate(
+        const LyricsQuery(
+          title: 'Hello',
+          artist: 'Adele',
+          duration: Duration(seconds: 295),
+        ),
+        const LyricsCandidate(
+          trackName: 'Hello',
+          artistName: 'Lionel Richie',
+          durationSeconds: 295,
+          syncedLyrics: '[00:01.00]line',
+        ),
+      );
+      expect(score, equals(0.0));
+      expect(score, lessThan(lyricsAcceptScore));
+    });
+
+    test('wrong artist with no duration scores zero', () {
       final score = scoreLyricsCandidate(
         query(),
         const LyricsCandidate(
@@ -176,6 +240,7 @@ void main() {
           plainLyrics: 'text',
         ),
       );
+      expect(score, equals(0.0));
       expect(score, lessThan(lyricsAcceptScore));
     });
 
@@ -244,6 +309,55 @@ void main() {
         await cache.get('Unknown', 'Nobody', 'song-1'),
         isNull,
       );
+    });
+
+    test('cache keys partition live and studio recordings to avoid incorrect timing', () async {
+      final cache = LyricsLocalCache();
+      await cache.put(
+        'Hotel California',
+        'Eagles',
+        duration: const Duration(seconds: 390),
+        syncedLrc: '[00:01.00]studio version line',
+      );
+      await cache.put(
+        'Hotel California (Live)',
+        'Eagles',
+        duration: const Duration(seconds: 432),
+        syncedLrc: '[00:01.00]live version line',
+      );
+
+      final studio = await cache.get(
+        'Hotel California',
+        'Eagles',
+        's-1',
+        duration: const Duration(seconds: 390),
+      );
+      final live = await cache.get(
+        'Hotel California (Live)',
+        'Eagles',
+        's-2',
+        duration: const Duration(seconds: 432),
+      );
+
+      expect(studio, isNotNull);
+      expect(live, isNotNull);
+      expect(studio!.syncedLyrics!.first.text, 'studio version line');
+      expect(live!.syncedLyrics!.first.text, 'live version line');
+    });
+
+    test('honors cache freshness by expiring entries older than 7 days', () async {
+      final cache = LyricsLocalCache();
+      final box = await Hive.openBox<Map>('lyrics_cache');
+      final key = cache.cacheKey('Old Track', 'Old Artist');
+      await box.put(key, {
+        'plainLyrics': 'stale lyrics',
+        'source': 'LRCLIB',
+        'cachedAt': DateTime.now().subtract(const Duration(days: 8)).toIso8601String(),
+      });
+
+      final stale = await cache.get('Old Track', 'Old Artist', 'old-id');
+      expect(stale, isNull);
+      expect(box.get(key), isNull);
     });
 
     test('evicts oldest entries beyond the cap', () async {
