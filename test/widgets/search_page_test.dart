@@ -78,4 +78,34 @@ void main() {
 
     expect(bloc.state.filter, SearchFilter.artists);
   });
+
+  testWidgets('tapping a search result plays song with single seed queue', (tester) async {
+    final audio = FakeAudioPlayerService();
+    final playerBloc = buildTestPlayerBloc(audioPlayerService: audio);
+    addTearDown(playerBloc.close);
+
+    musicRepo.searchResult = Right([song('s1', 'Fade To Black')]);
+    bloc.add(const SearchQueryEvent(
+      query: 'fade to black',
+      filter: SearchFilter.songs,
+    ));
+
+    await pumpTestWidget(
+      tester,
+      const SearchPage(embedded: true),
+      searchBloc: bloc,
+      playerBloc: playerBloc,
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 500)),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Fade To Black'));
+    await tester.pump();
+
+    expect(playerBloc.state.currentSong?.title, 'Fade To Black');
+    expect(playerBloc.state.queue.first.title, 'Fade To Black');
+    expect(playerBloc.state.queue.take(1).map((s) => s.id), ['s1']);
+  });
 }
