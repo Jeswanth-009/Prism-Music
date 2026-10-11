@@ -1,15 +1,31 @@
 import 'package:flutter/material.dart';
 
-/// Styled bottom sheet — the standard replacement for the old Shad sheets.
+/// Styled bottom sheet — wraps content safely for keyboard insets and large text.
 Future<T?> showPrismSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
-  bool isScrollControlled = false,
+  bool isScrollControlled = true,
+  bool useSafeArea = true,
 }) {
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: isScrollControlled,
-    builder: builder,
+    useSafeArea: useSafeArea,
+    backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (sheetContext) => SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+        ),
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: builder(sheetContext),
+        ),
+      ),
+    ),
   );
 }
 

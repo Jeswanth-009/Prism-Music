@@ -104,6 +104,18 @@ extension PrismThemeX on BuildContext {
   bool get isPrismDark => Theme.of(this).brightness == Brightness.dark;
 }
 
+/// Spacing scale used consistently across all views and collection routes.
+abstract final class PrismSpacing {
+  static const xxs = 2.0;
+  static const xs = 4.0;
+  static const sm = 8.0;
+  static const md = 12.0;
+  static const lg = 16.0;
+  static const xl = 20.0;
+  static const xxl = 24.0;
+  static const xxxl = 32.0;
+}
+
 /// Radius scale used across the app.
 abstract final class PrismRadius {
   static const xs = 6.0;
@@ -111,12 +123,25 @@ abstract final class PrismRadius {
   static const md = 14.0;
   static const lg = 18.0;
   static const xl = 24.0;
+  static const pill = 999.0;
 }
 
-/// Standard motion durations + curve.
+/// Standard motion durations + curve with reduced-motion support.
 abstract final class PrismMotion {
   static const fast = Duration(milliseconds: 150);
   static const base = Duration(milliseconds: 220);
   static const slow = Duration(milliseconds: 320);
   static const curve = Curves.easeOutCubic;
+
+  /// Returns Duration.zero if the user has requested reduced motion.
+  static Duration duration(BuildContext context, Duration standard) {
+    return MediaQuery.maybeDisableAnimationsOf(context) ?? false
+        ? Duration.zero
+        : standard;
+  }
+
+  static Duration fastOf(BuildContext context) => duration(context, fast);
+  static Duration baseOf(BuildContext context) => duration(context, base);
+  static Duration slowOf(BuildContext context) => duration(context, slow);
 }
+
