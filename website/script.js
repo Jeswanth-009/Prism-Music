@@ -386,16 +386,90 @@
     });
   }
 
-  /* ── 8. Live GitHub Releases API Integration ─────────────────── */
+  /* ── 8. Live GitHub Releases API & Changelog Integration ─────── */
   const mRelease = document.getElementById("mRelease");
   const mAsset = document.getElementById("mAsset");
   const mSize = document.getElementById("mSize");
   const mDate = document.getElementById("mDate");
+  const mNote = document.getElementById("mNote");
   const versionLabel = document.getElementById("versionLabel");
+  const buildLabel = document.getElementById("buildLabel");
   const ossStars = document.getElementById("ossStars");
+  const ossReleases = document.getElementById("ossReleases");
+  const ossDownloads = document.getElementById("ossDownloads");
   const starsVal = document.getElementById("starsVal");
+  const forksVal = document.getElementById("forksVal");
   const heroChips = document.getElementById("heroChips");
+  const feedList = document.getElementById("feedList");
   const downloadLinks = document.querySelectorAll("[data-download-link]");
+
+  function fmt(n) {
+    if (typeof n !== "number" || isNaN(n)) return "—";
+    return n.toLocaleString("en-US");
+  }
+
+  function parseTag(tag) {
+    const m = /v?(\d+)\.(\d+)\.(\d+)(?:-build(\d+))?/i.exec(tag || "");
+    return m ? [+m[1], +m[2], +m[3], m[4] ? +m[4] : 0] : null;
+  }
+
+  function compareTags(a, b) {
+    for (let i = 0; i < 4; i++) {
+      if (a[i] !== b[i]) return a[i] - b[i];
+    }
+    return 0;
+  }
+
+  function firstReleaseNote(body) {
+    if (!body) return "";
+    const lines = body.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+        .replace(/^#+\s*/, "")
+        .replace(/^[-*]\s*/, "")
+        .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+        .replace(/`/g, "")
+        .trim();
+      if (line && !/^automated/i.test(line)) return line;
+    }
+    return "";
+  }
+
+  function parseChangelogNotes(md) {
+    const notes = {};
+    if (!md) return notes;
+    const sections = md.split(/^## /m);
+    for (let i = 1; i < sections.length; i++) {
+      const m = /^\[([\d.]+)\]/.exec(sections[i]);
+      if (!m) continue;
+      const lines = sections[i].split(/\r?\n/);
+      for (let j = 1; j < lines.length; j++) {
+        const line = lines[j].replace(/^[-*]\s*/, "").trim();
+        if (line && !/^###/.test(lines[j])) {
+          notes[m[1]] = line;
+          break;
+        }
+      }
+    }
+    return notes;
+  }
+
+  function noteForRelease(release) {
+    const parsed = parseTag(release.tag_name || "");
+    if (parsed && window.__prismNotes) {
+      const key = `${parsed[0]}.${parsed[1]}.${parsed[2]}`;
+      if (window.__prismNotes[key]) return window.__prismNotes[key];
+    }
+    const note = firstReleaseNote(release.body);
+    if (!note || /automated alpha release/i.test(note)) return "maintenance & stability release";
+    return note;
+  }
+
+  function pickApkAsset(assets) {
+    const apks = (assets || []).filter(a => /\.apk$/i.test(a.name));
+    const device = apks.filter(a => !/x86|emulator/i.test(a.name));
+    return device[0] || apks[0] || null;
+  }
 
   function updateDownloadLinks(url, tagName) {
     downloadLinks.forEach(link => {
@@ -406,42 +480,140 @@
     });
   }
 
-  // Fetch Latest Release Info
-  fetch(API_RELEASES)
-    .then(res => res.ok ? res.json() : null)
-    .then(data => {
-      if (!data) return;
-      const tag = data.tag_name || "alpha-v0.2.36";
-      if (versionLabel) versionLabel.textContent = tag;
-      if (mRelease) mRelease.textContent = tag;
+  function applyRelease(release, apkAsset) {
+    if (apkAsset && apkAsset.browser_download_url) {
+      updateDownloadLinks(apkAsset.browser_download_url, release.tag_name);
+    }
 
-      const apkAsset = data.assets?.find(a => a.name.endsWith(".apk"));
-      if (apkAsset) {
-        if (mAsset) mAsset.textContent = apkAsset.name;
-        if (mSize) mSize.textContent = `${(apkAsset.size / (1024 * 1024)).toFixed(1)} MB`;
-        updateDownloadLinks(apkAsset.browser_download_url, tag);
+    const tag = release.tag_name || "alpha-v0.2.36";
+    const parsed = parseTag(tag);
+    const version = parsed ? `v${parsed[0]}.${parsed[1]}.${parsed[2]}` : tag;
+    const build = parsed && parsed[3] ? ` · build ${parsed[3]}` : "";
+
+    if (versionLabel) versionLabel.textContent = version;
+    if (buildLabel) buildLabel.textContent = build;
+    if (mRelease) mRelease.textContent = tag;
+    if (mAsset && apkAsset) mAsset.textContent = apkAsset.name;
+    if (mSize && apkAsset && apkAsset.size) {
+      mSize.textContent = `${(apkAsset.size / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    if (mDate && release.published_at) {
+      try {
+        mDate.textContent = new Date(release.published_at).toLocaleDateString("en-US", {
+          year: "numeric", month: "short", day: "numeric",
+        });
+      } catch (e) {}
+    }
+    if (mNote) {
+      const note = noteForRelease(release);
+      if (note) {
+        mNote.textContent = `what changed: ${note}`;
+        mNote.hidden = false;
+      }
+    }
+  }
+
+  function renderFeed(releases) {
+    if (!feedList) return;
+    feedList.innerHTML = "";
+    releases.slice(0, 5).forEach(r => {
+      const parsed = parseTag(r.tag_name);
+      const li = document.createElement("li");
+
+      const ver = document.createElement("span");
+      ver.className = "f-ver mono";
+      ver.textContent = parsed
+        ? `v${parsed[0]}.${parsed[1]}.${parsed[2]}`
+        : (r.tag_name || "");
+
+      const msg = document.createElement("span");
+      msg.className = "f-msg";
+      msg.textContent = noteForRelease(r);
+
+      const date = document.createElement("span");
+      date.className = "f-date mono";
+      if (r.published_at) {
+        try {
+          date.textContent = new Date(r.published_at).toLocaleDateString("en-US", {
+            month: "short", day: "numeric",
+          });
+        } catch (e) {}
       }
 
-      if (data.published_at && mDate) {
-        const d = new Date(data.published_at);
-        mDate.textContent = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-      }
-    })
-    .catch(() => {
-      if (versionLabel) versionLabel.textContent = "alpha-v0.2.36";
-      if (mRelease) mRelease.textContent = "alpha-v0.2.36";
+      li.appendChild(ver);
+      li.appendChild(msg);
+      li.appendChild(date);
+      feedList.appendChild(li);
     });
+  }
 
-  // Fetch Star Count
-  fetch(API_REPO)
-    .then(res => res.ok ? res.json() : null)
-    .then(repoData => {
-      if (!repoData) return;
-      const stars = repoData.stargazers_count;
-      if (ossStars) ossStars.textContent = stars.toLocaleString();
-      if (starsVal) starsVal.textContent = stars.toLocaleString();
-      if (heroChips) heroChips.hidden = false;
-    })
-    .catch(() => {});
+  if (window.fetch) {
+    // 1. Repo info (stars + forks)
+    fetch(API_REPO)
+      .then(res => res.ok ? res.json() : null)
+      .then(repo => {
+        if (!repo || typeof repo.stargazers_count !== "number") return;
+        if (starsVal) starsVal.textContent = fmt(repo.stargazers_count);
+        if (forksVal) forksVal.textContent = fmt(repo.forks_count);
+        if (heroChips) heroChips.hidden = false;
+        if (ossStars) ossStars.textContent = fmt(repo.stargazers_count);
+      })
+      .catch(() => {});
+
+    // 2. Releases list + CHANGELOG.md parsing
+    fetch(`https://api.github.com/repos/${REPO}/releases?per_page=100`)
+      .then(res => res.ok ? res.json() : Promise.reject(res.status))
+      .then(releases => {
+        if (!Array.isArray(releases)) return;
+
+        let totalDownloads = 0;
+        releases.forEach(r => {
+          (r.assets || []).forEach(a => {
+            if (/\.apk$/i.test(a.name)) totalDownloads += (a.download_count || 0);
+          });
+        });
+        if (ossDownloads) ossDownloads.textContent = fmt(totalDownloads);
+        if (ossReleases) ossReleases.textContent = String(releases.length);
+
+        renderFeed(releases);
+
+        const candidates = releases
+          .filter(r => !r.draft)
+          .map(r => {
+            const apk = pickApkAsset(r.assets);
+            const key = parseTag(r.tag_name);
+            return apk && key ? { release: r, apk, key } : null;
+          })
+          .filter(Boolean);
+
+        if (candidates.length) {
+          candidates.sort((a, b) => compareTags(b.key, a.key));
+          applyRelease(candidates[0].release, candidates[0].apk);
+        }
+
+        // Fetch CHANGELOG.md to enrich release headlines
+        fetch(`https://raw.githubusercontent.com/${REPO}/main/CHANGELOG.md`)
+          .then(res => res.ok ? res.text() : Promise.reject(res.status))
+          .then(md => {
+            window.__prismNotes = parseChangelogNotes(md);
+            renderFeed(releases);
+            if (candidates.length) {
+              applyRelease(candidates[0].release, candidates[0].apk);
+            }
+          })
+          .catch(() => {});
+      })
+      .catch(() => {
+        // Fallback to latest endpoint if releases?per_page=100 is rate-limited
+        fetch(API_RELEASES)
+          .then(res => res.ok ? res.json() : null)
+          .then(latest => {
+            if (!latest) return;
+            const apk = pickApkAsset(latest.assets);
+            applyRelease(latest, apk);
+          })
+          .catch(() => {});
+      });
+  }
 
 })();

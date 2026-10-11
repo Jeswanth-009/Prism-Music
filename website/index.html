@@ -59,6 +59,7 @@
         <a href="#showcase">Showcase</a>
         <a href="#how">How it works</a>
         <a href="#download">Download</a>
+        <a href="#open-source">Releases</a>
         <a href="#faq">FAQ</a>
         <a href="https://github.com/Jeswanth-009/Prism-Music/blob/main/PRIVACY.md" target="_blank" rel="noopener">Privacy</a>
         <a class="btn btn-ghost btn-sm" href="https://github.com/Jeswanth-009/Prism-Music" target="_blank" rel="noopener">
@@ -128,7 +129,7 @@
         <div class="hero-meta">
           <p class="hero-version mono">
             <span class="version-dot" aria-hidden="true"></span>
-            <span class="mono-dim">release</span> <strong id="versionLabel">alpha-v0.2.36</strong>
+            <span class="mono-dim">release</span> <strong id="versionLabel">alpha-v0.2.36</strong> <span class="mono-dim" id="buildLabel"></span>
           </p>
           <div class="hero-chips mono" id="heroChips" hidden>
             <a class="chip" href="https://github.com/Jeswanth-009/Prism-Music/stargazers" target="_blank" rel="noopener">
@@ -424,7 +425,7 @@
           <thead>
             <tr>
               <th scope="col">Feature</th>
-              <th scope="col">Prism Music</th>
+              <th scope="col" class="col-highlight">Prism Music</th>
               <th scope="col">Spotify Free</th>
               <th scope="col">YouTube Music Free</th>
             </tr>
@@ -432,39 +433,129 @@
           <tbody>
             <tr>
               <td>Account Requirement</td>
-              <td class="good">✓ Never Required</td>
-              <td class="bad">✕ Mandatory</td>
-              <td class="bad">✕ Mandatory</td>
+              <td class="col-highlight">
+                <span class="cell-pill good">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>
+                  Never Required
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Mandatory
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Mandatory
+                </span>
+              </td>
             </tr>
             <tr>
               <td>Advertisements</td>
-              <td class="good">✓ Zero Ads, Ever</td>
-              <td class="bad">✕ Audio &amp; Banner Ads</td>
-              <td class="bad">✕ Video Ads</td>
+              <td class="col-highlight">
+                <span class="cell-pill good">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>
+                  Zero Ads, Ever
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Audio &amp; Banner Ads
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Video Ads
+                </span>
+              </td>
             </tr>
             <tr>
               <td>Offline Downloads</td>
-              <td class="good">✓ Free &amp; On-Device</td>
-              <td class="bad">✕ Paywalled</td>
-              <td class="bad">✕ Paywalled</td>
+              <td class="col-highlight">
+                <span class="cell-pill good">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>
+                  Free &amp; On-Device
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Paywalled
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Paywalled
+                </span>
+              </td>
             </tr>
             <tr>
               <td>Line-Synced Lyrics</td>
-              <td class="good">✓ Unlimited (LRCLIB)</td>
-              <td class="bad">✕ Monthly Limits</td>
-              <td class="bad">✕ Unsynced Basic</td>
+              <td class="col-highlight">
+                <span class="cell-pill good">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>
+                  Unlimited (LRCLIB)
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Monthly Limits
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Unsynced Basic
+                </span>
+              </td>
             </tr>
             <tr>
               <td>Audio Resolution &amp; EQ</td>
-              <td class="good">✓ Up to 320 kbps + Native EQ</td>
-              <td class="bad">✕ Restricted to 160 kbps</td>
-              <td class="bad">✕ Restricted to 128 kbps</td>
+              <td class="col-highlight">
+                <span class="cell-pill good">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>
+                  Up to 320 kbps + Native EQ
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Restricted to 160 kbps
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Restricted to 128 kbps
+                </span>
+              </td>
             </tr>
             <tr>
               <td>Source Code &amp; Privacy</td>
-              <td class="good">✓ MIT Open Source · 0 Tracking</td>
-              <td class="bad">✕ Closed · Telemetry</td>
-              <td class="bad">✕ Closed · Telemetry</td>
+              <td class="col-highlight">
+                <span class="cell-pill good">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>
+                  MIT Open Source · 0 Tracking
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Closed · Telemetry
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Closed · Telemetry
+                </span>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -489,6 +580,7 @@
           <div class="m-row"><span class="m-key">Last Updated</span><span class="m-val" id="mDate">Recently</span></div>
           <div class="m-row"><span class="m-key">Compatibility</span><span class="m-val">Android 7.0+ (ARM64, ARMv7, x86_64)</span></div>
         </div>
+        <p class="m-note mono" id="mNote" hidden></p>
         <div class="manifest-actions">
           <a class="btn btn-primary btn-lg" data-download-link href="https://github.com/Jeswanth-009/Prism-Music/releases/latest">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg>
@@ -500,10 +592,53 @@
     </div>
   </section>
 
-  <!-- ── FAQ Section ────────────────────────────────────────────── -->
-  <section class="section section-alt" id="faq">
+  <!-- ── Built in the Open & Recent Releases ─────────────────────── -->
+  <section class="section section-alt" id="open-source">
     <div class="container">
-      <p class="eyebrow mono">// 06 — Frequently Asked Questions</p>
+      <p class="eyebrow mono">// 06 — Built in the Open</p>
+      <h2 class="section-title">Transparent development. Continuous releases.</h2>
+      <p class="section-sub">
+        Every release is built automatically from public GitHub Actions CI. Zero telemetry, zero closed-source binaries, and full auditability.
+      </p>
+
+      <div class="oss-grid">
+        <div class="oss-stats">
+          <a class="oss-stat" href="https://github.com/Jeswanth-009/Prism-Music/stargazers" target="_blank" rel="noopener">
+            <span class="oss-num" id="ossStars">—</span>
+            <span class="oss-key mono">GitHub stars</span>
+          </a>
+          <a class="oss-stat" href="https://github.com/Jeswanth-009/Prism-Music/releases" target="_blank" rel="noopener">
+            <span class="oss-num" id="ossReleases">—</span>
+            <span class="oss-key mono">releases shipped</span>
+          </a>
+          <a class="oss-stat" href="https://github.com/Jeswanth-009/Prism-Music/releases" target="_blank" rel="noopener">
+            <span class="oss-num" id="ossDownloads">—</span>
+            <span class="oss-key mono">APK downloads</span>
+          </a>
+        </div>
+
+        <div class="changelog-feed">
+          <h3>Latest releases &amp; notes</h3>
+          <ol class="feed" id="feedList"></ol>
+          <a class="feed-more" href="https://github.com/Jeswanth-009/Prism-Music/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Full changelog →</a>
+        </div>
+      </div>
+
+      <div class="oss-cta">
+        <a class="btn btn-primary" href="https://github.com/Jeswanth-009/Prism-Music" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3-5.8 3 1.1-6.5L2.6 9.4l6.5-.9L12 2.6z"/></svg>
+          Star on GitHub
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/Jeswanth-009/Prism-Music/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contribute</a>
+        <a class="btn btn-ghost" href="https://github.com/Jeswanth-009/Prism-Music/issues" target="_blank" rel="noopener">Report an issue</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FAQ Section ────────────────────────────────────────────── -->
+  <section class="section" id="faq">
+    <div class="container">
+      <p class="eyebrow mono">// 07 — Frequently Asked Questions</p>
       <h2 class="section-title">Common Questions</h2>
 
       <div class="faq-list">
@@ -544,9 +679,9 @@
         <a href="#features">Features</a>
         <a href="#showcase">Showcase</a>
         <a href="#download">Download</a>
+        <a href="#open-source">Releases</a>
         <a href="https://github.com/Jeswanth-009/Prism-Music/blob/main/PRIVACY.md" target="_blank" rel="noopener">Privacy Policy</a>
         <a href="https://github.com/Jeswanth-009/Prism-Music" target="_blank" rel="noopener">GitHub Repository</a>
-        <a href="https://github.com/Jeswanth-009/Prism-Music/releases" target="_blank" rel="noopener">Releases</a>
       </nav>
       <p class="footer-note mono">
         Licensed under the MIT License. An independent open-source project, not affiliated with Google, YouTube, or JioSaavn.
