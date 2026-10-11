@@ -163,7 +163,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                         sliver: SliverList.separated(
                           itemCount: activeDownloads.length,
                           separatorBuilder: (_, __) =>
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             final info = activeDownloads[index];
                             final isFailed =
@@ -177,13 +177,32 @@ class _DownloadsPageState extends State<DownloadsPage> {
                               ),
                               child: Row(
                                 children: [
-                                  Icon(
-                                    isFailed
-                                        ? Icons.error_outline_rounded
-                                        : Icons.downloading_rounded,
-                                    color: isFailed
-                                        ? theme.colorScheme.error
-                                        : theme.colorScheme.primary,
+                                  ClipRRect(
+                                    borderRadius:
+                                        BorderRadius.circular(PrismRadius.xs),
+                                    child: SizedBox(
+                                      width: 44,
+                                      height: 44,
+                                      child: info.thumbnailUrl != null &&
+                                              info.thumbnailUrl!.isNotEmpty
+                                          ? PrismArtwork(
+                                              url: info.thumbnailUrl!,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : Container(
+                                              color: theme.colorScheme
+                                                  .surfaceContainerHighest,
+                                              child: Icon(
+                                                isFailed
+                                                    ? Icons.error_outline_rounded
+                                                    : Icons
+                                                        .downloading_rounded,
+                                                color: isFailed
+                                                    ? theme.colorScheme.error
+                                                    : theme.colorScheme.primary,
+                                              ),
+                                            ),
+                                    ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
@@ -192,22 +211,38 @@ class _DownloadsPageState extends State<DownloadsPage> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          info.songId,
+                                          info.songTitle ?? info.songId,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: theme.textTheme.bodyMedium
                                               ?.copyWith(
-                                                  fontWeight: FontWeight.w600),
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
-                                        const SizedBox(height: 4),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          isFailed
+                                              ? (info.error ?? 'Download failed')
+                                              : (info.artist ?? 'Downloading…'),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                            color: isFailed
+                                                ? theme.colorScheme.error
+                                                : theme.colorScheme
+                                                    .onSurfaceVariant,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
                                         LinearProgressIndicator(
                                           value: isFailed
                                               ? 0
                                               : (info.progress > 0
                                                   ? info.progress
                                                   : null),
-                                          backgroundColor: theme
-                                              .colorScheme.surfaceContainerHighest,
+                                          backgroundColor: theme.colorScheme
+                                              .surfaceContainerHighest,
                                           color: isFailed
                                               ? theme.colorScheme.error
                                               : theme.colorScheme.primary,
@@ -215,6 +250,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                                       ],
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
                                   IconButton(
                                     icon: const Icon(Icons.close_rounded,
                                         size: 18),

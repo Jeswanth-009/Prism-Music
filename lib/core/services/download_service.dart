@@ -32,6 +32,9 @@ class DownloadInfo {
   final double progress;
   final String? localPath;
   final String? error;
+  final String? songTitle;
+  final String? artist;
+  final String? thumbnailUrl;
 
   DownloadInfo({
     required this.songId,
@@ -39,6 +42,9 @@ class DownloadInfo {
     this.progress = 0.0,
     this.localPath,
     this.error,
+    this.songTitle,
+    this.artist,
+    this.thumbnailUrl,
   });
 
   DownloadInfo copyWith({
@@ -47,6 +53,9 @@ class DownloadInfo {
     double? progress,
     String? localPath,
     String? error,
+    String? songTitle,
+    String? artist,
+    String? thumbnailUrl,
   }) {
     return DownloadInfo(
       songId: songId ?? this.songId,
@@ -54,6 +63,9 @@ class DownloadInfo {
       progress: progress ?? this.progress,
       localPath: localPath ?? this.localPath,
       error: error ?? this.error,
+      songTitle: songTitle ?? this.songTitle,
+      artist: artist ?? this.artist,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
     );
   }
 }
@@ -264,6 +276,9 @@ class DownloadService {
         songId: song.playableId,
         status: DownloadStatus.downloading,
         progress: 0.0,
+        songTitle: song.title,
+        artist: song.artist,
+        thumbnailUrl: song.thumbnailUrl,
       );
       _downloadProgress[song.playableId] = downloadInfo;
       _notifyListeners(downloadInfo);
@@ -416,6 +431,9 @@ class DownloadService {
         songId: song.playableId,
         status: DownloadStatus.failed,
         error: e.toString(),
+        songTitle: song.title,
+        artist: song.artist,
+        thumbnailUrl: song.thumbnailUrl,
       );
       _downloadProgress[song.playableId] = errorInfo;
       _notifyListeners(errorInfo);
