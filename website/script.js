@@ -255,76 +255,164 @@
     });
   });
 
-  /* ── 5. Interactive Device Screenshot Showcase ───────────────── */
+  /* ── 5. Interactive Device Showcase & Lightbox ───────────────── */
   const showcaseImg = document.getElementById("showcaseImg");
-  const showcaseTabs = document.querySelectorAll(".showcase-tab");
-  const hotspotTitle = document.getElementById("hotspotTitle");
-  const hotspotDesc = document.getElementById("hotspotDesc");
+  const showcaseAura = document.getElementById("showcaseAura");
+  const showcaseDeviceShell = document.getElementById("showcaseDeviceShell");
+  const showcaseCards = document.querySelectorAll(".sc-card");
 
-  const screenshotData = {
-    home: {
+  const lightbox = document.getElementById("lightbox");
+  const lbImg = document.getElementById("lbImg");
+  const lbTitle = document.getElementById("lbTitle");
+  const lbCap = document.getElementById("lbCap");
+  const lbClose = document.getElementById("lbClose");
+  const lbPrev = document.getElementById("lbPrev");
+  const lbNext = document.getElementById("lbNext");
+
+  const screens = [
+    {
+      key: "home",
       src: "assets/framed-home.png",
-      alt: "Home Screen with docked navigation and editorial recommendations",
-      pinTop: "72%",
-      pinLeft: "50%",
-      title: "Docked Navigation",
-      desc: "Reserved bottom clearance with instant tab switching and persistent mini player."
+      title: "Home Tab & Docked Bar",
+      desc: "Compact editorial hero, deduplicated Continue Listening rails, and reserved bottom clearance with persistent playback controls."
     },
-    player: {
+    {
+      key: "player",
       src: "assets/framed-player.png",
-      alt: "Now Playing Screen with live bitrate badge and dynamic palette tinting",
-      pinTop: "56%",
-      pinLeft: "50%",
-      title: "Live Bitrate & Lyrics",
-      desc: "Shows OPUS/AAC streaming rate, line-synced LRCLIB lyrics, and album palette tint."
+      title: "Now Playing & Synced Lyrics",
+      desc: "Live OPUS/AAC streaming rate badge, line-synced karaoke lyrics with tap-to-seek, and dynamic album palette tinting."
     },
-    search: {
+    {
+      key: "search",
       src: "assets/framed-search.png",
-      alt: "Search Screen with instant radio recommendation seed",
-      pinTop: "42%",
-      pinLeft: "50%",
-      title: "Infinite Radio from Search",
-      desc: "Tap any searched track to immediately seed playback and stream endless recommendations."
+      title: "Search & Infinite Radio",
+      desc: "Tap any searched song to start playback and automatically seed an infinite queue of style-matched recommendations."
     },
-    charts: {
+    {
+      key: "charts",
       src: "assets/framed-charts.png",
-      alt: "Charts Hub with YouTube and Billboard verified sources",
-      pinTop: "35%",
-      pinLeft: "50%",
-      title: "Verified Global Charts",
-      desc: "Billboard Hot 100, TikTok Trends, and YouTube Global Top Music with country chips."
+      title: "Verified Charts Hub",
+      desc: "Global YouTube Top Music, TikTok Trends, and country chip filtering with one-tap Play All queueing."
     },
-    stats: {
+    {
+      key: "stats",
       src: "assets/framed-stats.png",
-      alt: "Listening Stats Screen with 14-day plays history chart",
-      pinTop: "45%",
-      pinLeft: "50%",
-      title: "14-Day Play Analytics",
-      desc: "Computed 100% on-device with zero cloud telemetry or data sharing."
+      title: "Listening Stats & History",
+      desc: "14-day listening trend analytics computed 100% on-device in Hive with zero third-party telemetry or cloud tracking."
     }
-  };
+  ];
 
-  showcaseTabs.forEach(tab => {
-    tab.addEventListener("click", () => {
-      showcaseTabs.forEach(t => t.classList.remove("active"));
-      tab.classList.add("active");
-      const key = tab.getAttribute("data-screen");
-      const data = screenshotData[key];
-      if (data && showcaseImg) {
-        showcaseImg.style.opacity = "0.4";
-        showcaseImg.src = data.src;
-        showcaseImg.alt = data.alt;
-        setTimeout(() => { showcaseImg.style.opacity = "1"; }, 150);
+  let activeIdx = 0;
 
-        const pin = document.getElementById("showcaseHotspot");
-        if (pin) {
-          pin.style.top = data.pinTop;
-          pin.style.left = data.pinLeft;
-        }
-        if (hotspotTitle) hotspotTitle.textContent = data.title;
-        if (hotspotDesc) hotspotDesc.textContent = data.desc;
+  function selectScreen(idx) {
+    if (idx < 0 || idx >= screens.length) return;
+    activeIdx = idx;
+    const item = screens[idx];
+
+    showcaseCards.forEach((card, i) => {
+      const isActive = i === idx;
+      card.classList.toggle("active", isActive);
+      card.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+
+    if (showcaseAura) {
+      showcaseAura.setAttribute("data-glow", item.key);
+    }
+
+    if (showcaseImg) {
+      showcaseImg.style.opacity = "0.3";
+      showcaseImg.src = item.src;
+      showcaseImg.alt = `Prism Music ${item.title}`;
+      setTimeout(() => { showcaseImg.style.opacity = "1"; }, 140);
+    }
+  }
+
+  showcaseCards.forEach((card, idx) => {
+    card.addEventListener("click", () => selectScreen(idx));
+  });
+
+  function updateLightboxContent(idx) {
+    const item = screens[idx];
+    if (!item) return;
+    if (lbImg) lbImg.src = item.src;
+    if (lbTitle) lbTitle.textContent = item.title;
+    if (lbCap) lbCap.textContent = item.desc;
+  }
+
+  function openLightbox(idx) {
+    if (!lightbox) return;
+    selectScreen(idx);
+    updateLightboxContent(idx);
+    try {
+      if (typeof lightbox.showModal === "function") {
+        lightbox.showModal();
+      } else {
+        lightbox.setAttribute("open", "");
+      }
+    } catch (e) {
+      lightbox.setAttribute("open", "");
+    }
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeLightbox() {
+    if (!lightbox) return;
+    try {
+      if (typeof lightbox.close === "function") {
+        lightbox.close();
+      } else {
+        lightbox.removeAttribute("open");
+      }
+    } catch (e) {
+      lightbox.removeAttribute("open");
+    }
+    document.body.style.overflow = "";
+  }
+
+  function nextLightbox() {
+    const nextIdx = (activeIdx + 1) % screens.length;
+    selectScreen(nextIdx);
+    updateLightboxContent(nextIdx);
+  }
+
+  function prevLightbox() {
+    const prevIdx = (activeIdx - 1 + screens.length) % screens.length;
+    selectScreen(prevIdx);
+    updateLightboxContent(prevIdx);
+  }
+
+  if (showcaseDeviceShell) {
+    showcaseDeviceShell.addEventListener("click", () => openLightbox(activeIdx));
+    showcaseDeviceShell.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openLightbox(activeIdx);
       }
     });
+  }
+
+  if (lbClose) lbClose.addEventListener("click", closeLightbox);
+  if (lbNext) lbNext.addEventListener("click", nextLightbox);
+  if (lbPrev) lbPrev.addEventListener("click", prevLightbox);
+
+  if (lightbox) {
+    lightbox.addEventListener("click", (e) => {
+      if (e.target === lightbox) closeLightbox();
+    });
+    lightbox.addEventListener("cancel", () => {
+      document.body.style.overflow = "";
+    });
+  }
+
+  window.addEventListener("keydown", (e) => {
+    if (!lightbox || !lightbox.open) return;
+    if (e.key === "Escape") {
+      closeLightbox();
+    } else if (e.key === "ArrowRight") {
+      nextLightbox();
+    } else if (e.key === "ArrowLeft") {
+      prevLightbox();
+    }
   });
 
   /* ── 6. Simulated Offline Download ───────────────────────────── */

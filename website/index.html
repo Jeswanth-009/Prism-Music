@@ -359,29 +359,68 @@
 
   <!-- ── Interactive Device Showcase ────────────────────────────── -->
   <section class="section section-alt" id="showcase">
-    <div class="container showcase-stage">
+    <div class="container">
       <p class="eyebrow mono">// 02 — Interactive Showcase</p>
       <h2 class="section-title">See every surface in action</h2>
-      <p class="section-sub">Experience the refined Material 3 design, docked navigation, and high-contrast typography.</p>
+      <p class="section-sub">Experience the refined Material 3 design, docked navigation, and high-contrast typography across all key surfaces.</p>
 
-      <div class="showcase-tabs mono" role="tablist">
-        <button class="showcase-tab active" data-screen="home" type="button">Home</button>
-        <button class="showcase-tab" data-screen="player" type="button">Now Playing</button>
-        <button class="showcase-tab" data-screen="search" type="button">Search &amp; Radio</button>
-        <button class="showcase-tab" data-screen="charts" type="button">Charts Hub</button>
-        <button class="showcase-tab" data-screen="stats" type="button">Listening Stats</button>
-      </div>
+      <div class="showcase-split">
+        <!-- Left: Interactive Feature Story Cards -->
+        <div class="showcase-cards" role="tablist" aria-label="App Surfaces">
+          <button class="sc-card active" data-screen="home" type="button" role="tab" aria-selected="true">
+            <div class="sc-header">
+              <span class="sc-badge mono">M3 Navigation</span>
+              <span class="sc-key mono">01</span>
+            </div>
+            <h3>Home Tab &amp; Docked Bar</h3>
+            <p>Compact editorial hero, deduplicated Continue Listening rails, and reserved bottom clearance with persistent playback controls.</p>
+          </button>
 
-      <div class="showcase-viewport">
-        <div class="showcase-screen-frame">
-          <img class="showcase-img" id="showcaseImg" src="assets/framed-home.png" alt="Home Screen with docked navigation" width="680" height="1452" />
+          <button class="sc-card" data-screen="player" type="button" role="tab" aria-selected="false">
+            <div class="sc-header">
+              <span class="sc-badge mono">320 kbps · LRCLIB</span>
+              <span class="sc-key mono">02</span>
+            </div>
+            <h3>Now Playing &amp; Synced Lyrics</h3>
+            <p>Live OPUS/AAC streaming rate badge, line-synced karaoke lyrics with tap-to-seek, and dynamic album palette tinting.</p>
+          </button>
 
-          <!-- Interactive Hotspot Pin -->
-          <div class="hotspot-pin" id="showcaseHotspot" style="top:72%; left:50%;" aria-label="Feature callout">
-            <span>+</span>
-            <div class="hotspot-tooltip">
-              <strong id="hotspotTitle">Docked Navigation</strong><br />
-              <span id="hotspotDesc">Reserved bottom clearance with instant tab switching.</span>
+          <button class="sc-card" data-screen="search" type="button" role="tab" aria-selected="false">
+            <div class="sc-header">
+              <span class="sc-badge mono">Algorithmic Radio</span>
+              <span class="sc-key mono">03</span>
+            </div>
+            <h3>Search &amp; Infinite Radio</h3>
+            <p>Tap any searched song to start playback and automatically seed an infinite queue of style-matched recommendations.</p>
+          </button>
+
+          <button class="sc-card" data-screen="charts" type="button" role="tab" aria-selected="false">
+            <div class="sc-header">
+              <span class="sc-badge mono">Billboard &amp; YouTube</span>
+              <span class="sc-key mono">04</span>
+            </div>
+            <h3>Verified Charts Hub</h3>
+            <p>Global YouTube Top Music, TikTok Trends, and country chip filtering with one-tap &quot;Play All&quot; queueing.</p>
+          </button>
+
+          <button class="sc-card" data-screen="stats" type="button" role="tab" aria-selected="false">
+            <div class="sc-header">
+              <span class="sc-badge mono">Zero Telemetry</span>
+              <span class="sc-key mono">05</span>
+            </div>
+            <h3>Listening Stats &amp; History</h3>
+            <p>14-day listening trend analytics computed 100% on-device in Hive with zero third-party telemetry or cloud tracking.</p>
+          </button>
+        </div>
+
+        <!-- Right: Sleek Glowing Device Mockup Stage -->
+        <div class="showcase-stage-wrap">
+          <div class="showcase-aura" id="showcaseAura" data-glow="home"></div>
+          <div class="showcase-device-shell" id="showcaseDeviceShell" tabindex="0" role="button" aria-label="Click to expand high-res screenshot">
+            <img class="showcase-img" id="showcaseImg" src="assets/framed-home.png" alt="Prism Music Home Screen" width="680" height="1452" />
+            <div class="showcase-zoom-hint mono">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+              Click to expand
             </div>
           </div>
         </div>
@@ -688,6 +727,26 @@
       </p>
     </div>
   </footer>
+
+  <!-- ── Full-Screen Screenshot Lightbox ────────────────────────── -->
+  <dialog class="lightbox" id="lightbox" aria-label="Screenshot viewer">
+    <div class="lb-stage">
+      <img id="lbImg" src="assets/framed-home.png" alt="Full screen preview" />
+      <div class="lb-meta">
+        <h4 id="lbTitle">Home Screen &amp; Docked Navigation</h4>
+        <p class="lb-cap mono" id="lbCap">Reserved bottom clearance with instant tab switching and persistent mini player.</p>
+      </div>
+    </div>
+    <button class="lb-btn lb-close" id="lbClose" type="button" aria-label="Close viewer">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <button class="lb-btn lb-prev" id="lbPrev" type="button" aria-label="Previous screenshot">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <button class="lb-btn lb-next" id="lbNext" type="button" aria-label="Next screenshot">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+  </dialog>
 
   <script src="script.js"></script>
 </body>
