@@ -1766,6 +1766,9 @@ img { max-width: 100%; display: block; }
 
 /* ── Responsive Mobile Rules ────────────────────────────────── */
 @media (max-width: 960px) {
+  .hero-beam {
+    display: none;
+  }
   .hero-inner {
     grid-template-columns: 1fr;
     text-align: center;
@@ -1880,6 +1883,9 @@ img { max-width: 100%; display: block; }
   }
 
   /* Hero Section */
+  .hero-beam {
+    display: none !important;
+  }
   .hero {
     padding: 40px 0 54px;
     overflow: hidden;
