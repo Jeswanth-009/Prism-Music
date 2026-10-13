@@ -58,19 +58,21 @@ class Album extends Equatable {
   /// Get the best available thumbnail
   String get thumbnailUrl => thumbnails.best ?? '';
 
+  static const Object _sentinel = Object();
+
   Album copyWith({
     String? id,
     String? title,
     String? artist,
     List<Artist>? artists,
     Thumbnails? thumbnails,
-    int? year,
-    int? trackCount,
+    Object? year = _sentinel,
+    Object? trackCount = _sentinel,
     AlbumType? type,
-    List<Song>? songs,
-    String? youtubePlaylistId,
-    String? spotifyId,
-    String? description,
+    Object? songs = _sentinel,
+    Object? youtubePlaylistId = _sentinel,
+    Object? spotifyId = _sentinel,
+    Object? description = _sentinel,
   }) {
     return Album(
       id: id ?? this.id,
@@ -78,13 +80,21 @@ class Album extends Equatable {
       artist: artist ?? this.artist,
       artists: artists ?? this.artists,
       thumbnails: thumbnails ?? this.thumbnails,
-      year: year ?? this.year,
-      trackCount: trackCount ?? this.trackCount,
+      year: identical(year, _sentinel) ? this.year : year as int?,
+      trackCount: identical(trackCount, _sentinel)
+          ? this.trackCount
+          : trackCount as int?,
       type: type ?? this.type,
-      songs: songs ?? this.songs,
-      youtubePlaylistId: youtubePlaylistId ?? this.youtubePlaylistId,
-      spotifyId: spotifyId ?? this.spotifyId,
-      description: description ?? this.description,
+      songs: identical(songs, _sentinel) ? this.songs : songs as List<Song>?,
+      youtubePlaylistId: identical(youtubePlaylistId, _sentinel)
+          ? this.youtubePlaylistId
+          : youtubePlaylistId as String?,
+      spotifyId: identical(spotifyId, _sentinel)
+          ? this.spotifyId
+          : spotifyId as String?,
+      description: identical(description, _sentinel)
+          ? this.description
+          : description as String?,
     );
   }
 
@@ -98,8 +108,10 @@ class Album extends Equatable {
         year,
         trackCount,
         type,
+        songs,
         youtubePlaylistId,
         spotifyId,
+        description,
       ];
 }
 

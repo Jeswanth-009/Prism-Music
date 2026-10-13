@@ -82,37 +82,53 @@ class Playlist extends Equatable {
     return '$minutes min';
   }
 
+  static const Object _sentinel = Object();
+
   Playlist copyWith({
     String? id,
     String? name,
-    String? description,
-    Thumbnails? thumbnails,
-    String? author,
+    Object? description = _sentinel,
+    Object? thumbnails = _sentinel,
+    Object? author = _sentinel,
     int? trackCount,
-    Duration? totalDuration,
+    Object? totalDuration = _sentinel,
     bool? isUserCreated,
     bool? isPublic,
-    List<Song>? songs,
-    String? youtubePlaylistId,
-    String? spotifyPlaylistId,
-    DateTime? createdAt,
-    DateTime? updatedAt,
+    Object? songs = _sentinel,
+    Object? youtubePlaylistId = _sentinel,
+    Object? spotifyPlaylistId = _sentinel,
+    Object? createdAt = _sentinel,
+    Object? updatedAt = _sentinel,
   }) {
     return Playlist(
       id: id ?? this.id,
       name: name ?? this.name,
-      description: description ?? this.description,
-      thumbnails: thumbnails ?? this.thumbnails,
-      author: author ?? this.author,
+      description: identical(description, _sentinel)
+          ? this.description
+          : description as String?,
+      thumbnails: identical(thumbnails, _sentinel)
+          ? this.thumbnails
+          : thumbnails as Thumbnails?,
+      author: identical(author, _sentinel) ? this.author : author as String?,
       trackCount: trackCount ?? this.trackCount,
-      totalDuration: totalDuration ?? this.totalDuration,
+      totalDuration: identical(totalDuration, _sentinel)
+          ? this.totalDuration
+          : totalDuration as Duration?,
       isUserCreated: isUserCreated ?? this.isUserCreated,
       isPublic: isPublic ?? this.isPublic,
-      songs: songs ?? this.songs,
-      youtubePlaylistId: youtubePlaylistId ?? this.youtubePlaylistId,
-      spotifyPlaylistId: spotifyPlaylistId ?? this.spotifyPlaylistId,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
+      songs: identical(songs, _sentinel) ? this.songs : songs as List<Song>?,
+      youtubePlaylistId: identical(youtubePlaylistId, _sentinel)
+          ? this.youtubePlaylistId
+          : youtubePlaylistId as String?,
+      spotifyPlaylistId: identical(spotifyPlaylistId, _sentinel)
+          ? this.spotifyPlaylistId
+          : spotifyPlaylistId as String?,
+      createdAt: identical(createdAt, _sentinel)
+          ? this.createdAt
+          : createdAt as DateTime?,
+      updatedAt: identical(updatedAt, _sentinel)
+          ? this.updatedAt
+          : updatedAt as DateTime?,
     );
   }
 
@@ -121,11 +137,16 @@ class Playlist extends Equatable {
         id,
         name,
         description,
+        thumbnails,
         author,
         trackCount,
+        totalDuration,
         isUserCreated,
         isPublic,
+        songs,
         youtubePlaylistId,
         spotifyPlaylistId,
+        createdAt,
+        updatedAt,
       ];
 }
