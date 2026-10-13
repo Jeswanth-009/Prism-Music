@@ -23,6 +23,15 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
+  final Set<int> _visitedTabs = {0};
+
+  void _onTabSelect(int index) {
+    if (_currentIndex == index && _visitedTabs.contains(index)) return;
+    setState(() {
+      _currentIndex = index;
+      _visitedTabs.add(index);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,11 +72,11 @@ class _HomePageState extends State<HomePage> {
             ),
             IndexedStack(
               index: _currentIndex,
-              children: const [
-                HomeTab(),
-                SearchPage(embedded: true),
-                ChartsHubPage(),
-                LibraryTab(),
+              children: [
+                _visitedTabs.contains(0) ? const HomeTab() : const SizedBox.shrink(),
+                _visitedTabs.contains(1) ? const SearchPage(embedded: true) : const SizedBox.shrink(),
+                _visitedTabs.contains(2) ? const ChartsHubPage() : const SizedBox.shrink(),
+                _visitedTabs.contains(3) ? const LibraryTab() : const SizedBox.shrink(),
               ],
             ),
           ],
@@ -89,7 +98,7 @@ class _HomePageState extends State<HomePage> {
             ),
             _PrismNavBar(
               currentIndex: _currentIndex,
-              onSelect: (index) => setState(() => _currentIndex = index),
+              onSelect: _onTabSelect,
             ),
           ],
         ),

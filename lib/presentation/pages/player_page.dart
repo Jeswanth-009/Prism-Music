@@ -1,4 +1,3 @@
-import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/gestures.dart';
@@ -481,10 +480,7 @@ class _AmbientBackground extends StatelessWidget {
           stops: const [0, 0.55, 1],
         ),
       ),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
-        child: const SizedBox.expand(),
-      ),
+      child: const SizedBox.expand(),
     );
   }
 }
