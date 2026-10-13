@@ -13,6 +13,7 @@ import '../blocs/player/player_event.dart';
 import '../blocs/player/player_state.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/player/mini_player.dart';
+import '../widgets/prism/prism_collection_header.dart';
 import '../widgets/prism/prism_sheet.dart';
 import '../widgets/prism/prism_skeleton.dart';
 import '../widgets/prism/prism_song_tile.dart';
@@ -213,67 +214,35 @@ class _CuratedPlaylistPageState extends State<CuratedPlaylistPage> {
                         ),
                         slivers: [
                           SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 52,
-                                    height: 52,
-                                    decoration: BoxDecoration(
-                                      color: context.prismSpec.accentSoft,
-                                      borderRadius:
-                                          BorderRadius.circular(PrismRadius.md),
-                                    ),
-                                    child: Icon(
-                                      widget.playlist.icon,
-                                      color: theme.colorScheme.primary,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          widget.playlist.category,
-                                          style: theme.textTheme.labelMedium
-                                              ?.copyWith(
-                                            color: theme
-                                                .colorScheme.onSurfaceVariant,
-                                          ),
+                            child: PrismCollectionHeader(
+                              title: widget.playlist.name,
+                              badge: widget.playlist.category,
+                              icon: widget.playlist.icon,
+                              headerBadge: _isFallback
+                                  ? Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.tertiaryContainer
+                                            .withValues(alpha: 0.4),
+                                        borderRadius:
+                                            BorderRadius.circular(PrismRadius.xs),
+                                      ),
+                                      child: Text(
+                                        'Discovery mix · Search fallback',
+                                        style: theme.textTheme.labelSmall?.copyWith(
+                                          color: theme.colorScheme.tertiary,
+                                          fontWeight: FontWeight.w600,
                                         ),
-                                        if (_isFallback)
-                                          Padding(
-                                            padding: const EdgeInsets.only(top: 2),
-                                            child: Text(
-                                              'Discovery mix · Search fallback',
-                                              style: theme.textTheme.labelSmall?.copyWith(
-                                                color: theme.colorScheme.tertiary,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-                                        if (_totalDuration != null)
-                                          Text(
-                                            '${Formatters.formatCount(_songs.length, 'song')} · ${Formatters.formatDuration(_totalDuration!)}',
-                                            style: theme.textTheme.bodySmall
-                                                ?.copyWith(
-                                              color: theme
-                                                  .colorScheme.onSurfaceVariant,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  FilledButton.icon(
-                                    onPressed: _playAll,
-                                    icon: const Icon(Icons.play_arrow_rounded),
-                                    label: const Text('Play'),
-                                  ),
-                                ],
-                              ),
+                                      ),
+                                    )
+                                  : null,
+                              metadata: _totalDuration != null
+                                  ? '${Formatters.formatCount(_songs.length, 'song')} · ${Formatters.formatDuration(_totalDuration!)}'
+                                  : Formatters.formatCount(_songs.length, 'song'),
+                              onPlayAll: _songs.isEmpty ? null : _playAll,
                             ),
                           ),
                           SliverPadding(

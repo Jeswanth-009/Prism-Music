@@ -10,6 +10,7 @@ import '../blocs/player/player_event.dart';
 import '../blocs/player/player_state.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/player/mini_player.dart';
+import '../widgets/prism/prism_collection_header.dart';
 import '../widgets/prism/prism_song_tile.dart';
 import '../widgets/prism/prism_states.dart';
 
@@ -139,97 +140,23 @@ class _LikedSongsPageState extends State<LikedSongsPage> {
             physics: const BouncingScrollPhysics(),
             slivers: [
               SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 68,
-                            height: 68,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  theme.colorScheme.primary,
-                                  theme.colorScheme.tertiary,
-                                ],
-                              ),
-                              borderRadius:
-                                  BorderRadius.circular(PrismRadius.lg),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: theme.colorScheme.primary
-                                      .withValues(alpha: 0.28),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.favorite_rounded,
-                              color: Colors.white,
-                              size: 34,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  Formatters.formatCount(allSongs.length, 'song'),
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _formatTotalDuration(allSongs),
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: FilledButton.icon(
-                              onPressed: () => _playAll(displaySongs),
-                              icon: const Icon(Icons.play_arrow_rounded, size: 22),
-                              label: const Text('Play all'),
-                              style: FilledButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () =>
-                                  _playAll(displaySongs, shuffle: true),
-                              icon: const Icon(Icons.shuffle_rounded, size: 20),
-                              label: const Text('Shuffle'),
-                              style: OutlinedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (_showSearch) ...[
-                        const SizedBox(height: 14),
-                        TextField(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    PrismCollectionHeader(
+                      title: 'Liked Songs',
+                      badge: 'Library',
+                      icon: Icons.favorite_rounded,
+                      iconColor: theme.colorScheme.primary,
+                      metadata:
+                          '${Formatters.formatCount(allSongs.length, 'song')} · ${_formatTotalDuration(allSongs)}',
+                      onPlayAll: () => _playAll(displaySongs),
+                      onShuffle: () => _playAll(displaySongs, shuffle: true),
+                    ),
+                    if (_showSearch)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                        child: TextField(
                           controller: _searchCtrl,
                           autofocus: true,
                           decoration: InputDecoration(
@@ -258,9 +185,8 @@ class _LikedSongsPageState extends State<LikedSongsPage> {
                           ),
                           onChanged: (_) => setState(() {}),
                         ),
-                      ],
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
               ),
               if (displaySongs.isEmpty)

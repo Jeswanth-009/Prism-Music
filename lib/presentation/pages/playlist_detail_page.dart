@@ -9,11 +9,12 @@ import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
 import '../blocs/player/player_state.dart';
 import '../theme/prism_theme.dart';
-import '../widgets/common/bouncing_tap_widget.dart';
 import '../widgets/player/mini_player.dart';
 import '../widgets/prism/prism_artwork.dart';
+import '../widgets/prism/prism_collection_header.dart';
 import '../widgets/prism/prism_dialog.dart';
 import '../widgets/prism/prism_sheet.dart';
+import '../widgets/prism/prism_song_actions.dart';
 import '../widgets/prism/prism_song_tile.dart';
 import '../widgets/prism/prism_states.dart';
 
@@ -264,101 +265,37 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
       physics: const BouncingScrollPhysics(),
       slivers: [
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 96,
-                      height: 96,
-                      decoration: BoxDecoration(
-                        color: context.prismSpec.accentSoft,
-                        borderRadius: BorderRadius.circular(PrismRadius.lg),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(PrismRadius.lg),
-                        child: PrismArtwork(
-                          url: playlist.thumbnailUrl ?? '',
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 18),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            playlist.name,
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          if (playlist.author != null &&
-                              playlist.author!.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              playlist.author!,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.primary,
-                                fontWeight: FontWeight.w600,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PrismCollectionHeader(
+                title: playlist.name,
+                badge: playlist.isUserCreated ? 'Playlist' : 'Featured',
+                subtitle: playlist.author,
+                artworkUrl: playlist.thumbnailUrl,
+                icon: Icons.queue_music_rounded,
+                metadata: '${Formatters.formatCount(allSongs.length, 'song')}'
+                    '${playlist.totalDurationFormatted.isEmpty ? '' : ' · ${playlist.totalDurationFormatted}'}',
+                onPlayAll: allSongs.isEmpty
+                    ? null
+                    : () => _play(context, displaySongs, 0),
+                onShuffle: allSongs.isEmpty
+                    ? null
+                    : () {
+                        final shuffled = [...displaySongs]..shuffle();
+                        context.read<PlayerBloc>().add(
+                              PlaySongEvent(
+                                song: shuffled.first,
+                                queue: shuffled,
+                                queueIndex: 0,
                               ),
-                            ),
-                          ],
-                          const SizedBox(height: 6),
-                          Text(
-                            '${Formatters.formatCount(allSongs.length, 'song')}'
-                            '${playlist.totalDurationFormatted.isEmpty ? '' : ' · ${playlist.totalDurationFormatted}'}',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                if (allSongs.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: () => _play(context, displaySongs, 0),
-                          icon: const Icon(Icons.play_arrow_rounded, size: 22),
-                          label: const Text('Play all'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      IconButton(
-                        tooltip: 'Shuffle play',
-                        onPressed: () {
-                          final shuffled = [...displaySongs]..shuffle();
-                          context.read<PlayerBloc>().add(
-                                PlaySongEvent(
-                                  song: shuffled.first,
-                                  queue: shuffled,
-                                  queueIndex: 0,
-                                ),
-                              );
-                        },
-                        icon: const Icon(Icons.shuffle_rounded),
-                        style: IconButton.styleFrom(
-                          backgroundColor:
-                              theme.colorScheme.surfaceContainerHigh,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-                if (_showSearch) ...[
-                  const SizedBox(height: 14),
-                  TextField(
+                            );
+                      },
+              ),
+              if (_showSearch)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                  child: TextField(
                     controller: _searchCtrl,
                     autofocus: true,
                     decoration: InputDecoration(
@@ -385,9 +322,8 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
-                ],
-              ],
-            ),
+                ),
+            ],
           ),
         ),
         if (allSongs.isEmpty)
@@ -422,12 +358,21 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                     isPlaying: playerState.currentSong?.id == song.id,
                     isPlayingPaused: !playerState.isPlaying,
                     onTap: () => _play(context, displaySongs, index),
-                    trailing: playlist.isUserCreated
-                        ? _RemoveSongButton(
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (playlist.isUserCreated)
+                          _RemoveSongButton(
                             playlistId: playlist.id,
                             songId: song.id,
-                          )
-                        : null,
+                          ),
+                        IconButton(
+                          icon: const Icon(Icons.more_vert_rounded, size: 18),
+                          tooltip: 'More options for ${song.title}',
+                          onPressed: () => showPrismSongActions(context, song),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },
@@ -449,7 +394,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
   }
 }
 
-/// Quiet remove affordance for a song inside a user playlist with accessible touch target.
+/// Accessible remove affordance for a song inside a user playlist.
 class _RemoveSongButton extends StatelessWidget {
   const _RemoveSongButton({
     required this.playlistId,
@@ -461,21 +406,19 @@ class _RemoveSongButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BouncingTapWidget(
-      onTap: () {
+    return IconButton(
+      tooltip: 'Remove from playlist',
+      icon: Icon(
+        Icons.close_rounded,
+        size: 18,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+      onPressed: () {
         context.read<LibraryBloc>().add(
               RemoveFromPlaylistEvent(playlistId: playlistId, songId: songId),
             );
         showPrismToast(context, 'Removed from playlist');
       },
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Icon(
-          Icons.close_rounded,
-          size: 18,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-      ),
     );
   }
 }

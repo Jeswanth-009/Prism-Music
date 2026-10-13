@@ -8,8 +8,8 @@ import '../../domain/entities/song.dart';
 import '../../domain/repositories/music_repository.dart';
 import '../blocs/library/library.dart';
 import '../blocs/player/player.dart';
-import '../theme/prism_theme.dart';
 import '../widgets/player/mini_player.dart';
+import '../widgets/prism/prism_collection_header.dart';
 import '../widgets/prism/prism_sheet.dart';
 import '../widgets/prism/prism_skeleton.dart';
 import '../widgets/prism/prism_song_tile.dart';
@@ -154,49 +154,16 @@ class _RemotePlaylistPageState extends State<RemotePlaylistPage> {
                     ),
                     slivers: [
                       SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 52,
-                                height: 52,
-                                decoration: BoxDecoration(
-                                  color: context.prismSpec.accentSoft,
-                                  borderRadius:
-                                      BorderRadius.circular(PrismRadius.md),
-                                ),
-                                child: widget.playlist.thumbnails?.medium !=
-                                        null
-                                    ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(
-                                          PrismRadius.md,
-                                        ),
-                                        child: Image.network(
-                                          widget.playlist.thumbnails!.medium!,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) => Icon(
-                                            Icons.queue_music_rounded,
-                                            color: theme.colorScheme.primary,
-                                          ),
-                                        ),
-                                      )
-                                    : Icon(
-                                        Icons.queue_music_rounded,
-                                        color: theme.colorScheme.primary,
-                                      ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Text(
-                                  '${Formatters.formatCount(_songs.length, 'song')} · from search',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                        child: PrismCollectionHeader(
+                          title: widget.playlist.name,
+                          badge: 'Remote Playlist',
+                          subtitle: widget.playlist.author,
+                          artworkUrl: widget.playlist.thumbnails?.medium,
+                          icon: Icons.queue_music_rounded,
+                          metadata:
+                              '${Formatters.formatCount(_songs.length, 'song')} · from search',
+                          onPlayAll: _songs.isEmpty ? null : () => _playAt(0),
+                          onShuffle: _songs.isEmpty ? null : _playShuffled,
                         ),
                       ),
                       SliverPadding(

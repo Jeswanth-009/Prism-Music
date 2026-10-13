@@ -9,11 +9,14 @@ import '../blocs/library/library_bloc.dart';
 import '../blocs/library/library_event.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
+import '../blocs/player/player_state.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/player/mini_player.dart';
 import '../widgets/prism/prism_artwork.dart';
+import '../widgets/prism/prism_collection_header.dart';
 import '../widgets/prism/prism_dialog.dart';
 import '../widgets/prism/prism_sheet.dart';
+import '../widgets/prism/prism_song_tile.dart';
 import '../widgets/prism/prism_states.dart';
 
 class DownloadsPage extends StatefulWidget {
@@ -270,65 +273,18 @@ class _DownloadsPageState extends State<DownloadsPage> {
                       ),
                     ],
                     SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  Formatters.formatCount(
-                                    _downloadedSongs.length,
-                                    'song',
-                                  ),
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        theme.colorScheme.surfaceContainerHigh,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    _downloadService.formatBytes(_totalSize),
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color:
-                                          theme.colorScheme.onSurfaceVariant,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (_downloadedSongs.isNotEmpty) ...[
-                              const SizedBox(height: 14),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: FilledButton.icon(
-                                      onPressed: () => _playAll(),
-                                      icon: const Icon(Icons.play_arrow_rounded,
-                                          size: 22),
-                                      label: const Text('Play all'),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  IconButton.filledTonal(
-                                    onPressed: () => _playAll(shuffle: true),
-                                    tooltip: 'Shuffle downloads',
-                                    icon: const Icon(Icons.shuffle_rounded),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ],
-                        ),
+                      child: PrismCollectionHeader(
+                        title: 'Downloads',
+                        badge: 'Offline',
+                        icon: Icons.download_done_rounded,
+                        iconColor: theme.colorScheme.primary,
+                        metadata:
+                            '${Formatters.formatCount(_downloadedSongs.length, 'song')} · ${_downloadService.formatBytes(_totalSize)}',
+                        onPlayAll:
+                            _downloadedSongs.isEmpty ? null : () => _playAll(),
+                        onShuffle: _downloadedSongs.isEmpty
+                            ? null
+                            : () => _playAll(shuffle: true),
                       ),
                     ),
                     SliverPadding(
@@ -351,53 +307,27 @@ class _DownloadsPageState extends State<DownloadsPage> {
     ThemeData theme,
     Map<String, dynamic> songData,
   ) {
-    final title = songData['title'] ?? 'Unknown';
-    final artist = songData['artist'] ?? 'Unknown Artist';
+    final song = _mapToSong(songData);
     final size = songData['fileSize'] as int?;
-    final thumbUrl = songData['thumbnailUrl'] as String?;
 
-    return ListTile(
-      onTap: () => _playSong(songData),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(PrismRadius.md),
-      ),
-      leading: ClipRRect(
-        borderRadius: BorderRadius.circular(PrismRadius.sm),
-        child: SizedBox(
-          width: 48,
-          height: 48,
-          child: thumbUrl != null && thumbUrl.isNotEmpty
-              ? PrismArtwork(url: thumbUrl, fit: BoxFit.cover)
-              : Container(
-                  color: theme.colorScheme.surfaceContainerHigh,
-                  child: Icon(
-                    Icons.music_note_rounded,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-        ),
-      ),
-      title: Text(
-        title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.titleSmall?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      subtitle: Text(
-        '$artist${size != null ? ' · ${_downloadService.formatBytes(size)}' : ''}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-      ),
-      trailing: IconButton(
-        icon: const Icon(Icons.delete_outline_rounded, size: 20),
-        tooltip: 'Delete download',
-        onPressed: () => _showDeleteDialog(songData['songId'], title),
-      ),
+    return BlocBuilder<PlayerBloc, PlayerState>(
+      builder: (context, playerState) {
+        return PrismSongTile(
+          song: song,
+          isDownloaded: true,
+          subtitle: size != null
+              ? '${song.artist} · ${_downloadService.formatBytes(size)}'
+              : song.artist,
+          isPlaying: playerState.currentSong?.id == song.id,
+          isPlayingPaused: !playerState.isPlaying,
+          onTap: () => _playSong(songData),
+          trailing: IconButton(
+            icon: const Icon(Icons.delete_outline_rounded, size: 20),
+            tooltip: 'Delete download',
+            onPressed: () => _showDeleteDialog(song.id, song.title),
+          ),
+        );
+      },
     );
   }
 
