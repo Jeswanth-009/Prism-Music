@@ -76,7 +76,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
           child: const Text('Save'),
         ),
       ],
-    );
+    ).whenComplete(() => textController.dispose());
   }
 
   void _confirmDelete(BuildContext context, Playlist playlist) {

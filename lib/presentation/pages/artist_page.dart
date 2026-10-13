@@ -161,6 +161,7 @@ class _ArtistPageState extends State<ArtistPage> {
             (albums) => _albums = albums);
       }
 
+      if (!mounted) return;
       setState(() {
         _artist = _mergeArtist(
             base: artist, details: null, fallbackThumbnail: fallbackThumb);
@@ -168,6 +169,7 @@ class _ArtistPageState extends State<ArtistPage> {
       });
     } catch (e, stack) {
       logError('Artist load failed', e, stack);
+      if (!mounted) return;
       setState(() {
         _error = 'Failed to load artist';
         _loading = false;

@@ -296,12 +296,12 @@ class SettingsDialogs {
                     icon: const Icon(Icons.folder_open_rounded, size: 20),
                     onPressed: () async {
                       if (Platform.isAndroid) {
+                        final pathController = TextEditingController(
+                          text: controller.text,
+                        );
                         final result = await showDialog<String>(
                           context: dialogContext,
                           builder: (ctx) {
-                            final pathController = TextEditingController(
-                              text: controller.text,
-                            );
                             return AlertDialog(
                               title: const Text('Enter folder path'),
                               content: Column(
@@ -348,7 +348,7 @@ class SettingsDialogs {
                               ],
                             );
                           },
-                        );
+                        ).whenComplete(() => pathController.dispose());
                         if (result != null && result.isNotEmpty) {
                           setDialogState(() => controller.text = result);
                         }
@@ -397,6 +397,6 @@ class SettingsDialogs {
           ],
         ),
       ),
-    );
+    ).whenComplete(() => controller.dispose());
   }
 }

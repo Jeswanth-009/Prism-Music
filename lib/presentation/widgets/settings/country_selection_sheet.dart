@@ -120,5 +120,5 @@ void showCountrySelectionSheet(
         },
       );
     },
-  );
+  ).whenComplete(() => searchController.dispose());
 }

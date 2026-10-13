@@ -283,57 +283,62 @@ class _LibraryTabState extends State<LibraryTab>
 
   Future<void> _createPlaylist() async {
     final controller = TextEditingController();
-    final name = await showPrismSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      builder: (sheetContext) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'New playlist',
-                style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: 'Playlist name',
-                  border: OutlineInputBorder(),
+    final String? name;
+    try {
+      name = await showPrismSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        builder: (sheetContext) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'New playlist',
+                  style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                 ),
-                onSubmitted: (value) =>
-                    Navigator.of(sheetContext).pop(value.trim()),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(sheetContext).pop(),
-                    child: const Text('Cancel'),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    hintText: 'Playlist name',
+                    border: OutlineInputBorder(),
                   ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: () =>
-                        Navigator.of(sheetContext).pop(controller.text.trim()),
-                    child: const Text('Create'),
-                  ),
-                ],
-              ),
-            ],
+                  onSubmitted: (value) =>
+                      Navigator.of(sheetContext).pop(value.trim()),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () =>
+                          Navigator.of(sheetContext).pop(controller.text.trim()),
+                      child: const Text('Create'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      );
+    } finally {
+      controller.dispose();
+    }
 
     if (name == null || name.isEmpty || !mounted) return;
     context.read<LibraryBloc>().add(CreatePlaylistEvent(name: name));
