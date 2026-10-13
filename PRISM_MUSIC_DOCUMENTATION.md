@@ -147,7 +147,6 @@ lib/
 │   │       ├── spotify/
 │   │       │   └── spotify_datasource.dart
 │   │       └── youtube/
-│   │           ├── cobalt_datasource.dart
 │   │           ├── invidious_datasource.dart
 │   │           ├── piped_datasource.dart
 │   │           └── youtube_music_datasource.dart
