@@ -54,6 +54,8 @@ class AudioPlayerService {
       ? _player.processingState == ProcessingState.completed
       : false;
   bool get isQueueMode => _playlist != null;
+  @visibleForTesting
+  int get queueSourcesLength => _queueSources.length;
 
   // Equalizer access
   EqualizerService get equalizer => _equalizerService;
@@ -510,13 +512,11 @@ class AudioPlayerService {
 
       if (_playlist != null) {
         await _playlist!.add(source);
-        _queueSources.add(source);
       } else {
-        _queueSources.add(source);
         _playlist = ConcatenatingAudioSource(
           useLazyPreparation: true,
           shuffleOrder: DefaultShuffleOrder(),
-          children: _queueSources,
+          children: List<AudioSource>.from(_queueSources),
         );
 
         await _player.setAudioSource(
