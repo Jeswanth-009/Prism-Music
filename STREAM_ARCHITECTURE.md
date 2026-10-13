@@ -2,11 +2,12 @@
 
 ## Overview
 
-Production-ready stream loading system with:
-- **Stream caching** (5-hour TTL)
-- **Parallel source fetching** (YouTube Explode, Invidious, Alternative)
-- **Smart prefetching** (next 2 songs in queue)
-- **Non-blocking recommendations**
+Production-ready stream loading and audio playback system with:
+- **Stream caching** (45-minute baseline TTL with URL `expire` query parameter inspection)
+- **Multi-source parallel fetching with circuit breaker** (JioSaavn, YouTube Explode, Invidious, Piped Alternative)
+- **Timeouts & budgets** (10s per-source timeout, 15s total resolution budget, 3-error circuit breaker)
+- **Smart prefetching** (next 2 songs in queue, non-blocking)
+- **Background audio & media sessions** (`audio_service` with `PrismAudioHandler` + `MediaSessionCoordinator`)
 
 ## Architecture
 
@@ -15,35 +16,48 @@ Production-ready stream loading system with:
 #### 1. StreamCacheService
 **Location:** `lib/core/services/stream_cache_service.dart`
 
-Caches stream URLs with TTL to avoid redundant API calls.
+Caches stream URLs with quality-aware keys and dynamic expiration to avoid redundant API queries.
 
 ```dart
 // Features:
-- 5-hour TTL (YouTube streams expire in ~6 hours)
-- Automatic expiration cleanup
-- Cache hit statistics
-- Thread-safe singleton
+- 45-minute conservative baseline TTL
+- Dynamic expiry resolution: parses `expire` Unix timestamp in YouTube URLs with 5-minute safety margin
+- Quality-aware keys (`${videoId}_${quality.name}`)
+- Automatic expired entry eviction and cache hit tracking
 
 // Usage:
-final cached = streamCache.getCached(videoId);
-streamCache.cache(videoId, streamInfo);
+final cached = streamCache.getCached(videoId, audioQuality);
+streamCache.cache(videoId, streamInfo, requestedTtl: customTtl);
 ```
 
 #### 2. StreamLoaderService
 **Location:** `lib/core/services/stream_loader_service.dart`
 
-Parallel fetching + prefetching manager.
+Parallel fetching, timeout budgeting, and circuit breaker manager.
 
 ```dart
 // Features:
-- Parallel source queries (returns first success)
-- 8-second timeout per source
-- Prefetch queue for next songs
-- Analytics (success rates, avg fetch time)
+- Multi-source racing: JioSaavn, YouTube Explode, Invidious, and Piped
+- 10-second timeout per source, 15-second overall resolution budget
+- 3-error circuit breaker threshold with 60-second cooldown per source
+- In-flight prefetch deduplication and cancellation/invalidation tracking
+- Analytics (source latency, error rates, cache hits)
 
 // Usage:
-final streamInfo = await streamLoader.loadStream(song); // Blocks
+final streamInfo = await streamLoader.loadStream(song);
 streamLoader.prefetch(nextSong); // Non-blocking
+```
+
+#### 3. PrismAudioHandler & MediaSessionCoordinator
+**Location:** `lib/core/services/prism_audio_handler.dart`, `lib/core/services/media_session_coordinator.dart`
+
+Integrates `just_audio` with `audio_service` for Android system notifications, lockscreen media controls, and Bluetooth headsets.
+
+```dart
+// Features:
+- Bridges single-track AudioPlayer playback events to system MediaSession
+- Coordinates skip next/previous actions into PlayerBloc queue logic
+- Prevents compact notification index out-of-bounds crashes on Android < 13
 ```
 
 ### Flow Diagram
@@ -59,20 +73,23 @@ streamLoader.loadStream(song)
    /        \
  YES        NO
   ↓          ↓
-Return    Parallel Fetch
-Cached    (8s timeout each)
-Stream    ┌─────────────┐
-  ↓       │ YouTube     │
-Start     │ Explode     │ → First success wins
-Playback  ├─────────────┤
-  ↓       │ Invidious   │
-Prefetch  ├─────────────┤
-Next 2    │ Alternative │
-Songs     └─────────────┘
-          ↓
-       Cache Result
-          ↓
-     Start Playback
+Return    Multi-Source Race
+Cached    (10s timeout, 15s budget)
+Stream    ┌───────────────┐
+  ↓       │ JioSaavn      │
+Start     ├───────────────┤
+Playback  │ YouTubeExplode│ → First valid success wins
+  ↓       ├───────────────┤   (Circuit breaker guards failed sources)
+Prefetch  │ Invidious     │
+Next 2    ├───────────────┤
+Songs     │ Piped (Alt)   │
+          └───────────────┘
+                 ↓
+            Cache Result (45m / expire param)
+                 ↓
+           Start Playback
+                 ↓
+   PrismAudioHandler broadcasts MediaSession
 ```
 
 ## Performance Improvements
@@ -149,14 +166,15 @@ getRecommendations().then((recs) => {
 
 ### TTL Calculation
 ```
-YouTube URLs expire: ~6 hours
-Cache TTL: 5 hours (safety margin)
+Default Baseline TTL: 45 minutes
+URL Query Expiration: parses 'expire' Unix timestamp from YouTube URL
+Safety Margin: 5 minutes before actual expiration timestamp
 ```
 
 ### Cache Key
 ```dart
-videoId → StreamInfo
-// Unique per video, not per search result
+${videoId}_${quality.name} → StreamInfo
+// Quality-aware key; falls back to videoId when quality is unspecified
 ```
 
 ### Invalidation

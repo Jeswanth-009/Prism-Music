@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | --- | --- |
-| 0.1.x (alpha) | Yes |
-| Versions below 0.1.0 | No |
+| 0.2.x (alpha) | Yes |
+| Versions below 0.2.0 | No |
 
 Because Prism Music is in early alpha, supported versions can move quickly.
 Only the latest alpha line should be considered actively maintained for security updates.

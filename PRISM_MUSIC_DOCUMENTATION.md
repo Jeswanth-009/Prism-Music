@@ -218,12 +218,9 @@ lib/
 | **State Management** | `flutter_bloc` | ^9.0.0 | BLoC pattern implementation |
 | **State Management** | `bloc` | ^9.0.0 | Core BLoC library |
 | **State Management** | `equatable` | ^2.0.5 | Value equality for states |
-| **Audio Player** | `just_audio` | ^0.10.5 | Cross-platform audio playback |
-| **Background Audio** | `audio_service` | ^0.18.18 | Background audio service |
-| **Background Audio** | `just_audio_background` | ^0.0.1-beta.17 | Background playback integration |
-| **Media Processing** | `media_kit` | ^1.2.2 | Media toolkit for desktop |
-| **Media Processing** | `media_kit_libs_audio` | ^1.0.7 | Audio codec support |
-| **YouTube API** | `youtube_explode_dart` | ^2.2.3 | YouTube video/audio extraction |
+| **Audio Player** | `just_audio` | ^0.10.6 | Cross-platform audio playback |
+| **Background Audio** | `audio_service` | ^0.18.13 | System media session and background notification service |
+| **YouTube API** | `youtube_explode_dart` | ^3.1.0 | YouTube audio stream extraction |
 | **HTTP Client** | `dio` | ^5.7.0 | Advanced HTTP client |
 | **HTTP Client** | `http` | ^1.2.2 | Basic HTTP client |
 | **Networking** | `connectivity_plus` | ^6.0.5 | Network connectivity detection |
