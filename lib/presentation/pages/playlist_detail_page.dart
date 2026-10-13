@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/utils/formatters.dart';
 import '../../domain/entities/playlist.dart';
 import '../../domain/entities/song.dart';
 import '../blocs/library/library.dart';
@@ -311,7 +312,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                           ],
                           const SizedBox(height: 6),
                           Text(
-                            '${allSongs.length} ${allSongs.length == 1 ? 'song' : 'songs'}'
+                            '${Formatters.formatCount(allSongs.length, 'song')}'
                             '${playlist.totalDurationFormatted.isEmpty ? '' : ' · ${playlist.totalDurationFormatted}'}',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,

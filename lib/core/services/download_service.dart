@@ -10,6 +10,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import '../utils/logger.dart';
 import '../utils/path_safety.dart';
+import '../utils/formatters.dart';
 import 'settings_service.dart';
 
 /// Builds a filesystem-safe file name for a downloaded song.
@@ -507,14 +508,7 @@ class DownloadService {
   }
 
   /// Format bytes to readable string
-  String formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-  }
+  String formatBytes(int bytes) => Formatters.formatBytes(bytes);
 
   /// Cancel download
   void cancelDownload(String songId) {

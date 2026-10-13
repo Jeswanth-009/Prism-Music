@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
+// ignore: depend_on_referenced_packages
 import 'package:just_audio_platform_interface/just_audio_platform_interface.dart';
 import 'package:prism_music/core/services/audio_player_service.dart';
 

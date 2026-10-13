@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/di/injection.dart';
 import '../../core/services/curated_playlists.dart';
+import '../../core/utils/formatters.dart';
 import '../../domain/entities/playlist.dart';
 import '../../domain/entities/song.dart';
 import '../../domain/repositories/music_repository.dart';
@@ -256,7 +257,7 @@ class _CuratedPlaylistPageState extends State<CuratedPlaylistPage> {
                                           ),
                                         if (_totalDuration != null)
                                           Text(
-                                            '${_songs.length} songs · ${_formatDuration(_totalDuration!)}',
+                                            '${Formatters.formatCount(_songs.length, 'song')} · ${Formatters.formatDuration(_totalDuration!)}',
                                             style: theme.textTheme.bodySmall
                                                 ?.copyWith(
                                               color: theme
@@ -309,12 +310,5 @@ class _CuratedPlaylistPageState extends State<CuratedPlaylistPage> {
                       ),
                     ),
     );
-  }
-
-  String _formatDuration(Duration d) {
-    final hours = d.inHours;
-    final mins = d.inMinutes % 60;
-    if (hours > 0) return '$hours hr $mins min';
-    return '$mins min';
   }
 }

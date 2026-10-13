@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/di/injection.dart';
 import '../../core/services/download_service.dart';
+import '../../core/utils/formatters.dart';
 import '../../domain/entities/song.dart';
 import '../blocs/library/library_bloc.dart';
 import '../blocs/library/library_event.dart';
@@ -278,7 +279,10 @@ class _DownloadsPageState extends State<DownloadsPage> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  '${_downloadedSongs.length} ${_downloadedSongs.length == 1 ? 'song' : 'songs'}',
+                                  Formatters.formatCount(
+                                    _downloadedSongs.length,
+                                    'song',
+                                  ),
                                   style: theme.textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.w700,
                                   ),

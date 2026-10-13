@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/di/injection.dart';
+import '../../core/utils/formatters.dart';
 import '../../domain/entities/playlist.dart';
 import '../../domain/entities/song.dart';
 import '../../domain/repositories/music_repository.dart';
@@ -188,7 +189,7 @@ class _RemotePlaylistPageState extends State<RemotePlaylistPage> {
                               const SizedBox(width: 14),
                               Expanded(
                                 child: Text(
-                                  '${_songs.length} songs · from search',
+                                  '${Formatters.formatCount(_songs.length, 'song')} · from search',
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: theme.colorScheme.onSurfaceVariant,
                                   ),

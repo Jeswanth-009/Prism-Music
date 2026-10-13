@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/services/settings_service.dart';
 import '../../../core/services/stream_cache_service.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/entities.dart';
 import '../../blocs/theme/theme_bloc.dart';
 import '../../blocs/theme/theme_event.dart';
@@ -209,9 +210,7 @@ class SettingsDialogs {
     final stats = getIt<StreamCacheService>().getStats();
     final validStreams = stats['valid'] as int? ?? 0;
     final diskBytes = await _getDiskCacheBytes();
-    final diskFormatted = diskBytes < 1024 * 1024
-        ? '${(diskBytes / 1024).toStringAsFixed(1)} KB'
-        : '${(diskBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    final diskFormatted = Formatters.formatBytes(diskBytes);
 
     if (!context.mounted) return;
 
@@ -222,7 +221,7 @@ class SettingsDialogs {
           title: const Text('Clear cache?'),
           content: Text(
             'This frees approximately $diskFormatted of temporary storage, clearing '
-            '$validStreams pre-resolved stream${validStreams == 1 ? '' : 's'}, cached album art, '
+            '${Formatters.formatCount(validStreams, 'pre-resolved stream')}, cached album art, '
             'and lyrics cache. Downloaded songs are safely kept.',
           ),
           actions: [

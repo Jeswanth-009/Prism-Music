@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/utils/formatters.dart';
 import '../../domain/entities/song.dart';
 import '../blocs/library/library.dart';
 import '../blocs/player/player.dart';
@@ -85,7 +86,7 @@ class RecentlyPlayedPage extends StatelessWidget {
                       Row(
                         children: [
                           Text(
-                            '${songs.length} ${songs.length == 1 ? 'song' : 'songs'} in history',
+                            '${Formatters.formatCount(songs.length, 'song')} in history',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                               fontWeight: FontWeight.w600,

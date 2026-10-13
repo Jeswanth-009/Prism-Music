@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/utils/formatters.dart';
 import '../../domain/entities/song.dart';
 import '../blocs/library/library_bloc.dart';
 import '../blocs/library/library_state.dart';
@@ -71,12 +72,7 @@ class _LikedSongsPageState extends State<LikedSongsPage> {
     for (final s in songs) {
       totalSeconds += s.duration.inSeconds;
     }
-    final minutes = totalSeconds ~/ 60;
-    final hours = minutes ~/ 60;
-    if (hours > 0) {
-      return '$hours hr ${minutes % 60} min';
-    }
-    return '$minutes min';
+    return Formatters.formatDuration(Duration(seconds: totalSeconds));
   }
 
   @override
@@ -185,7 +181,7 @@ class _LikedSongsPageState extends State<LikedSongsPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '${allSongs.length} ${allSongs.length == 1 ? 'song' : 'songs'}',
+                                  Formatters.formatCount(allSongs.length, 'song'),
                                   style: theme.textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.w700,
                                   ),

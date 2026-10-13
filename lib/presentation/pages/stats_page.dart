@@ -7,6 +7,7 @@ import '../../domain/entities/listening_stats.dart';
 import '../../domain/repositories/library_repository.dart';
 import '../blocs/library/library.dart';
 import '../theme/prism_theme.dart';
+import '../../core/utils/formatters.dart';
 import '../widgets/player/mini_player.dart';
 import '../widgets/prism/prism_states.dart';
 
@@ -125,13 +126,7 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
-  String _formatDate(DateTime date) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
-  }
+  String _formatDate(DateTime date) => Formatters.formatDate(date);
 }
 
 class _DataRetentionCard extends StatelessWidget {
