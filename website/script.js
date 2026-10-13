@@ -20,10 +20,12 @@
   root.setAttribute("data-theme", initialTheme);
 
   if (themeToggle) {
+    themeToggle.setAttribute("aria-pressed", initialTheme === "light" ? "true" : "false");
     themeToggle.addEventListener("click", () => {
       const current = root.getAttribute("data-theme");
       const next = current === "light" ? "dark" : "light";
       root.setAttribute("data-theme", next);
+      themeToggle.setAttribute("aria-pressed", next === "light" ? "true" : "false");
       try { localStorage.setItem("prism-theme", next); } catch (e) {}
     });
   }
@@ -328,7 +330,13 @@
   }
 
   showcaseCards.forEach((card, idx) => {
-    card.addEventListener("click", () => selectScreen(idx));
+    card.addEventListener("click", () => {
+      if (activeIdx === idx) {
+        openLightbox(idx);
+      } else {
+        selectScreen(idx);
+      }
+    });
   });
 
   function updateLightboxContent(idx) {
@@ -497,7 +505,7 @@
   }
 
   function parseTag(tag) {
-    const m = /v?(\d+)\.(\d+)\.(\d+)(?:-build(\d+))?/i.exec(tag || "");
+    const m = /(?:v|alpha-v)?(\d+)\.(\d+)\.(\d+)(?:[-+](?:build|run)?\.?(\d+))?/i.exec(tag || "");
     return m ? [+m[1], +m[2], +m[3], m[4] ? +m[4] : 0] : null;
   }
 
@@ -675,7 +683,13 @@
           .filter(Boolean);
 
         if (candidates.length) {
-          candidates.sort((a, b) => compareTags(b.key, a.key));
+          candidates.sort((a, b) => {
+            const cmp = compareTags(b.key, a.key);
+            if (cmp !== 0) return cmp;
+            const timeA = a.release.published_at ? new Date(a.release.published_at).getTime() : (a.release.created_at ? new Date(a.release.created_at).getTime() : 0);
+            const timeB = b.release.published_at ? new Date(b.release.published_at).getTime() : (b.release.created_at ? new Date(b.release.created_at).getTime() : 0);
+            return timeB - timeA;
+          });
           applyRelease(candidates[0].release, candidates[0].apk);
         }
 
