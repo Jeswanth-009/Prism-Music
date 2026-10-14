@@ -8,6 +8,35 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.37] - 2026-10-14
+
+### Added
+
+- Introduce centralized locale-aware formatters for dates, counts, and sizes (L04)
+- Redesign showcase into dual-pane stage with feature cards and full-screen lightbox
+- Elevate landing page with live interactive audio demo, bento grid, and showcase
+
+### Fixed
+
+- Enhance a11y, keyboard screenshot navigation, release tag parsing, and reduced motion (L11)
+- Dispose dialog text controllers and guard async setState calls (L05)
+- Eliminate duplicate queue-source append in AudioPlayerService (L02)
+- Resolve mobile layout breakdown, prevent horizontal overflow, and polish responsive drawer
+- Resolve comparison table layout, restore release notes banner and changelog feed
+
+### Changed
+
+- Decouple HomePage tabs with tabBuilders and resolve test timeout
+- Lazily construct IndexedStack tabs and eliminate redundant full-screen blur shader (L12)
+- Output reviewable image diffs on failure and tighten golden tolerance (L10)
+- Align security versions, stream timeouts, and background playback docs with implementation (L09)
+- Remove obsolete proxy startup scripts and cleanup find-ip instructions (L08)
+- Consolidate collection headers and standardize song rows with overflow actions (L06, L07)
+- Improve Album and Playlist equality semantics and copyWith sentinel clearing (L03)
+- Remove unused AudioDownloaderService and CobaltDataSource (L01)
+- Hide background prism beam illustration behind phone on mobile screens
+- Modernize README with feature matrix, architecture diagram, and badges
+
 ## [0.2.36] - 2026-10-11
 
 ### Fixed
@@ -651,3 +680,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.34]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.34-build70
 [0.2.35]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.35-build71
 [0.2.36]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.36-build72
+[0.2.37]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.37-build73
