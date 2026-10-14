@@ -8,6 +8,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.38] - 2026-10-14
+
+### Added
+
+- Implement pluggable stream resolvers and mid-playback 403 stream expiry auto-recovery
+- Eliminate nested fallback loops and introduce dynamic instance health engine
+- Implement match confidence engine, audio provenance & negative lyrics caching
+
 ## [0.2.37] - 2026-10-14
 
 ### Added
@@ -681,3 +689,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.35]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.35-build71
 [0.2.36]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.36-build72
 [0.2.37]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.37-build73
+[0.2.38]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.38-build74
