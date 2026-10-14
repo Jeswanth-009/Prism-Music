@@ -65,6 +65,13 @@ class LyricsDataSourceImpl implements LyricsDataSource {
     final songId = '${artist}_$title';
 
     if (!forceRefresh) {
+      final isKnownNotFound = await _cache.isMarkedNotFound(
+        title,
+        artist,
+        duration: duration,
+      );
+      if (isKnownNotFound) return null;
+
       final cached = await _cache.get(
         title,
         artist,
@@ -90,6 +97,10 @@ class LyricsDataSourceImpl implements LyricsDataSource {
       await _cacheSuccess(title, artist, scored, duration: duration);
       return scored;
     }
+
+    // Both exact and scored lookups completed without finding lyrics (and without network outage).
+    // Mark as verified not-found so future plays do not spam the remote lyrics API.
+    await _cache.markNotFound(title, artist, duration: duration);
 
     return null;
   }

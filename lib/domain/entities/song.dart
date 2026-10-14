@@ -93,6 +93,18 @@ class Song extends Equatable {
   /// Audio quality of cached stream
   final AudioQuality? cachedQuality;
 
+  /// Provenance of the audio stream (e.g., 'youtube_direct', 'jiosaavn_matched', 'piped_proxy')
+  final String? streamProvenance;
+
+  /// Match confidence score (0.0 to 1.0) when audio was resolved from an alternative source
+  final double? matchConfidence;
+
+  /// Original platform ID if track was imported or converted (e.g., Spotify URI)
+  final String? originalPlatformId;
+
+  /// International Standard Recording Code if available
+  final String? isrc;
+
   const Song({
     required this.id,
     required this.title,
@@ -113,6 +125,10 @@ class Song extends Equatable {
     this.isLiked = false,
     this.streamUrl,
     this.cachedQuality,
+    this.streamProvenance,
+    this.matchConfidence,
+    this.originalPlatformId,
+    this.isrc,
   });
 
   /// Get the primary playable ID (prefers YouTube for streaming)
@@ -149,6 +165,10 @@ class Song extends Equatable {
     bool? isLiked,
     String? streamUrl,
     AudioQuality? cachedQuality,
+    String? streamProvenance,
+    double? matchConfidence,
+    String? originalPlatformId,
+    String? isrc,
   }) {
     return Song(
       id: id ?? this.id,
@@ -170,6 +190,10 @@ class Song extends Equatable {
       isLiked: isLiked ?? this.isLiked,
       streamUrl: streamUrl ?? this.streamUrl,
       cachedQuality: cachedQuality ?? this.cachedQuality,
+      streamProvenance: streamProvenance ?? this.streamProvenance,
+      matchConfidence: matchConfidence ?? this.matchConfidence,
+      originalPlatformId: originalPlatformId ?? this.originalPlatformId,
+      isrc: isrc ?? this.isrc,
     );
   }
 
@@ -192,6 +216,10 @@ class Song extends Equatable {
         genre,
         playCount,
         isLiked,
+        streamProvenance,
+        matchConfidence,
+        originalPlatformId,
+        isrc,
       ];
 }
 

@@ -30,6 +30,12 @@ class StreamInfo extends Equatable {
   /// HTTP headers required for accessing the stream
   final Map<String, String>? headers;
 
+  /// Provenance of the stream (e.g. 'youtube_explode', 'jiosaavn_matched', 'piped_proxy', 'invidious')
+  final String? streamProvenance;
+
+  /// Match confidence (0.0 to 1.0) when resolved via cross-provider search
+  final double? matchConfidence;
+
   const StreamInfo({
     required this.url,
     required this.codec,
@@ -40,6 +46,8 @@ class StreamInfo extends Equatable {
     this.expiresAt,
     this.isAudioOnly = true,
     this.headers,
+    this.streamProvenance,
+    this.matchConfidence,
   });
 
   /// Check if the stream URL is still valid
@@ -59,6 +67,8 @@ class StreamInfo extends Equatable {
         expiresAt,
         isAudioOnly,
         headers,
+        streamProvenance,
+        matchConfidence,
       ];
 }
 

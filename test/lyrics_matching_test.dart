@@ -372,5 +372,16 @@ void main() {
       final box = await Hive.openBox<Map>('lyrics_cache');
       expect(box.length, lessThanOrEqualTo(200));
     });
+
+    test('negative caching marks and detects confirmed missing lyrics', () async {
+      final cache = LyricsLocalCache();
+      expect(await cache.isMarkedNotFound('NonExistent', 'Artist'), isFalse);
+
+      await cache.markNotFound('NonExistent', 'Artist');
+      expect(await cache.isMarkedNotFound('NonExistent', 'Artist'), isTrue);
+
+      // Distinct track is not marked
+      expect(await cache.isMarkedNotFound('OtherSong', 'Artist'), isFalse);
+    });
   });
 }

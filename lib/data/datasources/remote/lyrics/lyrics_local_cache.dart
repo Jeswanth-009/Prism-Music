@@ -134,4 +134,66 @@ class LyricsLocalCache {
       // Best-effort.
     }
   }
+
+  /// Record a verified negative result (404 / no lyrics found) to prevent
+  /// repeatedly hitting the remote API on subsequent plays.
+  Future<void> markNotFound(
+    String title,
+    String artist, {
+    Duration? duration,
+    String? version,
+    String provider = 'LRCLIB',
+  }) async {
+    try {
+      final box = await _getBox();
+      final key = cacheKey(
+        title,
+        artist,
+        duration: duration,
+        version: version,
+        provider: provider,
+      );
+      await box.put(key, <String, dynamic>{
+        'notFound': true,
+        'source': provider,
+        'cachedAt': DateTime.now().toIso8601String(),
+      });
+    } catch (_) {
+      // Best-effort.
+    }
+  }
+
+  /// Check if this track was recently verified as having no lyrics on the remote provider.
+  Future<bool> isMarkedNotFound(
+    String title,
+    String artist, {
+    Duration? duration,
+    String? version,
+    String provider = 'LRCLIB',
+    Duration maxAge = const Duration(days: 3),
+  }) async {
+    try {
+      final box = await _getBox();
+      final key = cacheKey(
+        title,
+        artist,
+        duration: duration,
+        version: version,
+        provider: provider,
+      );
+      final entry = box.get(key);
+      if (entry != null && entry['notFound'] == true) {
+        final cachedAtStr = entry['cachedAt'] as String?;
+        if (cachedAtStr != null) {
+          final cachedAt = DateTime.tryParse(cachedAtStr);
+          if (cachedAt != null && DateTime.now().difference(cachedAt) < maxAge) {
+            return true;
+          }
+        }
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
 }
