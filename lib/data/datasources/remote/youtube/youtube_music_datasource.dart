@@ -729,8 +729,14 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
     return streams.last;
   }
 
-  AudioQuality _bitrateToQuality(int bitrateKbps) {
-    if (bitrateKbps >= 256) return AudioQuality.lossless;
+  AudioQuality _bitrateToQuality(int bitrateKbps, [String? codec]) {
+    final lowerCodec = codec?.toLowerCase() ?? '';
+    if (lowerCodec.contains('flac') ||
+        lowerCodec.contains('alac') ||
+        lowerCodec.contains('wav')) {
+      return AudioQuality.lossless;
+    }
+    if (bitrateKbps >= 320) return AudioQuality.lossless;
     if (bitrateKbps >= 160) return AudioQuality.high;
     if (bitrateKbps >= 96) return AudioQuality.medium;
     return AudioQuality.low;

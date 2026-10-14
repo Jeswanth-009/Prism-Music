@@ -260,11 +260,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   }
 
   AudioQuality _startupQuality(AudioQuality requestedQuality) {
+    // Respect requested user quality directly without permanent degradation (M08)
     if (!_fastStartEnabled) return requestedQuality;
-    if (requestedQuality == AudioQuality.high ||
-        requestedQuality == AudioQuality.lossless) {
-      return AudioQuality.medium; // Faster manifest/stream acquisition
-    }
     return requestedQuality;
   }
 
@@ -431,12 +428,18 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
       // Resolve local/offline/online source via centralized resolver.
       final resolveStopwatch = Stopwatch()..start();
-      final preResolved = _mediaResolver.takePreResolved(event.song.playableId);
+      final preResolved = event.preferredResolver != null
+          ? null
+          : _mediaResolver.takePreResolved(event.song.playableId);
       final usedPreResolved = preResolved != null;
       final resolvedSource =
           preResolved ??
           await (_mediaResolver
-              .resolveForPlayback(event.song, preferredQuality: playbackQuality)
+              .resolveForPlayback(
+                event.song,
+                preferredQuality: playbackQuality,
+                preferredResolverName: event.preferredResolver,
+              )
               .timeout(_resolveTimeout));
       if (generation != _playbackGeneration) return; // user moved on
       resolveStopwatch.stop();

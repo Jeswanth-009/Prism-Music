@@ -29,8 +29,8 @@ extension _AudioQualityLabel on AudioQuality {
   String get subtitle => switch (this) {
     AudioQuality.low => '64 kbps — saves the most data',
     AudioQuality.medium => '128 kbps — balanced',
-    AudioQuality.high => '256 kbps — detailed',
-    AudioQuality.lossless => '320 kbps (Opus) — maximum fidelity',
+    AudioQuality.high => '160–256 kbps — high fidelity',
+    AudioQuality.lossless => 'Up to 320 kbps (Source Dependent) — maximum available fidelity',
   };
 }
 
