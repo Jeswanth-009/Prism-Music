@@ -15,7 +15,21 @@ import 'search_page.dart';
 /// App shell: tabbed content with a floating navigation pill and the
 /// persistent mini player above it.
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({
+    super.key,
+    this.tabBuilders,
+  });
+
+  /// Optional custom tab builders, primarily used for testing or modular shells.
+  /// If null, [defaultTabBuilders] are used.
+  final List<WidgetBuilder>? tabBuilders;
+
+  static final List<WidgetBuilder> defaultTabBuilders = [
+    (_) => const HomeTab(),
+    (_) => const SearchPage(embedded: true),
+    (_) => const ChartsHubPage(),
+    (_) => const LibraryTab(),
+  ];
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -36,6 +50,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final builders = widget.tabBuilders ?? HomePage.defaultTabBuilders;
 
     return Scaffold(
       extendBody: false,
@@ -73,10 +88,10 @@ class _HomePageState extends State<HomePage> {
             IndexedStack(
               index: _currentIndex,
               children: [
-                _visitedTabs.contains(0) ? const HomeTab() : const SizedBox.shrink(),
-                _visitedTabs.contains(1) ? const SearchPage(embedded: true) : const SizedBox.shrink(),
-                _visitedTabs.contains(2) ? const ChartsHubPage() : const SizedBox.shrink(),
-                _visitedTabs.contains(3) ? const LibraryTab() : const SizedBox.shrink(),
+                for (var i = 0; i < builders.length; i++)
+                  _visitedTabs.contains(i)
+                      ? builders[i](context)
+                      : const SizedBox.shrink(),
               ],
             ),
           ],
