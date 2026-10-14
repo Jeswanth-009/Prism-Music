@@ -119,6 +119,7 @@ class _FakeMediaResolverService implements MediaResolverService {
   Future<ResolvedMediaSource> resolveForPlayback(
     Song song, {
     AudioQuality preferredQuality = AudioQuality.high,
+    String? preferredResolverName,
   }) async {
     return ResolvedMediaSource(
       uri: 'https://example.com/audio/${song.id}.mp4',

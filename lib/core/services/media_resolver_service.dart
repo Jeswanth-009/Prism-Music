@@ -44,11 +44,16 @@ class MediaResolverService {
   Future<ResolvedMediaSource> resolveForPlayback(
     Song song, {
     AudioQuality preferredQuality = AudioQuality.high,
+    String? preferredResolverName,
   }) async {
     final songId = song.playableId;
 
+    if (preferredResolverName != null) {
+      _preResolved.remove(songId);
+    }
+
     // Prefer local file when available for offline-safe playback.
-    if (_downloadService.isDownloaded(songId)) {
+    if (_downloadService.isDownloaded(songId) && preferredResolverName == null) {
       final localPath = _downloadService.getLocalPath(songId);
       if (localPath != null && File(localPath).existsSync()) {
         _log('MediaResolver: Offline HIT for ${song.title}');
@@ -58,7 +63,7 @@ class MediaResolverService {
 
     // Source-aware branch: if provider already supplied a direct stream URL,
     // use it directly and avoid unnecessary resolver round trips.
-    if (_hasDirectStream(song)) {
+    if (_hasDirectStream(song) && preferredResolverName == null) {
       _log('MediaResolver: Direct stream HIT for ${song.title}');
       return ResolvedMediaSource(
         uri: song.streamUrl!,
@@ -71,6 +76,7 @@ class MediaResolverService {
     final streamInfo = await _streamLoader.loadStream(
       song,
       preferredQuality: preferredQuality,
+      preferredResolverName: preferredResolverName,
     );
     streamResolveStopwatch.stop();
     _log(

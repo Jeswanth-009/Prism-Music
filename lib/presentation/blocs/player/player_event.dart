@@ -21,16 +21,18 @@ class PlaySongEvent extends PlayerEvent {
   /// unable to skip. Programmatic retries and auto-advance skips pass false
   /// and remain subject to the breaker.
   final bool userInitiated;
+  final String? preferredResolver;
 
   const PlaySongEvent({
     required this.song,
     this.queue,
     this.queueIndex,
     this.userInitiated = true,
+    this.preferredResolver,
   });
 
   @override
-  List<Object?> get props => [song, queue, queueIndex, userInitiated];
+  List<Object?> get props => [song, queue, queueIndex, userInitiated, preferredResolver];
 }
 
 /// Play/Resume current song

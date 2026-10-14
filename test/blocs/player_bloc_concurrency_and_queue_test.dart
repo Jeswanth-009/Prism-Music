@@ -132,6 +132,7 @@ class _FakeMediaResolverService implements MediaResolverService {
   Future<ResolvedMediaSource> resolveForPlayback(
     Song song, {
     AudioQuality preferredQuality = AudioQuality.high,
+    String? preferredResolverName,
   }) async {
     if (slowResolutionCompleter != null) {
       return slowResolutionCompleter!.future;

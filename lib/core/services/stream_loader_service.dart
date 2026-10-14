@@ -100,12 +100,13 @@ class StreamLoaderService {
     Song song, {
     bool useCache = true,
     AudioQuality preferredQuality = AudioQuality.high,
+    String? preferredResolverName,
   }) async {
     final overallStopwatch = Stopwatch()..start();
     final videoId = song.playableId; // Use playableId (youtubeId ?? id)
 
-    // Check cache first - instant return if available
-    if (useCache) {
+    // Check cache first - instant return if available (unless explicitly requesting a specific resolver)
+    if (useCache && preferredResolverName == null) {
       final cached = _cache.getCached(videoId, preferredQuality);
       if (cached != null) {
         overallStopwatch.stop();
@@ -120,7 +121,7 @@ class StreamLoaderService {
 
     // Check if already prefetching - wait for that instead of starting new fetch
     final existingPrefetch = _prefetchQueue[videoId];
-    if (existingPrefetch != null) {
+    if (existingPrefetch != null && preferredResolverName == null) {
       debugPrint('StreamLoader: Waiting for prefetch result for ${song.title}');
       try {
         final result = await existingPrefetch;
@@ -138,10 +139,11 @@ class StreamLoaderService {
     }
 
     // Fetch with bounded overall resolution budget
-    debugPrint('StreamLoader: Loading stream for ${song.title}');
+    debugPrint('StreamLoader: Loading stream for ${song.title} (preferred: $preferredResolverName)');
     final streamInfo = await _fetchOptimized(
       song,
       preferredQuality,
+      preferredResolverName: preferredResolverName,
     ).timeout(
       _overallResolutionBudget,
       onTimeout: () =>
@@ -163,16 +165,25 @@ class StreamLoaderService {
   /// Optimized fetch - use primary source once and fail fast on errors.
   Future<StreamInfo> _fetchOptimized(
     Song song,
-    AudioQuality preferredQuality,
-  ) async {
+    AudioQuality preferredQuality, {
+    String? preferredResolverName,
+  }) async {
     final videoId = song.playableId;
     final stopwatch = Stopwatch()..start();
 
-    for (final resolver in _resolvers) {
+    final candidateResolvers = preferredResolverName != null
+        ? [
+            ..._resolvers.where((r) => r.resolverName == preferredResolverName),
+            ..._resolvers.where((r) => r.resolverName != preferredResolverName),
+          ]
+        : _resolvers;
+
+    for (final resolver in candidateResolvers) {
       if (!resolver.isAvailable) continue;
       final source = _mapResolverToSource(resolver.resolverName);
+      final isExplicitUserChoice = resolver.resolverName == preferredResolverName;
 
-      if (_isCircuitOpen(source)) {
+      if (!isExplicitUserChoice && _isCircuitOpen(source)) {
         debugPrint('StreamLoader: ${resolver.resolverName} circuit is OPEN; skipping.');
         continue;
       }

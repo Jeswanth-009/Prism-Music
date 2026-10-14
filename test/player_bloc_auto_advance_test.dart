@@ -130,6 +130,7 @@ class FakeMediaResolverService implements MediaResolverService {
   Future<ResolvedMediaSource> resolveForPlayback(
     Song song, {
     AudioQuality preferredQuality = AudioQuality.high,
+    String? preferredResolverName,
   }) async {
     final gate = gates[song.id];
     if (gate != null) {

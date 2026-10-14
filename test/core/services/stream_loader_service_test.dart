@@ -198,6 +198,37 @@ void main() {
       sharedCache.invalidate('video_abc');
       expect(sharedCache.isCached('video_abc'), isFalse);
     });
+
+    test('prioritizes preferredResolverName over default sequence', () async {
+      mockJio.streamResult = const StreamInfo(
+        url: 'https://jio.stream/audio.mp4',
+        codec: 'mp4a',
+        bitrate: 320,
+        container: 'mp4',
+        quality: AudioQuality.high,
+        streamProvenance: 'jiosaavn_matched',
+      );
+      mockYt.streamResult = const StreamInfo(
+        url: 'https://youtube.stream/audio.opus',
+        codec: 'opus',
+        bitrate: 160,
+        container: 'webm',
+        quality: AudioQuality.high,
+        streamProvenance: 'youtube_explode',
+      );
+
+      // Without preferredResolver, JioSaavn runs first
+      final defaultResult = await loader.loadStream(testSong, useCache: false);
+      expect(defaultResult.streamProvenance, equals('jiosaavn_matched'));
+
+      // With preferredResolver 'youtube_explode', YouTube runs first even though Jio is available
+      final forcedResult = await loader.loadStream(
+        testSong,
+        useCache: false,
+        preferredResolverName: 'youtube_explode',
+      );
+      expect(forcedResult.streamProvenance, equals('youtube_explode'));
+    });
   });
 }
 
