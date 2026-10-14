@@ -8,6 +8,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.40] - 2026-10-14
+
+### Added
+
+- Add glassmorphic audio provenance badge, diagnostics sheet & manual source switcher
+- Support manual stream source override and prioritized resolver execution
+
+### Fixed
+
+- Eliminate fake lossless badges and permanent fast-start quality degradation (M08)
+
 ## [0.2.39] - 2026-10-14
 
 ### Added
@@ -697,3 +708,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.37]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.37-build73
 [0.2.38]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.38-build74
 [0.2.39]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.39-build75
+[0.2.40]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.40-build76
