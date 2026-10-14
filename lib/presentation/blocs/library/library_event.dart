@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../../core/utils/cancellation_token.dart';
 import '../../../domain/entities/entities.dart';
 
 /// Base class for all library events
@@ -81,14 +82,28 @@ class RemoveFromPlaylistEvent extends LibraryEvent {
 /// [onDone] is called exactly once when the import settles — null means
 /// success, otherwise it carries the error message. Callers use it to await
 /// the result instead of racing on the state stream.
+/// [onResult] provides the rich [ImportPlaylistResult] for review.
+/// [cancelToken] permits aborting the import cooperatively.
 class ImportSpotifyPlaylistEvent extends LibraryEvent {
   final String playlistUrl;
   final void Function(String? errorMessage)? onDone;
+  final void Function(ImportPlaylistResult result)? onResult;
+  final ImportCancellationToken? cancelToken;
 
-  const ImportSpotifyPlaylistEvent(this.playlistUrl, {this.onDone});
+  const ImportSpotifyPlaylistEvent(
+    this.playlistUrl, {
+    this.onDone,
+    this.onResult,
+    this.cancelToken,
+  });
 
   @override
   List<Object?> get props => [playlistUrl];
+}
+
+/// Cancel an ongoing playlist import
+class CancelImportEvent extends LibraryEvent {
+  const CancelImportEvent();
 }
 
 /// Import a YouTube playlist

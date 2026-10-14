@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:prism_music/core/di/injection.dart';
 import 'package:prism_music/core/error/failures.dart';
+import 'package:prism_music/core/utils/cancellation_token.dart';
 import 'package:prism_music/core/services/audio_focus_orchestrator_service.dart';
 import 'package:prism_music/core/services/audio_player_service.dart';
 import 'package:prism_music/core/services/download_service.dart';
@@ -108,6 +109,7 @@ class FakeMusicRepository implements MusicRepository {
   final List<double> importProgressValues = [];
   Either<Failure, Playlist> importResult =
       const Left(ParsingFailure(message: 'not configured'));
+  Either<Failure, ImportPlaylistResult>? importSpotifyResult;
 
   // getLyrics
   int getLyricsCallCount = 0;
@@ -185,18 +187,36 @@ class FakeMusicRepository implements MusicRepository {
   }
 
   @override
-  Future<Either<Failure, Playlist>> importSpotifyPlaylist(
+  Future<Either<Failure, ImportPlaylistResult>> importSpotifyPlaylist(
     String playlistUrl, {
-    void Function(double progress)? onProgress,
+    void Function(double progress, int current, int total)? onProgress,
+    ImportCancellationToken? cancelToken,
   }) async {
-    return _import(playlistUrl, onProgress);
+    lastImportUrl = playlistUrl;
+    importProgressValues.addAll([0.0, 0.5, 1.0]);
+    onProgress?.call(0.0, 0, 10);
+    await Future<void>.delayed(Duration.zero);
+    onProgress?.call(0.5, 5, 10);
+    await Future<void>.delayed(Duration.zero);
+    onProgress?.call(1.0, 10, 10);
+    await Future<void>.delayed(Duration.zero);
+    if (importSpotifyResult != null) {
+      return importSpotifyResult!;
+    }
+    return importResult.map((p) => ImportPlaylistResult(
+          playlist: p,
+          matchedTracks: p.songs ?? const [],
+          unmatchedTracks: const [],
+          totalSourceTracks: p.songs?.length ?? 0,
+        ));
   }
 
   @override
   Future<Either<Failure, Playlist>> importYouTubePlaylist(
-    String playlistUrl,
-  ) async {
-    return _import(playlistUrl, null);
+    String playlistUrl, {
+    void Function(double progress)? onProgress,
+  }) async {
+    return _import(playlistUrl, onProgress);
   }
 
   Either<Failure, Playlist> _import(

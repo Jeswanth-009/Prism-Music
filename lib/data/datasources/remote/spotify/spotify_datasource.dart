@@ -2,16 +2,21 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import '../../../../core/services/spotify_auth_service.dart';
+import '../../../../core/utils/cancellation_token.dart';
 import '../../../../core/utils/link_validation.dart';
 import '../../../../domain/entities/entities.dart';
 
-/// Playlist metadata + tracks parsed from a public Spotify embed page.
+/// Playlist metadata + tracks parsed from a public Spotify embed page or Web API.
 class SpotifyPlaylistDetails {
   final String id;
   final String name;
   final String? owner;
   final String? coverUrl;
   final List<Song> tracks;
+  final int totalTracks;
+  final bool isEmbedFallback;
+  final bool hasMoreTracks;
 
   const SpotifyPlaylistDetails({
     required this.id,
@@ -19,7 +24,10 @@ class SpotifyPlaylistDetails {
     this.owner,
     this.coverUrl,
     required this.tracks,
-  });
+    int? totalTracks,
+    this.isEmbedFallback = false,
+    this.hasMoreTracks = false,
+  }) : totalTracks = totalTracks ?? tracks.length;
 }
 
 /// Data source for Spotify API operations (public endpoints / scraping)
@@ -39,17 +47,27 @@ abstract class SpotifyDataSource {
   /// Parse a Spotify playlist URL (or raw playlist ID) into playlist
   /// metadata + tracks. Returns null when the playlist is private,
   /// deleted or the URL cannot be parsed.
-  Future<SpotifyPlaylistDetails?> getPlaylistDetails(String playlistUrl);
+  Future<SpotifyPlaylistDetails?> getPlaylistDetails(
+    String playlistUrl, {
+    ImportCancellationToken? cancelToken,
+    void Function(int loaded, int total)? onProgress,
+  });
 
   /// Get artist details
   Future<Artist> getArtistDetails(String artistId);
 }
 
-/// Implementation using the public Spotify embed pages (no auth required).
+/// Implementation supporting both Spotify Web API (for uncapped paginated tracks
+/// and ISRC codes) and zero-auth embed scraping as resilient fallback.
 class SpotifyDataSourceImpl implements SpotifyDataSource {
   final Dio _dio;
+  final SpotifyAuthService? _authService;
 
-  SpotifyDataSourceImpl({required Dio dio}) : _dio = dio;
+  SpotifyDataSourceImpl({
+    required Dio dio,
+    SpotifyAuthService? authService,
+  })  : _dio = dio,
+        _authService = authService;
 
   // Spotify embed endpoint that doesn't require auth
   static const String _embedBaseUrl = 'https://open.spotify.com/embed';
@@ -109,11 +127,40 @@ class SpotifyDataSourceImpl implements SpotifyDataSource {
   }
 
   @override
-  Future<SpotifyPlaylistDetails?> getPlaylistDetails(String playlistUrl) async {
+  Future<SpotifyPlaylistDetails?> getPlaylistDetails(
+    String playlistUrl, {
+    ImportCancellationToken? cancelToken,
+    void Function(int loaded, int total)? onProgress,
+  }) async {
     try {
       final playlistId = await _resolvePlaylistId(playlistUrl);
       if (playlistId == null) return null;
 
+      // 1. Try Spotify Web API if auth service is configured and valid token is acquired
+      if (_authService != null) {
+        final token = await _authService.getValidAccessToken();
+        if (token != null) {
+          final apiDetails = await _fetchPlaylistViaApi(
+            playlistId,
+            token,
+            cancelToken: cancelToken,
+            onProgress: onProgress,
+          );
+          if (apiDetails != null) {
+            return apiDetails;
+          }
+        }
+      }
+
+      // 2. Fall back to Embed Scraper (first 100 tracks, 0 credentials required)
+      return _fetchPlaylistViaEmbed(playlistId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<SpotifyPlaylistDetails?> _fetchPlaylistViaEmbed(String playlistId) async {
+    try {
       final response = await _dio.get<String>(
         '$_embedBaseUrl/playlist/$playlistId',
         options: Options(responseType: ResponseType.plain),
@@ -128,6 +175,164 @@ class SpotifyDataSourceImpl implements SpotifyDataSource {
     } catch (_) {
       return null;
     }
+  }
+
+  Future<SpotifyPlaylistDetails?> _fetchPlaylistViaApi(
+    String playlistId,
+    String token, {
+    ImportCancellationToken? cancelToken,
+    void Function(int loaded, int total)? onProgress,
+  }) async {
+    try {
+      // 1. Fetch playlist metadata
+      final metaResponse = await _dio.get<Map<String, dynamic>>(
+        'https://api.spotify.com/v1/playlists/$playlistId',
+        queryParameters: {
+          'fields': 'id,name,description,owner(display_name),images,tracks.total',
+        },
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+          responseType: ResponseType.json,
+          validateStatus: (status) => status != null && status < 500,
+        ),
+      );
+
+      if (metaResponse.statusCode == 401) {
+        _authService?.invalidateToken();
+        return null;
+      }
+      if (metaResponse.statusCode != 200 || metaResponse.data == null) {
+        return null;
+      }
+
+      final metaData = metaResponse.data!;
+      final name = (metaData['name'] ?? '').toString().trim();
+      final owner = metaData['owner']?['display_name']?.toString();
+      final coverUrl = _bestCoverUrlFromList(metaData['images'] as List?);
+      final total = (metaData['tracks']?['total'] as num?)?.toInt() ?? 0;
+
+      // 2. Paginate tracks in batches of 100
+      final tracks = <Song>[];
+      var offset = 0;
+      const limit = 100;
+
+      while (offset < total) {
+        if (cancelToken?.isCancelled ?? false) break;
+
+        final tracksResponse = await _dio.get<Map<String, dynamic>>(
+          'https://api.spotify.com/v1/playlists/$playlistId/tracks',
+          queryParameters: {
+            'offset': offset,
+            'limit': limit,
+            'fields':
+                'items(track(id,name,duration_ms,explicit,external_ids,artists(name),album(name,images)))',
+          },
+          options: Options(
+            headers: {'Authorization': 'Bearer $token'},
+            responseType: ResponseType.json,
+            validateStatus: (status) => status != null && status < 500,
+          ),
+        );
+
+        if (tracksResponse.statusCode == 401) {
+          _authService?.invalidateToken();
+          if (tracks.isNotEmpty) break;
+          return null;
+        }
+
+        if (tracksResponse.statusCode != 200 || tracksResponse.data == null) {
+          break;
+        }
+
+        final items = tracksResponse.data!['items'];
+        if (items is! List || items.isEmpty) break;
+
+        for (final item in items) {
+          if (item is! Map<String, dynamic>) continue;
+          final trackData = item['track'];
+          if (trackData is! Map<String, dynamic>) continue;
+          final song = _mapApiTrack(trackData);
+          if (song != null) tracks.add(song);
+        }
+
+        onProgress?.call(tracks.length, total);
+        offset += limit;
+      }
+
+      if (tracks.isEmpty) return null;
+
+      return SpotifyPlaylistDetails(
+        id: playlistId,
+        name: name.isNotEmpty ? name : 'Spotify Playlist',
+        owner: owner,
+        coverUrl: coverUrl,
+        tracks: tracks,
+        totalTracks: total > 0 ? total : tracks.length,
+        isEmbedFallback: false,
+        hasMoreTracks: tracks.length < total && (cancelToken?.isCancelled ?? false),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Song? _mapApiTrack(Map<String, dynamic> track) {
+    final title = (track['name'] ?? '').toString().trim();
+    if (title.isEmpty) return null;
+
+    final id = (track['id'] ?? '').toString().trim();
+    final uri = id.isNotEmpty ? 'spotify:track:$id' : '';
+
+    final artistsList = (track['artists'] as List?)
+            ?.map((a) => (a is Map ? (a['name'] ?? '').toString().trim() : ''))
+            .where((name) => name.isNotEmpty)
+            .toList() ??
+        const [];
+    final primaryArtist =
+        artistsList.isNotEmpty ? artistsList.first : 'Unknown Artist';
+
+    final externalIds = track['external_ids'];
+    final isrc = (externalIds is Map ? (externalIds['isrc'] ?? '').toString() : '')
+        .trim();
+
+    final album = track['album'];
+    final albumName = album is Map ? album['name']?.toString() : null;
+    final albumImages = album is Map ? album['images'] as List? : null;
+    final trackThumb = _bestCoverUrlFromList(albumImages);
+
+    return Song(
+      id: uri.isNotEmpty ? uri : 'spotify_track_${title.hashCode}',
+      title: title,
+      artist: primaryArtist,
+      artists: artistsList,
+      album: albumName,
+      duration:
+          Duration(milliseconds: (track['duration_ms'] as num?)?.toInt() ?? 0),
+      thumbnails: trackThumb != null
+          ? Thumbnails.fromUrl(trackThumb)
+          : const Thumbnails(),
+      source: MusicSource.spotify,
+      spotifyId: id.isNotEmpty ? id : null,
+      isrc: isrc.isNotEmpty ? isrc : null,
+      isExplicit: track['explicit'] == true,
+    );
+  }
+
+  String? _bestCoverUrlFromList(List<dynamic>? images) {
+    if (images == null || images.isEmpty) return null;
+    String? best;
+    var bestHeight = -1;
+    for (final image in images) {
+      if (image is! Map) continue;
+      final url = (image['url'] ?? '').toString();
+      if (url.isEmpty) continue;
+      final height = (image['height'] as num?)?.toInt() ?? 0;
+      if (height > bestHeight) {
+        bestHeight = height;
+        best = url;
+      }
+    }
+    return best ?? (images.first is Map ? images.first['url']?.toString() : null);
   }
 
   /// Resolve a playlist ID from any of the share formats:
@@ -243,6 +448,8 @@ class SpotifyDataSourceImpl implements SpotifyDataSource {
       owner: _optionalString(entity['subtitle']),
       coverUrl: _bestCoverUrl(entity['coverArt']),
       tracks: tracks,
+      totalTracks: tracks.length,
+      isEmbedFallback: true,
     );
   }
 

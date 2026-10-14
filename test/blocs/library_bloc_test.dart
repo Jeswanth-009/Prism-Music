@@ -244,6 +244,50 @@ void main() {
 
       expect(progress, containsAllInOrder([0.0, 0.5, 1.0]));
     });
+
+    test('emits lastImportResult and calls onResult on successful Spotify import', () async {
+      final imported = playlist(
+        'spotify_res',
+        'Result Playlist',
+        songs: [song('t1', 'Track 1')],
+        spotifyPlaylistId: 'res',
+      );
+      final expectedResult = ImportPlaylistResult(
+        playlist: imported,
+        matchedTracks: imported.songs ?? const [],
+        unmatchedTracks: [
+          song('u1', 'Unmatched 1', artist: 'Artist 1'),
+        ],
+        totalSourceTracks: 2,
+      );
+      musicRepo.importSpotifyResult = Right(expectedResult);
+      libraryRepo.createPlaylistResult = Right(playlist('local_res', 'Result Playlist'));
+
+      final resultCompleter = Completer<ImportPlaylistResult>();
+      final done = Completer<String?>();
+
+      bloc.add(ImportSpotifyPlaylistEvent(
+        'https://open.spotify.com/playlist/res',
+        onDone: done.complete,
+        onResult: resultCompleter.complete,
+      ));
+
+      await done.future;
+      final result = await resultCompleter.future;
+
+      expect(result.matchedCount, 1);
+      expect(result.unmatchedCount, 1);
+      expect(result.matchPercent, 50);
+      expect(bloc.state.lastImportResult, equals(expectedResult));
+    });
+
+    test('CancelImportEvent resets import progress state', () async {
+      bloc.add(const CancelImportEvent());
+      await waitFor(() => bloc.state.importProgress == null);
+
+      expect(bloc.state.status, LibraryStatus.success);
+      expect(bloc.state.importProgress, isNull);
+    });
   });
 
   group('ImportYouTubePlaylistEvent', () {

@@ -95,10 +95,8 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Column(
                 children: [
                   const SizedBox(height: 12),
-                  if (LastFmService.isConfigured) ...[
-                    _buildAccountSection(),
-                    const SizedBox(height: 16),
-                  ],
+                  _buildAccountSection(),
+                  const SizedBox(height: 16),
                   _buildAppExperienceSection(),
                   _buildAudioPlaybackSection(),
                   _buildDataStorageSection(),
@@ -218,46 +216,66 @@ class _SettingsPageState extends State<SettingsPage> {
               ],
             ),
           ),
-        if (_isInitialized && _lastFmService.isAuthenticated) ...[
-          SettingRow(
-            leading: const Icon(Icons.check_circle_outline_rounded),
-            title: 'Connected',
-            subtitle: _lastFmService.username ?? 'Last.fm',
-            trailing: TextButton(
-              onPressed: () async {
-                await _lastFmService.logout();
-                _forceRebuild();
-                if (mounted) showPrismToast(context, 'Logged out from Last.fm');
-              },
-              child: const Text('Logout'),
-            ),
-          ),
-          SettingRow(
-            leading: const Icon(Icons.history_rounded),
-            title: 'Scrobbling',
-            subtitle: 'Automatically track your listening history',
-            trailing: Icon(
-              Icons.check_circle_rounded,
-              color: Colors.green.shade600,
-              size: 20,
-            ),
-          ),
-        ],
-        if (_isInitialized && !_lastFmService.isAuthenticated)
-          SettingRow(
-            leading: const Icon(Icons.music_note_rounded),
-            title: 'Connect to Last.fm',
-            subtitle:
-                'Track your listening history and get recommendations',
-            trailing: FilledButton.tonal(
-              onPressed: () => SettingsDialogs.showLoginDialog(
-                context,
-                _lastFmService,
-                _forceRebuild,
+        if (LastFmService.isConfigured) ...[
+          if (_isInitialized && _lastFmService.isAuthenticated) ...[
+            SettingRow(
+              leading: const Icon(Icons.check_circle_outline_rounded),
+              title: 'Connected',
+              subtitle: _lastFmService.username ?? 'Last.fm',
+              trailing: TextButton(
+                onPressed: () async {
+                  await _lastFmService.logout();
+                  _forceRebuild();
+                  if (mounted) {
+                    showPrismToast(context, 'Logged out from Last.fm');
+                  }
+                },
+                child: const Text('Logout'),
               ),
-              child: const Text('Login'),
+            ),
+            SettingRow(
+              leading: const Icon(Icons.history_rounded),
+              title: 'Scrobbling',
+              subtitle: 'Automatically track your listening history',
+              trailing: Icon(
+                Icons.check_circle_rounded,
+                color: Colors.green.shade600,
+                size: 20,
+              ),
+            ),
+          ],
+          if (_isInitialized && !_lastFmService.isAuthenticated)
+            SettingRow(
+              leading: const Icon(Icons.music_note_rounded),
+              title: 'Connect to Last.fm',
+              subtitle:
+                  'Track your listening history and get recommendations',
+              trailing: FilledButton.tonal(
+                onPressed: () => SettingsDialogs.showLoginDialog(
+                  context,
+                  _lastFmService,
+                  _forceRebuild,
+                ),
+                child: const Text('Login'),
+              ),
+            ),
+        ],
+        SettingRow(
+          leading: const Icon(Icons.graphic_eq_rounded),
+          title: 'Spotify Integration',
+          subtitle: _settingsService.spotifyClientId != null
+              ? 'Configured • Uncapped Web API & ISRC'
+              : 'Optional • Embed fallback active (capped at 100)',
+          trailing: FilledButton.tonal(
+            onPressed: () => SettingsDialogs.showSpotifyCredentialsDialog(
+              context,
+              _forceRebuild,
+            ),
+            child: Text(
+              _settingsService.spotifyClientId != null ? 'Edit' : 'Configure',
             ),
           ),
+        ),
       ],
     );
   }

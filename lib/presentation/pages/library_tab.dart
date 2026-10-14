@@ -1,8 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart' hide RepeatMode;
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/utils/cancellation_token.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/utils/link_validation.dart';
 import '../../domain/entities/entities.dart';
 import '../blocs/library/library.dart';
@@ -32,6 +35,8 @@ class LibraryTab extends StatefulWidget {
 
 class _LibraryTabState extends State<LibraryTab>
     with AutomaticKeepAliveClientMixin {
+  ImportCancellationToken? _activeCancelToken;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -151,6 +156,15 @@ class _LibraryTabState extends State<LibraryTab>
                   child: _ImportTile(
                     onTap: _importPlaylist,
                     isImporting: state.status == LibraryStatus.importing,
+                    importProgress: state.importProgress,
+                    currentTrack: state.importCurrentTrack,
+                    totalTracks: state.importTotalTracks,
+                    onCancel: () {
+                      _activeCancelToken?.cancel();
+                      context
+                          .read<LibraryBloc>()
+                          .add(const CancelImportEvent());
+                    },
                   ),
                 ),
               ),
@@ -255,12 +269,21 @@ class _LibraryTabState extends State<LibraryTab>
 
     final bloc = context.read<LibraryBloc>();
     final done = Completer<String?>();
+    final cancelToken = ImportCancellationToken();
+    _activeCancelToken = cancelToken;
+
     bloc.add(
       params.source == _ImportSource.spotify
           ? ImportSpotifyPlaylistEvent(
               params.url,
+              cancelToken: cancelToken,
               onDone: (error) {
                 if (!done.isCompleted) done.complete(error);
+              },
+              onResult: (result) {
+                if (mounted) {
+                  _showImportSummarySheet(result);
+                }
               },
             )
           : ImportYouTubePlaylistEvent(
@@ -274,11 +297,30 @@ class _LibraryTabState extends State<LibraryTab>
     try {
       final error = await done.future.timeout(const Duration(minutes: 5));
       if (!mounted) return;
-      showPrismToast(context, error ?? 'Playlist imported');
+      if (params.source == _ImportSource.youtube || error != null) {
+        showPrismToast(context, error ?? 'Playlist imported');
+      }
     } on TimeoutException {
       if (!mounted) return;
       showPrismToast(context, 'Import is taking too long.');
     }
+  }
+
+  Future<void> _showImportSummarySheet(ImportPlaylistResult result) async {
+    if (!mounted) return;
+    if (result.isFullyMatched) {
+      showPrismToast(
+        context,
+        'All ${result.totalSourceTracks} tracks matched and imported!',
+      );
+      return;
+    }
+
+    await showPrismSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => _ImportReviewSheet(result: result),
+    );
   }
 
   Future<void> _createPlaylist() async {
@@ -644,14 +686,34 @@ class _CardDeleteButton extends StatelessWidget {
 
 /// Full-width entry pointing at the Spotify/YouTube import flow.
 class _ImportTile extends StatelessWidget {
-  const _ImportTile({required this.onTap, this.isImporting = false});
+  const _ImportTile({
+    required this.onTap,
+    this.isImporting = false,
+    this.importProgress,
+    this.currentTrack,
+    this.totalTracks,
+    this.onCancel,
+  });
 
   final VoidCallback onTap;
   final bool isImporting;
+  final double? importProgress;
+  final int? currentTrack;
+  final int? totalTracks;
+  final VoidCallback? onCancel;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final progressPercent =
+        importProgress != null ? (importProgress! * 100).toInt() : null;
+
+    final subtitle = isImporting
+        ? (totalTracks != null && totalTracks! > 0
+            ? 'Matching track ${currentTrack ?? 0} of $totalTracks ($progressPercent%)'
+            : 'Extracting tracks and matching songs…')
+        : 'Bring a Spotify or YouTube playlist into Prism';
+
     return Material(
       color: theme.colorScheme.surfaceContainer,
       shape: RoundedRectangleBorder(
@@ -670,6 +732,9 @@ class _ImportTile extends StatelessWidget {
                   width: 22,
                   height: 22,
                   child: CircularProgressIndicator(
+                    value: importProgress != null && importProgress! > 0
+                        ? importProgress
+                        : null,
                     strokeWidth: 2.5,
                     color: theme.colorScheme.primary,
                   ),
@@ -689,9 +754,7 @@ class _ImportTile extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      isImporting
-                          ? 'Extracting tracks and matching songs…'
-                          : 'Bring a Spotify or YouTube playlist into Prism',
+                      subtitle,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -699,13 +762,253 @@ class _ImportTile extends StatelessWidget {
                   ],
                 ),
               ),
-              if (!isImporting)
+              if (isImporting && onCancel != null)
+                TextButton(
+                  onPressed: onCancel,
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: theme.colorScheme.error,
+                  ),
+                  child: const Text('Cancel'),
+                )
+              else if (!isImporting)
                 Icon(
                   Icons.chevron_right_rounded,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Interactive review sheet displaying outcome of external playlist import,
+/// match percentages, unmatched track lists, and clipboard export.
+class _ImportReviewSheet extends StatelessWidget {
+  final ImportPlaylistResult result;
+
+  const _ImportReviewSheet({required this.result});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.65,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (context, scrollController) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+        child: ListView(
+          controller: scrollController,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                PrismArtwork(
+                  url: result.playlist.thumbnails?.best ?? '',
+                  width: 54,
+                  height: 54,
+                  borderRadius: 8,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        result.playlist.name,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${result.matchedTracks.length} of ${result.totalSourceTracks} tracks matched (${result.matchPercent}%)',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: result.matchPercent >= 80
+                              ? Colors.green
+                              : theme.colorScheme.error,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: result.matchRate,
+                minHeight: 6,
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  result.matchPercent >= 80
+                      ? Colors.green
+                      : theme.colorScheme.primary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (result.isEmbedFallback)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainer,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: context.prismSpec.hairline),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 20,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Embed scraper was used (first 100 tracks). Add Spotify Developer keys in Settings for uncapped imports.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (result.wasCancelled)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.warning_amber_rounded,
+                      size: 20,
+                      color: Colors.amber,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Import was stopped early. ${result.matchedTracks.length} tracks were saved.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.amber.shade800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (result.unmatchedTracks.isNotEmpty) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Unmatched Tracks (${result.unmatchedCount})',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      final missed = result.unmatchedTracks
+                          .map((t) => '${t.artist} - ${t.title}')
+                          .join('\n');
+                      Clipboard.setData(ClipboardData(text: missed));
+                      showPrismToast(
+                          context, 'Missed tracks copied to clipboard');
+                    },
+                    icon: const Icon(Icons.copy_rounded, size: 14),
+                    label: const Text('Copy List'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ...result.unmatchedTracks.map((track) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Material(
+                      color: theme.colorScheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(8),
+                      child: ListTile(
+                        dense: true,
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 12),
+                        leading: const Icon(
+                          Icons.music_off_outlined,
+                          size: 18,
+                        ),
+                        title: Text(
+                          track.title,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          '${track.artist} • ${Formatters.formatDuration(track.duration)}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  )),
+              const SizedBox(height: 16),
+            ],
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PlaylistDetailPage(
+                            playlist: result.playlist,
+                          ),
+                        ),
+                      );
+                    },
+                    child: const Text('View Playlist'),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

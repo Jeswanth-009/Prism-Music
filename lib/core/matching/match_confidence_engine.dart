@@ -145,6 +145,23 @@ class MatchConfidenceEngine {
     r'[\)\]\}\uFF09\uFF3D\uFF5D\u3011\u3015\u300B\u300D\u300F\u3017\u3009]',
   );
 
+  /// Convenience evaluation comparing two [Song] entities.
+  static MatchResult evaluateSong({
+    required Song target,
+    required Song candidate,
+    double threshold = defaultThreshold,
+    String? provenance,
+  }) {
+    return evaluate(
+      target: target,
+      candidateTitleRaw: candidate.title,
+      candidateArtistRaw: candidate.artist,
+      candidateDuration: candidate.duration,
+      threshold: threshold,
+      provenance: provenance,
+    );
+  }
+
   /// Evaluate match confidence between a [target] song and candidate metadata.
   static MatchResult evaluate({
     required Song target,

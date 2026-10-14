@@ -42,6 +42,15 @@ class LibraryState extends Equatable {
   /// Import progress (0.0 to 1.0) during playlist import
   final double? importProgress;
 
+  /// Current track index being matched during import
+  final int? importCurrentTrack;
+
+  /// Total tracks being matched during import
+  final int? importTotalTracks;
+
+  /// Most recent import outcome (contains matched and unmatched tracks)
+  final ImportPlaylistResult? lastImportResult;
+
   /// Error message if status is error
   final String? errorMessage;
 
@@ -56,6 +65,9 @@ class LibraryState extends Equatable {
     this.likedSongIds = const {},
     this.downloadedSongIds = const {},
     this.importProgress,
+    this.importCurrentTrack,
+    this.importTotalTracks,
+    this.lastImportResult,
     this.errorMessage,
   });
 
@@ -76,6 +88,9 @@ class LibraryState extends Equatable {
     Set<String>? likedSongIds,
     Set<String>? downloadedSongIds,
     double? importProgress,
+    int? importCurrentTrack,
+    int? importTotalTracks,
+    ImportPlaylistResult? lastImportResult,
     String? errorMessage,
   }) {
     return LibraryState(
@@ -89,6 +104,9 @@ class LibraryState extends Equatable {
       likedSongIds: likedSongIds ?? this.likedSongIds,
       downloadedSongIds: downloadedSongIds ?? this.downloadedSongIds,
       importProgress: importProgress ?? this.importProgress,
+      importCurrentTrack: importCurrentTrack ?? this.importCurrentTrack,
+      importTotalTracks: importTotalTracks ?? this.importTotalTracks,
+      lastImportResult: lastImportResult ?? this.lastImportResult,
       errorMessage: errorMessage ?? this.errorMessage,
     );
   }
@@ -105,6 +123,9 @@ class LibraryState extends Equatable {
         likedSongIds,
         downloadedSongIds,
         importProgress,
+        importCurrentTrack,
+        importTotalTracks,
+        lastImportResult,
         errorMessage,
       ];
 }

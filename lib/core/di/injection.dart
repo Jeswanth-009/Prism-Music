@@ -26,6 +26,7 @@ import '../services/download_service.dart';
 import '../services/ytmusic_api_service.dart';
 import '../services/recommendation_service.dart';
 import '../services/instance_health_service.dart';
+import '../services/spotify_auth_service.dart';
 
 /// Global service locator instance
 final GetIt getIt = GetIt.instance;
@@ -85,8 +86,18 @@ Future<void> initializeDependencies() async {
     ),
   );
 
+  getIt.registerLazySingleton<SpotifyAuthService>(
+    () => SpotifyAuthService(
+      dio: getIt<Dio>(),
+      settingsService: SettingsService.instance,
+    ),
+  );
+
   getIt.registerLazySingleton<SpotifyDataSource>(
-    () => SpotifyDataSourceImpl(dio: getIt<Dio>()),
+    () => SpotifyDataSourceImpl(
+      dio: getIt<Dio>(),
+      authService: getIt<SpotifyAuthService>(),
+    ),
   );
 
   getIt.registerLazySingleton<LyricsDataSource>(

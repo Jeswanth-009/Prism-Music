@@ -6,6 +6,8 @@ import '../../core/mappers/ytmusic_api_mappers.dart';
 import '../../core/services/ytmusic_api_service.dart';
 import '../../domain/entities/entities.dart';
 import '../../domain/repositories/music_repository.dart';
+import '../../core/matching/match_confidence_engine.dart';
+import '../../core/utils/cancellation_token.dart';
 import '../datasources/remote/youtube/youtube_music_datasource.dart';
 import '../datasources/remote/spotify/spotify_datasource.dart';
 import '../datasources/remote/lyrics/lyrics_datasource.dart';
@@ -14,7 +16,7 @@ import '../datasources/local/local_datasource.dart';
 
 /// Hard cap on tracks imported from an external provider playlist, so a
 /// hostile or pathological collection cannot exhaust memory.
-const int _maxImportedPlaylistTracks = 1000;
+const int _maxImportedPlaylistTracks = 10000;
 
 /// Implementation of MusicRepository using mixed data sources
 class MusicRepositoryImpl implements MusicRepository {
@@ -764,12 +766,16 @@ class MusicRepositoryImpl implements MusicRepository {
   }
 
   @override
-  Future<Either<Failure, Playlist>> importSpotifyPlaylist(
+  Future<Either<Failure, ImportPlaylistResult>> importSpotifyPlaylist(
     String playlistUrl, {
-    void Function(double progress)? onProgress,
+    void Function(double progress, int current, int total)? onProgress,
+    ImportCancellationToken? cancelToken,
   }) async {
     try {
-      final details = await _spotifyDataSource.getPlaylistDetails(playlistUrl);
+      final details = await _spotifyDataSource.getPlaylistDetails(
+        playlistUrl,
+        cancelToken: cancelToken,
+      );
       if (details == null) {
         return const Left(
           ParsingFailure(
@@ -779,9 +785,7 @@ class MusicRepositoryImpl implements MusicRepository {
         );
       }
 
-      // Match each track on YouTube in parallel (small worker pool) so a
-      // 100-track playlist takes seconds instead of minutes. Oversized
-      // playlists are truncated at [_maxImportedPlaylistTracks].
+      // Oversized playlists are bounded safely by [_maxImportedPlaylistTracks]
       final tracks = details.tracks.length > _maxImportedPlaylistTracks
           ? details.tracks.sublist(0, _maxImportedPlaylistTracks)
           : details.tracks;
@@ -791,21 +795,15 @@ class MusicRepositoryImpl implements MusicRepository {
 
       Future<void> worker() async {
         while (nextIndex < tracks.length) {
+          if (cancelToken?.isCancelled ?? false) break;
           final index = nextIndex++;
           final track = tracks[index];
-          final match = await _searchYoutubeMatch(track.title, track.artist);
+          final match = await _resolveTrackMatch(track);
           if (match != null) {
-            matched[index] = track.copyWith(
-              youtubeId: match.youtubeId ?? match.id,
-              // Spotify embed tracks carry no artwork — fall back to the
-              // YouTube match's thumbnail.
-              thumbnails: track.thumbnails.smallest == null
-                  ? match.thumbnails
-                  : track.thumbnails,
-            );
+            matched[index] = match;
           }
           converted++;
-          onProgress?.call(converted / tracks.length);
+          onProgress?.call(converted / tracks.length, converted, tracks.length);
         }
       }
 
@@ -813,8 +811,19 @@ class MusicRepositoryImpl implements MusicRepository {
         for (var i = 0; i < 5 && i < tracks.length; i++) worker(),
       ]);
 
-      final convertedSongs = matched.whereType<Song>().toList();
-      if (convertedSongs.isEmpty) {
+      final matchedTracks = <Song>[];
+      final unmatchedTracks = <Song>[];
+
+      for (var i = 0; i < tracks.length; i++) {
+        final match = matched[i];
+        if (match != null) {
+          matchedTracks.add(match);
+        } else {
+          unmatchedTracks.add(tracks[i]);
+        }
+      }
+
+      if (matchedTracks.isEmpty && !(cancelToken?.isCancelled ?? false)) {
         return const Left(
           ParsingFailure(
             message:
@@ -823,87 +832,161 @@ class MusicRepositoryImpl implements MusicRepository {
         );
       }
 
-      final unmatchedCount = tracks.length - convertedSongs.length;
-      if (unmatchedCount > 0) {
-        Logger.root.info(
-          'Spotify import: $unmatchedCount of ${tracks.length} tracks could not be matched with high confidence.',
-        );
-      }
-
       final playlist = Playlist(
         id: 'spotify_${details.id}',
         name: details.name,
         description: details.owner == null
-            ? 'Imported from Spotify • ${convertedSongs.length}/${tracks.length} tracks matched'
-            : 'Imported from Spotify • ${details.owner} (${convertedSongs.length}/${tracks.length} tracks matched)',
+            ? 'Imported from Spotify • ${matchedTracks.length}/${tracks.length} tracks matched'
+            : 'Imported from Spotify • ${details.owner} (${matchedTracks.length}/${tracks.length} tracks matched)',
         thumbnails: details.coverUrl == null
             ? null
             : Thumbnails.fromUrl(details.coverUrl!),
         author: details.owner,
-        trackCount: convertedSongs.length,
-        songs: convertedSongs,
+        trackCount: matchedTracks.length,
+        songs: matchedTracks,
         isUserCreated: true,
         spotifyPlaylistId: details.id,
         createdAt: DateTime.now(),
       );
 
-      return Right(playlist);
+      final result = ImportPlaylistResult(
+        playlist: playlist,
+        matchedTracks: matchedTracks,
+        unmatchedTracks: unmatchedTracks,
+        totalSourceTracks: tracks.length,
+        wasCancelled: cancelToken?.isCancelled ?? false,
+        isEmbedFallback: details.isEmbedFallback,
+      );
+
+      return Right(result);
     } catch (e) {
       return Left(UnknownFailure(message: e.toString()));
     }
   }
 
-  /// Search YT Music for the closest match to a Spotify track with token scoring.
-  Future<Song?> _searchYoutubeMatch(String trackTitle, String artistName) async {
+  /// Resolve a Spotify track to a playable stream by attempting:
+  /// 1. ISRC search on YouTube Music
+  /// 2. Clean metadata search on YouTube Music
+  /// 3. Fallback search on YouTube Explode
+  /// All evaluated strictly with [MatchConfidenceEngine].
+  Future<Song?> _resolveTrackMatch(Song target) async {
     try {
-      final items = await _ytMusicApiService.searchSongs(
-        '$artistName $trackTitle',
-      );
-      final results = items
-          .map((item) => songFromYtMusicApi(item))
-          .where((song) => song.playableId.isNotEmpty)
-          .toList();
-      if (results.isEmpty) return null;
-      return _bestYoutubeMatch(trackTitle, artistName, results);
+      // 1. ISRC Search: If track has ISRC, query YT Music with the code
+      if (target.isrc != null && target.isrc!.isNotEmpty) {
+        final isrcCandidate = await _searchByIsrc(target);
+        if (isrcCandidate != null) {
+          return isrcCandidate;
+        }
+      }
+
+      // 2. Clean Metadata Search on YT Music: "<Artist> <Title>"
+      final ytCandidate = await _searchYoutubeMatch(target);
+      if (ytCandidate != null) {
+        return ytCandidate;
+      }
+
+      // 3. Fallback Search on YouTube Explode
+      final ytExplodeCandidate = await _searchYoutubeExplodeFallback(target);
+      if (ytExplodeCandidate != null) {
+        return ytExplodeCandidate;
+      }
+
+      return null;
     } catch (_) {
       return null;
     }
   }
 
-  Song? _bestYoutubeMatch(String trackTitle, String artistName, List<Song> candidates) {
-    if (candidates.isEmpty) return null;
-    final titleNorm = trackTitle.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
-    final artistNorm = artistName.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
-    final titleTokens = titleNorm.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toSet();
-    final artistTokens = artistNorm.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toSet();
+  Future<Song?> _searchByIsrc(Song target) async {
+    try {
+      final items = await _ytMusicApiService.searchSongs(target.isrc!);
+      final candidates = items
+          .map((item) => songFromYtMusicApi(item))
+          .where((s) => s.playableId.isNotEmpty)
+          .toList();
+      if (candidates.isEmpty) return null;
 
-    Song? best;
-    double highestScore = -1.0;
+      return _evaluateBestCandidate(
+        target,
+        candidates,
+        provenance: 'youtube_isrc_matched',
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Song?> _searchYoutubeMatch(Song target) async {
+    try {
+      final query = '${target.artist} ${target.title}'.trim();
+      final items = await _ytMusicApiService.searchSongs(query);
+      final candidates = items
+          .map((item) => songFromYtMusicApi(item))
+          .where((s) => s.playableId.isNotEmpty)
+          .toList();
+      if (candidates.isEmpty) return null;
+
+      return _evaluateBestCandidate(
+        target,
+        candidates,
+        provenance: 'youtube_matched',
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Song?> _searchYoutubeExplodeFallback(Song target) async {
+    try {
+      final query = '${target.artist} ${target.title}'.trim();
+      final candidates =
+          await _youtubeMusicDataSource.searchSongs(query, limit: 10);
+      if (candidates.isEmpty) return null;
+
+      return _evaluateBestCandidate(
+        target,
+        candidates,
+        provenance: 'youtube_explode_matched',
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Song? _evaluateBestCandidate(
+    Song target,
+    List<Song> candidates, {
+    required String provenance,
+  }) {
+    Song? bestCandidate;
+    MatchResult? bestResult;
 
     for (final candidate in candidates) {
-      final candTitleNorm = candidate.title.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
-      final candArtistNorm = candidate.artist.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
-      final candTitleTokens = candTitleNorm.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toSet();
-      final candArtistTokens = candArtistNorm.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toSet();
+      final result = MatchConfidenceEngine.evaluateSong(
+        target: target,
+        candidate: candidate,
+        provenance: provenance,
+      );
+      if (!result.isAcceptable) continue;
 
-      final matchingTitle = titleTokens.intersection(candTitleTokens).length;
-      final titleScore = titleTokens.isEmpty ? 0.0 : matchingTitle / titleTokens.length;
-
-      final matchingArtist = artistTokens.intersection(candArtistTokens).length;
-      final artistScore = artistTokens.isEmpty ? 0.0 : matchingArtist / artistTokens.length;
-
-      final totalScore = (titleScore * 0.6) + (artistScore * 0.4);
-
-      if (totalScore > highestScore) {
-        highestScore = totalScore;
-        best = candidate;
+      if (bestResult == null || result.score > bestResult.score) {
+        bestResult = result;
+        bestCandidate = candidate;
       }
     }
 
-    if (highestScore >= 0.35) {
-      return best;
-    }
-    return candidates.first;
+    if (bestCandidate == null || bestResult == null) return null;
+
+    return target.copyWith(
+      youtubeId: bestCandidate.youtubeId ?? bestCandidate.id,
+      jioSaavnId: bestCandidate.jioSaavnId,
+      streamProvenance: provenance,
+      matchConfidence: bestResult.score,
+      originalPlatformId: target.id,
+      thumbnails: target.thumbnails.smallest == null
+          ? bestCandidate.thumbnails
+          : target.thumbnails,
+    );
   }
 
   @override
@@ -996,7 +1079,15 @@ class MusicRepositoryImpl implements MusicRepository {
     String trackTitle,
     String artistName,
   ) async {
-    final match = await _searchYoutubeMatch(trackTitle, artistName);
+    final target = Song(
+      id: '',
+      title: trackTitle,
+      artist: artistName,
+      duration: Duration.zero,
+      thumbnails: const Thumbnails(),
+      source: MusicSource.spotify,
+    );
+    final match = await _searchYoutubeMatch(target);
     if (match == null) {
       return const Left(
         SearchFailure(message: 'No matching YouTube video found'),

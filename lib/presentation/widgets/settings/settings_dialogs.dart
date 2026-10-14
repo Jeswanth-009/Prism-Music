@@ -17,6 +17,7 @@ import '../prism/prism_sheet.dart';
 import '../lastfm_login_dialog.dart';
 import '../../../core/services/lastfm_service.dart';
 import '../../../core/services/permission_service.dart';
+import '../../../core/services/spotify_auth_service.dart';
 
 extension _AudioQualityLabel on AudioQuality {
   String get label => switch (this) {
@@ -397,6 +398,183 @@ class SettingsDialogs {
           ],
         ),
       ),
-    ).whenComplete(() => controller.dispose());
+    );
+  }
+
+  /// Dialog to enter and test Spotify Developer Client ID & Client Secret.
+  static void showSpotifyCredentialsDialog(
+    BuildContext context,
+    VoidCallback onSaved,
+  ) {
+    final settingsService = SettingsService.instance;
+    final idController =
+        TextEditingController(text: settingsService.spotifyClientId ?? '');
+    final secretController =
+        TextEditingController(text: settingsService.spotifyClientSecret ?? '');
+    bool isTesting = false;
+    String? statusMessage;
+    bool? isSuccess;
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Spotify API Settings'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Optional developer credentials allow unlimited playlist imports (up to 10,000 tracks) and exact ISRC matching. Completely free with any Spotify account.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: idController,
+                  decoration: const InputDecoration(
+                    labelText: 'Client ID',
+                    hintText: 'e.g. 7a8b9c...',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: secretController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Client Secret',
+                    hintText: 'e.g. 1d2e3f...',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (statusMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isSuccess == true
+                              ? Icons.check_circle_rounded
+                              : Icons.error_outline_rounded,
+                          size: 16,
+                          color: isSuccess == true
+                              ? Colors.green
+                              : Theme.of(context).colorScheme.error,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            statusMessage!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isSuccess == true
+                                  ? Colors.green
+                                  : Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                OutlinedButton.icon(
+                  onPressed: isTesting
+                      ? null
+                      : () async {
+                          final id = idController.text.trim();
+                          final secret = secretController.text.trim();
+                          if (id.isEmpty || secret.isEmpty) {
+                            setDialogState(() {
+                              statusMessage =
+                                  'Please enter both Client ID & Secret';
+                              isSuccess = false;
+                            });
+                            return;
+                          }
+                          setDialogState(() {
+                            isTesting = true;
+                            statusMessage = 'Testing connection...';
+                            isSuccess = null;
+                          });
+                          final authService = getIt<SpotifyAuthService>();
+                          final ok = await authService.testConnection(
+                            clientId: id,
+                            clientSecret: secret,
+                          );
+                          setDialogState(() {
+                            isTesting = false;
+                            isSuccess = ok;
+                            statusMessage = ok
+                                ? 'Connection verified successfully!'
+                                : 'Failed to authenticate with Spotify';
+                          });
+                        },
+                  icon: isTesting
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.cable_rounded, size: 16),
+                  label: const Text('Test Connection'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            if (settingsService.spotifyClientId != null)
+              TextButton(
+                onPressed: () async {
+                  await settingsService.setSpotifyClientId(null);
+                  await settingsService.setSpotifyClientSecret(null);
+                  getIt<SpotifyAuthService>().invalidateToken();
+                  onSaved();
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                    showPrismToast(
+                        dialogContext, 'Spotify credentials cleared');
+                  }
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                ),
+                child: const Text('Clear'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final id = idController.text.trim();
+                final secret = secretController.text.trim();
+                await settingsService
+                    .setSpotifyClientId(id.isEmpty ? null : id);
+                await settingsService.setSpotifyClientSecret(
+                    secret.isEmpty ? null : secret);
+                getIt<SpotifyAuthService>().invalidateToken();
+                onSaved();
+                if (dialogContext.mounted) {
+                  Navigator.pop(dialogContext);
+                  showPrismToast(
+                    dialogContext,
+                    id.isNotEmpty
+                        ? 'Spotify credentials saved'
+                        : 'Spotify credentials cleared',
+                  );
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    ).whenComplete(() {
+      idController.dispose();
+      secretController.dispose();
+    });
   }
 }

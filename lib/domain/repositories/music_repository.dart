@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import '../../core/error/failures.dart';
+import '../../core/utils/cancellation_token.dart';
 import '../entities/entities.dart';
 
 /// Abstract repository for music operations
@@ -120,11 +121,14 @@ abstract class MusicRepository {
   // ============ PLAYLIST IMPORT ============
 
   /// Import a Spotify playlist by URL
-  /// Converts Spotify tracks to YouTube video IDs.
-  /// [onProgress] reports 0.0–1.0 as tracks are matched.
-  Future<Either<Failure, Playlist>> importSpotifyPlaylist(
+  /// Converts Spotify tracks to playable streams using ISRC search, clean metadata
+  /// matching, and MatchConfidenceEngine verification.
+  /// [onProgress] reports (progress 0.0–1.0, currentTrack, totalTracks).
+  /// [cancelToken] can be used to abort a long import cooperatively.
+  Future<Either<Failure, ImportPlaylistResult>> importSpotifyPlaylist(
     String playlistUrl, {
-    void Function(double progress)? onProgress,
+    void Function(double progress, int current, int total)? onProgress,
+    ImportCancellationToken? cancelToken,
   });
 
   /// Import a YouTube playlist by URL

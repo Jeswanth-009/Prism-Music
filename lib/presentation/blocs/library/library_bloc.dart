@@ -33,6 +33,16 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     on<RenamePlaylistEvent>(_onRenamePlaylist);
     on<ReorderPlaylistSongsEvent>(_onReorderPlaylistSongs);
     on<SavePlaylistEvent>(_onSavePlaylist);
+    on<CancelImportEvent>(_onCancelImport);
+  }
+
+  void _onCancelImport(CancelImportEvent event, Emitter<LibraryState> emit) {
+    emit(state.copyWith(
+      status: LibraryStatus.success,
+      importProgress: null,
+      importCurrentTrack: null,
+      importTotalTracks: null,
+    ));
   }
 
   Future<void> _onLoadLibrary(
@@ -270,12 +280,20 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     emit(state.copyWith(
       status: LibraryStatus.importing,
       importProgress: 0.0,
+      importCurrentTrack: 0,
       errorMessage: null,
     ));
 
     final result = await _musicRepository.importSpotifyPlaylist(
       event.playlistUrl,
-      onProgress: (progress) => emit(state.copyWith(importProgress: progress)),
+      onProgress: (progress, current, total) {
+        emit(state.copyWith(
+          importProgress: progress,
+          importCurrentTrack: current,
+          importTotalTracks: total,
+        ));
+      },
+      cancelToken: event.cancelToken,
     );
 
     await result.fold(
@@ -284,17 +302,22 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
           status: LibraryStatus.error,
           errorMessage: failure.message,
           importProgress: null,
+          importCurrentTrack: null,
+          importTotalTracks: null,
         ));
         event.onDone?.call(failure.message);
       },
-      (playlist) async {
-        final persistResult = await _persistImportedPlaylist(playlist);
+      (importResult) async {
+        final persistResult =
+            await _persistImportedPlaylist(importResult.playlist);
         persistResult.fold(
           (failure) {
             emit(state.copyWith(
               status: LibraryStatus.error,
               errorMessage: failure.message,
               importProgress: null,
+              importCurrentTrack: null,
+              importTotalTracks: null,
             ));
             event.onDone?.call(failure.message);
           },
@@ -308,8 +331,12 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
                       .map((p) => p.id == saved.id ? saved : p)
                       .toList(),
               importProgress: null,
+              importCurrentTrack: null,
+              importTotalTracks: null,
+              lastImportResult: importResult,
             ));
             event.onDone?.call(null);
+            event.onResult?.call(importResult);
           },
         );
       },

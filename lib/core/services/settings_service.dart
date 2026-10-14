@@ -91,6 +91,8 @@ class SettingsService {
   static const String _autoBackupKey = 'auto_backup_enabled';
   static const String _sharedBackupKey = 'shared_backup_enabled';
   static const String _autoPlayKey = 'auto_play_enabled';
+  static const String _spotifyClientIdKey = 'spotify_client_id';
+  static const String _spotifyClientSecretKey = 'spotify_client_secret';
   static SettingsService? _instance;
   
   Box? _settingsBox;
@@ -356,5 +358,41 @@ class SettingsService {
       await _settingsBox?.put(_downloadFolderKey, path);
     }
     logDebug('SettingsService: Download folder set to ${path ?? "default"}');
+  }
+
+  /// Optional Spotify Developer Client ID for uncapped imports and ISRC metadata.
+  String? get spotifyClientId {
+    try {
+      return _settingsBox?.get(_spotifyClientIdKey) as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Persist Spotify Developer Client ID.
+  Future<void> setSpotifyClientId(String? id) async {
+    if (id == null || id.trim().isEmpty) {
+      await _settingsBox?.delete(_spotifyClientIdKey);
+    } else {
+      await _settingsBox?.put(_spotifyClientIdKey, id.trim());
+    }
+  }
+
+  /// Optional Spotify Developer Client Secret for uncapped imports and ISRC metadata.
+  String? get spotifyClientSecret {
+    try {
+      return _settingsBox?.get(_spotifyClientSecretKey) as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Persist Spotify Developer Client Secret.
+  Future<void> setSpotifyClientSecret(String? secret) async {
+    if (secret == null || secret.trim().isEmpty) {
+      await _settingsBox?.delete(_spotifyClientSecretKey);
+    } else {
+      await _settingsBox?.put(_spotifyClientSecretKey, secret.trim());
+    }
   }
 }
