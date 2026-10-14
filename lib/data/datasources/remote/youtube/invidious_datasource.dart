@@ -2,32 +2,19 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../../../../domain/entities/stream_info.dart';
 import '../../../../domain/entities/song.dart';
+import '../../../../core/services/instance_health_service.dart';
 
-/// Invidious instance URLs (public proxies for YouTube).
-/// Health-checked 2026-09: the first two serve playlist/video data reliably.
+/// Legacy compatibility wrapper delegating to [InstanceHealthService].
 class InvidiousInstances {
-  static const List<String> instances = [
-    'https://inv.nadeko.net',
-    'https://invidious.f5.si',
-    'https://invidious.private.coffee',
-    'https://inv.tux.pizza',
-    'https://yewtu.be',
-    'https://invidious.nerdvpn.de',
-  ];
+  static final InstanceHealthService _health = InstanceHealthService();
+
+  static List<String> get instances => InstanceHealthService.defaultInvidiousInstances;
   
-  static String _currentInstance = instances[0];
-  static int _currentIndex = 0;
+  static String get currentInstance => _health.getHealthyInvidious();
   
-  static String get currentInstance => _currentInstance;
-  
-  static void rotateInstance() {
-    _currentIndex = (_currentIndex + 1) % instances.length;
-    _currentInstance = instances[_currentIndex];
-  }
-  
+  static void rotateInstance() {}
   static void reset() {
-    _currentIndex = 0;
-    _currentInstance = instances[0];
+    _health.resetQuarantines();
   }
 }
 
@@ -48,81 +35,73 @@ class InvidiousPlaylistData {
   });
 }
 
-/// Data source that uses Invidious API as a fallback for YouTube streams
+/// Data source that uses Invidious API as a fallback for YouTube streams with dynamic health tracking
 class InvidiousDataSource {
   final Dio _dio;
+  final InstanceHealthService _healthService;
   
-  InvidiousDataSource({Dio? dio}) : _dio = dio ?? Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 8),
-    receiveTimeout: const Duration(seconds: 8),
-    sendTimeout: const Duration(seconds: 8),
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'application/json',
-      'Accept-Language': 'en-US,en;q=0.9',
-    },
-  ));
+  InvidiousDataSource({Dio? dio, InstanceHealthService? healthService})
+      : _dio = dio ??
+            Dio(BaseOptions(
+              connectTimeout: const Duration(seconds: 4),
+              receiveTimeout: const Duration(seconds: 4),
+              sendTimeout: const Duration(seconds: 4),
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'application/json',
+                'Accept-Language': 'en-US,en;q=0.9',
+              },
+            )),
+        _healthService = healthService ?? InstanceHealthService();
   
-  /// Get PROXIED stream URL using Invidious API
-  /// Invidious can proxy audio when using local=true parameter
+  /// Get PROXIED stream URL using Invidious API with health tracking and quarantine
   Future<StreamInfo?> getStreamUrl(String videoId) async {
     debugPrint('InvidiousDataSource: Getting stream for $videoId');
-    debugPrint('InvidiousDataSource: Available instances: ${InvidiousInstances.instances}');
     
-    // Try up to 3 instances (not all) to fail fast
-    final maxAttempts = InvidiousInstances.instances.length.clamp(0, 3);
-    for (int attempt = 0; attempt < maxAttempts; attempt++) {
+    // Try up to 2 healthy instances with fast timeouts
+    for (int attempt = 0; attempt < 2; attempt++) {
+      final instance = _healthService.getHealthyInvidious();
+      final stopwatch = Stopwatch()..start();
       try {
-        final instance = InvidiousInstances.currentInstance;
-        debugPrint('InvidiousDataSource: Trying $instance');
+        debugPrint('InvidiousDataSource: Trying healthy instance $instance (attempt $attempt)');
         
-        // Use local=true to get proxied streams through Invidious
         final response = await _dio.get(
           '$instance/api/v1/videos/$videoId',
           queryParameters: {
-            'local': 'true',  // This tells Invidious to proxy the stream
+            'local': 'true',  // Tells Invidious to proxy the stream
           },
           options: Options(
-            // Let Dio throw only for 5xx; we'll handle 4xx here
+            sendTimeout: const Duration(milliseconds: 4000),
+            receiveTimeout: const Duration(milliseconds: 4000),
             validateStatus: (status) => status != null && status < 500,
           ),
-        );
+        ).timeout(const Duration(milliseconds: 4500));
+        stopwatch.stop();
         
-        debugPrint('InvidiousDataSource: Response from $instance - Status: ${response.statusCode}, Data type: ${response.data.runtimeType}');
+        debugPrint('InvidiousDataSource: Response from $instance - Status: ${response.statusCode}');
         
         if (response.statusCode == 200) {
           final body = response.data;
           if (body is! Map<String, dynamic>) {
             debugPrint('InvidiousDataSource: Unexpected response type from $instance: ${body.runtimeType}');
-            if (body is String && body.length < 500) {
-              debugPrint('InvidiousDataSource: Response preview: ${body.substring(0, body.length.clamp(0, 200))}...');
-            }
-            InvidiousInstances.rotateInstance();
+            _healthService.recordFailure(instance, 'Unexpected response shape');
             continue;
           }
           final data = body;
-          debugPrint('InvidiousDataSource: Got valid JSON response from $instance');
-          debugPrint('InvidiousDataSource: Response keys: ${data.keys.toList()}');
           
-          // Check if video is available
+          // Check if video has an error message
           if (data['error'] != null) {
             debugPrint('InvidiousDataSource: Video error from $instance: ${data['error']}');
-            InvidiousInstances.rotateInstance();
+            _healthService.recordFailure(instance, data['error']);
             continue;
           }
+          
+          _healthService.recordSuccess(instance, stopwatch.elapsed);
           
           // Get adaptive formats (audio streams)
           final adaptiveFormats = data['adaptiveFormats'] as List?;
           
-          debugPrint('InvidiousDataSource: adaptiveFormats found: ${adaptiveFormats?.length ?? 0}');
-          if (adaptiveFormats == null) {
-            debugPrint('InvidiousDataSource: No adaptiveFormats in response from $instance');
-            debugPrint('InvidiousDataSource: Available data fields: ${data.keys.toList()}');
-            InvidiousInstances.rotateInstance();
-            continue;
-          }
-          
-          if (adaptiveFormats.isNotEmpty) {
+          if (adaptiveFormats != null && adaptiveFormats.isNotEmpty) {
             debugPrint('InvidiousDataSource: Found ${adaptiveFormats.length} adaptive formats');
             
             // Find audio-only streams
@@ -156,7 +135,6 @@ class InvidiousDataSource {
               final contentLength = (selectedStream['contentLength'] as num?)?.toInt();
               
               if (url != null && url.isNotEmpty) {
-                // If the URL still points to YouTube, proxy it through Invidious
                 String finalUrl = url;
                 if (url.contains('googlevideo.com')) {
                   finalUrl = _proxyThroughInvidious(instance, url);
@@ -172,14 +150,15 @@ class InvidiousDataSource {
                   quality: _bitrateToQuality(bitrate ~/ 1000),
                   contentLength: contentLength,
                   isAudioOnly: true,
+                  streamProvenance: 'invidious_instance',
+                  matchConfidence: 0.95,
                 );
               }
             }
           }
           
           // Fallback: Use Invidious's direct audio endpoint
-          // This always proxies through Invidious
-          final proxyUrl = '$instance/latest_version?id=$videoId&itag=140'; // itag 140 = m4a audio
+          final proxyUrl = '$instance/latest_version?id=$videoId&itag=140';
           debugPrint('InvidiousDataSource: Using direct proxy: $proxyUrl');
           
           return StreamInfo(
@@ -189,15 +168,16 @@ class InvidiousDataSource {
             container: 'm4a',
             quality: AudioQuality.medium,
             isAudioOnly: true,
+            streamProvenance: 'invidious_instance',
+            matchConfidence: 0.90,
           );
         } else {
-          debugPrint('InvidiousDataSource: Non-200 status from $instance: ${response.statusCode}');
-          InvidiousInstances.rotateInstance();
+          _healthService.recordFailure(instance, 'HTTP ${response.statusCode}');
         }
       } catch (e) {
-        debugPrint('InvidiousDataSource: Error with ${InvidiousInstances.currentInstance}: $e');
-        InvidiousInstances.rotateInstance();
-        continue;
+        stopwatch.stop();
+        debugPrint('InvidiousDataSource: Error with $instance: $e');
+        _healthService.recordFailure(instance, e);
       }
     }
     

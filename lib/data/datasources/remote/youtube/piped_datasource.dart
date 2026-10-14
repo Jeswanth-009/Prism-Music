@@ -2,64 +2,47 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../../../../domain/entities/stream_info.dart';
 import '../../../../domain/entities/song.dart';
+import '../../../../core/services/instance_health_service.dart';
 
-/// Piped API instance URLs (FOSS YouTube frontend with proxy)
+/// Legacy compatibility wrapper delegating to [InstanceHealthService].
 class PipedInstances {
-  static const List<String> apiInstances = [
-    'https://pipedapi.kavin.rocks',
-    'https://pipedapi.adminforge.de',
-    'https://api.piped.privacydev.net',
-    'https://pipedapi.r4fo.com',
-  ];
-  
-  /// Piped proxy instances for streaming audio
-  /// These proxy the actual YouTube content
-  static const List<String> proxyInstances = [
-    'https://pipedproxy.kavin.rocks',
-    'https://pipedproxy-cdg.kavin.rocks',
-    'https://pipedproxy-ams.kavin.rocks',
-    'https://pipedproxy-fra.kavin.rocks',
-  ];
-  
-  static int _currentApiIndex = 0;
-  static int _currentProxyIndex = 0;
-  
-  static String get currentApiInstance => apiInstances[_currentApiIndex];
-  static String get currentProxyInstance => proxyInstances[_currentProxyIndex];
-  
-  static void rotateApiInstance() {
-    _currentApiIndex = (_currentApiIndex + 1) % apiInstances.length;
-  }
-  
-  static void rotateProxyInstance() {
-    _currentProxyIndex = (_currentProxyIndex + 1) % proxyInstances.length;
-  }
-  
+  static final InstanceHealthService _health = InstanceHealthService();
+
+  static List<String> get apiInstances => InstanceHealthService.defaultPipedApiInstances;
+  static List<String> get proxyInstances => InstanceHealthService.defaultPipedProxyInstances;
+
+  static String get currentApiInstance => _health.getHealthyPipedApi();
+  static String get currentProxyInstance => _health.getHealthyPipedProxy();
+
+  static void rotateApiInstance() {}
+  static void rotateProxyInstance() {}
   static void reset() {
-    _currentApiIndex = 0;
-    _currentProxyIndex = 0;
+    _health.resetQuarantines();
   }
 }
 
-/// Data source that uses Piped API for YouTube audio streaming
-/// Piped provides proxy URLs that are more reliable than direct YouTube URLs
+/// Data source that uses Piped API for YouTube audio streaming with dynamic instance health
 class PipedDataSource {
   final Dio _dio;
+  final InstanceHealthService _healthService;
   
-  PipedDataSource({Dio? dio}) : _dio = dio ?? Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 8),
-    receiveTimeout: const Duration(seconds: 8),
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    },
-  ));
+  PipedDataSource({Dio? dio, InstanceHealthService? healthService})
+      : _dio = dio ??
+            Dio(BaseOptions(
+              connectTimeout: const Duration(seconds: 4),
+              receiveTimeout: const Duration(seconds: 4),
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              },
+            )),
+        _healthService = healthService ?? InstanceHealthService();
   
   /// Convert a direct YouTube stream URL to a Piped proxy URL
   String _convertToProxyUrl(String directUrl) {
     try {
       final uri = Uri.parse(directUrl);
       final originalHost = uri.host;
-      final proxyBase = PipedInstances.currentProxyInstance;
+      final proxyBase = _healthService.getHealthyPipedProxy();
       
       // Build proxy URL with host parameter
       final queryParams = Map<String, String>.from(
@@ -80,39 +63,42 @@ class PipedDataSource {
     }
   }
   
-  /// Get proxied stream URL using Piped API
+  /// Get proxied stream URL using Piped API with per-instance health and quarantine
   Future<StreamInfo?> getStreamUrl(String videoId) async {
     debugPrint('PipedDataSource: Getting stream for $videoId');
     
-    // Try up to 3 instances (not all) to fail fast
-    final maxAttempts = PipedInstances.apiInstances.length.clamp(0, 3);
-    for (int attempt = 0; attempt < maxAttempts; attempt++) {
+    // Try up to 2 healthy instances with fast timeouts
+    for (int attempt = 0; attempt < 2; attempt++) {
+      final instance = _healthService.getHealthyPipedApi();
+      final stopwatch = Stopwatch()..start();
       try {
-        final instance = PipedInstances.currentApiInstance;
-        debugPrint('PipedDataSource: Trying $instance');
+        debugPrint('PipedDataSource: Trying healthy instance $instance (attempt $attempt)');
         
         final response = await _dio.get(
           '$instance/streams/$videoId',
           options: Options(
-            // Let Dio throw only for 5xx; we'll handle 4xx here
+            sendTimeout: const Duration(milliseconds: 4000),
+            receiveTimeout: const Duration(milliseconds: 4000),
             validateStatus: (status) => status != null && status < 500,
           ),
-        );
+        ).timeout(const Duration(milliseconds: 4500));
+        stopwatch.stop();
         
         if (response.statusCode == 200) {
           final body = response.data;
           if (body is! Map<String, dynamic>) {
             debugPrint('PipedDataSource: Unexpected response type from $instance: ${body.runtimeType}');
-            PipedInstances.rotateApiInstance();
+            _healthService.recordFailure(instance, 'Unexpected response shape');
             continue;
           }
           final data = body;
+          _healthService.recordSuccess(instance, stopwatch.elapsed);
           
           // Get audio streams from Piped response
           final audioStreams = data['audioStreams'] as List?;
           
           if (audioStreams != null && audioStreams.isNotEmpty) {
-            debugPrint('PipedDataSource: Found ${audioStreams.length} streams');
+            debugPrint('PipedDataSource: Found ${audioStreams.length} streams on $instance');
             
             // Sort by bitrate (descending)
             final sortedStreams = List<Map<String, dynamic>>.from(audioStreams);
@@ -151,6 +137,8 @@ class PipedDataSource {
                 quality: _bitrateToQuality(bitrate ~/ 1000),
                 contentLength: contentLength,
                 isAudioOnly: true,
+                streamProvenance: 'piped_proxy',
+                matchConfidence: 0.90,
               );
             }
           }
@@ -166,21 +154,17 @@ class PipedDataSource {
               container: 'm3u8',
               quality: AudioQuality.medium,
               isAudioOnly: false,
+              streamProvenance: 'piped_proxy',
+              matchConfidence: 0.85,
             );
           }
+        } else {
+          _healthService.recordFailure(instance, 'HTTP ${response.statusCode}');
         }
-        
-        PipedInstances.rotateApiInstance();
-      } on DioException catch (e) {
-        // Network / HTTP errors from this instance: log and rotate
-        debugPrint('PipedDataSource: Error with ${PipedInstances.currentApiInstance}: $e');
-        PipedInstances.rotateApiInstance();
-        continue;
       } catch (e) {
-        // Any other unexpected error: log and rotate
-        debugPrint('PipedDataSource: Unexpected error with ${PipedInstances.currentApiInstance}: $e');
-        PipedInstances.rotateApiInstance();
-        continue;
+        stopwatch.stop();
+        debugPrint('PipedDataSource: Error with $instance: $e');
+        _healthService.recordFailure(instance, e);
       }
     }
     

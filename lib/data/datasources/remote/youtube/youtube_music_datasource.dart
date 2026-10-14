@@ -4,7 +4,6 @@ import '../../../../domain/entities/song.dart';
 import '../../../../domain/entities/playlist.dart';
 import '../../../../domain/entities/stream_info.dart' as domain;
 import 'invidious_datasource.dart';
-import 'piped_datasource.dart';
 
 /// Data source for YouTube Music API operations
 abstract class YouTubeMusicDataSource {
@@ -38,7 +37,6 @@ abstract class YouTubeMusicDataSource {
 class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
   final yt.YoutubeExplode _youtube = yt.YoutubeExplode();
   final InvidiousDataSource _invidious = InvidiousDataSource();
-  final PipedDataSource _piped = PipedDataSource();
 
   // Lightweight rate limiting + caching to keep fetches snappy without hitting limits
   DateTime? _lastRequestTime;
@@ -263,49 +261,12 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
       }
     }
 
-    // Fallback 1: Try Piped API
-    try {
-      final fallbackStopwatch = Stopwatch()..start();
-      debugPrint('YouTubeDataSource: Trying Piped API fallback...');
-      final pipedStream = await _piped.getStreamUrl(videoId);
-      fallbackStopwatch.stop();
-      if (pipedStream != null) {
-        totalStopwatch.stop();
-        debugPrint(
-          'YouTubeDataSource: ✓ Piped SUCCESS '
-          '(fallback ${fallbackStopwatch.elapsedMilliseconds}ms, '
-          'total ${totalStopwatch.elapsedMilliseconds}ms)',
-        );
-        _cacheStream(cacheKey, pipedStream);
-        return pipedStream;
-      }
-      debugPrint('YouTubeDataSource: ✗ Piped returned null');
-    } catch (e) {
-      debugPrint('YouTubeDataSource: ✗ Piped failed: $e');
-    }
-
-    // Fallback 2: Try Invidious as secondary backup
-    try {
-      final fallbackStopwatch = Stopwatch()..start();
-      debugPrint('YouTubeDataSource: Trying Invidious...');
-      final invidiousStream = await _invidious.getStreamUrl(videoId);
-      fallbackStopwatch.stop();
-      if (invidiousStream != null) {
-        totalStopwatch.stop();
-        debugPrint(
-          'YouTubeDataSource: ✓ Invidious SUCCESS '
-          '(fallback ${fallbackStopwatch.elapsedMilliseconds}ms, '
-          'total ${totalStopwatch.elapsedMilliseconds}ms)',
-        );
-        _cacheStream(cacheKey, invidiousStream);
-        return invidiousStream;
-      }
-      debugPrint('YouTubeDataSource: ✗ Invidious returned null');
-    } catch (e) {
-      debugPrint('YouTubeDataSource: ✗ Invidious failed: $e');
-    }
-
-    throw Exception('All stream sources failed for video $videoId');
+    totalStopwatch.stop();
+    debugPrint(
+      'YouTubeDataSource: YouTube Explode could not extract audio stream for $videoId '
+      'in ${totalStopwatch.elapsedMilliseconds}ms',
+    );
+    throw Exception('YouTube Explode failed to extract stream for $videoId');
   }
 
   bool _isRateLimitError(String errorText) {
