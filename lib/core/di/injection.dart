@@ -25,6 +25,7 @@ import '../services/playback_reliability_service.dart';
 import '../services/download_service.dart';
 import '../services/ytmusic_api_service.dart';
 import '../services/recommendation_service.dart';
+import '../services/instance_health_service.dart';
 
 /// Global service locator instance
 final GetIt getIt = GetIt.instance;
@@ -68,6 +69,11 @@ Future<void> initializeDependencies() async {
   // Stream Cache Service - singleton for shared cache
   getIt.registerLazySingleton<StreamCacheService>(
     () => StreamCacheService(),
+  );
+
+  // Instance Health Service - tracks public Piped/Invidious instance latency and health
+  getIt.registerLazySingleton<InstanceHealthService>(
+    () => InstanceHealthService(),
   );
 
   // ============ DATA SOURCES ============

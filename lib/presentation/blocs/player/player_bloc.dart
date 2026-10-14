@@ -54,6 +54,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   bool _hasUpdatedNowPlaying = false;
   AppLifecycleState _lastLifecycleState = AppLifecycleState.resumed;
   int _consecutiveFailureSkips = 0;
+  final Set<String> _attemptedFreshResolutions = {};
 
   void _log(String message) {
     if (kDebugMode) debugPrint(message);
@@ -379,6 +380,10 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       initialQueueIndex = 0;
     }
 
+    if (event.userInitiated) {
+      _attemptedFreshResolutions.remove(event.song.playableId);
+    }
+
     final Song? previousSong = state.currentSong;
 
     // Update UI immediately with the song info (before loading)
@@ -537,9 +542,10 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
           ),
         );
 
-        await _libraryRepository.addToHistory(event.song);
+        _libraryRepository.addToHistory(event.song);
         _recommendationService?.recordPlay(event.song);
         _reliability.registerSuccess(event.song.playableId);
+        _attemptedFreshResolutions.remove(event.song.playableId);
         _consecutiveFailureSkips = 0;
         _updateNowPlaying(event.song);
         // Position in the queue changed → notification skip buttons may
@@ -1261,6 +1267,38 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     // schedule retries or advance the queue.
     bool isStale() => generation != null && generation != _playbackGeneration;
 
+    final songId = failedSong.playableId;
+    final is403 = _is403OrForbidden(error);
+    final hasAttemptedFresh = _attemptedFreshResolutions.contains(songId);
+
+    // Stale/expired stream recovery: if a cached or pre-resolved stream URL returns 403 Forbidden,
+    // invalidate the cache and attempt exactly one fresh URL resolution before giving up.
+    if (is403 && !isOffline && !hasAttemptedFresh && !isStale()) {
+      _attemptedFreshResolutions.add(songId);
+      _log(
+        'PlayerBloc: Stale/Expired stream (403 Forbidden) detected for "${failedSong.title}". '
+        'Invalidating cache and attempting fresh URL resolution.',
+      );
+      emit(
+        state.copyWith(
+          status: PlayerStatus.loading,
+          errorMessage: 'Refreshing expired stream...',
+        ),
+      );
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (isClosed || isStale()) return;
+        add(
+          PlaySongEvent(
+            song: failedSong,
+            queue: queue,
+            queueIndex: queueIndex,
+            userInitiated: false,
+          ),
+        );
+      });
+      return;
+    }
+
     final isFatalError = _isFatalPlaybackError(error);
     if (isFatalError) {
       _log(
@@ -1608,6 +1646,11 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       case AudioQuality.lossless:
         return 'lossless';
     }
+  }
+
+  bool _is403OrForbidden(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('403') || message.contains('forbidden');
   }
 
   bool _isVideoStream403(Object error) {

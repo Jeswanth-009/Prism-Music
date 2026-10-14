@@ -3,9 +3,9 @@ import 'package:flutter/foundation.dart';
 import '../../domain/entities/stream_info.dart';
 import '../../domain/entities/song.dart';
 import '../../data/datasources/remote/youtube/youtube_music_datasource.dart';
-import '../../data/datasources/remote/youtube/piped_datasource.dart';
-import '../../data/datasources/remote/youtube/invidious_datasource.dart';
 import '../../data/datasources/remote/jiosaavn/jiosaavn_datasource.dart';
+import '../providers/audio_stream_resolver.dart';
+import '../providers/stream_resolvers.dart';
 import 'stream_cache_service.dart';
 
 /// Strategy for fetching stream URLs
@@ -30,12 +30,11 @@ class _FetchResult {
 
 /// Production-ready stream loader with parallel fetching and caching
 class StreamLoaderService {
-  final YouTubeMusicDataSource _datasource;
   final StreamCacheService _cache;
-  final JioSaavnDataSource _jioSaavn = JioSaavnDataSourceImpl();
+  final List<AudioStreamResolver> _resolvers;
 
-  static const Duration _streamFetchTimeout = Duration(seconds: 10);
-  static const Duration _overallResolutionBudget = Duration(seconds: 15);
+  static const Duration _streamFetchTimeout = Duration(milliseconds: 4500);
+  static const Duration _overallResolutionBudget = Duration(seconds: 12);
 
   // Circuit breaker state per source
   final Map<StreamSource, DateTime> _circuitCooldownUntil = {};
@@ -53,7 +52,20 @@ class StreamLoaderService {
   final List<_FetchResult> _recentAttempts = [];
   static const int _maxRecentAttempts = 20;
 
-  StreamLoaderService(this._datasource, this._cache);
+  StreamLoaderService(
+    YouTubeMusicDataSource datasource,
+    this._cache, {
+    JioSaavnDataSource? jioSaavn,
+    List<AudioStreamResolver>? resolvers,
+  }) : _resolvers = resolvers ??
+           [
+             JioSaavnAudioStreamResolver(dataSource: jioSaavn ?? JioSaavnDataSourceImpl()),
+             YouTubeExplodeAudioStreamResolver(dataSource: datasource),
+             PipedAudioStreamResolver(),
+             InvidiousAudioStreamResolver(),
+           ];
+
+  List<AudioStreamResolver> get resolvers => List.unmodifiable(_resolvers);
 
   bool _isCircuitOpen(StreamSource source) {
     final cooldownUntil = _circuitCooldownUntil[source];
@@ -156,113 +168,61 @@ class StreamLoaderService {
     final videoId = song.playableId;
     final stopwatch = Stopwatch()..start();
 
-    // Primary: JioSaavn (check circuit breaker)
-    if (!_isCircuitOpen(StreamSource.jioSaavn)) {
-      debugPrint('StreamLoader: Trying JioSaavn primary...');
-      StreamInfo? jioStream;
-      try {
-        jioStream = await _jioSaavn
-            .getStreamUrl(song)
-            .timeout(_streamFetchTimeout);
-      } catch (e) {
-        debugPrint('StreamLoader: JioSaavn timed out or failed: $e');
+    for (final resolver in _resolvers) {
+      if (!resolver.isAvailable) continue;
+      final source = _mapResolverToSource(resolver.resolverName);
+
+      if (_isCircuitOpen(source)) {
+        debugPrint('StreamLoader: ${resolver.resolverName} circuit is OPEN; skipping.');
+        continue;
       }
 
-      if (jioStream != null) {
+      debugPrint('StreamLoader: Trying ${resolver.resolverName} resolver...');
+      StreamInfo? stream;
+      try {
+        stream = await resolver
+            .resolveStream(song, preferredQuality: preferredQuality)
+            .timeout(_streamFetchTimeout);
+      } catch (e) {
+        debugPrint('StreamLoader: ${resolver.resolverName} failed or timed out: $e');
+      }
+
+      if (stream != null) {
         debugPrint(
-          'StreamLoader: JioSaavn succeeded in ${stopwatch.elapsedMilliseconds}ms',
+          'StreamLoader: ${resolver.resolverName} succeeded in ${stopwatch.elapsedMilliseconds}ms',
         );
-        _recordSourceSuccess(StreamSource.jioSaavn);
+        _recordSourceSuccess(source);
         _recordAttempt(
           _FetchResult(
-            source: StreamSource.jioSaavn,
-            streamInfo: jioStream,
+            source: source,
+            streamInfo: stream,
             error: null,
             fetchTime: stopwatch.elapsed,
           ),
         );
-        return jioStream;
+        return stream;
       } else {
-        _recordSourceFailure(StreamSource.jioSaavn);
+        _recordSourceFailure(source);
       }
-    } else {
-      debugPrint('StreamLoader: JioSaavn circuit is OPEN; skipping.');
-    }
-
-    debugPrint('StreamLoader: JioSaavn unavailable, trying YouTube Explode fallback...');
-
-    // Fallback 1: YouTube Explode
-    if (!_isCircuitOpen(StreamSource.youtubeExplode)) {
-      final ytResult = await _fetchFromSource(
-        videoId,
-        StreamSource.youtubeExplode,
-        preferredQuality,
-      );
-      _recordAttempt(ytResult);
-
-      if (ytResult.isSuccess) {
-        debugPrint(
-          'StreamLoader: YouTube Explode succeeded in ${stopwatch.elapsedMilliseconds}ms',
-        );
-        _recordSourceSuccess(StreamSource.youtubeExplode);
-        return ytResult.streamInfo!;
-      } else {
-        _recordSourceFailure(StreamSource.youtubeExplode);
-      }
-    } else {
-      debugPrint('StreamLoader: YouTube Explode circuit is OPEN; skipping.');
-    }
-
-    debugPrint('StreamLoader: YouTube Explode failed, trying Piped fallback...');
-
-    // Fallback 2: Piped (Alternative)
-    if (!_isCircuitOpen(StreamSource.alternative)) {
-      final pipedResult = await _fetchFromSource(
-        videoId,
-        StreamSource.alternative,
-        preferredQuality,
-      );
-      _recordAttempt(pipedResult);
-
-      if (pipedResult.isSuccess) {
-        debugPrint(
-          'StreamLoader: Piped fallback succeeded in ${stopwatch.elapsedMilliseconds}ms',
-        );
-        _recordSourceSuccess(StreamSource.alternative);
-        return pipedResult.streamInfo!;
-      } else {
-        _recordSourceFailure(StreamSource.alternative);
-      }
-    } else {
-      debugPrint('StreamLoader: Piped circuit is OPEN; skipping.');
-    }
-
-    debugPrint('StreamLoader: Piped failed, trying Invidious fallback...');
-
-    // Fallback 3: Invidious
-    if (!_isCircuitOpen(StreamSource.invidious)) {
-      final invResult = await _fetchFromSource(
-        videoId,
-        StreamSource.invidious,
-        preferredQuality,
-      );
-      _recordAttempt(invResult);
-
-      if (invResult.isSuccess) {
-        debugPrint(
-          'StreamLoader: Invidious fallback succeeded in ${stopwatch.elapsedMilliseconds}ms',
-        );
-        _recordSourceSuccess(StreamSource.invidious);
-        return invResult.streamInfo!;
-      } else {
-        _recordSourceFailure(StreamSource.invidious);
-      }
-    } else {
-      debugPrint('StreamLoader: Invidious circuit is OPEN; skipping.');
     }
 
     stopwatch.stop();
     throw Exception('All stream sources failed to fetch $videoId');
+  }
+
+  StreamSource _mapResolverToSource(String resolverName) {
+    switch (resolverName) {
+      case 'jiosaavn':
+        return StreamSource.jioSaavn;
+      case 'youtube_explode':
+        return StreamSource.youtubeExplode;
+      case 'piped':
+        return StreamSource.alternative;
+      case 'invidious':
+        return StreamSource.invidious;
+      default:
+        return StreamSource.alternative;
+    }
   }
 
   /// Prefetch stream for a song (non-blocking, background task)
@@ -313,62 +273,7 @@ class StreamLoaderService {
   }
 
 
-  /// Fetch from a specific source with timeout
-  Future<_FetchResult> _fetchFromSource(
-    String videoId,
-    StreamSource source,
-    AudioQuality preferredQuality,
-  ) async {
-    final stopwatch = Stopwatch()..start();
 
-    try {
-      StreamInfo? streamInfo;
-
-      switch (source) {
-        case StreamSource.youtubeExplode:
-          streamInfo = await _datasource
-              .getStreamUrl(videoId, preferredQuality: preferredQuality)
-              .timeout(
-                _streamFetchTimeout,
-                onTimeout: () =>
-                    throw TimeoutException('YouTube Explode timeout'),
-              );
-          break;
-
-        case StreamSource.invidious:
-          final invidious = InvidiousDataSource();
-          streamInfo = await invidious.getStreamUrl(videoId)
-              .timeout(_streamFetchTimeout);
-          break;
-
-        case StreamSource.alternative:
-          final piped = PipedDataSource();
-          streamInfo = await piped.getStreamUrl(videoId)
-              .timeout(_streamFetchTimeout);
-          break;
-
-        case StreamSource.jioSaavn:
-          // Handled directly in _fetchOptimized
-          break;
-      }
-
-      stopwatch.stop();
-      return _FetchResult(
-        source: source,
-        streamInfo: streamInfo,
-        error: null,
-        fetchTime: stopwatch.elapsed,
-      );
-    } catch (e) {
-      stopwatch.stop();
-      return _FetchResult(
-        source: source,
-        streamInfo: null,
-        error: e,
-        fetchTime: stopwatch.elapsed,
-      );
-    }
-  }
 
   /// Record fetch attempt for analytics
   void _recordAttempt(_FetchResult result) {
