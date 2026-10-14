@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/di/injection.dart';
 import '../../core/services/audio_player_service.dart';
+import '../../core/services/media_resolver_service.dart';
 import '../../domain/entities/song.dart';
 import '../../domain/entities/stream_info.dart';
 import '../blocs/library/library_bloc.dart';
@@ -196,6 +197,12 @@ class _PlayerPageState extends State<PlayerPage> {
                                         song: song,
                                         streamInfo: state.currentStreamInfo,
                                         onArtistTap: _openArtistPage,
+                                        onProvenanceTap: () =>
+                                            _showStreamDetailsSheet(
+                                          context,
+                                          song,
+                                          state.currentStreamInfo,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -442,6 +449,273 @@ class _PlayerPageState extends State<PlayerPage> {
       ),
     );
   }
+
+  void _showStreamDetailsSheet(
+    BuildContext context,
+    Song song,
+    StreamInfo? streamInfo,
+  ) {
+    showPrismSheet(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(sheetContext)
+                          .colorScheme
+                          .primaryContainer
+                          .withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(PrismRadius.md),
+                    ),
+                    child: Icon(
+                      Icons.graphic_eq_rounded,
+                      color: Theme.of(sheetContext).colorScheme.primary,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Audio Stream Diagnostics',
+                          style: Theme.of(sheetContext)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        Text(
+                          song.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(sheetContext)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                color: Theme.of(sheetContext)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Theme.of(sheetContext)
+                      .colorScheme
+                      .surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(PrismRadius.lg),
+                  border: Border.all(
+                    color: Theme.of(sheetContext)
+                        .colorScheme
+                        .outlineVariant
+                        .withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    _diagnosticRow(
+                      sheetContext,
+                      'Resolution Source',
+                      _formatProvenance(streamInfo?.streamProvenance, song),
+                    ),
+                    const Divider(height: 16),
+                    _diagnosticRow(
+                      sheetContext,
+                      'Audio Codec',
+                      streamInfo?.codec.toUpperCase() ?? 'Direct Media',
+                    ),
+                    const Divider(height: 16),
+                    _diagnosticRow(
+                      sheetContext,
+                      'Nominal Bitrate',
+                      streamInfo != null && streamInfo.bitrate > 0
+                          ? '${streamInfo.bitrate} kbps'
+                          : 'Standard',
+                    ),
+                    const Divider(height: 16),
+                    _diagnosticRow(
+                      sheetContext,
+                      'Container Format',
+                      streamInfo?.container != null && streamInfo!.container.isNotEmpty
+                          ? '.${streamInfo.container}'
+                          : 'Stream (HTTP Live)',
+                    ),
+                    if (streamInfo?.matchConfidence != null) ...[
+                      const Divider(height: 16),
+                      _diagnosticRow(
+                        sheetContext,
+                        'Match Confidence',
+                        '${(streamInfo!.matchConfidence! * 100).round()}% Verified',
+                        trailingIcon: Icons.verified_rounded,
+                        trailingColor: Theme.of(sheetContext).colorScheme.primary,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (song.source != MusicSource.local) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: Icon(
+                      streamInfo?.streamProvenance == 'jiosaavn_matched'
+                          ? Icons.play_circle_fill_rounded
+                          : Icons.graphic_eq_rounded,
+                      size: 17,
+                    ),
+                    label: Text(
+                      streamInfo?.streamProvenance == 'jiosaavn_matched'
+                          ? 'Switch to YouTube Audio'
+                          : 'Try JioSaavn Match',
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(PrismRadius.md),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(sheetContext);
+                      final playerBloc = context.read<PlayerBloc>();
+                      final state = playerBloc.state;
+                      final targetResolver = streamInfo?.streamProvenance == 'jiosaavn_matched'
+                          ? 'youtube_explode'
+                          : 'jiosaavn';
+                      playerBloc.add(
+                        PlaySongEvent(
+                          song: song,
+                          queue: state.queue,
+                          queueIndex: state.queueIndex,
+                          userInitiated: true,
+                          preferredResolver: targetResolver,
+                        ),
+                      );
+                      showPrismToast(
+                        context,
+                        targetResolver == 'youtube_explode'
+                            ? 'Switching to YouTube Audio...'
+                            : 'Attempting JioSaavn match...',
+                      );
+                    },
+                  ),
+                ),
+              ],
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Reload Fresh Stream'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(PrismRadius.md),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(sheetContext);
+                    final mediaResolver = getIt<MediaResolverService>();
+                    mediaResolver.invalidate(song.playableId);
+                    final playerBloc = context.read<PlayerBloc>();
+                    final state = playerBloc.state;
+                    playerBloc.add(
+                      PlaySongEvent(
+                        song: song,
+                        queue: state.queue,
+                        queueIndex: state.queueIndex,
+                        userInitiated: true,
+                      ),
+                    );
+                    showPrismToast(context, 'Re-resolving fresh audio stream...');
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _formatProvenance(String? provenance, Song song) {
+    if (song.source == MusicSource.local) return 'Local Offline Storage';
+    switch (provenance) {
+      case 'jiosaavn_matched':
+        return 'JioSaavn High-Fidelity Match';
+      case 'youtube_explode':
+        return 'YouTube Explode Audio-Only';
+      case 'piped_proxy':
+        return 'Piped Private Proxy';
+      case 'invidious_instance':
+        return 'Invidious Community Node';
+      default:
+        return 'Direct Stream Provider';
+    }
+  }
+
+  static Widget _diagnosticRow(
+    BuildContext context,
+    String label,
+    String value, {
+    IconData? trailingIcon,
+    Color? trailingColor,
+  }) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Flexible(
+          child: Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (trailingIcon != null) ...[
+                Icon(trailingIcon, size: 14, color: trailingColor),
+                const SizedBox(width: 4),
+              ],
+              Flexible(
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -557,11 +831,13 @@ class _SongInfo extends StatelessWidget {
     required this.song,
     this.streamInfo,
     required this.onArtistTap,
+    this.onProvenanceTap,
   });
 
   final Song song;
   final StreamInfo? streamInfo;
   final void Function(String) onArtistTap;
+  final VoidCallback? onProvenanceTap;
 
   @override
   Widget build(BuildContext context) {
@@ -590,46 +866,177 @@ class _SongInfo extends StatelessWidget {
             ),
             onArtistTap: onArtistTap,
           ),
-          if (streamInfo != null) ...[
+          if (streamInfo != null || song.source == MusicSource.local) ...[
             const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest
-                    .withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(PrismRadius.pill),
-              ),
-              child: Text(
-                '${streamInfo!.bitrate > 0 ? '${streamInfo!.bitrate} kbps · ' : ''}${streamInfo!.codec.toUpperCase()}',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ),
-          ] else if (song.source == MusicSource.local) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest
-                    .withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(PrismRadius.pill),
-              ),
-              child: Text(
-                'OFFLINE',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                ),
-              ),
+            _AudioProvenanceBadge(
+              song: song,
+              streamInfo: streamInfo,
+              onTap: onProvenanceTap ?? () {},
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _AudioProvenanceBadge extends StatelessWidget {
+  const _AudioProvenanceBadge({
+    required this.song,
+    required this.streamInfo,
+    required this.onTap,
+  });
+
+  final Song song;
+  final StreamInfo? streamInfo;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isOffline = song.source == MusicSource.local;
+    final provenance = streamInfo?.streamProvenance;
+
+    IconData sourceIcon;
+    String sourceName;
+    if (isOffline) {
+      sourceIcon = Icons.offline_pin_rounded;
+      sourceName = 'Offline';
+    } else {
+      switch (provenance) {
+        case 'jiosaavn_matched':
+          sourceIcon = Icons.graphic_eq_rounded;
+          sourceName = 'JioSaavn';
+          break;
+        case 'youtube_explode':
+          sourceIcon = Icons.play_circle_fill_rounded;
+          sourceName = 'YouTube';
+          break;
+        case 'piped_proxy':
+          sourceIcon = Icons.shield_outlined;
+          sourceName = 'Piped';
+          break;
+        case 'invidious_instance':
+          sourceIcon = Icons.dns_rounded;
+          sourceName = 'Invidious';
+          break;
+        default:
+          sourceIcon = Icons.music_note_rounded;
+          sourceName = song.source == MusicSource.spotify ? 'Spotify' : 'Direct';
+          break;
+      }
+    }
+
+    final bitrate = streamInfo?.bitrate ?? 0;
+    final codec = (streamInfo?.codec ?? '').toUpperCase();
+    final formatText = bitrate > 0
+        ? '$bitrate kbps · $codec'
+        : (codec.isNotEmpty ? codec : '');
+    final matchConfidence = streamInfo?.matchConfidence;
+    final hasMatchConfidence = matchConfidence != null && provenance == 'jiosaavn_matched';
+    final matchPercent = matchConfidence != null ? (matchConfidence * 100).round() : null;
+
+    return Semantics(
+      button: true,
+      label: 'Audio stream details: $sourceName $formatText',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(PrismRadius.pill),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(PrismRadius.pill),
+              border: Border.all(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.25),
+                width: 0.5,
+              ),
+            ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  sourceIcon,
+                  size: 13,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  sourceName,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurface,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                if (formatText.isNotEmpty) ...[
+                  Text(
+                    ' · ',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                      fontSize: 10,
+                    ),
+                  ),
+                  Text(
+                    formatText,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+                if (hasMatchConfidence) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: (matchPercent != null && matchPercent >= 85)
+                          ? theme.colorScheme.primary.withValues(alpha: 0.15)
+                          : Colors.amber.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(PrismRadius.pill),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.verified_rounded,
+                          size: 9,
+                          color: (matchPercent != null && matchPercent >= 85)
+                              ? theme.colorScheme.primary
+                              : Colors.amber,
+                        ),
+                        const SizedBox(width: 2.5),
+                        Text(
+                          '$matchPercent%',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: (matchPercent != null && matchPercent >= 85)
+                                ? theme.colorScheme.primary
+                                : Colors.amber,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 11,
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

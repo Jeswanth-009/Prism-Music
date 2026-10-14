@@ -42,4 +42,55 @@ void main() {
 
     expect(find.text('Now Playing Song'), findsOneWidget);
   });
+
+  testWidgets(
+      'renders audio provenance badge with truthful info and opens details sheet on tap',
+      (tester) async {
+    final playerBloc = buildTestPlayerBloc();
+    addTearDown(playerBloc.close);
+
+    playerBloc.emit(const PlayerState(
+      status: PlayerStatus.playing,
+      currentSong: Song(
+        id: 'provenance1',
+        title: 'Provenance Song',
+        artist: 'Prism Artist',
+        duration: Duration(seconds: 180),
+        thumbnails: Thumbnails(),
+      ),
+      currentStreamInfo: StreamInfo(
+        url: 'https://example.com/stream.mp4',
+        codec: 'mp4a',
+        bitrate: 320,
+        container: 'mp4',
+        quality: AudioQuality.high,
+        streamProvenance: 'jiosaavn_matched',
+        matchConfidence: 0.94,
+      ),
+    ));
+
+    await pumpTestWidget(
+      tester,
+      const PlayerPage(),
+      playerBloc: playerBloc,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('Provenance Song'), findsOneWidget);
+    expect(find.text('JioSaavn'), findsOneWidget);
+    expect(find.text('320 kbps · MP4A'), findsOneWidget);
+    expect(find.text('94%'), findsOneWidget);
+
+    // Tap provenance badge to open diagnostics sheet
+    await tester.tap(find.text('JioSaavn'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Audio Stream Diagnostics'), findsOneWidget);
+    expect(find.text('Resolution Source'), findsOneWidget);
+    expect(find.text('94% Verified'), findsOneWidget);
+    expect(find.text('Switch to YouTube Audio'), findsOneWidget);
+    expect(find.text('Reload Fresh Stream'), findsOneWidget);
+  });
 }

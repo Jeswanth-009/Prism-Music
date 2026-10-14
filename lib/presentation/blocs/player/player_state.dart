@@ -147,6 +147,49 @@ class PlayerState extends Equatable {
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
+  /// Formatted provenance source label
+  String get streamProvenanceLabel {
+    if (currentSong?.source == MusicSource.local) return 'Offline';
+    final provenance = currentStreamInfo?.streamProvenance;
+    switch (provenance) {
+      case 'jiosaavn_matched':
+        return 'JioSaavn';
+      case 'youtube_explode':
+        return 'YouTube';
+      case 'piped_proxy':
+        return 'Piped';
+      case 'invidious_instance':
+        return 'Invidious';
+      default:
+        if (currentSong?.source == MusicSource.jiosaavn) return 'JioSaavn';
+        if (currentSong?.source == MusicSource.spotify) return 'Spotify Match';
+        return 'YouTube';
+    }
+  }
+
+  /// Formatted truthful audio quality tag (e.g. '320 kbps · MP4A', '160 kbps · OPUS')
+  String? get streamFormatLabel {
+    if (currentStreamInfo == null) return null;
+    final bitrate = currentStreamInfo!.bitrate;
+    final codec = currentStreamInfo!.codec.toUpperCase();
+    if (bitrate > 0) {
+      return '$bitrate kbps · $codec';
+    }
+    return codec.isNotEmpty ? codec : null;
+  }
+
+  /// Match confidence percentage (e.g. 96 for 0.96)
+  int? get matchConfidencePercent {
+    final conf = currentStreamInfo?.matchConfidence;
+    if (conf == null) return null;
+    return (conf * 100).round();
+  }
+
+  /// Whether current track was substituted via match confidence
+  bool get isMatchedAlternative =>
+      currentStreamInfo?.streamProvenance == 'jiosaavn_matched' &&
+      matchConfidencePercent != null;
+
   PlayerState copyWith({
     PlayerStatus? status,
     Song? currentSong,

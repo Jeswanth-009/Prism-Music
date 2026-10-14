@@ -105,14 +105,32 @@ class MiniPlayer extends StatelessWidget {
                                         ),
                                   ),
                                   const SizedBox(height: 1),
-                                  Text(
-                                    song.artist,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.bodySmall
-                                        ?.copyWith(
-                                          color: scheme.onSurfaceVariant,
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          song.artist,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: scheme.onSurfaceVariant,
+                                              ),
                                         ),
+                                      ),
+                                      if (state.currentStreamInfo != null) ...[
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '· ${state.streamProvenanceLabel}',
+                                          style: theme.textTheme.labelSmall
+                                              ?.copyWith(
+                                                color: scheme.primary,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ],
                               ),
