@@ -3,6 +3,7 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt;
 import '../../../../domain/entities/song.dart';
 import '../../../../domain/entities/playlist.dart';
 import '../../../../domain/entities/stream_info.dart' as domain;
+import '../../../../core/services/stream_cache_service.dart';
 import 'invidious_datasource.dart';
 
 /// Data source for YouTube Music API operations
@@ -35,18 +36,23 @@ abstract class YouTubeMusicDataSource {
 
 /// Implementation using youtube_explode_dart
 class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
-  final yt.YoutubeExplode _youtube = yt.YoutubeExplode();
-  final InvidiousDataSource _invidious = InvidiousDataSource();
+  final yt.YoutubeExplode _youtube;
+  final InvidiousDataSource _invidious;
+  final StreamCacheService? _cache;
+
+  YouTubeMusicDataSourceImpl({
+    yt.YoutubeExplode? youtube,
+    InvidiousDataSource? invidious,
+    StreamCacheService? cache,
+  })  : _youtube = youtube ?? yt.YoutubeExplode(),
+        _invidious = invidious ?? InvidiousDataSource(),
+        _cache = cache;
 
   // Lightweight rate limiting + caching to keep fetches snappy without hitting limits
   DateTime? _lastRequestTime;
   static const _minRequestInterval = Duration(
     milliseconds: 300,
   ); // balance between responsiveness and rate-limit avoidance
-
-  // Stream URL cache to avoid repeated manifest fetches for recently played tracks
-  final Map<String, _StreamCacheEntry> _streamCache = {};
-  static const _streamCacheTtl = Duration(minutes: 25);
 
   /// Wait before making request to avoid rate limiting
   Future<void> _waitForRateLimit() async {
@@ -101,20 +107,18 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
     final totalStopwatch = Stopwatch()..start();
     debugPrint('YouTubeDataSource: Getting stream URL for $videoId');
 
-    final cacheKey = _streamCacheKey(videoId, preferredQuality);
-    
     if (forceRefresh) {
       debugPrint('YouTubeDataSource: Bypassing cache for $videoId (forceRefresh: true)');
-      _streamCache.remove(cacheKey);
+      _cache?.invalidate(videoId);
     } else {
-      final cached = _streamCache[cacheKey];
-      if (cached != null && _isStreamCacheEntryValid(cached)) {
+      final cached = _cache?.getCached(videoId, preferredQuality);
+      if (cached != null) {
         totalStopwatch.stop();
         debugPrint(
           'YouTubeDataSource: Stream cache HIT for $videoId ($preferredQuality) '
           'in ${totalStopwatch.elapsedMilliseconds}ms',
         );
-        return cached.streamInfo;
+        return cached;
       }
     }
 
@@ -191,7 +195,11 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
           isAudioOnly: true,
         );
 
-        _cacheStream(cacheKey, streamInfo);
+        _cache?.cache(
+          videoId,
+          streamInfo,
+          quality: preferredQuality,
+        );
         return streamInfo;
       }
 
@@ -252,7 +260,11 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
               isAudioOnly: true,
             );
 
-            _cacheStream(cacheKey, streamInfo);
+            _cache?.cache(
+              videoId,
+              streamInfo,
+              quality: preferredQuality,
+            );
             return streamInfo;
           }
         } catch (retryE) {
@@ -761,39 +773,6 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
     return false;
   }
 
-  String _streamCacheKey(String videoId, AudioQuality quality) =>
-      '${videoId}_${quality.name}';
-
-  bool _isStreamCacheEntryValid(_StreamCacheEntry entry) {
-    if (DateTime.now().difference(entry.cachedAt) > _streamCacheTtl) {
-      return false;
-    }
-
-    final expiresAt = entry.streamInfo.expiresAt;
-    if (expiresAt == null) {
-      return true;
-    }
-
-    // Add a safety buffer so we don't return a near-expired URL.
-    return DateTime.now().isBefore(
-      expiresAt.subtract(const Duration(minutes: 1)),
-    );
-  }
-
-  void _cacheStream(String key, domain.StreamInfo streamInfo) {
-    _streamCache[key] = _StreamCacheEntry(
-      streamInfo: streamInfo,
-      cachedAt: DateTime.now(),
-    );
-
-    if (_streamCache.length > 200) {
-      final oldestKey = _streamCache.entries
-          .reduce((a, b) => a.value.cachedAt.isBefore(b.value.cachedAt) ? a : b)
-          .key;
-      _streamCache.remove(oldestKey);
-    }
-  }
-
   DateTime? _extractExpiryFromUrl(String url) {
     try {
       final uri = Uri.parse(url);
@@ -810,11 +789,4 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
   void dispose() {
     _youtube.close();
   }
-}
-
-class _StreamCacheEntry {
-  final domain.StreamInfo streamInfo;
-  final DateTime cachedAt;
-
-  _StreamCacheEntry({required this.streamInfo, required this.cachedAt});
 }

@@ -80,7 +80,9 @@ Future<void> initializeDependencies() async {
   
   // Remote Data Sources
   getIt.registerLazySingleton<YouTubeMusicDataSource>(
-    () => YouTubeMusicDataSourceImpl(),
+    () => YouTubeMusicDataSourceImpl(
+      cache: getIt<StreamCacheService>(),
+    ),
   );
 
   getIt.registerLazySingleton<SpotifyDataSource>(

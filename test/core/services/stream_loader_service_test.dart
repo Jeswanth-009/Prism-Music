@@ -175,6 +175,29 @@ void main() {
       expect(result.streamProvenance, equals('custom_provider'));
       expect(customResolver.calls, equals(1));
     });
+
+    test('unified stream cache: YouTubeMusicDataSourceImpl integrates with StreamCacheService', () async {
+      final sharedCache = StreamCacheService();
+      final ytSource = YouTubeMusicDataSourceImpl(cache: sharedCache);
+
+      // Seed cache via shared cache service
+      const seededStream = StreamInfo(
+        url: 'https://cdn.example/cached.mp4',
+        codec: 'mp4a',
+        bitrate: 128,
+        container: 'mp4',
+        quality: AudioQuality.high,
+      );
+      sharedCache.cache('video_abc', seededStream, quality: AudioQuality.high);
+
+      // Querying without forceRefresh returns cached stream without network call
+      final hit = await ytSource.getStreamUrl('video_abc', preferredQuality: AudioQuality.high);
+      expect(hit.url, equals('https://cdn.example/cached.mp4'));
+
+      // Invalidation clears the unified entry
+      sharedCache.invalidate('video_abc');
+      expect(sharedCache.isCached('video_abc'), isFalse);
+    });
   });
 }
 
