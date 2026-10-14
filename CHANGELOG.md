@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.41] - 2026-10-14
+
+### Added
+
+- Implement uncapped playlist import, ISRC resolution, review sheet & cancellation (M16)
+
 ## [0.2.40] - 2026-10-14
 
 ### Added
@@ -709,3 +715,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.38]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.38-build74
 [0.2.39]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.39-build75
 [0.2.40]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.40-build76
+[0.2.41]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.41-build77
