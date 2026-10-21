@@ -1,4 +1,3 @@
-import 'package:dartz/dartz.dart' hide State;
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -54,23 +53,10 @@ class _AlbumPageState extends State<AlbumPage> {
     final repo = getIt<MusicRepository>();
     var result = await repo.getAlbumDetails(albumIdToFetch);
     if (result.isLeft() &&
-        (albumIdToFetch.startsWith('MPREb_') ||
-            albumIdToFetch.startsWith('OLAK_') ||
-            albumIdToFetch.startsWith('VL'))) {
-      final playlistResult = await repo.getPlaylistDetails(albumIdToFetch);
-      playlistResult.fold(
-        (_) => null,
-        (p) {
-          result = Right(Album(
-            id: p.id,
-            title: p.name,
-            artist: p.author ?? _album.artist,
-            thumbnails: p.thumbnails ?? _album.thumbnails,
-            songs: p.songs,
-            trackCount: p.trackCount,
-          ));
-        },
-      );
+        _album.youtubePlaylistId != null &&
+        _album.youtubePlaylistId!.isNotEmpty &&
+        _album.youtubePlaylistId != albumIdToFetch) {
+      result = await repo.getAlbumDetails(_album.youtubePlaylistId!);
     }
     if (!mounted) return;
     result.fold(

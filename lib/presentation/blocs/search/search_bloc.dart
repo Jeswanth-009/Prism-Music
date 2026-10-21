@@ -237,9 +237,13 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     UpdateFilterEvent event,
     Emitter<SearchState> emit,
   ) async {
+    final effectiveQuery =
+        (event.query != null && event.query!.trim().isNotEmpty)
+            ? event.query!.trim()
+            : state.query.trim();
     emit(state.copyWith(filter: event.filter));
-    if (state.query.trim().length >= 2) {
-      add(SearchQueryEvent(query: state.query, filter: event.filter));
+    if (effectiveQuery.length >= 2) {
+      add(SearchQueryEvent(query: effectiveQuery, filter: event.filter));
     }
   }
 

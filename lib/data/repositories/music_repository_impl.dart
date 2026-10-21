@@ -345,7 +345,11 @@ class MusicRepositoryImpl implements MusicRepository {
     try {
       // 1. If it's a YouTube Music album browse ID (starts with MPREb_), or not a standard playlist ID (PL/OLAK/RD/VL),
       // fetch via native YtMusicApiService.getAlbum
-      if (albumId.startsWith('MPREb_') || (!albumId.startsWith('PL') && !albumId.startsWith('OLAK') && !albumId.startsWith('RD') && !albumId.startsWith('VL'))) {
+      if (albumId.startsWith('MPREb_') ||
+          (!albumId.startsWith('PL') &&
+              !albumId.startsWith('OLAK') &&
+              !albumId.startsWith('RD') &&
+              !albumId.startsWith('VL'))) {
         try {
           final albumData = await _ytMusicApiService.getAlbum(albumId);
           if (albumData.isNotEmpty) {
@@ -353,24 +357,51 @@ class MusicRepositoryImpl implements MusicRepository {
             if (album.songs != null && album.songs!.isNotEmpty) {
               return Right(album);
             }
+            // If album tracks are held in associated audioPlaylistId (e.g. OLAK5uy_...):
+            if (album.youtubePlaylistId != null &&
+                album.youtubePlaylistId!.isNotEmpty &&
+                album.youtubePlaylistId != albumId &&
+                (album.youtubePlaylistId!.startsWith('OLAK') ||
+                    album.youtubePlaylistId!.startsWith('PL') ||
+                    album.youtubePlaylistId!.startsWith('VL'))) {
+              final playlistResult =
+                  await getPlaylistDetails(album.youtubePlaylistId!);
+              if (playlistResult.isRight()) {
+                final p = playlistResult.getOrElse(
+                    () => throw StateError('unreachable'));
+                return Right(album.copyWith(
+                  songs: p.songs,
+                  trackCount: p.trackCount,
+                ));
+              }
+            }
           }
         } catch (e) {
           debugPrint('MusicRepositoryImpl: Native getAlbum failed for $albumId: $e');
         }
       }
 
-      // 2. Fallback to playlist details using playlist endpoint
-      final playlist = await _youtubeMusicDataSource.getPlaylistDetails(albumId);
-      
-      return Right(Album(
-        id: albumId,
-        title: playlist.name,
-        artist: playlist.author ?? 'Unknown Artist',
-        thumbnails: playlist.thumbnails ?? const Thumbnails(),
-        trackCount: playlist.trackCount,
-        songs: playlist.songs,
-        youtubePlaylistId: playlist.youtubePlaylistId ?? playlist.id,
-      ));
+      // 2. Playable playlist endpoint for standard playlist identifiers
+      if (albumId.startsWith('PL') ||
+          albumId.startsWith('OLAK') ||
+          albumId.startsWith('RD') ||
+          albumId.startsWith('VL')) {
+        final playlistResult = await getPlaylistDetails(albumId);
+        return playlistResult.fold(
+          (failure) => Left(failure),
+          (playlist) => Right(Album(
+            id: albumId,
+            title: playlist.name,
+            artist: playlist.author ?? 'Unknown Artist',
+            thumbnails: playlist.thumbnails ?? const Thumbnails(),
+            trackCount: playlist.trackCount,
+            songs: playlist.songs,
+            youtubePlaylistId: playlist.youtubePlaylistId ?? playlist.id,
+          )),
+        );
+      }
+
+      return Left(SearchFailure(message: 'Album tracks not found for $albumId'));
     } catch (e) {
       return Left(UnknownFailure(message: e.toString()));
     }

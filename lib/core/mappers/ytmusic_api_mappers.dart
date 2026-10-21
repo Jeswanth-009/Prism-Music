@@ -59,15 +59,19 @@ Album albumFromYtMusicApi(Map<String, dynamic> item) {
         .toList();
   }
 
-  final playlistId = _readString(item, const ['playlistId', 'youtubePlaylistId']);
+  final playlistId = _readString(
+      item, const ['playlistId', 'audioPlaylistId', 'youtubePlaylistId']);
 
   return Album(
     id: id,
     title: _readString(item, const ['title', 'name']),
     artist: _readString(item, const ['artist', 'author']),
     thumbnails: Thumbnails.fromUrl(_extractThumbnailUrl(item) ?? ''),
-    trackCount: int.tryParse(_readString(item, const ['trackCount', 'count'])) ?? (songs.isNotEmpty ? songs.length : null),
-    youtubePlaylistId: playlistId.isNotEmpty ? playlistId : id,
+    trackCount: int.tryParse(_readString(item, const ['trackCount', 'count'])) ??
+        (songs.isNotEmpty ? songs.length : null),
+    youtubePlaylistId: playlistId.isNotEmpty
+        ? playlistId
+        : (id.startsWith('MPREb_') ? null : (id.isNotEmpty ? id : null)),
     type: type == 'single' ? AlbumType.single : AlbumType.album,
     songs: songs.isNotEmpty ? songs : null,
     year: int.tryParse(_readString(item, const ['year'])),

@@ -35,11 +35,12 @@ class LoadMoreResultsEvent extends SearchEvent {
 /// Update search filter
 class UpdateFilterEvent extends SearchEvent {
   final SearchFilter filter;
+  final String? query;
 
-  const UpdateFilterEvent(this.filter);
+  const UpdateFilterEvent(this.filter, {this.query});
 
   @override
-  List<Object?> get props => [filter];
+  List<Object?> get props => [filter, query];
 }
 
 /// Add query to search history

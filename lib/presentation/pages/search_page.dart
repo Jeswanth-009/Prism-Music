@@ -44,10 +44,6 @@ class _SearchPageState extends State<SearchPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<SearchBloc>().add(const UpdateFilterEvent(SearchFilter.songs));
-    });
     _focusNode.addListener(() => setState(() {}));
     _scrollController.addListener(() {
       if (_scrollController.hasClients &&
@@ -85,11 +81,8 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void _onFilterChanged(SearchFilter filter) {
-    context.read<SearchBloc>().add(UpdateFilterEvent(filter));
     final query = _searchController.text.trim();
-    if (query.length >= 2) {
-      _onSearch(query, filter: filter);
-    }
+    context.read<SearchBloc>().add(UpdateFilterEvent(filter, query: query));
   }
 
   void _clearSearch() {
@@ -348,20 +341,241 @@ class _SearchPageState extends State<SearchPage> {
     }
 
     return switch (state.filter) {
-      SearchFilter.songs || SearchFilter.all => _songsSlivers(state),
+      SearchFilter.all => _allSlivers(state),
+      SearchFilter.songs => _songsSlivers(state),
       SearchFilter.artists => _artistsSlivers(state),
       SearchFilter.albums => _albumsSlivers(state),
       SearchFilter.playlists => _playlistsSlivers(state),
     };
   }
 
+  List<Widget> _allSlivers(SearchState state) {
+    final songs = state.results.songs;
+    final artists = state.results.artists;
+    final albums = state.results.albums;
+    final playlists = state.results.playlists;
+
+    if (songs.isEmpty && artists.isEmpty && albums.isEmpty && playlists.isEmpty) {
+      return [
+        const SliverFillRemaining(
+          hasScrollBody: false,
+          child: PrismEmptyState(
+            icon: Icons.search_off_rounded,
+            message: 'No results found',
+            hint: 'Try a different search or spelling.',
+          ),
+        ),
+      ];
+    }
+
+    final slivers = <Widget>[];
+
+    if (songs.isNotEmpty) {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: PrismSectionHeader(
+            title: 'Songs',
+            actionLabel: songs.length > 5 ? 'See all' : null,
+            onAction: () => _onFilterChanged(SearchFilter.songs),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+          ),
+        ),
+      );
+      final topSongs = songs.take(5).toList();
+      slivers.add(
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          sliver: SliverList.builder(
+            itemCount: topSongs.length,
+            itemBuilder: (context, index) {
+              final song = topSongs[index];
+              return BlocBuilder<PlayerBloc, PlayerState>(
+                builder: (context, playerState) => PrismSongTile(
+                  song: song,
+                  index: index,
+                  isPlaying: playerState.currentSong?.id == song.id,
+                  isPlayingPaused: !playerState.isPlaying,
+                  onTap: () {
+                    context.read<PlayerBloc>().add(
+                      PlaySongEvent(song: song, queue: songs, queueIndex: index),
+                    );
+                    if (!widget.embedded) Navigator.of(context).maybePop();
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    }
+
+    if (artists.isNotEmpty) {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: PrismSectionHeader(
+            title: 'Artists',
+            actionLabel: artists.length > 3 ? 'See all' : null,
+            onAction: () => _onFilterChanged(SearchFilter.artists),
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+          ),
+        ),
+      );
+      final topArtists = artists.take(3).toList();
+      slivers.add(
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          sliver: SliverList.builder(
+            itemCount: topArtists.length,
+            itemBuilder: (context, index) {
+              final artist = topArtists[index];
+              return ListTile(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ArtistPage(
+                      artistName: artist.name,
+                      artistId: artist.id,
+                      thumbnailUrl: artist.thumbnailUrl,
+                      heroTag: 'artist_all_${artist.id}',
+                    ),
+                  ),
+                ),
+                leading: Hero(
+                  tag: 'artist_all_${artist.id}',
+                  child: CircleAvatar(
+                    radius: 22,
+                    backgroundColor: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHigh,
+                    backgroundImage: (artist.thumbnailUrl ?? '').isNotEmpty
+                        ? NetworkImage(artist.thumbnailUrl!)
+                        : null,
+                    child: (artist.thumbnailUrl ?? '').isEmpty
+                        ? const Icon(Icons.person_rounded, size: 20)
+                        : null,
+                  ),
+                ),
+                title: Text(
+                  artist.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: const Text('Artist'),
+              );
+            },
+          ),
+        ),
+      );
+    }
+
+    if (albums.isNotEmpty) {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: PrismSectionHeader(
+            title: 'Albums',
+            actionLabel: albums.length > 4 ? 'See all' : null,
+            onAction: () => _onFilterChanged(SearchFilter.albums),
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+          ),
+        ),
+      );
+      final topAlbums = albums.take(4).toList();
+      slivers.add(
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          sliver: SliverGrid.builder(
+            itemCount: topAlbums.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: .78,
+              crossAxisSpacing: 14,
+              mainAxisSpacing: 18,
+            ),
+            itemBuilder: (context, index) {
+              final album = topAlbums[index];
+              return _AlbumGridCard(
+                url: album.thumbnails.high ?? album.thumbnails.medium ?? '',
+                title: album.title,
+                subtitle: album.artist,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => AlbumPage(album: album),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    }
+
+    if (playlists.isNotEmpty) {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: PrismSectionHeader(
+            title: 'Playlists',
+            actionLabel: playlists.length > 3 ? 'See all' : null,
+            onAction: () => _onFilterChanged(SearchFilter.playlists),
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+          ),
+        ),
+      );
+      final topPlaylists = playlists.take(3).toList();
+      slivers.add(
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          sliver: SliverList.builder(
+            itemCount: topPlaylists.length,
+            itemBuilder: (context, index) {
+              final playlist = topPlaylists[index];
+              return ListTile(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => RemotePlaylistPage(playlist: playlist),
+                  ),
+                ),
+                leading: ClipRRect(
+                  borderRadius: BorderRadius.circular(PrismRadius.sm),
+                  child: SizedBox.square(
+                    dimension: 48,
+                    child: playlist.thumbnails?.medium != null
+                        ? Image.network(
+                            playlist.thumbnails!.medium!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                const Icon(Icons.queue_music_rounded),
+                          )
+                        : const Icon(Icons.queue_music_rounded),
+                  ),
+                ),
+                title: Text(
+                  playlist.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Text('${playlist.trackCount} tracks'),
+              );
+            },
+          ),
+        ),
+      );
+    }
+
+    return slivers;
+  }
+
   List<Widget> _songsSlivers(SearchState state) {
     final songs = state.results.songs;
     if (songs.isEmpty) {
       return [
-        SliverFillRemaining(
+        const SliverFillRemaining(
           hasScrollBody: false,
-          child: const PrismEmptyState(
+          child: PrismEmptyState(
             icon: Icons.search_off_rounded,
             message: 'No songs found',
             hint: 'Try a different search or spelling.',
@@ -384,7 +598,7 @@ class _SearchPageState extends State<SearchPage> {
                 isPlayingPaused: !playerState.isPlaying,
                 onTap: () {
                   context.read<PlayerBloc>().add(
-                    PlaySongEvent(song: song, queue: [song], queueIndex: 0),
+                    PlaySongEvent(song: song, queue: songs, queueIndex: index),
                   );
                   if (!widget.embedded) Navigator.of(context).maybePop();
                 },
@@ -585,6 +799,7 @@ class _FilterChips extends StatelessWidget {
   final ValueChanged<SearchFilter> onSelect;
 
   static const _filters = [
+    SearchFilter.all,
     SearchFilter.songs,
     SearchFilter.artists,
     SearchFilter.albums,
@@ -592,11 +807,11 @@ class _FilterChips extends StatelessWidget {
   ];
 
   String _labelFor(SearchFilter filter) => switch (filter) {
+    SearchFilter.all => 'All',
     SearchFilter.songs => 'Songs',
     SearchFilter.playlists => 'Playlists',
     SearchFilter.albums => 'Albums',
     SearchFilter.artists => 'Artists',
-    SearchFilter.all => 'All',
   };
 
   @override
