@@ -8,6 +8,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.42] - 2026-10-21
+
+### Added
+
+- Safe backup restore controls, structured verification and trustworthy persistence feedback (M21, M22, M25)
+- Durable imported playlists, source refresh identity and matching summary (F07, M16)
+- Honestly relabel search-based charts as curated discovery mixes with authentic provenance (F05)
+- Complete all-filter search navigation, unified queueing and robust album playback (F09, F10)
+
+### Fixed
+
+- Prevent grid card horizontal layout overflow on small devices
+- Enforce reliable play/pause/stop concurrency and visible error recovery (F01, F02, F03)
+- Respect requested audio quality and resolve genuine match confidence
+
+### Changed
+
+- Stage tag publication after build verification and enforce APK integrity regression gates (M31, M32)
+
 ## [0.2.41] - 2026-10-14
 
 ### Added
@@ -716,3 +735,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.39]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.39-build75
 [0.2.40]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.40-build76
 [0.2.41]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.41-build77
+[0.2.42]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.42-build78
