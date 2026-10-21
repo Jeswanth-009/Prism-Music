@@ -121,6 +121,27 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
                               children: [
                                 PrismChartChip(type: chart.iconType, size: 38),
                                 const Spacer(),
+                                if (chart.isDiscoveryMix)
+                                  Container(
+                                    margin: const EdgeInsets.only(right: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 7,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: spec.accentSoft,
+                                      borderRadius:
+                                          BorderRadius.circular(PrismRadius.pill),
+                                    ),
+                                    child: Text(
+                                      'Discovery Mix',
+                                      style: theme.textTheme.labelSmall?.copyWith(
+                                        color: theme.colorScheme.primary,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ),
                                 Flexible(
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

@@ -128,4 +128,26 @@ void main() {
     // covered by the liked-songs tap test.
     expect(find.text('Chart Topper'), findsOneWidget);
   });
+
+  testWidgets('hub and detail explicitly label search-based charts as discovery mixes with provenance',
+      (tester) async {
+    await tester.pumpWidget(wrapForTests(const ChartsHubPage()));
+    await tester.pump();
+
+    expect(find.text('Discovery Mix'), findsWidgets);
+
+    final chart = ChartService.getAvailableCharts('US', 'United States').first;
+    musicRepo.searchResult = Right([song('c1', 'Mix Track')]);
+
+    await tester.pumpWidget(wrapForTests(
+      ChartPage(chart: chart),
+      playerBloc: playerBloc,
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.textContaining('Not Certified Official Ranks'), findsOneWidget);
+    expect(find.textContaining('Curated via YouTube search'), findsOneWidget);
+  });
 }

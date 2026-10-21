@@ -194,14 +194,33 @@ class _ChartPageState extends State<ChartPage> {
                                             ),
                                             const SizedBox(width: 8),
                                             Expanded(
-                                              child: Text(
-                                                'Curated Discovery Mix — Based on trending search popularity, not certified official ranks.',
-                                                style: theme.textTheme.labelSmall
-                                                    ?.copyWith(
-                                                  color:
-                                                      theme.colorScheme.onSurface,
-                                                  height: 1.3,
-                                                ),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Curated Discovery Mix — Not Certified Official Ranks',
+                                                    style: theme
+                                                        .textTheme.labelSmall
+                                                        ?.copyWith(
+                                                      fontWeight: FontWeight.w700,
+                                                      color: theme
+                                                          .colorScheme.primary,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    widget.chart.provenance ??
+                                                        'Curated via YouTube search popularity. Track order reflects discovery search results, not certified official ranks.',
+                                                    style: theme
+                                                        .textTheme.labelSmall
+                                                        ?.copyWith(
+                                                      color: theme.colorScheme
+                                                          .onSurface,
+                                                      height: 1.3,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           ],

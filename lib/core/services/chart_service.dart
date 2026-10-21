@@ -271,6 +271,7 @@ class ChartDefinition {
   final String? region;
   final bool isDiscoveryMix;
   final String? provenance;
+  final DateTime? chartDate;
 
   const ChartDefinition({
     required this.id,
@@ -281,6 +282,7 @@ class ChartDefinition {
     this.region,
     this.isDiscoveryMix = true,
     this.provenance,
+    this.chartDate,
   });
 }
 
