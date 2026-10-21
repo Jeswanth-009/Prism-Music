@@ -110,11 +110,32 @@ class CancelImportEvent extends LibraryEvent {
 class ImportYouTubePlaylistEvent extends LibraryEvent {
   final String playlistUrl;
   final void Function(String? errorMessage)? onDone;
+  final void Function(ImportPlaylistResult result)? onResult;
 
-  const ImportYouTubePlaylistEvent(this.playlistUrl, {this.onDone});
+  const ImportYouTubePlaylistEvent(
+    this.playlistUrl, {
+    this.onDone,
+    this.onResult,
+  });
 
   @override
   List<Object?> get props => [playlistUrl];
+}
+
+/// Refresh an imported playlist from its original Spotify or YouTube source
+class RefreshImportedPlaylistEvent extends LibraryEvent {
+  final String playlistId;
+  final void Function(String? errorMessage)? onDone;
+  final void Function(ImportPlaylistResult? result)? onResult;
+
+  const RefreshImportedPlaylistEvent(
+    this.playlistId, {
+    this.onDone,
+    this.onResult,
+  });
+
+  @override
+  List<Object?> get props => [playlistId];
 }
 
 /// Load listening history

@@ -93,6 +93,23 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
     );
   }
 
+  void _refreshFromSource(BuildContext context, Playlist playlist) {
+    showPrismToast(context, 'Refreshing playlist from source…');
+    context.read<LibraryBloc>().add(
+          RefreshImportedPlaylistEvent(
+            playlist.id,
+            onDone: (error) {
+              if (!context.mounted) return;
+              if (error != null) {
+                showPrismToast(context, 'Refresh failed: $error');
+              } else {
+                showPrismToast(context, 'Playlist refreshed successfully');
+              }
+            },
+          ),
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<LibraryBloc, LibraryState>(
@@ -144,6 +161,13 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                     });
                   },
                 ),
+              if (current.spotifyPlaylistId != null ||
+                  current.youtubePlaylistId != null)
+                IconButton(
+                  tooltip: 'Refresh from source',
+                  icon: const Icon(Icons.sync_rounded),
+                  onPressed: () => _refreshFromSource(context, current),
+                ),
               if (current.isUserCreated && songs.length > 1)
                 IconButton(
                   tooltip: _isReordering ? 'Done reordering' : 'Reorder songs',
@@ -164,9 +188,17 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                     _showRenameDialog(context, current);
                   } else if (val == 'delete') {
                     _confirmDelete(context, current);
+                  } else if (val == 'refresh') {
+                    _refreshFromSource(context, current);
                   }
                 },
                 itemBuilder: (_) => [
+                  if (current.spotifyPlaylistId != null ||
+                      current.youtubePlaylistId != null)
+                    const PopupMenuItem(
+                      value: 'refresh',
+                      child: Text('Refresh from source'),
+                    ),
                   if (current.isUserCreated)
                     const PopupMenuItem(
                       value: 'rename',
@@ -270,7 +302,11 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
             children: [
               PrismCollectionHeader(
                 title: playlist.name,
-                badge: playlist.isUserCreated ? 'Playlist' : 'Featured',
+                badge: playlist.spotifyPlaylistId != null
+                    ? 'Spotify Import'
+                    : (playlist.youtubePlaylistId != null
+                        ? 'YouTube Import'
+                        : (playlist.isUserCreated ? 'Playlist' : 'Featured')),
                 subtitle: playlist.author,
                 artworkUrl: playlist.thumbnailUrl,
                 icon: Icons.queue_music_rounded,

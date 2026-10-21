@@ -339,6 +339,124 @@ void main() {
       expect(bloc.state.status, LibraryStatus.error);
       expect(bloc.state.errorMessage, contains('disk write failed'));
     });
+
+    test('invokes onResult with ImportPlaylistResult on success', () async {
+      musicRepo.importResult = Right(
+        playlist(
+          'PL_yt',
+          'YT Import',
+          songs: [song('y1', 'Track 1'), song('y2', 'Track 2')],
+          youtubePlaylistId: 'PL_yt',
+        ),
+      );
+
+      final done = Completer<String?>();
+      ImportPlaylistResult? resultReceived;
+      bloc.add(ImportYouTubePlaylistEvent(
+        'https://youtube.com/playlist?list=PL_yt',
+        onDone: done.complete,
+        onResult: (res) => resultReceived = res,
+      ));
+      final error = await done.future;
+
+      expect(error, isNull);
+      expect(resultReceived, isNotNull);
+      expect(resultReceived!.matchedCount, 2);
+      expect(bloc.state.lastImportResult?.matchedCount, 2);
+    });
+  });
+
+  group('RefreshImportedPlaylistEvent', () {
+    test('refreshes a Spotify imported playlist from source', () async {
+      final initialPlaylist = playlist(
+        'sp_local_1',
+        'Spotify Hits',
+        songs: [song('s1', 'Old Song')],
+        spotifyPlaylistId: 'spotify_123',
+      );
+      libraryRepo.playlists = [initialPlaylist];
+      bloc.add(const LoadLibraryEvent());
+      await waitFor(() => bloc.state.playlists.isNotEmpty);
+
+      final refreshedTracks = [
+        song('s1', 'Old Song'),
+        song('s2', 'New Song'),
+      ];
+      musicRepo.importSpotifyResult = Right(
+        ImportPlaylistResult(
+          playlist: playlist(
+            'sp_remote',
+            'Spotify Hits Updated',
+            songs: refreshedTracks,
+            spotifyPlaylistId: 'spotify_123',
+          ),
+          matchedTracks: refreshedTracks,
+          unmatchedTracks: const [],
+          totalSourceTracks: 2,
+        ),
+      );
+
+      final done = Completer<String?>();
+      ImportPlaylistResult? resultReceived;
+      bloc.add(RefreshImportedPlaylistEvent(
+        'sp_local_1',
+        onDone: done.complete,
+        onResult: (res) => resultReceived = res,
+      ));
+      final error = await done.future;
+
+      expect(error, isNull);
+      expect(resultReceived?.matchedCount, 2);
+      expect(bloc.state.playlists.single.id, 'sp_local_1');
+      expect(bloc.state.playlists.single.songs?.length, 2);
+    });
+
+    test('refreshes a YouTube imported playlist from source', () async {
+      final initialPlaylist = playlist(
+        'yt_local_1',
+        'YT Mix',
+        songs: [song('y1', 'Track 1')],
+        youtubePlaylistId: 'PL_yt_1',
+      );
+      libraryRepo.playlists = [initialPlaylist];
+      bloc.add(const LoadLibraryEvent());
+      await waitFor(() => bloc.state.playlists.isNotEmpty);
+
+      final refreshedTracks = [
+        song('y1', 'Track 1'),
+        song('y2', 'Track 2'),
+        song('y3', 'Track 3'),
+      ];
+      musicRepo.importResult = Right(
+        playlist(
+          'yt_remote',
+          'YT Mix',
+          songs: refreshedTracks,
+          youtubePlaylistId: 'PL_yt_1',
+        ),
+      );
+
+      final done = Completer<String?>();
+      ImportPlaylistResult? resultReceived;
+      bloc.add(RefreshImportedPlaylistEvent(
+        'yt_local_1',
+        onDone: done.complete,
+        onResult: (res) => resultReceived = res,
+      ));
+      final error = await done.future;
+
+      expect(error, isNull);
+      expect(resultReceived?.matchedCount, 3);
+      expect(bloc.state.playlists.single.id, 'yt_local_1');
+      expect(bloc.state.playlists.single.songs?.length, 3);
+    });
+
+    test('fails when playlist is not in library or not imported', () async {
+      final done = Completer<String?>();
+      bloc.add(RefreshImportedPlaylistEvent('unknown_id', onDone: done.complete));
+      final error = await done.future;
+      expect(error, contains('Playlist not found'));
+    });
   });
 
   group('ToggleLikeSongEvent', () {

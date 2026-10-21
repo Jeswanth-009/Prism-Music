@@ -34,6 +34,7 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     on<ReorderPlaylistSongsEvent>(_onReorderPlaylistSongs);
     on<SavePlaylistEvent>(_onSavePlaylist);
     on<CancelImportEvent>(_onCancelImport);
+    on<RefreshImportedPlaylistEvent>(_onRefreshImportedPlaylist);
   }
 
   void _onCancelImport(CancelImportEvent event, Emitter<LibraryState> emit) {
@@ -379,6 +380,13 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
           },
           (savedPair) {
             final (saved, isNew) = savedPair;
+            final songs = saved.songs ?? const [];
+            final importResult = ImportPlaylistResult(
+              playlist: saved,
+              matchedTracks: songs,
+              unmatchedTracks: const [],
+              totalSourceTracks: songs.length,
+            );
             emit(state.copyWith(
               status: LibraryStatus.success,
               playlists: isNew
@@ -387,12 +395,156 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
                       .map((p) => p.id == saved.id ? saved : p)
                       .toList(),
               importProgress: null,
+              lastImportResult: importResult,
             ));
             event.onDone?.call(null);
+            event.onResult?.call(importResult);
           },
         );
       },
     );
+  }
+
+  Future<void> _onRefreshImportedPlaylist(
+    RefreshImportedPlaylistEvent event,
+    Emitter<LibraryState> emit,
+  ) async {
+    final playlist =
+        state.playlists.where((p) => p.id == event.playlistId).firstOrNull;
+    if (playlist == null) {
+      event.onDone?.call('Playlist not found');
+      return;
+    }
+
+    if (playlist.spotifyPlaylistId != null) {
+      emit(state.copyWith(
+        status: LibraryStatus.importing,
+        importProgress: 0.0,
+        importCurrentTrack: 0,
+        errorMessage: null,
+      ));
+
+      final spotifyUrl =
+          'https://open.spotify.com/playlist/${playlist.spotifyPlaylistId}';
+      final result = await _musicRepository.importSpotifyPlaylist(
+        spotifyUrl,
+        onProgress: (progress, current, total) {
+          emit(state.copyWith(
+            importProgress: progress,
+            importCurrentTrack: current,
+            importTotalTracks: total,
+          ));
+        },
+      );
+
+      await result.fold(
+        (failure) async {
+          emit(state.copyWith(
+            status: LibraryStatus.error,
+            errorMessage: failure.message,
+            importProgress: null,
+            importCurrentTrack: null,
+            importTotalTracks: null,
+          ));
+          event.onDone?.call(failure.message);
+        },
+        (importResult) async {
+          final refreshedPlaylist = importResult.playlist.copyWith(
+            id: playlist.id,
+            name: playlist.name,
+          );
+          final persistResult =
+              await _persistImportedPlaylist(refreshedPlaylist);
+          persistResult.fold(
+            (failure) {
+              emit(state.copyWith(
+                status: LibraryStatus.error,
+                errorMessage: failure.message,
+                importProgress: null,
+                importCurrentTrack: null,
+                importTotalTracks: null,
+              ));
+              event.onDone?.call(failure.message);
+            },
+            (savedPair) {
+              final (saved, _) = savedPair;
+              emit(state.copyWith(
+                status: LibraryStatus.success,
+                playlists: state.playlists
+                    .map((p) => p.id == saved.id ? saved : p)
+                    .toList(),
+                importProgress: null,
+                importCurrentTrack: null,
+                importTotalTracks: null,
+                lastImportResult: importResult,
+              ));
+              event.onDone?.call(null);
+              event.onResult?.call(importResult);
+            },
+          );
+        },
+      );
+    } else if (playlist.youtubePlaylistId != null) {
+      emit(state.copyWith(
+        status: LibraryStatus.importing,
+        importProgress: 0.0,
+        errorMessage: null,
+      ));
+
+      final youtubeUrl =
+          'https://www.youtube.com/playlist?list=${playlist.youtubePlaylistId}';
+      final result = await _musicRepository.importYouTubePlaylist(youtubeUrl);
+
+      await result.fold(
+        (failure) async {
+          emit(state.copyWith(
+            status: LibraryStatus.error,
+            errorMessage: failure.message,
+            importProgress: null,
+          ));
+          event.onDone?.call(failure.message);
+        },
+        (refreshedPlaylist) async {
+          final toSave = refreshedPlaylist.copyWith(
+            id: playlist.id,
+            name: playlist.name,
+          );
+          final persistResult = await _persistImportedPlaylist(toSave);
+          persistResult.fold(
+            (failure) {
+              emit(state.copyWith(
+                status: LibraryStatus.error,
+                errorMessage: failure.message,
+                importProgress: null,
+              ));
+              event.onDone?.call(failure.message);
+            },
+            (savedPair) {
+              final (saved, _) = savedPair;
+              final songs = saved.songs ?? const [];
+              final importResult = ImportPlaylistResult(
+                playlist: saved,
+                matchedTracks: songs,
+                unmatchedTracks: const [],
+                totalSourceTracks: songs.length,
+              );
+              emit(state.copyWith(
+                status: LibraryStatus.success,
+                playlists: state.playlists
+                    .map((p) => p.id == saved.id ? saved : p)
+                    .toList(),
+                importProgress: null,
+                lastImportResult: importResult,
+              ));
+              event.onDone?.call(null);
+              event.onResult?.call(importResult);
+            },
+          );
+        },
+      );
+    } else {
+      event.onDone?.call('This playlist was not imported from an external source');
+    }
   }
 
   /// Save an imported playlist into the local library so it survives app
@@ -436,8 +588,9 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
   }
 
   /// True when [existing] is a previous import of [imported] — matched on
-  /// the persisted Spotify/YouTube source id.
+  /// either the persisted playlist ID or the Spotify/YouTube source id.
   bool _matchesImport(Playlist existing, Playlist imported) =>
+      (imported.id.isNotEmpty && existing.id == imported.id) ||
       (imported.spotifyPlaylistId != null &&
           existing.spotifyPlaylistId == imported.spotifyPlaylistId) ||
       (imported.youtubePlaylistId != null &&

@@ -395,23 +395,25 @@ class LocalDataSourceImpl implements LocalDataSource {
   }
 
   @override
-  Future<Playlist> saveImportedPlaylist(Playlist playlist) async {
-    final box = await _getPlaylistsBox();
-    final songs = playlist.songs ?? const [];
-    final id = playlist.id.isNotEmpty ? playlist.id : _newPlaylistId();
-    final completePlaylist = playlist.copyWith(
-      id: id,
-      isUserCreated: true,
-      createdAt: playlist.createdAt ?? DateTime.now(),
-      updatedAt: DateTime.now(),
-      trackCount: songs.length,
-      totalDuration: Duration(
-        milliseconds: songs.fold(0, (sum, s) => sum + s.duration.inMilliseconds),
-      ),
-    );
-    await box.put(completePlaylist.id, _playlistToMap(completePlaylist));
-    _triggerBackup();
-    return completePlaylist;
+  Future<Playlist> saveImportedPlaylist(Playlist playlist) {
+    final targetId = playlist.id.isNotEmpty ? playlist.id : _newPlaylistId();
+    return _withPlaylistLock(targetId, () async {
+      final box = await _getPlaylistsBox();
+      final songs = playlist.songs ?? const [];
+      final completePlaylist = playlist.copyWith(
+        id: targetId,
+        isUserCreated: true,
+        createdAt: playlist.createdAt ?? DateTime.now(),
+        updatedAt: DateTime.now(),
+        trackCount: songs.length,
+        totalDuration: Duration(
+          milliseconds: songs.fold(0, (sum, s) => sum + s.duration.inMilliseconds),
+        ),
+      );
+      await box.put(completePlaylist.id, _playlistToMap(completePlaylist));
+      _triggerBackup();
+      return completePlaylist;
+    });
   }
 
   @override

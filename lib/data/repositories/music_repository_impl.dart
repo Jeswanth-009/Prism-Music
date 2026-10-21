@@ -1050,6 +1050,7 @@ class MusicRepositoryImpl implements MusicRepository {
           isUserCreated: true,
           songs: capped,
           trackCount: capped.length,
+          youtubePlaylistId: playlist.youtubePlaylistId ?? playlistId,
         ),
       );
     } catch (e) {

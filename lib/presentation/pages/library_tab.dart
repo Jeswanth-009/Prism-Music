@@ -291,14 +291,19 @@ class _LibraryTabState extends State<LibraryTab>
               onDone: (error) {
                 if (!done.isCompleted) done.complete(error);
               },
+              onResult: (result) {
+                if (mounted) {
+                  _showImportSummarySheet(result);
+                }
+              },
             ),
     );
 
     try {
       final error = await done.future.timeout(const Duration(minutes: 5));
       if (!mounted) return;
-      if (params.source == _ImportSource.youtube || error != null) {
-        showPrismToast(context, error ?? 'Playlist imported');
+      if (error != null) {
+        showPrismToast(context, error);
       }
     } on TimeoutException {
       if (!mounted) return;
