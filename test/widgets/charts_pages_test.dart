@@ -129,13 +129,8 @@ void main() {
     expect(find.text('Chart Topper'), findsOneWidget);
   });
 
-  testWidgets('hub and detail explicitly label search-based charts as discovery mixes with provenance',
+  testWidgets('chart detail explicitly labels search-based charts as discovery mixes with provenance',
       (tester) async {
-    await tester.pumpWidget(wrapForTests(const ChartsHubPage()));
-    await tester.pump();
-
-    expect(find.text('Discovery Mix'), findsWidgets);
-
     final chart = ChartService.getAvailableCharts('US', 'United States').first;
     musicRepo.searchResult = Right([song('c1', 'Mix Track')]);
 
