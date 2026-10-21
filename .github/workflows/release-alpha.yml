@@ -152,13 +152,36 @@ jobs:
             --build-number "${{ steps.app_version.outputs.build_number }}" \
             ${{ env.SIGNING_FLAG }}
 
-      # ── 8. Certificate check ──────────────────────────────────────
-      - name: Verify signing certificate fingerprint
-        if: env.SIGNED_BUILD == 'true'
+      # ── 8. APK integrity & regression gate (M31, M32) ────────────
+      - name: Verify APK integrity and release regression gate
         shell: bash
         run: |
-          echo "Verifying APK signing certificate fingerprint..."
-          keytool -printcert -jarfile build/release-apks/app-phone-release.apk
+          echo "Running APK integrity and release regression gate..."
+          APK_PHONE="build/release-apks/app-phone-release.apk"
+          APK_EMU="build/release-apks/app-emulator-x86_64-release.apk"
+          AAB_FILE="build/app/outputs/bundle/release/app-release.aab"
+
+          for f in "$APK_PHONE" "$APK_EMU" "$AAB_FILE"; do
+            if [[ ! -f "$f" ]]; then
+              echo "ERROR: Artifact $f does not exist"; exit 1
+            fi
+          done
+
+          PHONE_SIZE=$(stat -c%s "$APK_PHONE" 2>/dev/null || stat -f%z "$APK_PHONE")
+          if [[ $PHONE_SIZE -lt 15000000 ]]; then
+            echo "ERROR: Phone APK size is suspiciously small: $PHONE_SIZE bytes"; exit 1
+          fi
+
+          unzip -l "$APK_PHONE" | grep -q "classes.dex" || { echo "ERROR: Missing classes.dex"; exit 1; }
+          unzip -l "$APK_PHONE" | grep -q "AndroidManifest.xml" || { echo "ERROR: Missing AndroidManifest.xml"; exit 1; }
+          unzip -l "$APK_PHONE" | grep -q "lib/arm64-v8a/libapp.so" || { echo "ERROR: Missing arm64 Flutter library"; exit 1; }
+
+          if [[ "$SIGNED_BUILD" == "true" ]]; then
+            echo "Verifying APK signing certificate fingerprint..."
+            keytool -printcert -jarfile "$APK_PHONE"
+          else
+            echo "::warning::Unsigned build. GitHub release publication will be skipped (fail-closed)."
+          fi
 
       # ── 9. Generate SBOM ──────────────────────────────────────────
       - name: Generate Software Bill of Materials (SBOM)

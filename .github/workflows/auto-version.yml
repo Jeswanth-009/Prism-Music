@@ -250,10 +250,7 @@ jobs:
           sed -i "s/^version: .*/version: ${{ steps.next_version.outputs.next_version_line }}/" pubspec.yaml
           echo "pubspec.yaml updated to ${{ steps.next_version.outputs.next_version_line }}"
 
-      # ── 6. Commit & push the version bump ────────────────────────
-      # The bump commit also carries the CHANGELOG.md update, so the
-      # changelog and the release always move together.
-      # ── Quality Gates (M32) ───────────────────────────────────────
+      # ── 6. Setup Java & Flutter and Quality Gates ─────────────────
       - name: Set up Java 17
         uses: actions/setup-java@8df1039502a15bceb9433410b1a100fbe190c53b # v4.5.0
         with:
@@ -276,51 +273,7 @@ jobs:
       - name: Run automated test suite
         run: flutter test
 
-      # ── 6. Commit & push the version bump ────────────────────────
-      # The bump commit is pushed BEFORE creating the tag so that the
-      # changelog and the release always move together.
-      - name: Commit and push version bump
-        if: steps.next_version.outputs.should_release == 'true'
-        run: |
-          # Prepend the generated section before the first version heading
-          # (fallback: end of file) and add its release link reference.
-          if [[ -f CHANGELOG.md && -f changelog_entry.md ]]; then
-            LINE_NUM="$(grep -n -m1 -E '^## \[[0-9]' CHANGELOG.md | cut -d: -f1 || true)"
-            if [[ -n "$LINE_NUM" ]]; then
-              head -n $((LINE_NUM - 1)) CHANGELOG.md > CHANGELOG.next
-              cat changelog_entry.md >> CHANGELOG.next
-              tail -n +"$LINE_NUM" CHANGELOG.md >> CHANGELOG.next
-              mv CHANGELOG.next CHANGELOG.md
-            else
-              cat changelog_entry.md >> CHANGELOG.md
-            fi
-            echo "[${{ steps.next_version.outputs.next_version }}]: https://github.com/${GITHUB_REPOSITORY}/releases/tag/${{ steps.next_version.outputs.next_tag }}" >> CHANGELOG.md
-          fi
-
-          if git diff --quiet pubspec.yaml && git diff --quiet CHANGELOG.md 2>/dev/null; then
-            echo "pubspec.yaml and CHANGELOG.md unchanged; skipping bump commit"
-          else
-            git add pubspec.yaml CHANGELOG.md
-            git commit -m "chore: bump version to ${{ steps.next_version.outputs.next_version_line }} [${{ steps.next_version.outputs.bump_type }}]"
-            git push origin main
-          fi
-
-      # ── 7. Create & push the release tag ─────────────────────────
-      - name: Create release tag
-        id: tag
-        if: steps.next_version.outputs.should_release == 'true'
-        run: |
-          TAG="${{ steps.next_version.outputs.next_tag }}"
-          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
-            echo "Tag ${TAG} already exists; skipping tag creation."
-          else
-            git tag -a "$TAG" -m "Release $TAG"
-            git push origin "$TAG"
-          fi
-          echo "tag=$TAG"                                >> "$GITHUB_OUTPUT"
-          echo "release_name=Prism Music $TAG"           >> "$GITHUB_OUTPUT"
-
-      # ── 9. Optional release signing ───────────────────────────────
+      # ── 7. Optional release signing ───────────────────────────────
       - name: Configure Android signing (optional)
         shell: bash
         env:
@@ -349,7 +302,7 @@ jobs:
             echo "::warning::No release signing secrets found. Building with debug-signing for CI artifact inspection; public GitHub release publication will be skipped (fail-closed)."
           fi
 
-      # ── 10. Build release APK ────────────────────────────────────
+      # ── 8. Build release APK ──────────────────────────────────────
       # Pass BOTH --build-name and --build-number so Flutter writes the
       # correct versionName and versionCode into the APK manifest.
       # This is the fix for the "install conflict / downgrade" error.
@@ -378,7 +331,7 @@ jobs:
           cp build/app/outputs/flutter-apk/app-release.apk \
             build/release-apks/app-emulator-x86_64-release.apk
 
-      # ── 11. Build release App Bundle ──────────────────────────────
+      # ── 9. Build release App Bundle ───────────────────────────────
       - name: Build release App Bundle (AAB)
         if: steps.next_version.outputs.should_release == 'true'
         run: |
@@ -388,30 +341,54 @@ jobs:
             --android-skip-build-dependency-validation \
             ${{ env.SIGNING_FLAG }}
 
-      # ── 11b. Certificate check ────────────────────────────────────
-      - name: Verify signing certificate fingerprint
-        if: steps.next_version.outputs.should_release == 'true' && env.SIGNED_BUILD == 'true'
+      # ── 10. APK integrity & regression gate (M31, M32) ────────────
+      - name: Verify APK integrity and release regression gate
+        if: steps.next_version.outputs.should_release == 'true'
         shell: bash
         run: |
-          echo "Verifying APK signing certificate fingerprint..."
-          keytool -printcert -jarfile build/release-apks/app-phone-release.apk
+          echo "Running APK integrity and release regression gate..."
+          APK_PHONE="build/release-apks/app-phone-release.apk"
+          APK_EMU="build/release-apks/app-emulator-x86_64-release.apk"
+          AAB_FILE="build/app/outputs/bundle/release/app-release.aab"
 
-      # ── 11c. Generate SBOM ────────────────────────────────────────
+          for f in "$APK_PHONE" "$APK_EMU" "$AAB_FILE"; do
+            if [[ ! -f "$f" ]]; then
+              echo "ERROR: Artifact $f does not exist"; exit 1
+            fi
+          done
+
+          PHONE_SIZE=$(stat -c%s "$APK_PHONE" 2>/dev/null || stat -f%z "$APK_PHONE")
+          if [[ $PHONE_SIZE -lt 15000000 ]]; then
+            echo "ERROR: Phone APK size is suspiciously small: $PHONE_SIZE bytes"; exit 1
+          fi
+
+          unzip -l "$APK_PHONE" | grep -q "classes.dex" || { echo "ERROR: Missing classes.dex"; exit 1; }
+          unzip -l "$APK_PHONE" | grep -q "AndroidManifest.xml" || { echo "ERROR: Missing AndroidManifest.xml"; exit 1; }
+          unzip -l "$APK_PHONE" | grep -q "lib/arm64-v8a/libapp.so" || { echo "ERROR: Missing arm64 Flutter library"; exit 1; }
+
+          if [[ "$SIGNED_BUILD" == "true" ]]; then
+            echo "Verifying APK signing certificate fingerprint..."
+            keytool -printcert -jarfile "$APK_PHONE"
+          else
+            echo "::warning::Unsigned build. Tagging and release publication will be skipped."
+          fi
+
+      # ── 11. Generate SBOM ─────────────────────────────────────────
       - name: Generate Software Bill of Materials (SBOM)
         if: steps.next_version.outputs.should_release == 'true'
         uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.17.9
         with:
           path: .
           format: spdx-json
-          output-file: "prism-music-${{ steps.tag.outputs.tag }}-sbom.spdx.json"
+          output-file: "prism-music-${{ steps.next_version.outputs.next_tag }}-sbom.spdx.json"
 
-      # ── 12. Stage release assets with descriptive names ──────────
+      # ── 12. Prepare release assets ────────────────────────────────
       - name: Prepare release assets
         id: assets
         if: steps.next_version.outputs.should_release == 'true'
         shell: bash
         run: |
-          TAG="${{ steps.tag.outputs.tag }}"
+          TAG="${{ steps.next_version.outputs.next_tag }}"
           APK_SRC="build/release-apks/app-phone-release.apk"
           EMULATOR_APK_SRC="build/release-apks/app-emulator-x86_64-release.apk"
           AAB_SRC="build/app/outputs/bundle/release/app-release.aab"
@@ -421,16 +398,6 @@ jobs:
           EMULATOR_APK_OUT="prism-music-${TAG}-android-emulator-x86_64.apk"
           AAB_OUT="prism-music-${TAG}.aab"
           SBOM_OUT="prism-music-${TAG}-sbom.spdx.json"
-
-          if [[ ! -f "$APK_SRC" ]]; then
-            echo "ERROR: Release APK not found at $APK_SRC"; exit 1
-          fi
-          if [[ ! -f "$EMULATOR_APK_SRC" ]]; then
-            echo "ERROR: Emulator APK not found at $EMULATOR_APK_SRC"; exit 1
-          fi
-          if [[ ! -f "$AAB_SRC" ]]; then
-            echo "ERROR: Release AAB not found at $AAB_SRC"; exit 1
-          fi
 
           cp "$APK_SRC" "$APK_OUT"
           cp "$EMULATOR_APK_SRC" "$EMULATOR_APK_OUT"
@@ -452,7 +419,7 @@ jobs:
           echo "emulator_apk_sha=${EMULATOR_APK_OUT}.sha256" >> "$GITHUB_OUTPUT"
           echo "aab_sha=${AAB_OUT}.sha256"         >> "$GITHUB_OUTPUT"
 
-      # ── 12b. Attest Build Provenance ─────────────────────────────
+      # ── 13. Attest Build Provenance ───────────────────────────────
       - name: Attest Build Provenance
         if: steps.next_version.outputs.should_release == 'true' && env.SIGNED_BUILD == 'true'
         uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v2.2.3
@@ -462,12 +429,12 @@ jobs:
             ${{ steps.assets.outputs.emulator_apk }}
             ${{ steps.assets.outputs.aab }}
 
-      # ── 13. Upload artifacts (downloadable from Actions UI) ───────
+      # ── 14. Upload artifacts (always upload for inspection) ───────
       - name: Upload release artifacts
         if: steps.next_version.outputs.should_release == 'true'
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: prism-music-${{ steps.tag.outputs.tag }}
+          name: prism-music-${{ steps.next_version.outputs.next_tag }}
           path: |
             ${{ steps.assets.outputs.apk }}
             ${{ steps.assets.outputs.emulator_apk }}
@@ -479,9 +446,47 @@ jobs:
             ${{ steps.assets.outputs.sbom_sha }}
           if-no-files-found: error
 
-      # ── 13b. Assemble the release body ────────────────────────────
-      # Generated "What changed" section on top, then the static
-      # release details that were always included.
+      # ── 15. Commit & push the version bump ONLY if build verified ─
+      - name: Commit and push version bump
+        if: steps.next_version.outputs.should_release == 'true' && env.SIGNED_BUILD == 'true'
+        run: |
+          if [[ -f CHANGELOG.md && -f changelog_entry.md ]]; then
+            LINE_NUM="$(grep -n -m1 -E '^## \[[0-9]' CHANGELOG.md | cut -d: -f1 || true)"
+            if [[ -n "$LINE_NUM" ]]; then
+              head -n $((LINE_NUM - 1)) CHANGELOG.md > CHANGELOG.next
+              cat changelog_entry.md >> CHANGELOG.next
+              tail -n +"$LINE_NUM" CHANGELOG.md >> CHANGELOG.next
+              mv CHANGELOG.next CHANGELOG.md
+            else
+              cat changelog_entry.md >> CHANGELOG.md
+            fi
+            echo "[${{ steps.next_version.outputs.next_version }}]: https://github.com/${GITHUB_REPOSITORY}/releases/tag/${{ steps.next_version.outputs.next_tag }}" >> CHANGELOG.md
+          fi
+
+          if git diff --quiet pubspec.yaml && git diff --quiet CHANGELOG.md 2>/dev/null; then
+            echo "pubspec.yaml and CHANGELOG.md unchanged; skipping bump commit"
+          else
+            git add pubspec.yaml CHANGELOG.md
+            git commit -m "chore: bump version to ${{ steps.next_version.outputs.next_version_line }} [${{ steps.next_version.outputs.bump_type }}]"
+            git push origin main
+          fi
+
+      # ── 16. Create & push the release tag ─────────────────────────
+      - name: Create release tag
+        id: tag
+        if: steps.next_version.outputs.should_release == 'true' && env.SIGNED_BUILD == 'true'
+        run: |
+          TAG="${{ steps.next_version.outputs.next_tag }}"
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "Tag ${TAG} already exists; skipping tag creation."
+          else
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+          fi
+          echo "tag=$TAG"                                >> "$GITHUB_OUTPUT"
+          echo "release_name=Prism Music $TAG"           >> "$GITHUB_OUTPUT"
+
+      # ── 17. Assemble the release body ────────────────────────────
       - name: Assemble release body
         if: steps.next_version.outputs.should_release == 'true'
         shell: bash
@@ -511,7 +516,7 @@ jobs:
           echo "--- release body ---"
           cat release_body.md
 
-      # ── 14. Publish ONE GitHub Release with APK/AAB attached ──────
+      # ── 18. Publish ONE GitHub Release with APK/AAB attached ──────
       - name: Publish GitHub Release
         if: steps.next_version.outputs.should_release == 'true' && env.SIGNED_BUILD == 'true'
         uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda # v2.2.1
