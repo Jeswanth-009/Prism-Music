@@ -191,4 +191,47 @@ void main() {
       expect(result!['downloads']!['song_1']!['title'], 'Kept');
     });
   });
+
+  group('BackupResult and RestoreResult models', () {
+    test('BackupResult computes total items accurately', () {
+      final result = BackupResult(
+        isSuccess: true,
+        timestamp: DateTime.fromMillisecondsSinceEpoch(0),
+        bytesWritten: 1024,
+        boxCounts: const {
+          'liked_songs': 12,
+          'playlists': 3,
+          'listening_history': 25,
+        },
+      );
+      expect(result.totalItems, 40);
+      expect(result.isSuccess, isTrue);
+      expect(result.bytesWritten, 1024);
+      expect(result.error, isNull);
+    });
+
+    test('RestoreResult computes total restored accurately', () {
+      const result = RestoreResult(
+        isSuccess: true,
+        restoredCounts: {
+          'liked_songs': 10,
+          'playlists': 2,
+        },
+      );
+      expect(result.totalRestored, 12);
+      expect(result.isSuccess, isTrue);
+    });
+
+    test('BackupSnapshotInfo computes total items accurately', () {
+      final info = BackupSnapshotInfo(
+        timestamp: DateTime.now(),
+        fileSizeBytes: 4096,
+        boxCounts: const {'liked_songs': 5, 'playlists': 1},
+        filePath: '/tmp/test.json',
+      );
+      expect(info.totalItems, 6);
+      expect(info.fileSizeBytes, 4096);
+      expect(info.filePath, '/tmp/test.json');
+    });
+  });
 }

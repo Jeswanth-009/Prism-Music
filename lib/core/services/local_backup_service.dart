@@ -9,6 +9,59 @@ import '../utils/logger.dart';
 import '../utils/path_safety.dart';
 import 'settings_service.dart';
 
+/// Structured result of a backup write operation.
+class BackupResult {
+  final bool isSuccess;
+  final DateTime timestamp;
+  final int bytesWritten;
+  final Map<String, int> boxCounts;
+  final String? error;
+
+  const BackupResult({
+    required this.isSuccess,
+    required this.timestamp,
+    this.bytesWritten = 0,
+    this.boxCounts = const {},
+    this.error,
+  });
+
+  int get totalItems => boxCounts.values.fold(0, (sum, count) => sum + count);
+}
+
+/// Structured result of a backup restore operation.
+class RestoreResult {
+  final bool isSuccess;
+  final DateTime? backupTimestamp;
+  final Map<String, int> restoredCounts;
+  final String? error;
+
+  const RestoreResult({
+    required this.isSuccess,
+    this.backupTimestamp,
+    this.restoredCounts = const {},
+    this.error,
+  });
+
+  int get totalRestored => restoredCounts.values.fold(0, (sum, count) => sum + count);
+}
+
+/// Metadata describing a reachable backup snapshot on disk.
+class BackupSnapshotInfo {
+  final DateTime timestamp;
+  final int fileSizeBytes;
+  final Map<String, int> boxCounts;
+  final String filePath;
+
+  const BackupSnapshotInfo({
+    required this.timestamp,
+    required this.fileSizeBytes,
+    required this.boxCounts,
+    required this.filePath,
+  });
+
+  int get totalItems => boxCounts.values.fold(0, (sum, count) => sum + count);
+}
+
 /// Local backup of the user's library.
 ///
 /// The automatic backup is written to *app-private* storage only. An extra
@@ -137,13 +190,16 @@ class LocalBackupService {
 
   /// Write all tracked boxes to the JSON backup file: always to app-private
   /// storage, plus one shared-storage copy when the user opted in.
-  Future<void> backup() async {
+  Future<BackupResult> backup() async {
+    final now = DateTime.now();
     try {
       final Map<String, dynamic> payload = <String, dynamic>{
-        'version': 1,
-        'backedUpAt': DateTime.now().toIso8601String(),
+        'version': _version,
+        'backedUpAt': now.toIso8601String(),
         'boxes': <String, dynamic>{},
       };
+
+      final Map<String, int> boxCounts = <String, int>{};
 
       for (final String name in _boxes) {
         try {
@@ -154,6 +210,7 @@ class LocalBackupService {
             if (value != null) entries[key.toString()] = value;
           }
           payload['boxes'][name] = entries;
+          boxCounts[name] = entries.length;
         } catch (_) {
           // Skip boxes that fail to open; keep the rest.
         }
@@ -183,6 +240,15 @@ class LocalBackupService {
         }
       }
 
+      if (targets.isEmpty) {
+        return BackupResult(
+          isSuccess: false,
+          timestamp: now,
+          error: 'No writable storage location found for backup',
+        );
+      }
+
+      int writtenBytes = 0;
       for (final File file in targets) {
         try {
           final tempFile = File('${file.path}.tmp');
@@ -191,13 +257,170 @@ class LocalBackupService {
             await file.delete();
           }
           await tempFile.rename(file.path);
-        } catch (_) {
-          // Best-effort per location.
+          writtenBytes = encoded.length;
+        } catch (e) {
+          logError('Failed writing backup to ${file.path}: $e');
         }
       }
-    } catch (_) {
-      // Best-effort backup; never crash the app over it.
+
+      if (writtenBytes == 0) {
+        return BackupResult(
+          isSuccess: false,
+          timestamp: now,
+          error: 'Failed to write backup files to disk',
+        );
+      }
+
+      return BackupResult(
+        isSuccess: true,
+        timestamp: now,
+        bytesWritten: writtenBytes,
+        boxCounts: boxCounts,
+      );
+    } catch (e) {
+      logError('Unexpected error during backup: $e');
+      return BackupResult(
+        isSuccess: false,
+        timestamp: now,
+        error: e.toString(),
+      );
     }
+  }
+
+  /// Inspect the newest valid backup candidate on disk without modifying Hive.
+  Future<BackupSnapshotInfo?> getLatestBackupInfo() async {
+    try {
+      final candidates = await _existingBackupFiles();
+      if (candidates.isEmpty) return null;
+
+      final downloadRoots = await DownloadPathGuard.allowedRoots();
+
+      for (final file in candidates) {
+        try {
+          final length = await file.length();
+          if (length > _maxBackupBytes) continue;
+
+          final dynamic payload = jsonDecode(await file.readAsString());
+          if (payload is! Map<String, dynamic>) continue;
+
+          final boxes = validateRestoredPayload(payload, downloadRoots: downloadRoots);
+          if (boxes == null) continue;
+
+          final backedUpAtStr = payload['backedUpAt']?.toString();
+          final DateTime backupTime = backedUpAtStr != null
+              ? (DateTime.tryParse(backedUpAtStr) ?? await file.lastModified())
+              : await file.lastModified();
+
+          final counts = <String, int>{};
+          for (final entry in boxes.entries) {
+            counts[entry.key] = entry.value.length;
+          }
+
+          return BackupSnapshotInfo(
+            timestamp: backupTime,
+            fileSizeBytes: length,
+            boxCounts: counts,
+            filePath: file.path,
+          );
+        } catch (_) {
+          continue;
+        }
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Manually restore all boxes from the newest valid backup file.
+  /// When [overwrite] is true, replaces existing entries in each box.
+  Future<RestoreResult> restoreFromBackup({bool overwrite = true}) async {
+    try {
+      final candidates = await _existingBackupFiles();
+      if (candidates.isEmpty) {
+        return const RestoreResult(
+          isSuccess: false,
+          error: 'No backup file found on device',
+        );
+      }
+
+      final downloadRoots = await DownloadPathGuard.allowedRoots();
+      final List<(DateTime, Map<String, Map<String, dynamic>>)> validBackups = [];
+
+      for (final file in candidates) {
+        try {
+          if (await file.length() > _maxBackupBytes) continue;
+
+          final dynamic payload = jsonDecode(await file.readAsString());
+          if (payload is! Map<String, dynamic>) continue;
+
+          final boxes = validateRestoredPayload(payload, downloadRoots: downloadRoots);
+          if (boxes == null) continue;
+
+          final backedUpAtStr = payload['backedUpAt']?.toString();
+          final DateTime backupTime = backedUpAtStr != null
+              ? (DateTime.tryParse(backedUpAtStr) ?? await file.lastModified())
+              : await file.lastModified();
+
+          validBackups.add((backupTime, boxes));
+        } catch (_) {}
+      }
+
+      if (validBackups.isEmpty) {
+        return const RestoreResult(
+          isSuccess: false,
+          error: 'No valid or compatible backup snapshot found',
+        );
+      }
+
+      // Sort newest first
+      validBackups.sort((a, b) => b.$1.compareTo(a.$1));
+      final selected = validBackups.first;
+      final boxes = selected.$2;
+
+      final restoredCounts = <String, int>{};
+      for (final String name in _boxes) {
+        final Map<String, dynamic>? entries = boxes[name];
+        if (entries == null || entries.isEmpty) continue;
+
+        final Box<dynamic> box = await Hive.openBox(name);
+        if (overwrite) {
+          await box.clear();
+        }
+        for (final MapEntry<String, dynamic> entry in entries.entries) {
+          await box.put(entry.key, entry.value);
+        }
+        restoredCounts[name] = entries.length;
+      }
+
+      return RestoreResult(
+        isSuccess: true,
+        backupTimestamp: selected.$1,
+        restoredCounts: restoredCounts,
+      );
+    } catch (e) {
+      return RestoreResult(
+        isSuccess: false,
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// Removes backup files or refreshes backup after user explicitly clears data.
+  Future<void> clearBackupData({List<String>? boxes}) async {
+    try {
+      if (boxes == null) {
+        final candidates = await _existingBackupFiles();
+        for (final file in candidates) {
+          try {
+            if (await file.exists()) await file.delete();
+          } catch (_) {}
+        }
+      } else {
+        // Rewrite backup with current live state
+        await backup();
+      }
+    } catch (_) {}
   }
 
   /// Restore boxes from the newest reachable valid backup file, but only when a

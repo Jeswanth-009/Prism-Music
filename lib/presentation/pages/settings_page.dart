@@ -17,11 +17,14 @@ import '../blocs/theme/theme_bloc.dart';
 import '../blocs/theme/theme_event.dart';
 import '../blocs/theme/theme_state.dart';
 import '../blocs/player/player_bloc.dart';
+import '../blocs/library/library_bloc.dart';
+import '../blocs/library/library_event.dart';
 import '../blocs/player/player_state.dart';
 
 import 'downloads_page.dart';
 import '../widgets/equalizer/equalizer_bottom_sheet.dart';
 import '../widgets/player/mini_player.dart';
+import '../widgets/prism/prism_dialog.dart';
 import '../widgets/prism/prism_sheet.dart';
 import '../widgets/settings/setting_row.dart';
 import '../widgets/settings/setting_section_card.dart';
@@ -47,6 +50,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _sharedBackupEnabled = false;
   int _prefetchLookahead = 1;
   String _appVersion = 'Loading...';
+  BackupSnapshotInfo? _latestBackupInfo;
 
   @override
   void didChangeDependencies() {
@@ -69,6 +73,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
       final packageInfo = await PackageInfo.fromPlatform();
       _appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
+      _latestBackupInfo =
+          await LocalBackupService.instance.getLatestBackupInfo();
 
       if (mounted) setState(() {});
     } catch (e) {
@@ -76,6 +82,52 @@ class _SettingsPageState extends State<SettingsPage> {
       _recommendationService = null;
     }
     if (mounted) setState(() => _isInitialized = true);
+  }
+
+  Future<void> _refreshBackupInfo() async {
+    final info = await LocalBackupService.instance.getLatestBackupInfo();
+    if (mounted) setState(() => _latestBackupInfo = info);
+  }
+
+  void _confirmAndRestoreBackup() {
+    final info = _latestBackupInfo;
+    final message = info != null
+        ? 'Restore backup from ${_formatBackupDate(info.timestamp)}?\n'
+            'This will restore ${info.totalItems} items across ${info.boxCounts.length} sections into your library.'
+        : 'Restore library, playlists, and listening history from the latest device backup file?';
+
+    showPrismConfirmDialog(
+      context: context,
+      title: 'Restore Backup',
+      message: message,
+      confirmLabel: 'Restore',
+      onConfirm: () async {
+        final result = await LocalBackupService.instance.restoreFromBackup();
+        if (!mounted) return;
+        if (result.isSuccess) {
+          context.read<LibraryBloc>().add(const LoadLibraryEvent());
+          showPrismToast(
+            context,
+            'Restored ${result.totalRestored} items from backup',
+          );
+          await _refreshBackupInfo();
+        } else {
+          showPrismToast(
+            context,
+            'Restore failed: ${result.error ?? 'unknown error'}',
+          );
+        }
+      },
+    );
+  }
+
+  String _formatBackupDate(DateTime dt) {
+    final local = dt.toLocal();
+    final month = local.month.toString().padLeft(2, '0');
+    final day = local.day.toString().padLeft(2, '0');
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '${local.year}-$month-$day $hour:$minute';
   }
 
   void _forceRebuild() {
@@ -571,15 +623,33 @@ class _SettingsPageState extends State<SettingsPage> {
         SettingRow(
           leading: const Icon(Icons.cloud_sync_outlined),
           title: 'Back up now',
-          subtitle: 'Write the backup files immediately',
+          subtitle: _latestBackupInfo != null
+              ? 'Last backup: ${_formatBackupDate(_latestBackupInfo!.timestamp)} (${(_latestBackupInfo!.fileSizeBytes / 1024).toStringAsFixed(1)} KB · ${_latestBackupInfo!.totalItems} items)'
+              : 'Write the backup files immediately',
           onTap: () async {
-            await LocalBackupService.instance.backup();
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Backup written')),
+            final result = await LocalBackupService.instance.backup();
+            if (!mounted) return;
+            if (result.isSuccess) {
+              showPrismToast(
+                context,
+                'Backup saved: ${result.totalItems} items (${(result.bytesWritten / 1024).toStringAsFixed(1)} KB)',
+              );
+            } else {
+              showPrismToast(
+                context,
+                'Backup failed: ${result.error ?? 'unknown error'}',
               );
             }
+            await _refreshBackupInfo();
           },
+        ),
+        SettingRow(
+          leading: const Icon(Icons.settings_backup_restore_rounded),
+          title: 'Restore from backup',
+          subtitle: _latestBackupInfo != null
+              ? 'Restore ${_latestBackupInfo!.totalItems} items from ${_formatBackupDate(_latestBackupInfo!.timestamp)}'
+              : 'Restore library and playlists from device backup',
+          onTap: () => _confirmAndRestoreBackup(),
         ),
       ],
     );
