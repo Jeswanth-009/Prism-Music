@@ -243,7 +243,55 @@ void main() {
         expect(result.isAcceptable, isTrue);
         expect(result.provenance, 'jiosaavn_matched');
         expect(result.durationDelta.inSeconds, 2);
-        expect(result.score, greaterThanOrEqualTo(0.75));
+        expect(result.score, equals(1.0));
+      });
+
+      test('differentiates scores across lead artist vs feature credit vs duration delta', () {
+        final target = createSong(
+          title: 'Arabic Kuthu',
+          artist: 'Anirudh Ravichander',
+          duration: const Duration(seconds: 280),
+        );
+
+        // 1. Lead artist match with exact duration
+        final leadMatch = MatchConfidenceEngine.evaluateMap(
+          target: target,
+          candidateMap: {
+            'title': 'Arabic Kuthu',
+            'more_info': {
+              'primary_artists': 'Anirudh Ravichander, Jonita Gandhi',
+              'duration': '280',
+            },
+          },
+        );
+        expect(leadMatch.score, equals(1.0));
+
+        // 2. Feature credit where target is secondary artist
+        final featureMatch = MatchConfidenceEngine.evaluateMap(
+          target: target,
+          candidateMap: {
+            'title': 'Arabic Kuthu',
+            'more_info': {
+              'primary_artists': 'Jonita Gandhi feat. Anirudh Ravichander',
+              'duration': '280',
+            },
+          },
+        );
+        expect(featureMatch.score, greaterThan(0.90));
+        expect(featureMatch.score, lessThan(1.0));
+
+        // 3. Duration variation (8 seconds delta)
+        final durationVariationMatch = MatchConfidenceEngine.evaluateMap(
+          target: target,
+          candidateMap: {
+            'title': 'Arabic Kuthu',
+            'more_info': {
+              'primary_artists': 'Anirudh Ravichander',
+              'duration': '288',
+            },
+          },
+        );
+        expect(durationVariationMatch.score, equals(0.96)); // 1.0*0.45 + 1.0*0.35 + 0.8*0.20 = 0.96
       });
     });
   });

@@ -310,7 +310,7 @@ class MatchConfidenceEngine {
     // 5. Composite Score Calculation
     // Title: 45%, Artist: 35%, Duration: 20%
     final compositeScore = (titleScore * 0.45) + (artistScore * 0.35) + (durationScore * 0.20);
-    final clampedScore = compositeScore.clamp(0.0, 1.0);
+    final clampedScore = double.parse(compositeScore.clamp(0.0, 1.0).toStringAsFixed(4));
     final isAcceptable = clampedScore >= threshold;
 
     if (isAcceptable) {
@@ -344,13 +344,27 @@ class MatchConfidenceEngine {
         '';
 
     final moreInfo = candidateMap['more_info'] as Map<String, dynamic>?;
-    final artist = [
-      moreInfo?['primary_artists']?.toString() ?? '',
-      moreInfo?['singers']?.toString() ?? '',
-      candidateMap['subtitle']?.toString() ?? '',
-      candidateMap['primaryArtists']?.toString() ?? '',
-      candidateMap['artist']?.toString() ?? '',
-    ].where((s) => s.isNotEmpty).join(' ');
+    final primaryArtists = moreInfo?['primary_artists']?.toString() ??
+        candidateMap['primaryArtists']?.toString() ??
+        candidateMap['primary_artists']?.toString();
+    final singers = moreInfo?['singers']?.toString() ??
+        candidateMap['singers']?.toString();
+    final directArtist = candidateMap['artist']?.toString();
+    final subtitle = candidateMap['subtitle']?.toString();
+
+    final String artist;
+    if (primaryArtists != null && primaryArtists.trim().isNotEmpty) {
+      artist = primaryArtists.trim();
+    } else if (singers != null && singers.trim().isNotEmpty) {
+      artist = singers.trim();
+    } else if (directArtist != null && directArtist.trim().isNotEmpty) {
+      artist = directArtist.trim();
+    } else if (subtitle != null && subtitle.trim().isNotEmpty) {
+      final split = subtitle.split('-');
+      artist = split.first.trim();
+    } else {
+      artist = '';
+    }
 
     final rawDuration = moreInfo?['duration'] ?? candidateMap['duration'];
     final durationSeconds = int.tryParse(rawDuration?.toString() ?? '0') ?? 0;
@@ -487,8 +501,13 @@ class MatchConfidenceEngine {
     if (cleanA.isEmpty || cleanB.isEmpty) return 0.5;
     if (cleanA == cleanB) return 1.0;
 
+    // Lead artist match (candidate starts with target artist or vice versa)
+    if (cleanB.startsWith(cleanA) || cleanA.startsWith(cleanB)) {
+      return 1.0;
+    }
+
     if (cleanA.contains(cleanB) || cleanB.contains(cleanA)) {
-      return 0.85;
+      return 0.90;
     }
 
     final tokensA = cleanA

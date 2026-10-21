@@ -151,7 +151,7 @@ class InvidiousDataSource {
                   contentLength: contentLength,
                   isAudioOnly: true,
                   streamProvenance: 'invidious_instance',
-                  matchConfidence: 0.95,
+                  matchConfidence: 1.0,
                 );
               }
             }
@@ -169,7 +169,7 @@ class InvidiousDataSource {
             quality: AudioQuality.medium,
             isAudioOnly: true,
             streamProvenance: 'invidious_instance',
-            matchConfidence: 0.90,
+            matchConfidence: 1.0,
           );
         } else {
           _healthService.recordFailure(instance, 'HTTP ${response.statusCode}');

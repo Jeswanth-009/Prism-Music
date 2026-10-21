@@ -41,7 +41,10 @@ class MockJioSaavnDataSource implements JioSaavnDataSource {
   Exception? streamError;
 
   @override
-  Future<StreamInfo?> getStreamUrl(Song song) async {
+  Future<StreamInfo?> getStreamUrl(
+    Song song, {
+    AudioQuality preferredQuality = AudioQuality.high,
+  }) async {
     getStreamUrlCalls++;
     if (streamError != null) throw streamError!;
     return streamResult;

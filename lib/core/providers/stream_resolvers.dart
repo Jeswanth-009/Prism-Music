@@ -24,7 +24,7 @@ class JioSaavnAudioStreamResolver implements AudioStreamResolver {
     Song song, {
     AudioQuality preferredQuality = AudioQuality.high,
   }) async {
-    return _dataSource.getStreamUrl(song);
+    return _dataSource.getStreamUrl(song, preferredQuality: preferredQuality);
   }
 }
 
@@ -105,7 +105,7 @@ class PipedAudioStreamResolver implements AudioStreamResolver {
           isAudioOnly: raw.isAudioOnly,
           headers: raw.headers,
           streamProvenance: 'piped_proxy',
-          matchConfidence: 0.95,
+          matchConfidence: 1.0,
         );
       }
       return raw;
@@ -147,7 +147,7 @@ class InvidiousAudioStreamResolver implements AudioStreamResolver {
           isAudioOnly: raw.isAudioOnly,
           headers: raw.headers,
           streamProvenance: 'invidious_instance',
-          matchConfidence: 0.95,
+          matchConfidence: 1.0,
         );
       }
       return raw;

@@ -35,8 +35,11 @@ abstract class JioSaavnDataSource {
   /// Get artist's albums
   Future<List<Album>> getArtistAlbums(String artistId, {int page = 1, int limit = 20});
   
-  /// Generates a 320kbps MP4 stream URL using JioSaavn's official API
-  Future<StreamInfo?> getStreamUrl(Song song);
+  /// Generates an MP4 stream URL using JioSaavn's official API respecting [preferredQuality]
+  Future<StreamInfo?> getStreamUrl(
+    Song song, {
+    AudioQuality preferredQuality = AudioQuality.high,
+  });
 }
 
 /// Implementation of JioSaavn data source using HTTP API
@@ -191,7 +194,10 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
   }
 
   @override
-  Future<StreamInfo?> getStreamUrl(Song song) async {
+  Future<StreamInfo?> getStreamUrl(
+    Song song, {
+    AudioQuality preferredQuality = AudioQuality.high,
+  }) async {
     try {
       final query = Uri.encodeComponent('${song.title} ${song.artist}');
       final searchUrl = 'https://www.jiosaavn.com/api.php?__call=search.getResults&q=$query&_format=json&_marker=0&api_version=4&ctx=web6dot0';
@@ -241,9 +247,24 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
           if (moreInfo != null && moreInfo['encrypted_media_url'] != null) {
             String encryptedUrl = moreInfo['encrypted_media_url'];
             String decryptedUrl = _decryptUrl(encryptedUrl);
-            decryptedUrl = decryptedUrl.replaceAll('_96.mp4', '_320.mp4');
-            
-            final uri = Uri.parse(decryptedUrl);
+
+            // Select target bitrate suffix based on preferredQuality
+            final String targetSuffix;
+            switch (preferredQuality) {
+              case AudioQuality.low:
+                targetSuffix = '_96.mp4';
+                break;
+              case AudioQuality.medium:
+                targetSuffix = '_160.mp4';
+                break;
+              case AudioQuality.high:
+              case AudioQuality.lossless:
+                targetSuffix = '_320.mp4';
+                break;
+            }
+
+            final candidateDecryptedUrl = decryptedUrl.replaceAll('_96.mp4', targetSuffix);
+            final uri = Uri.parse(candidateDecryptedUrl);
             final originalHost = uri.host;
             
             // Try to find a working CDN host
@@ -255,9 +276,9 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
                 : _cdnHosts;
 
             for (final host in hostsToTry) {
-              final testUrl = decryptedUrl.replaceFirst(originalHost, host);
+              final testUrl = candidateDecryptedUrl.replaceFirst(originalHost, host);
               try {
-                debugPrint('JioSaavnDataSource: Testing CDN $host');
+                debugPrint('JioSaavnDataSource: Testing CDN $host for $targetSuffix');
                 final headResponse = await _client
                     .head(Uri.parse(testUrl))
                     .timeout(const Duration(milliseconds: 1500));
@@ -273,17 +294,52 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
               }
             }
 
+            // Fallback: If requested high bitrate isn't served by CDN, try 160 or 96
+            if (finalUrl == null && targetSuffix != '_96.mp4') {
+              final fallbackSuffixes = targetSuffix == '_320.mp4' 
+                  ? ['_160.mp4', '_96.mp4'] 
+                  : ['_96.mp4'];
+              for (final fbSuffix in fallbackSuffixes) {
+                final fallbackDecrypted = decryptedUrl.replaceAll('_96.mp4', fbSuffix);
+                for (final host in hostsToTry) {
+                  final testUrl = fallbackDecrypted.replaceFirst(originalHost, host);
+                  try {
+                    final headResponse = await _client
+                        .head(Uri.parse(testUrl))
+                        .timeout(const Duration(milliseconds: 1500));
+                    if (headResponse.statusCode == 200 || headResponse.statusCode == 206) {
+                      _workingCdnHost = host;
+                      finalUrl = testUrl;
+                      break;
+                    }
+                  } catch (_) {}
+                }
+                if (finalUrl != null) break;
+              }
+            }
+
             if (finalUrl == null) {
               debugPrint('JioSaavnDataSource: All CDNs failed validation (Unreachable/Timeout)');
               return null; // Fallback to YouTube Explode
             }
 
+            final actualBitrate = finalUrl.contains('_320.mp4')
+                ? 320
+                : finalUrl.contains('_160.mp4')
+                    ? 160
+                    : 96;
+            final actualQuality = actualBitrate >= 320
+                ? AudioQuality.high
+                : actualBitrate >= 160
+                    ? AudioQuality.medium
+                    : AudioQuality.low;
+
             return StreamInfo(
               url: finalUrl,
-              quality: AudioQuality.high,
+              quality: actualQuality,
               codec: 'mp4a',
               container: 'mp4',
-              bitrate: 320,
+              bitrate: actualBitrate,
               isAudioOnly: true,
               streamProvenance: 'jiosaavn_matched',
               matchConfidence: bestScore,
