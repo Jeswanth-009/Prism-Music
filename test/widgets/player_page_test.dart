@@ -1,7 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_music/domain/entities/entities.dart';
 import 'package:prism_music/presentation/blocs/player/player_state.dart';
 import 'package:prism_music/presentation/pages/player_page.dart';
+import 'package:prism_music/presentation/widgets/player/mini_player.dart';
 
 import '../helpers/fakes.dart';
 
@@ -92,5 +94,62 @@ void main() {
     expect(find.text('94% Verified'), findsOneWidget);
     expect(find.text('Switch to YouTube Audio'), findsOneWidget);
     expect(find.text('Reload Fresh Stream'), findsOneWidget);
+  });
+
+  testWidgets('shows visible error banner and retry action when in error state',
+      (tester) async {
+    final playerBloc = buildTestPlayerBloc();
+    addTearDown(playerBloc.close);
+
+    playerBloc.emit(const PlayerState(
+      status: PlayerStatus.error,
+      errorMessage: 'Network timeout loading audio stream',
+      currentSong: Song(
+        id: 'err1',
+        title: 'Error Song',
+        artist: 'Artist',
+        duration: Duration(seconds: 180),
+        thumbnails: Thumbnails(),
+      ),
+    ));
+
+    await pumpTestWidget(
+      tester,
+      const PlayerPage(),
+      playerBloc: playerBloc,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('Network timeout loading audio stream'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
+  });
+
+  testWidgets('mini player renders error message and retry button in error state',
+      (tester) async {
+    final playerBloc = buildTestPlayerBloc();
+    addTearDown(playerBloc.close);
+
+    playerBloc.emit(const PlayerState(
+      status: PlayerStatus.error,
+      errorMessage: 'Audio stream failed',
+      currentSong: Song(
+        id: 'err1',
+        title: 'Error Song',
+        artist: 'Artist',
+        duration: Duration(seconds: 180),
+        thumbnails: Thumbnails(),
+      ),
+    ));
+
+    await pumpTestWidget(
+      tester,
+      const Scaffold(bottomNavigationBar: MiniPlayer()),
+      playerBloc: playerBloc,
+    );
+    await tester.pump();
+
+    expect(find.text('Audio stream failed'), findsOneWidget);
+    expect(find.byIcon(Icons.refresh_rounded), findsOneWidget);
   });
 }

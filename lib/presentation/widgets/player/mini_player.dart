@@ -105,44 +105,60 @@ class MiniPlayer extends StatelessWidget {
                                         ),
                                   ),
                                   const SizedBox(height: 1),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          song.artist,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: theme.textTheme.bodySmall
-                                              ?.copyWith(
-                                                color: scheme.onSurfaceVariant,
-                                              ),
-                                        ),
+                                  if (state.status == PlayerStatus.error)
+                                    Text(
+                                      state.errorMessage ??
+                                          'Playback error · Tap to retry',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: scheme.error,
+                                        fontWeight: FontWeight.w500,
                                       ),
-                                      if (state.currentStreamInfo != null) ...[
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '· ${state.streamProvenanceLabel}',
-                                          style: theme.textTheme.labelSmall
-                                              ?.copyWith(
-                                                color: scheme.primary,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w600,
-                                              ),
+                                    )
+                                  else
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            song.artist,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                                  color: scheme.onSurfaceVariant,
+                                                ),
+                                          ),
                                         ),
+                                        if (state.currentStreamInfo != null) ...[
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '· ${state.streamProvenanceLabel}',
+                                            style: theme.textTheme.labelSmall
+                                                ?.copyWith(
+                                                  color: scheme.primary,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                          ),
+                                        ],
                                       ],
-                                    ],
-                                  ),
+                                    ),
                                 ],
                               ),
                             ),
                             const SizedBox(width: 4),
                             _MiniAction(
-                              label: state.isPlaying ? 'Pause' : 'Play',
+                              label: state.status == PlayerStatus.error
+                                  ? 'Retry'
+                                  : (state.isPlaying ? 'Pause' : 'Play'),
                               icon: state.isBuffering
                                   ? null
-                                  : state.isPlaying
-                                      ? Icons.pause_rounded
-                                      : Icons.play_arrow_rounded,
+                                  : state.status == PlayerStatus.error
+                                      ? Icons.refresh_rounded
+                                      : (state.isPlaying
+                                          ? Icons.pause_rounded
+                                          : Icons.play_arrow_rounded),
                               onPressed: () => context.read<PlayerBloc>().add(
                                 state.isPlaying
                                     ? const PauseEvent()

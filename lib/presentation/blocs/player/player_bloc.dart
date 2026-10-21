@@ -644,6 +644,20 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     _log('  - currentSong: ${state.currentSong?.title}');
     _log('  - current status: ${state.status}');
 
+    // If player is in error state, user tapping play/resume initiates clean recovery
+    if (state.currentSong != null && state.status == PlayerStatus.error) {
+      _log('  - In error state, initiating fresh PlaySongEvent recovery');
+      add(
+        PlaySongEvent(
+          song: state.currentSong!,
+          queue: state.queue,
+          queueIndex: state.queueIndex,
+          userInitiated: true,
+        ),
+      );
+      return;
+    }
+
     // Only resume if we have a song AND it's in a paused/ready state
     // DO NOT resume if loading (that means PlaySongEvent is still setting up)
     if (state.currentSong != null &&

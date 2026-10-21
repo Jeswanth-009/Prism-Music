@@ -1265,10 +1265,11 @@ class _PlayPauseButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isPlaying = state.isPlaying;
+    final isError = state.status == PlayerStatus.error;
 
     return Semantics(
       button: true,
-      label: isPlaying ? 'Pause' : 'Play',
+      label: isError ? 'Retry' : (isPlaying ? 'Pause' : 'Play'),
       child: GestureDetector(
         onTap: state.isBuffering
             ? null
@@ -1282,7 +1283,7 @@ class _PlayPauseButton extends StatelessWidget {
           height: 76,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: isPlaying ? scheme.primary : scheme.primary,
+            color: scheme.primary,
             boxShadow: [
               BoxShadow(
                 color: scheme.primary.withValues(alpha: .30),
@@ -1299,16 +1300,12 @@ class _PlayPauseButton extends StatelessWidget {
                     color: Colors.white,
                   ),
                 )
-              // Do not key/stack rapidly alternating play/pause icons here.
-              // On a physical device `playingStream` can bounce
-              // true -> false -> true inside the 150ms switch animation while
-              // the source is prepared. AnimatedSwitcher then temporarily owns
-              // two children with the same boolean key and throws, closing the
-              // Now Playing route. AnimatedContainer already animates the
-              // control itself, so a direct icon is both safe and visually
-              // indistinguishable at this size.
               : Icon(
-                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  isError
+                      ? Icons.refresh_rounded
+                      : (isPlaying
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded),
                   size: 38,
                   color: scheme.onPrimary,
                 ),
