@@ -195,11 +195,15 @@ class InvidiousDataSource {
   /// radio, the music playlists YouTube Music hands out) — those are served
   /// by the separate `/api/v1/mixes` endpoint. Some instances disable one
   /// endpoint or the other, so rotation matters here.
-  Future<InvidiousPlaylistData?> getPlaylistDetails(String playlistId) async {
+  Future<InvidiousPlaylistData?> getPlaylistDetails(
+    String playlistId, {
+    int page = 1,
+  }) async {
     final isMix = playlistId.startsWith('RD');
-    final path = isMix
+    final basePath = isMix
         ? '/api/v1/mixes/$playlistId'
         : '/api/v1/playlists/$playlistId';
+    final path = isMix || page <= 1 ? basePath : '$basePath?page=$page';
 
     for (var attempt = 0;
         attempt < InvidiousInstances.instances.length;
@@ -207,7 +211,7 @@ class InvidiousDataSource {
       final instance = InvidiousInstances.currentInstance;
       try {
         debugPrint(
-          'InvidiousDataSource: Fetching ${isMix ? 'mix' : 'playlist'} '
+          'InvidiousDataSource: Fetching ${isMix ? 'mix' : 'playlist'} (page $page) '
           'from $instance',
         );
         final response = await _dio.get(

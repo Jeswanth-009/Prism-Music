@@ -25,7 +25,7 @@ abstract class YouTubeMusicDataSource {
   Future<Song> getSongDetails(String videoId);
 
   /// Get playlist details and tracks
-  Future<Playlist> getPlaylistDetails(String playlistId);
+  Future<Playlist> getPlaylistDetails(String playlistId, {int page = 1});
 
   /// Get YouTube Music charts
   Future<List<Song>> getCharts({String region = 'US', int limit = 50});
@@ -412,7 +412,31 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
   }
 
   @override
-  Future<Playlist> getPlaylistDetails(String playlistId) async {
+  Future<Playlist> getPlaylistDetails(String playlistId, {int page = 1}) async {
+    if (page > 1) {
+      final alt = await _invidious.getPlaylistDetails(playlistId, page: page);
+      if (alt != null) {
+        return Playlist(
+          id: playlistId,
+          name: alt.title,
+          author: alt.author,
+          description: alt.description,
+          thumbnailUrl: alt.thumbnailUrl,
+          thumbnails: alt.thumbnailUrl == null
+              ? null
+              : Thumbnails.fromUrl(alt.thumbnailUrl!),
+          songs: alt.songs,
+          isUserCreated: false,
+        );
+      }
+      return Playlist(
+        id: playlistId,
+        name: 'Playlist',
+        songs: const [],
+        isUserCreated: false,
+      );
+    }
+
     // Metadata first — playlists.get is still served reliably.
     String? name;
     String? author;
@@ -447,7 +471,7 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
     }
 
     if (songs.isEmpty || name == null) {
-      final alt = await _invidious.getPlaylistDetails(playlistId);
+      final alt = await _invidious.getPlaylistDetails(playlistId, page: page);
       if (alt != null) {
         if (songs.isEmpty) songs = alt.songs;
         name ??= alt.title;

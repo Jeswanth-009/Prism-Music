@@ -72,7 +72,10 @@ abstract class MusicRepository {
   Future<Either<Failure, Album>> getAlbumDetails(String albumId);
 
   /// Get playlist details with all tracks
-  Future<Either<Failure, Playlist>> getPlaylistDetails(String playlistId);
+  Future<Either<Failure, Playlist>> getPlaylistDetails(
+    String playlistId, {
+    int page = 1,
+  });
 
   // ============ RECOMMENDATIONS ============
 

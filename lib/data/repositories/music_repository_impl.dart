@@ -416,9 +416,18 @@ class MusicRepositoryImpl implements MusicRepository {
     }
   }
 
-      @override
-  Future<Either<Failure, Playlist>> getPlaylistDetails(String playlistId) async {
+  @override
+  Future<Either<Failure, Playlist>> getPlaylistDetails(
+    String playlistId, {
+    int page = 1,
+  }) async {
     try {
+      if (page > 1) {
+        final cleanedId = playlistId.startsWith('RDCLAK') ? playlistId.substring(2) : playlistId;
+        final fallbackPlaylist = await _youtubeMusicDataSource.getPlaylistDetails(cleanedId, page: page);
+        return Right(fallbackPlaylist);
+      }
+
       Map<String, dynamic> playlistData = {};
 
       // 1. Primary Native YT Music API Routing

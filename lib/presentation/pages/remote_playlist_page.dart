@@ -27,25 +27,49 @@ class RemotePlaylistPage extends StatefulWidget {
 }
 
 class _RemotePlaylistPageState extends State<RemotePlaylistPage> {
+  final ScrollController _scrollController = ScrollController();
   List<Song> _songs = const [];
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  int _page = 1;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.position.pixels;
+    if (maxScroll - currentScroll <= 250) {
+      if (!_loading && !_loadingMore && _hasMore) {
+        _loadMore();
+      }
+    }
   }
 
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
+      _page = 1;
+      _hasMore = true;
     });
 
     try {
       final result =
-          await getIt<MusicRepository>().getPlaylistDetails(widget.playlist.id);
+          await getIt<MusicRepository>().getPlaylistDetails(widget.playlist.id, page: 1);
       if (!mounted) return;
       result.fold(
         (failure) => setState(() {
@@ -60,6 +84,7 @@ class _RemotePlaylistPageState extends State<RemotePlaylistPage> {
                 ? 'No tracks could be loaded for this playlist.'
                 : null;
             _loading = false;
+            _hasMore = songs.length >= 20;
           });
         },
       );
@@ -69,6 +94,55 @@ class _RemotePlaylistPageState extends State<RemotePlaylistPage> {
         _error = e.toString();
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+
+    try {
+      final nextPage = _page + 1;
+      final result = await getIt<MusicRepository>()
+          .getPlaylistDetails(widget.playlist.id, page: nextPage);
+      if (!mounted) return;
+
+      result.fold(
+        (failure) {
+          setState(() {
+            _loadingMore = false;
+            _hasMore = false;
+          });
+        },
+        (playlist) {
+          final newSongs = playlist.songs ?? const <Song>[];
+          if (newSongs.isEmpty) {
+            setState(() {
+              _loadingMore = false;
+              _hasMore = false;
+            });
+          } else {
+            final existingIds = _songs.map((s) => s.playableId).toSet();
+            final uniqueNewSongs = newSongs
+                .where((s) => !existingIds.contains(s.playableId))
+                .toList();
+
+            setState(() {
+              _songs = [..._songs, ...uniqueNewSongs];
+              _page = nextPage;
+              _loadingMore = false;
+              _hasMore = newSongs.length >= 20;
+            });
+          }
+        },
+      );
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _loadingMore = false;
+          _hasMore = false;
+        });
+      }
     }
   }
 
@@ -149,6 +223,7 @@ class _RemotePlaylistPageState extends State<RemotePlaylistPage> {
                   onRefresh: _load,
                   color: theme.colorScheme.primary,
                   child: CustomScrollView(
+                    controller: _scrollController,
                     physics: const AlwaysScrollableScrollPhysics(
                       parent: BouncingScrollPhysics(),
                     ),
@@ -167,7 +242,7 @@ class _RemotePlaylistPageState extends State<RemotePlaylistPage> {
                         ),
                       ),
                       SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(8, 0, 8, 32),
+                        padding: EdgeInsets.fromLTRB(8, 0, 8, _loadingMore ? 8 : 32),
                         sliver: SliverList.builder(
                           itemCount: _songs.length,
                           itemBuilder: (context, index) {
@@ -187,6 +262,19 @@ class _RemotePlaylistPageState extends State<RemotePlaylistPage> {
                           },
                         ),
                       ),
+                      if (_loadingMore)
+                        const SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
