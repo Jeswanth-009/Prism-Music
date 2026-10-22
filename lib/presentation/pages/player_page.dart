@@ -382,25 +382,33 @@ class _PlayerPageState extends State<PlayerPage> {
                   'https://music.youtube.com/watch?v=$videoId',
                 );
               },
-            ),
-            BlocBuilder<PlayerBloc, PlayerState>(
+            ),            BlocBuilder<PlayerBloc, PlayerState>(
               builder: (context, playerState) {
                 final end = playerState.sleepTimerEnd;
                 final remaining = end?.difference(DateTime.now());
+                Widget? trailingWidget;
+                if (playerState.sleepTimerEndOfTrack) {
+                  trailingWidget = Text(
+                    'End of track',
+                    style: Theme.of(sheetContext).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(sheetContext).colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                  );
+                } else if (remaining != null && !remaining.isNegative) {
+                  trailingWidget = Text(
+                    '${remaining.inMinutes}:${(remaining.inSeconds % 60).toString().padLeft(2, '0')}',
+                    style: Theme.of(sheetContext).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(sheetContext).colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                  );
+                }
+
                 return PrismSheetAction(
                   icon: Icons.bedtime_rounded,
                   label: 'Sleep timer',
-                  trailing: remaining == null || remaining.isNegative
-                      ? null
-                      : Text(
-                          '${remaining.inMinutes}:${(remaining.inSeconds % 60).toString().padLeft(2, '0')}',
-                          style: Theme.of(sheetContext).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Theme.of(
-                                  sheetContext,
-                                ).colorScheme.primary,
-                              ),
-                        ),
+                  trailing: trailingWidget,
                   onTap: () {
                     Navigator.pop(sheetContext);
                     _showSleepTimerSheet(context, playerState);
@@ -452,6 +460,16 @@ class _PlayerPageState extends State<PlayerPage> {
               ListTile(
                 leading: const Icon(Icons.bedtime_rounded),
                 title: Text(option.label),
+                trailing: (option.endOfTrack && state.sleepTimerEndOfTrack) ||
+                        (!option.endOfTrack &&
+                            option.duration == null &&
+                            !state.sleepTimerEndOfTrack &&
+                            state.sleepTimerEnd == null)
+                    ? Icon(
+                        Icons.check_rounded,
+                        color: Theme.of(sheetContext).colorScheme.primary,
+                      )
+                    : null,
                 onTap: () {
                   Navigator.pop(sheetContext);
                   context.read<PlayerBloc>().add(
@@ -462,6 +480,8 @@ class _PlayerPageState extends State<PlayerPage> {
                   );
                   if (option.duration != null || option.endOfTrack) {
                     showPrismToast(context, 'Sleep timer set: ${option.label}');
+                  } else {
+                    showPrismToast(context, 'Sleep timer cancelled');
                   }
                 },
               ),

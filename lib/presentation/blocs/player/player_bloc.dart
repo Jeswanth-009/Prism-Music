@@ -1099,6 +1099,21 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   void _onPositionUpdate(PositionUpdateEvent event, Emitter<PlayerState> emit) {
     emit(state.copyWith(position: event.position));
 
+    if (state.sleepTimerEndOfTrack &&
+        state.duration > Duration.zero &&
+        event.position >= state.duration) {
+      _log('PlayerBloc: End-of-track sleep timer reached track duration limit');
+      _sleepTimer?.cancel();
+      _sleepTimer = null;
+      unawaited(_audioPlayer.pause());
+      emit(state.copyWith(
+        clearSleepTimer: true,
+        sleepTimerEndOfTrack: false,
+        status: PlayerStatus.paused,
+      ));
+      return;
+    }
+
     // Attempt scrobbling if conditions are met
     final currentSong = state.currentSong;
     if (currentSong != null && state.duration.inSeconds > 0) {
@@ -1159,10 +1174,15 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
   void _onCompleted(_CompletedEvent event, Emitter<PlayerState> emit) async {
     if (state.sleepTimerEndOfTrack) {
+      _log('PlayerBloc: End-of-track sleep timer triggered on track completed');
       _sleepTimer?.cancel();
       _sleepTimer = null;
-      add(const PauseEvent());
-      add(const _SleepTimerClearedEvent());
+      await _audioPlayer.pause();
+      emit(state.copyWith(
+        clearSleepTimer: true,
+        sleepTimerEndOfTrack: false,
+        status: PlayerStatus.paused,
+      ));
       return;
     }
 
@@ -1620,6 +1640,23 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     final indexChanged = newIndex != state.queueIndex;
     final songChanged = state.currentSong?.playableId != newSong.playableId;
     if (!indexChanged && !songChanged) {
+      return;
+    }
+
+    if (indexChanged && state.sleepTimerEndOfTrack) {
+      _log(
+        'PlayerBloc: End-of-track sleep timer triggered on queue track advance - pausing playback',
+      );
+      _sleepTimer?.cancel();
+      _sleepTimer = null;
+      unawaited(_audioPlayer.pause());
+      emit(
+        state.copyWith(
+          clearSleepTimer: true,
+          sleepTimerEndOfTrack: false,
+          status: PlayerStatus.paused,
+        ),
+      );
       return;
     }
 

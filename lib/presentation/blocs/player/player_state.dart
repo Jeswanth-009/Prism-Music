@@ -229,10 +229,9 @@ class PlayerState extends Equatable {
       queueIndex: queueIndex ?? this.queueIndex,
       errorMessage: errorMessage ?? this.errorMessage,
       sleepTimerEnd:
-          clearSleepTimer ? null : (sleepTimerEnd ?? this.sleepTimerEnd),
-      sleepTimerEndOfTrack: clearSleepTimer
-          ? false
-          : (sleepTimerEndOfTrack ?? this.sleepTimerEndOfTrack),
+          clearSleepTimer ? sleepTimerEnd : (sleepTimerEnd ?? this.sleepTimerEnd),
+      sleepTimerEndOfTrack: sleepTimerEndOfTrack ??
+          (clearSleepTimer ? false : this.sleepTimerEndOfTrack),
     );
   }
 
