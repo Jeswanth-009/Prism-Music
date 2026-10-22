@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../../core/benchmark/playback_benchmark_matrix.dart';
 import '../../../core/services/diagnostics_service.dart';
 import '../../theme/prism_theme.dart';
 import '../prism/prism_sheet.dart';
@@ -29,6 +31,8 @@ class DiagnosticsSheetContent extends StatefulWidget {
 
 class _DiagnosticsSheetContentState extends State<DiagnosticsSheetContent> {
   bool _loading = true;
+  bool _runningBenchmark = false;
+  PlaybackBenchmarkReport? _benchmarkReport;
   Map<String, dynamic>? _data;
 
   @override
@@ -124,7 +128,83 @@ class _DiagnosticsSheetContentState extends State<DiagnosticsSheetContent> {
                 ],
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 12),
+            if (_benchmarkReport != null) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(PrismRadius.md),
+                  border: Border.all(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          _benchmarkReport!.meetsReleaseSlo
+                              ? Icons.check_circle_rounded
+                              : Icons.info_rounded,
+                          color: _benchmarkReport!.meetsReleaseSlo
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.error,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Playback Benchmark Matrix',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    _diagRow('Cold Start P50/P90', '${_benchmarkReport!.coldStartLatency.p50Ms.toStringAsFixed(0)}ms / ${_benchmarkReport!.coldStartLatency.p90Ms.toStringAsFixed(0)}ms'),
+                    _diagRow('High Latency Rec.', '${(_benchmarkReport!.networkResilience.highLatencyRecoveryRate * 100).toStringAsFixed(0)}%'),
+                    _diagRow('Fallback Delay', '${_benchmarkReport!.networkResilience.averageFallbackDelay.inMilliseconds}ms'),
+                    _diagRow('Buffer Profile', '${_benchmarkReport!.lowEndProfile.estimatedHeapUsageKb ~/ 1024}MB heap (${_benchmarkReport!.lowEndProfile.minBufferDuration.inSeconds}s pre-buffer)'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final text = _benchmarkReport!.toMarkdownSummary();
+                        await Clipboard.setData(ClipboardData(text: text));
+                        if (context.mounted) {
+                          showPrismToast(context, 'Benchmark report copied');
+                        }
+                      },
+                      icon: const Icon(Icons.copy_rounded, size: 16),
+                      label: const Text('Copy Benchmark Matrix'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _runningBenchmark ? null : _runBenchmark,
+                icon: _runningBenchmark
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.speed_rounded, size: 18),
+                label: Text(_runningBenchmark ? 'Running Playback Benchmark...' : 'Run Playback Benchmark'),
+              ),
+            ),
+            const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               child: FilledButton.tonalIcon(
@@ -143,6 +223,21 @@ class _DiagnosticsSheetContentState extends State<DiagnosticsSheetContent> {
         ),
       ),
     );
+  }
+
+  Future<void> _runBenchmark() async {
+    setState(() => _runningBenchmark = true);
+    try {
+      final report = await DiagnosticsService.instance.runPlaybackBenchmark();
+      if (mounted) {
+        setState(() {
+          _benchmarkReport = report;
+          _runningBenchmark = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _runningBenchmark = false);
+    }
   }
 
   Widget _diagRow(String label, String value) {

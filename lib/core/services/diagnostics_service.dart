@@ -5,10 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../benchmark/playback_benchmark_matrix.dart';
+import '../di/injection.dart';
+import '../../domain/entities/song.dart';
+import '../providers/audio_stream_resolver.dart';
 import '../utils/formatters.dart';
 import 'local_backup_service.dart';
 import 'settings_service.dart';
 import 'storage_service.dart';
+import 'stream_loader_service.dart';
 
 /// Diagnostic summary and metadata collector for support, debugging, and bug reporting.
 class DiagnosticsService {
@@ -104,6 +109,16 @@ class DiagnosticsService {
     buffer.writeln('- **Storage:** Cache=${storage['cacheUsage']}, Backups=${storage['backupItems']} items (Latest: ${storage['latestBackup']})');
 
     return buffer.toString();
+  }
+
+  /// Runs the playback benchmark matrix and returns the detailed performance report.
+  Future<PlaybackBenchmarkReport> runPlaybackBenchmark({Song? testSong}) async {
+    List<AudioStreamResolver> resolvers = const [];
+    if (getIt.isRegistered<StreamLoaderService>()) {
+      resolvers = getIt<StreamLoaderService>().resolvers;
+    }
+    final matrix = PlaybackBenchmarkMatrix(resolvers: resolvers);
+    return matrix.runFullMatrix(testSong: testSong);
   }
 
   /// Copies formatted diagnostic text to the device clipboard.
