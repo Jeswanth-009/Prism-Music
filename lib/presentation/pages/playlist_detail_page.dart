@@ -10,6 +10,7 @@ import '../blocs/player/player_event.dart';
 import '../blocs/player/player_state.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/player/mini_player.dart';
+import '../widgets/playlist/playlist_export_sheet.dart';
 import '../widgets/prism/prism_artwork.dart';
 import '../widgets/prism/prism_collection_header.dart';
 import '../widgets/prism/prism_dialog.dart';
@@ -39,22 +40,48 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
   }
 
   void _showRenameDialog(BuildContext context, Playlist playlist) {
-    final textController = TextEditingController(text: playlist.name);
+    final nameController = TextEditingController(text: playlist.name);
+    final descController =
+        TextEditingController(text: playlist.description ?? '');
     showPrismDialog(
       context: context,
-      title: 'Rename Playlist',
-      content: TextField(
-        controller: textController,
-        autofocus: true,
-        decoration: InputDecoration(
-          hintText: 'Playlist name',
-          filled: true,
-          fillColor: Theme.of(context).colorScheme.surfaceContainerHigh,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(PrismRadius.lg),
-            borderSide: BorderSide.none,
+      title: 'Edit Playlist Details',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: nameController,
+            autofocus: true,
+            textCapitalization: TextCapitalization.words,
+            decoration: InputDecoration(
+              labelText: 'Playlist name',
+              hintText: 'e.g. Chill Beats',
+              filled: true,
+              fillColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(PrismRadius.lg),
+                borderSide: BorderSide.none,
+              ),
+            ),
           ),
-        ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: descController,
+            maxLines: 2,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(
+              labelText: 'Description (optional)',
+              hintText: 'Add an optional description',
+              filled: true,
+              fillColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(PrismRadius.lg),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ],
       ),
       actions: [
         TextButton(
@@ -63,12 +90,14 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
         ),
         FilledButton(
           onPressed: () {
-            final newName = textController.text.trim();
+            final newName = nameController.text.trim();
+            final newDesc = descController.text.trim();
             if (newName.isNotEmpty) {
               context.read<LibraryBloc>().add(
                     RenamePlaylistEvent(
                       playlistId: playlist.id,
                       name: newName,
+                      description: newDesc.isEmpty ? null : newDesc,
                     ),
                   );
               Navigator.of(context).pop();
@@ -77,7 +106,10 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
           child: const Text('Save'),
         ),
       ],
-    ).whenComplete(() => textController.dispose());
+    ).whenComplete(() {
+      nameController.dispose();
+      descController.dispose();
+    });
   }
 
   void _confirmDelete(BuildContext context, Playlist playlist) {
@@ -184,7 +216,9 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                 tooltip: 'Playlist options',
                 icon: const Icon(Icons.more_vert_rounded),
                 onSelected: (val) {
-                  if (val == 'rename') {
+                  if (val == 'export') {
+                    PlaylistExportSheet.show(context, current);
+                  } else if (val == 'rename') {
                     _showRenameDialog(context, current);
                   } else if (val == 'delete') {
                     _confirmDelete(context, current);
@@ -193,21 +227,50 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                   }
                 },
                 itemBuilder: (_) => [
+                  if (songs.isNotEmpty)
+                    const PopupMenuItem(
+                      value: 'export',
+                      child: Row(
+                        children: [
+                          Icon(Icons.ios_share_rounded, size: 18),
+                          SizedBox(width: 12),
+                          Text('Export playlist'),
+                        ],
+                      ),
+                    ),
                   if (current.spotifyPlaylistId != null ||
                       current.youtubePlaylistId != null)
                     const PopupMenuItem(
                       value: 'refresh',
-                      child: Text('Refresh from source'),
+                      child: Row(
+                        children: [
+                          Icon(Icons.sync_rounded, size: 18),
+                          SizedBox(width: 12),
+                          Text('Refresh from source'),
+                        ],
+                      ),
                     ),
                   if (current.isUserCreated)
                     const PopupMenuItem(
                       value: 'rename',
-                      child: Text('Rename playlist'),
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, size: 18),
+                          SizedBox(width: 12),
+                          Text('Edit details'),
+                        ],
+                      ),
                     ),
                   if (current.isUserCreated)
                     const PopupMenuItem(
                       value: 'delete',
-                      child: Text('Delete playlist'),
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline_rounded, size: 18),
+                          SizedBox(width: 12),
+                          Text('Delete playlist'),
+                        ],
+                      ),
                     ),
                 ],
               ),
@@ -331,32 +394,50 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
               if (_showSearch)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  child: TextField(
-                    controller: _searchCtrl,
-                    autofocus: true,
-                    decoration: InputDecoration(
-                      hintText: 'Filter playlist…',
-                      prefixIcon: const Icon(Icons.search_rounded),
-                      suffixIcon: _searchCtrl.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.close_rounded, size: 18),
-                              onPressed: () {
-                                _searchCtrl.clear();
-                                setState(() {});
-                              },
-                            )
-                          : null,
-                      filled: true,
-                      fillColor: theme.colorScheme.surfaceContainerHigh
-                          .withValues(alpha: 0.5),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(PrismRadius.lg),
-                        borderSide: BorderSide.none,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: _searchCtrl,
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          hintText: 'Filter tracks by title or artist…',
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          suffixIcon: _searchCtrl.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.close_rounded, size: 18),
+                                  onPressed: () {
+                                    _searchCtrl.clear();
+                                    setState(() {});
+                                  },
+                                )
+                              : null,
+                          filled: true,
+                          fillColor: theme.colorScheme.surfaceContainerHigh
+                              .withValues(alpha: 0.5),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(PrismRadius.lg),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                        onChanged: (_) => setState(() {}),
                       ),
-                      contentPadding:
-                          const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                    onChanged: (_) => setState(() {}),
+                      if (_searchCtrl.text.trim().isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            'Showing ${displaySongs.length} of ${allSongs.length} tracks',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
             ],

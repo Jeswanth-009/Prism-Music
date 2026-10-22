@@ -168,18 +168,20 @@ class DeleteDownloadEvent extends LibraryEvent {
   List<Object?> get props => [songId];
 }
 
-/// Rename an existing playlist
+/// Rename or update details for an existing playlist
 class RenamePlaylistEvent extends LibraryEvent {
   final String playlistId;
   final String name;
+  final String? description;
 
   const RenamePlaylistEvent({
     required this.playlistId,
     required this.name,
+    this.description,
   });
 
   @override
-  List<Object?> get props => [playlistId, name];
+  List<Object?> get props => [playlistId, name, description];
 }
 
 /// Reorder songs in a playlist

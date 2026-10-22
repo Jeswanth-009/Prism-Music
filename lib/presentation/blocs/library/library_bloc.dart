@@ -776,6 +776,7 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     final result = await _libraryRepository.updatePlaylist(
       event.playlistId,
       name: event.name,
+      description: event.description,
     );
     result.fold(
       (failure) => emit(state.copyWith(errorMessage: failure.message)),
