@@ -93,6 +93,9 @@ abstract class LibraryRepository {
   /// Add a song to listening history
   Future<Either<Failure, void>> addToHistory(Song song);
 
+  /// Remove a song from listening history
+  Future<Either<Failure, void>> removeFromHistory(String songId);
+
   /// Clear listening history
   Future<Either<Failure, void>> clearHistory();
 

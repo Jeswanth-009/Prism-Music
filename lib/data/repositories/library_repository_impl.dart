@@ -285,6 +285,18 @@ class LibraryRepositoryImpl implements LibraryRepository {
   }
 
   @override
+  Future<Either<Failure, void>> removeFromHistory(String songId) async {
+    try {
+      await _localDataSource.removeFromHistory(songId);
+      return const Right(null);
+    } on CacheException catch (e) {
+      return Left(CacheFailure(message: e.message));
+    } catch (e) {
+      return Left(UnknownFailure(message: e.toString()));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> clearHistory() async {
     try {
       await _localDataSource.clearHistory();

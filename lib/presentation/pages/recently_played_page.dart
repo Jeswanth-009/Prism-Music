@@ -1,8 +1,11 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/utils/date_grouping.dart';
 import '../../core/utils/formatters.dart';
-import '../../domain/entities/song.dart';
+import '../../domain/entities/entities.dart';
 import '../blocs/library/library.dart';
 import '../blocs/player/player.dart';
 import '../widgets/player/mini_player.dart';
@@ -52,7 +55,9 @@ class RecentlyPlayedPage extends StatelessWidget {
         actions: [
           BlocBuilder<LibraryBloc, LibraryState>(
             builder: (context, state) {
-              if (state.recentlyPlayed.isEmpty) return const SizedBox.shrink();
+              final hasItems =
+                  state.historyEntries.isNotEmpty || state.recentlyPlayed.isNotEmpty;
+              if (!hasItems) return const SizedBox.shrink();
               return IconButton(
                 tooltip: 'Clear history',
                 icon: const Icon(Icons.delete_outline_rounded),
@@ -64,7 +69,9 @@ class RecentlyPlayedPage extends StatelessWidget {
       ),
       body: BlocBuilder<LibraryBloc, LibraryState>(
         builder: (context, state) {
-          final songs = state.recentlyPlayed;
+          final songs = state.historyEntries.isNotEmpty
+              ? state.historyEntries.map((e) => e.song).toList()
+              : state.recentlyPlayed;
 
           if (songs.isEmpty) {
             return const PrismEmptyState(
@@ -73,6 +80,14 @@ class RecentlyPlayedPage extends StatelessWidget {
               hint: 'Tracks you listen to will automatically appear here.',
             );
           }
+
+          final entries = state.historyEntries.isNotEmpty
+              ? state.historyEntries
+              : songs
+                  .map((s) => HistoryEntry(song: s, playedAt: DateTime.now()))
+                  .toList();
+
+          final grouped = DateGrouping.groupByPeriod(entries, (e) => e.playedAt);
 
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
@@ -85,23 +100,27 @@ class RecentlyPlayedPage extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            '${Formatters.formatCount(songs.length, 'song')} in history',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
+                          Expanded(
+                            child: Text(
+                              '${Formatters.formatCount(songs.length, 'song')} in history',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                          const Spacer(),
+                          const SizedBox(width: 8),
                           FilledButton.tonalIcon(
                             onPressed: () => _playAll(context, songs),
-                            icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                            icon: const Icon(Icons.play_arrow_rounded, size: 18),
                             label: const Text('Play all'),
                             style: FilledButton.styleFrom(
                               visualDensity: VisualDensity.compact,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           IconButton.filledTonal(
                             tooltip: 'Shuffle history',
                             onPressed: () => _playAll(context, songs, shuffle: true),
@@ -121,29 +140,72 @@ class RecentlyPlayedPage extends StatelessWidget {
                   ),
                 ),
               ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 8, 32),
-                sliver: SliverList.builder(
-                  itemCount: songs.length,
-                  itemBuilder: (context, index) {
-                    final song = songs[index];
-                    return BlocBuilder<PlayerBloc, PlayerState>(
-                      builder: (context, playerState) => PrismSongTile(
-                        song: song,
-                        showOverflowAction: true,
-                        isPlaying: playerState.currentSong?.id == song.id,
-                        isPlayingPaused: !playerState.isPlaying,
-                        onTap: () => context.read<PlayerBloc>().add(
-                          PlaySongEvent(
-                            song: song,
-                            queue: songs,
-                            queueIndex: index,
+              for (final group in grouped.entries) ...[
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+                    child: Text(
+                      group.key.toUpperCase(),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+                  sliver: SliverList.builder(
+                    itemCount: group.value.length,
+                    itemBuilder: (context, index) {
+                      final entry = group.value[index];
+                      final song = entry.song;
+                      return BlocBuilder<PlayerBloc, PlayerState>(
+                        builder: (context, playerState) => PrismSongTile(
+                          song: song,
+                          subtitle:
+                              '${song.artist} • ${DateGrouping.formatRelativeTime(entry.playedAt)}',
+                          isPlaying: playerState.currentSong?.id == song.id,
+                          isPlayingPaused: !playerState.isPlaying,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                song.durationFormatted,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  fontFeatures: const [FontFeature.tabularFigures()],
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              IconButton(
+                                icon: const Icon(Icons.close_rounded, size: 18),
+                                tooltip: 'Remove from history',
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () {
+                                  context.read<LibraryBloc>().add(
+                                    RemoveSongFromHistoryEvent(song.playableId),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                          onTap: () => context.read<PlayerBloc>().add(
+                            PlaySongEvent(
+                              song: song,
+                              queue: songs,
+                              queueIndex: songs.indexOf(song),
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
+              ],
+              const SliverToBoxAdapter(
+                child: SizedBox(height: 32),
               ),
             ],
           );

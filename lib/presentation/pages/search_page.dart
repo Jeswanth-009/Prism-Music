@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/utils/date_grouping.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
 import '../blocs/player/player_state.dart';
@@ -8,6 +9,8 @@ import '../blocs/search/search_bloc.dart';
 import '../blocs/search/search_event.dart';
 import '../blocs/search/search_state.dart';
 import '../theme/prism_theme.dart';
+import '../widgets/player/mini_player.dart';
+import '../widgets/prism/prism_dialog.dart';
 import '../widgets/prism/prism_section_header.dart';
 import '../widgets/prism/prism_skeleton.dart';
 import '../widgets/prism/prism_song_tile.dart';
@@ -237,7 +240,18 @@ class _SearchPageState extends State<SearchPage> {
   // ── browse (no query) ────────────────────────────────────────────────
 
   List<Widget> _browseSlivers(SearchState state) {
-    final recentQueries = state.history.take(6).toList();
+    final entries = state.historyEntries.isNotEmpty
+        ? state.historyEntries
+        : state.history.map((q) => {'query': q, 'id': q}).toList();
+
+    DateTime getTimestamp(Map<String, String> e) {
+      final tsStr = e['timestamp'];
+      final ts = tsStr != null ? int.tryParse(tsStr) : null;
+      return ts != null ? DateTime.fromMillisecondsSinceEpoch(ts) : DateTime.now();
+    }
+
+    final groupedHistory = DateGrouping.groupByPeriod(entries, getTimestamp);
+
     return [
       SliverToBoxAdapter(
         child: PrismSectionHeader(
@@ -267,49 +281,91 @@ class _SearchPageState extends State<SearchPage> {
           ),
         ),
       ),
-      if (recentQueries.isNotEmpty) ...[
+      if (entries.isNotEmpty) ...[
         SliverToBoxAdapter(
           child: PrismSectionHeader(
             title: 'Recent searches',
             actionLabel: 'Clear all',
-            onAction: () =>
-                context.read<SearchBloc>().add(const ClearHistoryEvent()),
+            onAction: () {
+              showPrismConfirmDialog(
+                context: context,
+                title: 'Clear search history?',
+                message:
+                    'All your recent search terms will be permanently removed.',
+                confirmLabel: 'Clear all',
+                isDestructive: true,
+                onConfirm: () =>
+                    context.read<SearchBloc>().add(const ClearHistoryEvent()),
+              );
+            },
             padding: const EdgeInsets.fromLTRB(20, 22, 20, 4),
           ),
         ),
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          sliver: SliverList.separated(
-            itemCount: recentQueries.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 2),
-            itemBuilder: (context, index) {
-              final query = recentQueries[index];
-              return ListTile(
-                onTap: () => _applyQuickQuery(query),
-                leading: Icon(
-                  Icons.history_rounded,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                title: Text(query, maxLines: 1, overflow: TextOverflow.ellipsis),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded, size: 16),
-                      tooltip: 'Remove',
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () => context
-                          .read<SearchBloc>()
-                          .add(RemoveFromHistoryEvent(query)),
+        for (final group in groupedHistory.entries) ...[
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+              child: Text(
+                group.key.toUpperCase(),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
                     ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.north_west_rounded, size: 16),
-                  ],
-                ),
-              );
-            },
+              ),
+            ),
           ),
-        ),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            sliver: SliverList.separated(
+              itemCount: group.value.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 2),
+              itemBuilder: (context, index) {
+                final entry = group.value[index];
+                final query = entry['query'] ?? '';
+                final timeText =
+                    DateGrouping.formatRelativeTime(getTimestamp(entry));
+                return ListTile(
+                  onTap: () => _applyQuickQuery(query),
+                  leading: Icon(
+                    Icons.history_rounded,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  title: Text(
+                    query,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: Text(
+                    timeText,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant
+                              .withValues(alpha: 0.8),
+                        ),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 16),
+                        tooltip: 'Remove from history',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => context
+                            .read<SearchBloc>()
+                            .add(RemoveFromHistoryEvent(entry['id'] ?? query)),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.north_west_rounded, size: 16),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ],
     ];
   }
