@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_music/core/utils/cancellation_token.dart';
+import 'package:prism_music/domain/entities/entities.dart';
 import 'package:prism_music/presentation/blocs/library/library_bloc.dart';
 import 'package:prism_music/presentation/blocs/library/library_event.dart';
 import 'package:prism_music/presentation/pages/library_tab.dart';
 
 import '../helpers/fakes.dart';
+
+import 'package:prism_music/presentation/widgets/prism/prism_sheet.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -80,5 +84,69 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.text('No playlists yet'), findsOneWidget);
+  });
+
+  testWidgets(
+      'ImportReviewSheet shows unmatched tracks and interactive match button',
+      (tester) async {
+    final unmatched = song('u1', 'Unmatched Song', artist: 'Artist X');
+    final matched = song('m1', 'Matched Song', artist: 'Artist Y');
+    final importResult = ImportPlaylistResult(
+      playlist: playlist('p1', 'Imported Playlist', songs: [matched]),
+      matchedTracks: [matched],
+      unmatchedTracks: [unmatched],
+      totalSourceTracks: 2,
+    );
+
+    final bloc = buildBloc();
+    await pumpTestWidget(
+      tester,
+      Builder(
+        builder: (context) => ElevatedButton(
+          onPressed: () => showModalBottomSheet<void>(
+            context: context,
+            isScrollControlled: true,
+            builder: (_) => ImportReviewSheet(result: importResult),
+          ),
+          child: const Text('Open Sheet'),
+        ),
+      ),
+      size: const Size(500, 800),
+      libraryBloc: bloc,
+    );
+    await tester.tap(find.text('Open Sheet'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unmatched Tracks (1)'), findsOneWidget);
+    expect(find.text('Unmatched Song'), findsOneWidget);
+    expect(find.text('Match'), findsOneWidget);
+    expect(find.text('Copy List'), findsOneWidget);
+  });
+
+  testWidgets('ImportProgressDialog cancels import when cancel button tapped',
+      (tester) async {
+    final token = ImportCancellationToken();
+    var dismissed = false;
+    final bloc = buildBloc();
+
+    await pumpTestWidget(
+      tester,
+      ImportProgressDialog(
+        cancelToken: token,
+        onDismiss: () => dismissed = true,
+      ),
+      size: const Size(500, 600),
+      libraryBloc: bloc,
+    );
+    await tester.pump();
+
+    expect(find.text('Importing Playlist'), findsOneWidget);
+    expect(find.text('Cancel Import'), findsOneWidget);
+
+    await tester.tap(find.text('Cancel Import'));
+    await tester.pump();
+
+    expect(token.isCancelled, isTrue);
+    expect(dismissed, isTrue);
   });
 }

@@ -4,10 +4,12 @@ import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/di/injection.dart';
 import '../../core/utils/cancellation_token.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/link_validation.dart';
 import '../../domain/entities/entities.dart';
+import '../../domain/repositories/music_repository.dart';
 import '../blocs/library/library.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/prism/prism_artwork.dart';
@@ -368,13 +370,34 @@ class _LibraryTabState extends State<LibraryTab>
             ),
     );
 
+    var dialogClosed = false;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => BlocProvider.value(
+        value: bloc,
+        child: _ImportProgressDialog(
+          cancelToken: cancelToken,
+          onDismiss: () => dialogClosed = true,
+        ),
+      ),
+    );
+
     try {
       final error = await done.future.timeout(const Duration(minutes: 5));
+      if (!dialogClosed && mounted) {
+        dialogClosed = true;
+        Navigator.of(context, rootNavigator: true).maybePop();
+      }
       if (!mounted) return;
       if (error != null) {
         showPrismToast(context, error);
       }
     } on TimeoutException {
+      if (!dialogClosed && mounted) {
+        dialogClosed = true;
+        Navigator.of(context, rootNavigator: true).maybePop();
+      }
       if (!mounted) return;
       showPrismToast(context, 'Import is taking too long.');
     }
@@ -390,9 +413,13 @@ class _LibraryTabState extends State<LibraryTab>
       return;
     }
 
-    await showPrismSheet<void>(
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (sheetContext) => _ImportReviewSheet(result: result),
     );
   }
@@ -859,11 +886,69 @@ class _ImportTile extends StatelessWidget {
 }
 
 /// Interactive review sheet displaying outcome of external playlist import,
-/// match percentages, unmatched track lists, and clipboard export.
-class _ImportReviewSheet extends StatelessWidget {
+/// match percentages, unmatched track lists with manual reconciliation, and clipboard export.
+@visibleForTesting
+class ImportReviewSheet extends StatefulWidget {
   final ImportPlaylistResult result;
 
-  const _ImportReviewSheet({required this.result});
+  const ImportReviewSheet({super.key, required this.result});
+
+  @override
+  State<ImportReviewSheet> createState() => ImportReviewSheetState();
+}
+
+typedef _ImportReviewSheet = ImportReviewSheet;
+
+@visibleForTesting
+class ImportReviewSheetState extends State<ImportReviewSheet> {
+  late Playlist _playlist;
+  late List<Song> _matchedTracks;
+  late List<Song> _unmatchedTracks;
+
+  @override
+  void initState() {
+    super.initState();
+    _playlist = widget.result.playlist;
+    _matchedTracks = List.from(widget.result.matchedTracks);
+    _unmatchedTracks = List.from(widget.result.unmatchedTracks);
+  }
+
+  int get _total => _matchedTracks.length + _unmatchedTracks.length;
+  int get _matchPercent =>
+      _total == 0 ? 100 : ((_matchedTracks.length / _total) * 100).round();
+  double get _matchRate =>
+      _total == 0 ? 1.0 : (_matchedTracks.length / _total).clamp(0.0, 1.0);
+
+  Future<void> _matchTrackManually(Song unmatched) async {
+    final matchedSong = await showDialog<Song>(
+      context: context,
+      builder: (ctx) => _ManualTrackMatchDialog(unmatchedTrack: unmatched),
+    );
+
+    if (matchedSong != null && mounted) {
+      context.read<LibraryBloc>().add(
+            AddToPlaylistEvent(
+              playlistId: _playlist.id,
+              song: matchedSong,
+            ),
+          );
+
+      setState(() {
+        _unmatchedTracks.removeWhere(
+            (t) => t.id == unmatched.id && t.title == unmatched.title);
+        _matchedTracks.add(matchedSong);
+        _playlist = _playlist.copyWith(
+          trackCount: _matchedTracks.length,
+          songs: _matchedTracks,
+        );
+      });
+
+      showPrismToast(
+        context,
+        'Matched "${unmatched.title}" with "${matchedSong.title}"',
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -893,7 +978,7 @@ class _ImportReviewSheet extends StatelessWidget {
             Row(
               children: [
                 PrismArtwork(
-                  url: result.playlist.thumbnails?.best ?? '',
+                  url: _playlist.thumbnails?.best ?? '',
                   width: 54,
                   height: 54,
                   borderRadius: 8,
@@ -904,7 +989,7 @@ class _ImportReviewSheet extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        result.playlist.name,
+                        _playlist.name,
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
@@ -913,9 +998,9 @@ class _ImportReviewSheet extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${result.matchedTracks.length} of ${result.totalSourceTracks} tracks matched (${result.matchPercent}%)',
+                        '${_matchedTracks.length} of $_total tracks matched ($_matchPercent%)',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: result.matchPercent >= 80
+                          color: _matchPercent >= 80
                               ? Colors.green
                               : theme.colorScheme.error,
                           fontWeight: FontWeight.w600,
@@ -930,18 +1015,16 @@ class _ImportReviewSheet extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: LinearProgressIndicator(
-                value: result.matchRate,
+                value: _matchRate,
                 minHeight: 6,
                 backgroundColor: theme.colorScheme.surfaceContainerHighest,
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  result.matchPercent >= 80
-                      ? Colors.green
-                      : theme.colorScheme.primary,
+                  _matchPercent >= 80 ? Colors.green : theme.colorScheme.primary,
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            if (result.isEmbedFallback)
+            if (widget.result.isEmbedFallback)
               Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(12),
@@ -969,7 +1052,7 @@ class _ImportReviewSheet extends StatelessWidget {
                   ],
                 ),
               ),
-            if (result.wasCancelled)
+            if (widget.result.wasCancelled)
               Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(12),
@@ -987,7 +1070,7 @@ class _ImportReviewSheet extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Import was stopped early. ${result.matchedTracks.length} tracks were saved.',
+                        'Import was stopped early. ${_matchedTracks.length} tracks were saved.',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: Colors.amber.shade800,
                         ),
@@ -996,19 +1079,19 @@ class _ImportReviewSheet extends StatelessWidget {
                   ],
                 ),
               ),
-            if (result.unmatchedTracks.isNotEmpty) ...[
+            if (_unmatchedTracks.isNotEmpty) ...[
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Unmatched Tracks (${result.unmatchedCount})',
+                    'Unmatched Tracks (${_unmatchedTracks.length})',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   TextButton.icon(
                     onPressed: () {
-                      final missed = result.unmatchedTracks
+                      final missed = _unmatchedTracks
                           .map((t) => '${t.artist} - ${t.title}')
                           .join('\n');
                       Clipboard.setData(ClipboardData(text: missed));
@@ -1021,7 +1104,7 @@ class _ImportReviewSheet extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              ...result.unmatchedTracks.map((track) => Padding(
+              ..._unmatchedTracks.map((track) => Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Material(
                       color: theme.colorScheme.surfaceContainerLow,
@@ -1050,9 +1133,41 @@ class _ImportReviewSheet extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
+                        trailing: FilledButton.tonalIcon(
+                          style: FilledButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                          ),
+                          icon: const Icon(Icons.link_rounded, size: 16),
+                          label: const Text('Match'),
+                          onPressed: () => _matchTrackManually(track),
+                        ),
                       ),
                     ),
                   )),
+              const SizedBox(height: 16),
+            ] else if (widget.result.unmatchedTracks.isNotEmpty) ...[
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.check_circle_rounded, color: Colors.green, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'All unmatched tracks successfully reconciled!',
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 16),
             ],
             Row(
@@ -1072,7 +1187,7 @@ class _ImportReviewSheet extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (_) => PlaylistDetailPage(
-                            playlist: result.playlist,
+                            playlist: _playlist,
                           ),
                         ),
                       );
@@ -1085,6 +1200,325 @@ class _ImportReviewSheet extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Dialog for manually searching YouTube Music and reconciling an unmatched track.
+class _ManualTrackMatchDialog extends StatefulWidget {
+  final Song unmatchedTrack;
+
+  const _ManualTrackMatchDialog({required this.unmatchedTrack});
+
+  @override
+  State<_ManualTrackMatchDialog> createState() => _ManualTrackMatchDialogState();
+}
+
+class _ManualTrackMatchDialogState extends State<_ManualTrackMatchDialog> {
+  late final TextEditingController _controller;
+  bool _isLoading = false;
+  List<Song> _results = const [];
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: '${widget.unmatchedTrack.title} ${widget.unmatchedTrack.artist}',
+    );
+    _performSearch(_controller.text);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _performSearch(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return;
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      if (!getIt.isRegistered<MusicRepository>()) {
+        setState(() {
+          _isLoading = false;
+          _results = const [];
+        });
+        return;
+      }
+
+      final repo = getIt<MusicRepository>();
+      final result = await repo.searchSongs(trimmed);
+      if (!mounted) return;
+
+      result.fold(
+        (failure) => setState(() {
+          _isLoading = false;
+          _error = failure.message;
+          _results = const [];
+        }),
+        (songs) => setState(() {
+          _isLoading = false;
+          _results = songs;
+        }),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _error = e.toString();
+        _results = const [];
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480, maxHeight: 560),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Reconcile Track',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.music_off_outlined,
+                      size: 20,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.unmatchedTrack.title,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            '${widget.unmatchedTrack.artist} • ${Formatters.formatDuration(widget.unmatchedTrack.duration)}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _controller,
+                textInputAction: TextInputAction.search,
+                onSubmitted: _performSearch,
+                decoration: InputDecoration(
+                  hintText: 'Search YouTube Music',
+                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                    onPressed: () => _performSearch(_controller.text),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _error != null
+                        ? Center(
+                            child: Text(
+                              _error!,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.error,
+                              ),
+                            ),
+                          )
+                        : _results.isEmpty
+                            ? Center(
+                                child: Text(
+                                  'No matching tracks found.\nTry a different search query.',
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              )
+                            : ListView.separated(
+                                itemCount: _results.length,
+                                separatorBuilder: (_, __) =>
+                                    const Divider(height: 1),
+                                itemBuilder: (context, index) {
+                                  final song = _results[index];
+                                  return ListTile(
+                                    contentPadding:
+                                        const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 2),
+                                    leading: PrismArtwork(
+                                      url: song.thumbnailUrl ?? '',
+                                      width: 42,
+                                      height: 42,
+                                      borderRadius: 6,
+                                    ),
+                                    title: Text(
+                                      song.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      '${song.artist} • ${Formatters.formatDuration(song.duration)}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodySmall,
+                                    ),
+                                    trailing: const Icon(
+                                      Icons.add_circle_outline_rounded,
+                                      color: Colors.green,
+                                      size: 22,
+                                    ),
+                                    onTap: () => Navigator.pop(context, song),
+                                  );
+                                },
+                              ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+typedef _ImportProgressDialog = ImportProgressDialog;
+
+/// Modal dialog showing active playlist import progress with cooperative cancel button.
+@visibleForTesting
+class ImportProgressDialog extends StatelessWidget {
+  final ImportCancellationToken cancelToken;
+  final VoidCallback onDismiss;
+
+  const ImportProgressDialog({
+    super.key,
+    required this.cancelToken,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return BlocConsumer<LibraryBloc, LibraryState>(
+      listener: (context, state) {
+        if (state.status != LibraryStatus.importing) {
+          onDismiss();
+          Navigator.of(context, rootNavigator: true).maybePop();
+        }
+      },
+      builder: (context, state) {
+        final progress = state.importProgress;
+        final current = state.importCurrentTrack ?? 0;
+        final total = state.importTotalTracks ?? 0;
+
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.sync_rounded),
+              SizedBox(width: 12),
+              Flexible(child: Text('Importing Playlist')),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (progress != null && total > 0) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(value: progress),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Matching track $current of $total...',
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ] else ...[
+                const LinearProgressIndicator(),
+                const SizedBox(height: 12),
+                Text(
+                  'Reading playlist metadata...',
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton.icon(
+              icon: const Icon(Icons.close_rounded, size: 18),
+              label: const Text('Cancel Import'),
+              style: TextButton.styleFrom(
+                foregroundColor: theme.colorScheme.error,
+              ),
+              onPressed: () {
+                cancelToken.cancel();
+                context.read<LibraryBloc>().add(const CancelImportEvent());
+                onDismiss();
+                Navigator.of(context, rootNavigator: true).maybePop();
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 }

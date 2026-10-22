@@ -1530,8 +1530,9 @@ class _ClassicPlayerLayout extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(11),
                                 child: PrismArtwork(
                                   url: song.thumbnailUrl,
-                                  size: double.infinity,
-                                  borderRadius: BorderRadius.zero,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  borderRadius: 0,
                                 ),
                               ),
                             ),

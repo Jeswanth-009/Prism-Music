@@ -421,7 +421,6 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
           name: alt.title,
           author: alt.author,
           description: alt.description,
-          thumbnailUrl: alt.thumbnailUrl,
           thumbnails: alt.thumbnailUrl == null
               ? null
               : Thumbnails.fromUrl(alt.thumbnailUrl!),

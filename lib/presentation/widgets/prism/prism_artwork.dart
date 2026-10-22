@@ -26,15 +26,21 @@ class PrismArtwork extends StatelessWidget {
     final radius = borderRadius ?? PrismRadius.sm;
     final fallback = _ArtworkFallback(borderRadius: radius);
 
+    final Widget fallbackWidget = SizedBox(
+      width: width,
+      height: height,
+      child: fallback,
+    );
+
     final Widget image = url.isEmpty
-        ? fallback
+        ? fallbackWidget
         : CachedNetworkImage(
             imageUrl: url,
             fit: fit,
             width: width,
             height: height,
-            placeholder: (_, __) => fallback,
-            errorWidget: (_, __, ___) => fallback,
+            placeholder: (_, __) => fallbackWidget,
+            errorWidget: (_, __, ___) => fallbackWidget,
           );
 
     if (borderRadius == null) return image;
