@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.49] - 2026-10-22
+
+### Changed
+
+- Add modular provider architecture guide, isolation tests and issue templates
+
 ## [0.2.48] - 2026-10-22
 
 ### Added
@@ -811,3 +817,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.46]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.46-build82
 [0.2.47]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.47-build83
 [0.2.48]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.48-build84
+[0.2.49]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.49-build85
