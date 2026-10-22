@@ -667,4 +667,129 @@ class SettingsDialogs {
       secretController.dispose();
     });
   }
+
+  static void showLastFmCredentialsDialog(
+    BuildContext context,
+    LastFmService lastFmService,
+    VoidCallback onSaved,
+  ) {
+    final keyController = TextEditingController(
+      text: lastFmService.hasCustomCredentials ? lastFmService.apiKey : '',
+    );
+    final secretController = TextEditingController(
+      text: lastFmService.hasCustomCredentials ? lastFmService.apiSecret : '',
+    );
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.key_rounded, size: 22),
+              SizedBox(width: 8),
+              Text('Last.fm Credentials'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Supply your personal Last.fm API Key and Shared Secret to enable scrobbling and profile sync.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: keyController,
+                  decoration: const InputDecoration(
+                    labelText: 'API Key',
+                    hintText: 'Paste 32-character API key',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: secretController,
+                  decoration: const InputDecoration(
+                    labelText: 'Shared Secret',
+                    hintText: 'Paste 32-character shared secret',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Need API credentials? Create an API account at last.fm/api/account/create',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontSize: 11,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            if (lastFmService.hasCustomCredentials)
+              TextButton(
+                onPressed: () async {
+                  await lastFmService.clearCustomCredentials();
+                  onSaved();
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                    showPrismToast(dialogContext, 'Last.fm credentials cleared');
+                  }
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                ),
+                child: const Text('Clear'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final key = keyController.text.trim();
+                final secret = secretController.text.trim();
+                if (key.isNotEmpty && secret.isNotEmpty) {
+                  await lastFmService.setCustomCredentials(
+                    apiKey: key,
+                    apiSecret: secret,
+                  );
+                  onSaved();
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                    showPrismToast(dialogContext, 'Last.fm credentials saved');
+                  }
+                } else if (key.isEmpty && secret.isEmpty) {
+                  await lastFmService.clearCustomCredentials();
+                  onSaved();
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                    showPrismToast(dialogContext, 'Last.fm credentials cleared');
+                  }
+                } else {
+                  showPrismToast(
+                    dialogContext,
+                    'Please provide both API Key and Shared Secret',
+                  );
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    ).whenComplete(() {
+      keyController.dispose();
+      secretController.dispose();
+    });
+  }
 }

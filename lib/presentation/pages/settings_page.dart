@@ -225,7 +225,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   spacing: 8,
                   runSpacing: 6,
                   children: [
-                    if (LastFmService.isConfigured)
+                    if (_lastFmService.hasValidCredentials)
                       _PillBadge(
                         icon: connected
                             ? Icons.check_circle_rounded
@@ -268,49 +268,81 @@ class _SettingsPageState extends State<SettingsPage> {
               ],
             ),
           ),
-        if (LastFmService.isConfigured) ...[
-          if (_isInitialized && _lastFmService.isAuthenticated) ...[
+        if (_isInitialized) ...[
+          if (_lastFmService.hasValidCredentials) ...[
+            if (_lastFmService.isAuthenticated) ...[
+              SettingRow(
+                leading: const Icon(Icons.check_circle_outline_rounded),
+                title: 'Connected',
+                subtitle: _lastFmService.username ?? 'Last.fm',
+                trailing: TextButton(
+                  onPressed: () async {
+                    await _lastFmService.logout();
+                    _forceRebuild();
+                    if (mounted) {
+                      showPrismToast(context, 'Logged out from Last.fm');
+                    }
+                  },
+                  child: const Text('Logout'),
+                ),
+              ),
+              SettingRow(
+                leading: const Icon(Icons.history_rounded),
+                title: 'Scrobbling',
+                subtitle: 'Automatically track your listening history',
+                trailing: Icon(
+                  Icons.check_circle_rounded,
+                  color: Colors.green.shade600,
+                  size: 20,
+                ),
+              ),
+            ],
+            if (!_lastFmService.isAuthenticated)
+              SettingRow(
+                leading: const Icon(Icons.music_note_rounded),
+                title: 'Connect to Last.fm',
+                subtitle:
+                    'Track your listening history and get recommendations',
+                trailing: FilledButton.tonal(
+                  onPressed: () => SettingsDialogs.showLoginDialog(
+                    context,
+                    _lastFmService,
+                    _forceRebuild,
+                  ),
+                  child: const Text('Login'),
+                ),
+              ),
             SettingRow(
-              leading: const Icon(Icons.check_circle_outline_rounded),
-              title: 'Connected',
-              subtitle: _lastFmService.username ?? 'Last.fm',
+              leading: const Icon(Icons.key_rounded),
+              title: 'Last.fm API Credentials',
+              subtitle: _lastFmService.hasCustomCredentials
+                  ? 'Custom API credentials configured'
+                  : 'Default build-time credentials active',
               trailing: TextButton(
-                onPressed: () async {
-                  await _lastFmService.logout();
-                  _forceRebuild();
-                  if (mounted) {
-                    showPrismToast(context, 'Logged out from Last.fm');
-                  }
-                },
-                child: const Text('Logout'),
-              ),
-            ),
-            SettingRow(
-              leading: const Icon(Icons.history_rounded),
-              title: 'Scrobbling',
-              subtitle: 'Automatically track your listening history',
-              trailing: Icon(
-                Icons.check_circle_rounded,
-                color: Colors.green.shade600,
-                size: 20,
-              ),
-            ),
-          ],
-          if (_isInitialized && !_lastFmService.isAuthenticated)
-            SettingRow(
-              leading: const Icon(Icons.music_note_rounded),
-              title: 'Connect to Last.fm',
-              subtitle:
-                  'Track your listening history and get recommendations',
-              trailing: FilledButton.tonal(
-                onPressed: () => SettingsDialogs.showLoginDialog(
+                onPressed: () => SettingsDialogs.showLastFmCredentialsDialog(
                   context,
                   _lastFmService,
                   _forceRebuild,
                 ),
-                child: const Text('Login'),
+                child: const Text('Configure'),
               ),
             ),
+          ] else ...[
+            SettingRow(
+              leading: const Icon(Icons.key_off_rounded),
+              title: 'Last.fm Scrobbling',
+              subtitle:
+                  'API credentials required to enable Last.fm login & scrobbling',
+              trailing: FilledButton.tonal(
+                onPressed: () => SettingsDialogs.showLastFmCredentialsDialog(
+                  context,
+                  _lastFmService,
+                  _forceRebuild,
+                ),
+                child: const Text('Configure'),
+              ),
+            ),
+          ],
         ],
         SettingRow(
           leading: const Icon(Icons.graphic_eq_rounded),

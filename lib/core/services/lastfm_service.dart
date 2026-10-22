@@ -11,21 +11,51 @@ class LastFmService {
   static const String _apiKey = String.fromEnvironment('LASTFM_API_KEY');
   static const String _apiSecret = String.fromEnvironment('LASTFM_API_SECRET');
 
-  /// The Last.fm integration is only available when valid credentials have
-  /// been supplied at build time.
-  static bool get isConfigured =>
-      _apiKey.isNotEmpty && _apiSecret.isNotEmpty;
-
+  static const String secureKeyCustomApiKey = 'lastfm_custom_api_key';
+  static const String secureKeyCustomApiSecret = 'lastfm_custom_api_secret';
   static const String legacySessionBoxName = 'lastfm_session';
   static const String secureKeySession = 'lastfm_session_key';
   static const String secureKeyUsername = 'lastfm_username';
   static const String _baseUrl = 'https://ws.audioscrobbler.com/2.0/';
 
+  static String? _staticCustomApiKey;
+  static String? _staticCustomApiSecret;
+
   final FlutterSecureStorage _secureStorage;
   final http.Client? _httpClient;
 
+  String? _customApiKey;
+  String? _customApiSecret;
   String? _sessionKey;
   String? _username;
+
+  /// Effective API Key (custom user credentials take precedence over build-time defaults)
+  String get apiKey => (_customApiKey != null && _customApiKey!.isNotEmpty)
+      ? _customApiKey!
+      : ((_staticCustomApiKey != null && _staticCustomApiKey!.isNotEmpty)
+          ? _staticCustomApiKey!
+          : _apiKey);
+
+  /// Effective API Secret (custom user credentials take precedence over build-time defaults)
+  String get apiSecret => (_customApiSecret != null && _customApiSecret!.isNotEmpty)
+      ? _customApiSecret!
+      : ((_staticCustomApiSecret != null && _staticCustomApiSecret!.isNotEmpty)
+          ? _staticCustomApiSecret!
+          : _apiSecret);
+
+  /// Whether valid API credentials are present
+  bool get hasValidCredentials => apiKey.isNotEmpty && apiSecret.isNotEmpty;
+
+  /// Whether custom credentials have been configured by the user
+  bool get hasCustomCredentials =>
+      (_customApiKey != null && _customApiKey!.isNotEmpty) ||
+      (_staticCustomApiKey != null && _staticCustomApiKey!.isNotEmpty);
+
+  /// The Last.fm integration is configured if either build-time or user credentials exist.
+  static bool get isConfigured =>
+      (_apiKey.isNotEmpty && _apiSecret.isNotEmpty) ||
+      ((_staticCustomApiKey != null && _staticCustomApiKey!.isNotEmpty) &&
+          (_staticCustomApiSecret != null && _staticCustomApiSecret!.isNotEmpty));
 
   LastFmService({
     FlutterSecureStorage? secureStorage,
@@ -35,11 +65,17 @@ class LastFmService {
 
   Future<void> initialize() async {
     try {
-      // 1. Read session key and username from OS-backed secure storage.
+      // 1. Read custom credentials if saved
+      _customApiKey = await _secureStorage.read(key: secureKeyCustomApiKey);
+      _customApiSecret = await _secureStorage.read(key: secureKeyCustomApiSecret);
+      _staticCustomApiKey = _customApiKey;
+      _staticCustomApiSecret = _customApiSecret;
+
+      // 2. Read session key and username from OS-backed secure storage.
       _sessionKey = await _secureStorage.read(key: secureKeySession);
       _username = await _secureStorage.read(key: secureKeyUsername);
 
-      // 2. Read-through migration from legacy plain-text Hive box if present.
+      // 3. Read-through migration from legacy plain-text Hive box if present.
       if (_sessionKey == null || _username == null) {
         await _migrateFromLegacyHiveBox();
       }
@@ -48,13 +84,43 @@ class LastFmService {
     }
   }
 
+  /// Saves user-provided custom Last.fm API credentials to secure storage.
+  Future<void> setCustomCredentials({
+    required String apiKey,
+    required String apiSecret,
+  }) async {
+    _customApiKey = apiKey.trim();
+    _customApiSecret = apiSecret.trim();
+    _staticCustomApiKey = _customApiKey;
+    _staticCustomApiSecret = _customApiSecret;
+    await _secureStorage.write(key: secureKeyCustomApiKey, value: _customApiKey);
+    await _secureStorage.write(key: secureKeyCustomApiSecret, value: _customApiSecret);
+  }
+
+  /// Removes custom Last.fm credentials and logs out active session.
+  Future<void> clearCustomCredentials() async {
+    _customApiKey = null;
+    _customApiSecret = null;
+    _staticCustomApiKey = null;
+    _staticCustomApiSecret = null;
+    await _secureStorage.delete(key: secureKeyCustomApiKey);
+    await _secureStorage.delete(key: secureKeyCustomApiSecret);
+    await logout();
+  }
+
   Future<void> _migrateFromLegacyHiveBox() async {
     try {
       Box? legacyBox;
       if (Hive.isBoxOpen(legacySessionBoxName)) {
         legacyBox = Hive.box(legacySessionBoxName);
-      } else if (await Hive.boxExists(legacySessionBoxName)) {
-        legacyBox = await Hive.openBox(legacySessionBoxName);
+      } else {
+        try {
+          if (await Hive.boxExists(legacySessionBoxName)) {
+            legacyBox = await Hive.openBox(legacySessionBoxName);
+          }
+        } catch (_) {
+          // Hive home path not configured in headless unit test environment
+        }
       }
 
       if (legacyBox != null) {
@@ -80,7 +146,7 @@ class LastFmService {
   }
 
   bool get isAuthenticated =>
-      isConfigured && _sessionKey != null && _sessionKey!.isNotEmpty;
+      hasValidCredentials && _sessionKey != null && _sessionKey!.isNotEmpty;
 
   String? get username => _username;
 
@@ -89,19 +155,19 @@ class LastFmService {
     final sortedParams = params.entries.toList()
       ..sort((a, b) => a.key.compareTo(b.key));
     final signatureString =
-        sortedParams.map((e) => '${e.key}${e.value}').join() + _apiSecret;
+        sortedParams.map((e) => '${e.key}${e.value}').join() + apiSecret;
     return md5.convert(utf8.encode(signatureString)).toString();
   }
 
   Future<bool> authenticate(String username, String password) async {
-    if (!isConfigured) return false;
+    if (!hasValidCredentials) return false;
 
     try {
       final authParams = {
         'method': 'auth.getMobileSession',
         'username': username,
         'password': password,
-        'api_key': _apiKey,
+        'api_key': apiKey,
       };
       authParams['api_sig'] = _generateSignature(authParams);
       authParams['format'] = 'json';
@@ -158,7 +224,7 @@ class LastFmService {
         'artist': artist,
         'track': track,
         'timestamp': ((timestamp ?? DateTime.now()).millisecondsSinceEpoch ~/ 1000).toString(),
-        'api_key': _apiKey,
+        'api_key': apiKey,
         'sk': _sessionKey!,
       };
       if (album.isNotEmpty) params['album'] = album;
@@ -191,7 +257,7 @@ class LastFmService {
         'method': 'track.updateNowPlaying',
         'artist': artist,
         'track': track,
-        'api_key': _apiKey,
+        'api_key': apiKey,
         'sk': _sessionKey!,
       };
       if (album.isNotEmpty) params['album'] = album;
@@ -224,7 +290,7 @@ class LastFmService {
         'user': username!,
         'period': period,
         'limit': limit.toString(),
-        'api_key': _apiKey,
+        'api_key': apiKey,
         'format': 'json',
       };
 
@@ -264,7 +330,7 @@ class LastFmService {
         'method': 'user.getRecentTracks',
         'user': username!,
         'limit': limit.toString(),
-        'api_key': _apiKey,
+        'api_key': apiKey,
         'format': 'json',
       };
 
@@ -310,7 +376,7 @@ class LastFmService {
         'method': 'track.love',
         'artist': artist,
         'track': track,
-        'api_key': _apiKey,
+        'api_key': apiKey,
         'sk': _sessionKey!,
       };
 
@@ -340,7 +406,7 @@ class LastFmService {
         'method': 'track.unlove',
         'artist': artist,
         'track': track,
-        'api_key': _apiKey,
+        'api_key': apiKey,
         'sk': _sessionKey!,
       };
 
