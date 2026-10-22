@@ -204,29 +204,47 @@ class SettingsDialogs {
     );
   }
 
-  /// Opens the crossfade slider pre-set to the saved duration.
+  /// Opens the track transition (fade out/in) slider pre-set to the saved duration.
   /// Resolves once the dialog is closed so callers can refresh their rows.
-  static Future<void> showCrossfadeDialog(BuildContext context) {
+  static Future<void> showCrossfadeDialog(BuildContext context) =>
+      showTrackTransitionDialog(context);
+
+  /// Opens the track transition (fade out/in) slider pre-set to the saved duration.
+  static Future<void> showTrackTransitionDialog(BuildContext context) {
     return showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        // Previously always opened at 2.0s, ignoring the persisted value.
         double duration =
             SettingsService.instance.crossfadeDuration.clamp(0.0, 10.0);
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            final theme = Theme.of(context);
             return AlertDialog(
-              title: const Text('Crossfade Duration'),
+              title: const Text('Track Transition'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
-                    '${duration.toStringAsFixed(1)}s',
-                    style: Theme.of(context).textTheme.headlineSmall,
+                    'Smoothly fades out the ending track and fades in the next track.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    duration <= 0.0
+                        ? 'Disabled (Immediate cut)'
+                        : '${duration.toStringAsFixed(1)}s fade',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Slider(
                     value: duration / 10.0,
+                    divisions: 20,
                     onChanged: (value) {
                       setDialogState(() => duration = value * 10.0);
                     },
@@ -245,7 +263,9 @@ class SettingsDialogs {
                     if (dialogContext.mounted) {
                       showPrismToast(
                         dialogContext,
-                        'Crossfade set to ${duration.toStringAsFixed(1)}s',
+                        duration <= 0
+                            ? 'Track transition disabled'
+                            : 'Track transition set to ${duration.toStringAsFixed(1)}s',
                       );
                       Navigator.pop(dialogContext);
                     }

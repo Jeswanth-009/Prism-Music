@@ -417,9 +417,9 @@ class AudioPlayerService {
     await _player.setSpeed(speed.clamp(0.25, 2.0));
   }
 
-  /// Crossfade transition to a new source by fading out current playback,
+  /// Track transition to a new source by smoothly fading out current playback,
   /// switching source, then fading back in.
-  Future<Duration?> crossfadeTo(
+  Future<Duration?> fadeTransitionTo(
     String url, {
     Map<String, String>? headers,
     String? videoId,
@@ -434,49 +434,85 @@ class AudioPlayerService {
     if (!_initialized) return null;
 
     final initialVolume = _player.volume;
-    final fadeMs = duration.inMilliseconds.clamp(0, 10000);
-    final steps = math.max(1, math.min(16, fadeMs ~/ 100));
+    final totalFadeMs = duration.inMilliseconds.clamp(0, 10000);
+    // Split fade duration equally between fade out and fade in
+    final halfFadeMs = totalFadeMs ~/ 2;
+    final steps = math.max(1, math.min(16, halfFadeMs ~/ 50));
     final stepDuration = Duration(
-      milliseconds: steps == 0 ? 0 : fadeMs ~/ steps,
+      milliseconds: steps == 0 ? 0 : halfFadeMs ~/ steps,
     );
 
-    if (_player.playing && fadeMs > 0) {
-      for (int i = steps; i >= 1; i--) {
-        await _player.setVolume((initialVolume * i / steps).clamp(0.0, 1.0));
-        await Future<void>.delayed(stepDuration);
+    try {
+      if (_player.playing && halfFadeMs > 0) {
+        for (int i = steps; i >= 1; i--) {
+          final factor = i / steps;
+          // Perceptually smooth quadratic loudness curve
+          final v = (initialVolume * factor * factor).clamp(0.0, 1.0);
+          await _player.setVolume(v);
+          await Future<void>.delayed(stepDuration);
+        }
+        await _player.setVolume(0.0);
       }
-    }
 
-    final d = await setUrl(
-      url,
-      headers: headers,
-      videoId: videoId,
-      quality: quality,
-      title: title,
-      artist: artist,
-      album: album,
-      artworkUrl: artworkUrl,
-      mediaDuration: mediaDuration,
-    );
+      final d = await setUrl(
+        url,
+        headers: headers,
+        videoId: videoId,
+        quality: quality,
+        title: title,
+        artist: artist,
+        album: album,
+        artworkUrl: artworkUrl,
+        mediaDuration: mediaDuration,
+      );
 
-    if (d == null) {
-      await _player.setVolume(initialVolume);
-      return null;
-    }
-
-    unawaited(play());
-
-    if (fadeMs > 0) {
-      for (int i = 1; i <= steps; i++) {
-        await _player.setVolume((initialVolume * i / steps).clamp(0.0, 1.0));
-        await Future<void>.delayed(stepDuration);
+      if (d == null) {
+        await _player.setVolume(initialVolume);
+        return null;
       }
-    } else {
-      await _player.setVolume(initialVolume);
-    }
 
-    return d;
+      unawaited(play());
+
+      if (halfFadeMs > 0) {
+        for (int i = 1; i <= steps; i++) {
+          final factor = i / steps;
+          final v = (initialVolume * factor * factor).clamp(0.0, 1.0);
+          await _player.setVolume(v);
+          await Future<void>.delayed(stepDuration);
+        }
+      }
+      await _player.setVolume(initialVolume);
+      return d;
+    } catch (_) {
+      await _player.setVolume(initialVolume);
+      rethrow;
+    }
   }
+
+  /// Alias for [fadeTransitionTo] for backward compatibility.
+  Future<Duration?> crossfadeTo(
+    String url, {
+    Map<String, String>? headers,
+    String? videoId,
+    String quality = 'high',
+    String? title,
+    String? artist,
+    String? album,
+    String? artworkUrl,
+    Duration? mediaDuration,
+    Duration duration = const Duration(seconds: 2),
+  }) => fadeTransitionTo(
+    url,
+    headers: headers,
+    videoId: videoId,
+    quality: quality,
+    title: title,
+    artist: artist,
+    album: album,
+    artworkUrl: artworkUrl,
+    mediaDuration: mediaDuration,
+    duration: duration,
+  );
 
   /// Add a song to the end of the playlist queue
   Future<void> addToQueue(

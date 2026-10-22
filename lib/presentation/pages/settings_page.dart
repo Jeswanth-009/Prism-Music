@@ -533,13 +533,13 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ),
         SettingRow(
-          leading: const Icon(Icons.timer_outlined),
-          title: 'Crossfade Duration',
+          leading: const Icon(Icons.tune_rounded),
+          title: 'Track Transition (Fade Out / In)',
           subtitle: _settingsService.crossfadeDuration <= 0
-              ? 'Off — smooth transitions between songs'
-              : 'Currently ${_settingsService.crossfadeDuration.toStringAsFixed(1)}s',
+              ? 'Off — seamless cut between songs'
+              : 'Currently ${_settingsService.crossfadeDuration.toStringAsFixed(1)}s (fade out & in)',
           onTap: () async {
-            await SettingsDialogs.showCrossfadeDialog(context);
+            await SettingsDialogs.showTrackTransitionDialog(context);
             _forceRebuild();
           },
         ),
