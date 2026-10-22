@@ -639,19 +639,69 @@ class LocalDataSourceImpl implements LocalDataSource {
     return songs;
   }
 
+  static const int maxHistoryEntries = 1000;
+  static const Duration maxHistoryRetention = Duration(days: 90);
+
   @override
   Future<void> addToHistory(Song song) async {
     final box = await _getHistoryBox();
-    final key = '${DateTime.now().millisecondsSinceEpoch}_${song.playableId}';
+    final now = DateTime.now();
+    final nowMs = now.millisecondsSinceEpoch;
+
+    // Deduplicate if identical song recorded within 15 seconds (anti-spam)
+    if (box.isNotEmpty) {
+      final keys = box.keys.toList()
+        ..sort((a, b) => b.toString().compareTo(a.toString()));
+      final latestKey = keys.first.toString();
+      final parts = latestKey.split('_');
+      if (parts.length >= 2) {
+        final lastTs = int.tryParse(parts[0]);
+        final lastId = parts.sublist(1).join('_');
+        if (lastId == song.playableId &&
+            lastTs != null &&
+            (nowMs - lastTs) < 15000) {
+          return;
+        }
+      }
+    }
+
+    final key = '${nowMs}_${song.playableId}';
     await box.put(key, _songToMap(song));
     _triggerBackup();
-    // Cap history at 500 entries
-    if (box.length > 500) {
-      final allKeys = box.keys.toList()..sort((a, b) => a.toString().compareTo(b.toString()));
-      final toRemove = allKeys.sublist(0, box.length - 500);
-      for (final k in toRemove) {
-        await box.delete(k);
+
+    // Enforce consistent retention: prune entries older than 90 days and cap at 1000 entries
+    await _pruneHistoryBox(box);
+  }
+
+  Future<void> _pruneHistoryBox(Box<dynamic> box) async {
+    final cutoff =
+        DateTime.now().subtract(maxHistoryRetention).millisecondsSinceEpoch;
+    final keys = box.keys.toList()
+      ..sort((a, b) => a.toString().compareTo(b.toString()));
+    final toDelete = <dynamic>[];
+
+    for (final k in keys) {
+      final ts = int.tryParse(k.toString().split('_').first);
+      if (ts != null && ts < cutoff) {
+        toDelete.add(k);
       }
+    }
+
+    final remaining = keys.length - toDelete.length;
+    if (remaining > maxHistoryEntries) {
+      final excess = remaining - maxHistoryEntries;
+      var added = 0;
+      for (final k in keys) {
+        if (!toDelete.contains(k)) {
+          toDelete.add(k);
+          added++;
+          if (added >= excess) break;
+        }
+      }
+    }
+
+    for (final k in toDelete) {
+      await box.delete(k);
     }
   }
 

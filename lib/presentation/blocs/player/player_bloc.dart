@@ -52,6 +52,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   // Scrobbling tracking
   bool _hasScrobbled = false;
   bool _hasUpdatedNowPlaying = false;
+  bool _hasRecordedHistory = false;
+  String? _lastRecordedSongId;
+  DateTime? _lastRecordedTime;
   AppLifecycleState _lastLifecycleState = AppLifecycleState.resumed;
   int _consecutiveFailureSkips = 0;
   final Set<String> _attemptedFreshResolutions = {};
@@ -399,9 +402,10 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     _lastRecommendationSongId =
         null; // allow fresh recommendations for new track or queue
 
-    // Reset scrobbling flags for new song
+    // Reset scrobbling and history recording flags for new song
     _hasScrobbled = false;
     _hasUpdatedNowPlaying = false;
+    _hasRecordedHistory = false;
 
     try {
       _refreshRuntimeSettings();
@@ -636,6 +640,38 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         artist: song.artist,
         album: song.album ?? '',
       );
+    }
+  }
+
+  Future<void> _attemptRecordListeningSession(
+    Song song,
+    Duration position,
+    Duration duration,
+  ) async {
+    if (_hasRecordedHistory) return;
+
+    // Minimum listening threshold: played for >= 30 seconds, or >= 50% of track length, or >= 4 minutes
+    final posSec = position.inSeconds;
+    final durSec = duration.inSeconds;
+    final eligible = posSec >= 30 ||
+        (durSec > 0 && posSec >= (durSec * 0.5)) ||
+        posSec >= 240;
+
+    if (eligible) {
+      final now = DateTime.now();
+      // Spam play deduplication: skip if the same song was already recorded within the last 30s
+      if (_lastRecordedSongId == song.playableId &&
+          _lastRecordedTime != null &&
+          now.difference(_lastRecordedTime!).inSeconds < 30) {
+        _hasRecordedHistory = true;
+        return;
+      }
+
+      _hasRecordedHistory = true;
+      _lastRecordedSongId = song.playableId;
+      _lastRecordedTime = now;
+      unawaited(_libraryRepository.addToHistory(song));
+      _recommendationService?.recordPlay(song);
     }
   }
 
@@ -1114,10 +1150,17 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       return;
     }
 
-    // Attempt scrobbling if conditions are met
+    // Attempt scrobbling and record listening session when duration thresholds are met
     final currentSong = state.currentSong;
-    if (currentSong != null && state.duration.inSeconds > 0) {
-      _attemptScrobble(currentSong, event.position, state.duration);
+    if (currentSong != null) {
+      if (state.duration.inSeconds > 0) {
+        _attemptScrobble(currentSong, event.position, state.duration);
+      }
+      _attemptRecordListeningSession(
+        currentSong,
+        event.position,
+        state.duration,
+      );
     }
 
     // Check if we need to add recommendations (when less than 5 songs remaining)
@@ -1173,6 +1216,14 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   }
 
   void _onCompleted(_CompletedEvent event, Emitter<PlayerState> emit) async {
+    if (!_hasRecordedHistory && state.currentSong != null) {
+      _hasRecordedHistory = true;
+      _lastRecordedSongId = state.currentSong!.playableId;
+      _lastRecordedTime = DateTime.now();
+      unawaited(_libraryRepository.addToHistory(state.currentSong!));
+      _recommendationService?.recordPlay(state.currentSong!);
+    }
+
     if (state.sleepTimerEndOfTrack) {
       _log('PlayerBloc: End-of-track sleep timer triggered on track completed');
       _sleepTimer?.cancel();
@@ -1678,9 +1729,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     );
 
     // Update now playing and prefetch ahead.
-    _updateNowPlaying(newSong);
-    _prefetchAhead(state.queue, newIndex);
-
+    _hasScrobbled = false;
+    _hasUpdatedNowPlaying = false;
+    _hasRecordedHistory = false;
     // Add to history in background.
     _libraryRepository.addToHistory(newSong);
     _recommendationService?.recordPlay(newSong);
