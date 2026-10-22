@@ -8,6 +8,36 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.43] - 2026-10-22
+
+### Added
+
+- Expand backup management with import, export, status, and deletion controls
+- Provide accurate cache accounting and granular storage cleanup
+- Add interactive unmatched-track reconciliation and visible import cancellation dialog
+- Support full remote playlist pagination and infinite scroll loading
+- Implement download retry, cancellation notifications, and storage state reconciliation
+- Add user-configurable secure credentials, validation tests, and disabled states
+- Accurately represent audio transition with smooth fade curves and settings alignment
+- Implement selectable Classic and Modern player layouts in PlayerPage
+- Persist favorite artists in local storage with reactive library synchronization
+- Implement search pagination and incremental result loading in SearchBloc
+
+### Fixed
+
+- Preserve active Hive database and lock files during cache cleanup
+- Resolve static analysis warnings and unused declarations
+- Improve accessibility with touch targets, text scaling, and theme contrast
+- Align listening session metrics and enforce consistent history retention
+- Enforce persistent mini-player across all collection and detail routes
+- Enforce true end-of-track sleep timer stopping and update timer UI indicators
+- Bind native equalizer and audio session on playback initiation and persist presets
+- Persist layout mode in SettingsService and unify settings ownership
+
+### Changed
+
+- Update search mock signature and refresh golden baselines for mini-player
+
 ## [0.2.42] - 2026-10-21
 
 ### Added
@@ -736,3 +766,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.40]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.40-build76
 [0.2.41]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.41-build77
 [0.2.42]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.42-build78
+[0.2.43]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.43-build79
