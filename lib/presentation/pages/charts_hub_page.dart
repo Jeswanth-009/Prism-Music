@@ -4,12 +4,15 @@ import '../../core/services/chart_service.dart';
 import '../../core/services/settings_service.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/common/bouncing_tap_widget.dart';
+import '../widgets/player/mini_player.dart';
 import '../widgets/prism/prism_chart_chip.dart';
 import 'chart_page.dart';
 
 /// Charts hub: available charts per region as rich, tappable cards.
 class ChartsHubPage extends StatefulWidget {
-  const ChartsHubPage({super.key});
+  final bool embedded;
+
+  const ChartsHubPage({super.key, this.embedded = false});
 
   @override
   State<ChartsHubPage> createState() => _ChartsHubPageState();
@@ -27,7 +30,7 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
     final theme = Theme.of(context);
     final spec = context.prismSpec;
 
-    return SafeArea(
+    final body = SafeArea(
       bottom: false,
       child: CustomScrollView(
         key: const PageStorageKey('charts_hub'),
@@ -177,6 +180,23 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
           ),
         ],
       ),
+    );
+
+    if (widget.embedded) {
+      return body;
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Charts'),
+        leading: IconButton(
+          tooltip: 'Back',
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+      ),
+      bottomNavigationBar: const PrismPersistentMiniPlayer(),
+      body: body,
     );
   }
 }

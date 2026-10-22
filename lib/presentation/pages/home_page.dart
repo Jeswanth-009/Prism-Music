@@ -27,7 +27,7 @@ class HomePage extends StatefulWidget {
   static final List<WidgetBuilder> defaultTabBuilders = [
     (_) => const HomeTab(),
     (_) => const SearchPage(embedded: true),
-    (_) => const ChartsHubPage(),
+    (_) => const ChartsHubPage(embedded: true),
     (_) => const LibraryTab(),
   ];
 

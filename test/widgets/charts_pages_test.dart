@@ -6,6 +6,7 @@ import 'package:prism_music/domain/repositories/music_repository.dart';
 import 'package:prism_music/presentation/blocs/player/player_bloc.dart';
 import 'package:prism_music/presentation/pages/chart_page.dart';
 import 'package:prism_music/presentation/pages/charts_hub_page.dart';
+import 'package:prism_music/presentation/widgets/player/mini_player.dart';
 import 'package:prism_music/presentation/widgets/prism/prism_states.dart';
 
 import '../helpers/fakes.dart';
@@ -48,6 +49,17 @@ void main() {
 
     // Default country is US before any settings are configured.
     expect(find.text('United States'), findsOneWidget);
+  });
+
+  testWidgets('hub standalone renders persistent mini player scaffold',
+      (tester) async {
+    await tester.pumpWidget(wrapForTests(
+      const ChartsHubPage(embedded: false),
+      playerBloc: playerBloc,
+    ));
+    await tester.pump();
+
+    expect(find.byType(PrismPersistentMiniPlayer), findsOneWidget);
   });
 
   testWidgets('chart page shows the error state when fetch fails',
