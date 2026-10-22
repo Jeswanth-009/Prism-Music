@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:prism_music/core/services/local_backup_service.dart';
 
 void main() {
@@ -13,7 +15,10 @@ void main() {
   });
 
   tearDown(() async {
-    await tempDir.delete(recursive: true);
+    await Hive.close();
+    try {
+      await tempDir.delete(recursive: true);
+    } catch (_) {}
   });
 
   Map<String, dynamic> payload({
@@ -37,18 +42,25 @@ void main() {
   }
 
   group('validateRestoredPayload', () {
-    test('accepts a well-formed v1 payload', () {
-      final result = LocalBackupService.validateRestoredPayload(
-        payload(),
+    test('accepts a well-formed v1 and v2 payload', () {
+      final v1Result = LocalBackupService.validateRestoredPayload(
+        payload(version: 1),
         downloadRoots: [ownedRoot.path],
       );
-      expect(result, isNotNull);
-      expect(result!['liked_songs']!['song_1']!['title'], 'Song One');
+      expect(v1Result, isNotNull);
+      expect(v1Result!['liked_songs']!['song_1']!['title'], 'Song One');
+
+      final v2Result = LocalBackupService.validateRestoredPayload(
+        payload(version: 2),
+        downloadRoots: [ownedRoot.path],
+      );
+      expect(v2Result, isNotNull);
+      expect(v2Result!['liked_songs']!['song_1']!['title'], 'Song One');
     });
 
     test('rejects wrong or missing version', () {
       expect(
-        LocalBackupService.validateRestoredPayload(payload(version: 2)),
+        LocalBackupService.validateRestoredPayload(payload(version: 3)),
         isNull,
       );
       expect(
@@ -248,6 +260,132 @@ void main() {
       await invalidFile.writeAsString('not a json content');
       final result = await LocalBackupService.instance.importBackupFromFile(invalidFile);
       expect(result.isSuccess, isFalse);
+    });
+  });
+
+  group('inspectBackupFile', () {
+    test('returns null when file does not exist', () async {
+      final nonExistent = File('${tempDir.path}/non_existent.json');
+      final info = await LocalBackupService.instance.inspectBackupFile(nonExistent);
+      expect(info, isNull);
+    });
+
+    test('returns null when file contains corrupted content', () async {
+      final corrupt = File('${tempDir.path}/corrupt.json');
+      await corrupt.writeAsString('{not valid json}');
+      final info = await LocalBackupService.instance.inspectBackupFile(corrupt);
+      expect(info, isNull);
+    });
+
+    test('returns BackupSnapshotInfo for valid v2 backup', () async {
+      final valid = File('${tempDir.path}/valid_backup.json');
+      final content = {
+        'version': 2,
+        'format': 'prism_portable_backup_v2',
+        'backedUpAt': '2026-10-22T10:00:00.000Z',
+        'boxes': {
+          'liked_songs': {
+            'song_1': {'id': 'song_1', 'title': 'Test Song'},
+          },
+          'playlists': {
+            'pl_1': {
+              'id': 'pl_1',
+              'name': 'Favorites',
+              'songs': [
+                {'id': 'song_1', 'title': 'Test Song', 'durationMs': 180000},
+              ],
+            },
+          },
+        },
+      };
+      await valid.writeAsString(jsonEncode(content));
+
+      final info = await LocalBackupService.instance.inspectBackupFile(valid);
+      expect(info, isNotNull);
+      expect(info!.totalItems, 2);
+      expect(info.boxCounts['liked_songs'], 1);
+      expect(info.boxCounts['playlists'], 1);
+    });
+  });
+
+  group('mergeBackupFromFile', () {
+    test('reconciles playlists without duplicate tracks and merges likes', () async {
+      Hive.init('${tempDir.path}/hive_data');
+
+      // Pre-populate Hive with existing library state
+      final likedBox = await Hive.openBox('liked_songs');
+      await likedBox.put('song_existing', {'id': 'song_existing', 'title': 'Existing Song'});
+
+      final playlistBox = await Hive.openBox('playlists');
+      await playlistBox.put('pl_common', {
+        'id': 'pl_common',
+        'name': 'My Playlist',
+        'songs': [
+          {'id': 'song_existing', 'title': 'Existing Song', 'durationMs': 120000},
+        ],
+        'trackCount': 1,
+        'totalDurationMs': 120000,
+      });
+
+      final historyBox = await Hive.openBox('listening_history');
+      await historyBox.put('song_existing', {
+        'id': 'song_existing',
+        'playCount': 3,
+        'playedAt': '2026-10-20T10:00:00.000Z',
+      });
+
+      // Prepare backup file to merge
+      final mergeFile = File('${tempDir.path}/to_merge.json');
+      final mergeContent = {
+        'version': 2,
+        'format': 'prism_portable_backup_v2',
+        'backedUpAt': '2026-10-22T12:00:00.000Z',
+        'boxes': {
+          'liked_songs': {
+            'song_existing': {'id': 'song_existing', 'title': 'Existing Song'},
+            'song_new': {'id': 'song_new', 'title': 'New Song'},
+          },
+          'playlists': {
+            'pl_common': {
+              'id': 'pl_common',
+              'name': 'My Playlist',
+              'songs': [
+                {'id': 'song_existing', 'title': 'Existing Song', 'durationMs': 120000},
+                {'id': 'song_new', 'title': 'New Song', 'durationMs': 180000},
+              ],
+            },
+          },
+          'listening_history': {
+            'song_existing': {
+              'id': 'song_existing',
+              'playCount': 5,
+              'playedAt': '2026-10-22T08:00:00.000Z',
+            },
+          },
+        },
+      };
+      await mergeFile.writeAsString(jsonEncode(mergeContent));
+
+      final result = await LocalBackupService.instance.mergeBackupFromFile(mergeFile);
+      expect(result.isSuccess, isTrue);
+
+      // Verify liked songs: has both existing and new
+      expect(likedBox.containsKey('song_existing'), isTrue);
+      expect(likedBox.containsKey('song_new'), isTrue);
+      expect(likedBox.length, 2);
+
+      // Verify playlist: merged tracks without duplicate, updated count & duration
+      final updatedPlaylist = Map<String, dynamic>.from(playlistBox.get('pl_common') as Map);
+      final songs = (updatedPlaylist['songs'] as List).cast<Map>();
+      expect(songs.length, 2);
+      expect(songs.map((s) => s['id']), containsAll(['song_existing', 'song_new']));
+      expect(updatedPlaylist['trackCount'], 2);
+      expect(updatedPlaylist['totalDurationMs'], 300000);
+
+      // Verify history: playCounts summed, playedAt updated to newer
+      final updatedHistory = Map<String, dynamic>.from(historyBox.get('song_existing') as Map);
+      expect(updatedHistory['playCount'], 8);
+      expect(updatedHistory['playedAt'], '2026-10-22T08:00:00.000Z');
     });
   });
 }

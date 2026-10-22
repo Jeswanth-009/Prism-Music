@@ -21,8 +21,6 @@ import '../blocs/theme/theme_bloc.dart';
 import '../blocs/theme/theme_event.dart';
 import '../blocs/theme/theme_state.dart';
 import '../blocs/player/player_bloc.dart';
-import '../blocs/library/library_bloc.dart';
-import '../blocs/library/library_event.dart';
 import '../blocs/player/player_state.dart';
 
 import 'downloads_page.dart';
@@ -32,6 +30,7 @@ import '../widgets/prism/prism_artwork.dart';
 import '../widgets/prism/prism_dialog.dart';
 import '../widgets/prism/prism_sheet.dart';
 import '../widgets/settings/about_diagnostics_sheet.dart';
+import '../widgets/settings/portable_backup_sheet.dart';
 import '../widgets/settings/setting_row.dart';
 import '../widgets/settings/setting_section_card.dart';
 import '../widgets/settings/country_selection_sheet.dart';
@@ -109,38 +108,6 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) setState(() => _latestBackupInfo = info);
   }
 
-  void _confirmAndRestoreBackup() {
-    final info = _latestBackupInfo;
-    final message = info != null
-        ? 'Restore backup from ${_formatBackupDate(info.timestamp)}?\n'
-            'This will restore ${info.totalItems} items across ${info.boxCounts.length} sections into your library.'
-        : 'Restore library, playlists, and listening history from the latest device backup file?';
-
-    showPrismConfirmDialog(
-      context: context,
-      title: 'Restore Backup',
-      message: message,
-      confirmLabel: 'Restore',
-      onConfirm: () async {
-        final result = await LocalBackupService.instance.restoreFromBackup();
-        if (!mounted) return;
-        if (result.isSuccess) {
-          context.read<LibraryBloc>().add(const LoadLibraryEvent());
-          showPrismToast(
-            context,
-            'Restored ${result.totalRestored} items from backup',
-          );
-          await _refreshBackupInfo();
-        } else {
-          showPrismToast(
-            context,
-            'Restore failed: ${result.error ?? 'unknown error'}',
-          );
-        }
-      },
-    );
-  }
-
   Future<void> _exportBackup() async {
     final file = await LocalBackupService.instance.getBackupFileForExport();
     if (!mounted) return;
@@ -162,73 +129,6 @@ class _SettingsPageState extends State<SettingsPage> {
         showPrismToast(context, 'Export failed: $e');
       }
     }
-  }
-
-  void _showImportBackupDialog() {
-    final controller = TextEditingController();
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Import Backup'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Enter the path to a valid Prism Music backup JSON file, or restore directly from the latest device backup.',
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                decoration: const InputDecoration(
-                  labelText: 'Backup file path',
-                  hintText: '/path/to/library_backup.json',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
-            if (_latestBackupInfo != null)
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(dialogContext);
-                  _confirmAndRestoreBackup();
-                },
-                child: const Text('Restore Latest'),
-              ),
-            FilledButton(
-              onPressed: () async {
-                final path = controller.text.trim();
-                if (path.isEmpty) {
-                  showPrismToast(dialogContext, 'Please provide a file path');
-                  return;
-                }
-                final file = File(path);
-                final res = await LocalBackupService.instance.importBackupFromFile(file);
-                if (!dialogContext.mounted) return;
-                Navigator.pop(dialogContext);
-                if (!mounted) return;
-                if (res.isSuccess) {
-                  context.read<LibraryBloc>().add(const LoadLibraryEvent());
-                  showPrismToast(context, 'Imported ${res.totalRestored} items from backup');
-                  await _refreshBackupInfo();
-                } else {
-                  showPrismToast(context, 'Import failed: ${res.error ?? 'unknown error'}');
-                }
-              },
-              child: const Text('Import Path'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   void _confirmAndDeleteBackup() {
@@ -879,10 +779,10 @@ class _SettingsPageState extends State<SettingsPage> {
           onTap: _exportBackup,
         ),
         SettingRow(
-          leading: const Icon(Icons.file_download_outlined),
-          title: 'Import backup',
-          subtitle: 'Restore from file path or latest backup',
-          onTap: _showImportBackupDialog,
+          leading: const Icon(Icons.settings_backup_restore_rounded),
+          title: 'Portable Backup & Restore',
+          subtitle: 'Export, inspect, merge or restore library backups',
+          onTap: () => showPortableBackupSheet(context, onBackupChanged: _refreshBackupInfo),
         ),
         SettingRow(
           leading: Icon(

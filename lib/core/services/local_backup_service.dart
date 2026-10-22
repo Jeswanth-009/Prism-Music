@@ -85,8 +85,8 @@ class LocalBackupService {
     'downloads',
   ];
 
-  /// Backup schema version written by this build; restore refuses others.
-  static const int _version = 1;
+  /// Backup schema version written by this build; restore supports v1 and v2.
+  static const int _version = 2;
 
   /// Restore refuses files larger than this before decoding them.
   static const int _maxBackupBytes = 50 * 1024 * 1024;
@@ -195,6 +195,7 @@ class LocalBackupService {
     try {
       final Map<String, dynamic> payload = <String, dynamic>{
         'version': _version,
+        'format': 'prism_portable_backup_v2',
         'backedUpAt': now.toIso8601String(),
         'boxes': <String, dynamic>{},
       };
@@ -215,6 +216,9 @@ class LocalBackupService {
           // Skip boxes that fail to open; keep the rest.
         }
       }
+
+      payload['boxCounts'] = boxCounts;
+      payload['totalItems'] = boxCounts.values.fold<int>(0, (sum, count) => sum + count);
 
       final String encoded = jsonEncode(payload);
       final List<File> targets = <File>[];
@@ -418,6 +422,241 @@ class LocalBackupService {
     return candidates.first;
   }
 
+  /// Exports a timestamped portable JSON backup file suitable for user sharing/saving.
+  Future<File?> exportPortableBackup() async {
+    final res = await backup();
+    if (!res.isSuccess) return null;
+    final file = await getBackupFileForExport();
+    if (file == null || !await file.exists()) return null;
+
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final now = DateTime.now();
+      final formattedDate =
+          '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_'
+          '${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
+      final targetPath = '${tempDir.path}/prism_backup_$formattedDate.json';
+      final targetFile = File(targetPath);
+      await file.copy(targetFile.path);
+      return targetFile;
+    } catch (e) {
+      logError('Failed to create portable backup file: $e');
+      return file;
+    }
+  }
+
+  /// Inspects any arbitrary backup file candidate on disk without modifying Hive.
+  Future<BackupSnapshotInfo?> inspectBackupFile(File file) async {
+    try {
+      if (!await file.exists()) return null;
+      final length = await file.length();
+      if (length > _maxBackupBytes) return null;
+
+      final dynamic payload = jsonDecode(await file.readAsString());
+      if (payload is! Map<String, dynamic>) return null;
+
+      final downloadRoots = await DownloadPathGuard.allowedRoots();
+      final boxes = validateRestoredPayload(payload, downloadRoots: downloadRoots);
+      if (boxes == null) return null;
+
+      final backedUpAtStr = payload['backedUpAt']?.toString();
+      final DateTime backupTime = backedUpAtStr != null
+          ? (DateTime.tryParse(backedUpAtStr) ?? await file.lastModified())
+          : await file.lastModified();
+
+      final counts = <String, int>{};
+      for (final entry in boxes.entries) {
+        counts[entry.key] = entry.value.length;
+      }
+
+      return BackupSnapshotInfo(
+        timestamp: backupTime,
+        fileSizeBytes: length,
+        boxCounts: counts,
+        filePath: file.path,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Imports and merges user data from a backup file into existing boxes.
+  /// Unlike [importBackupFromFile] with overwrite=true which wipes existing data,
+  /// [mergeBackupFromFile] performs granular reconciliation:
+  /// - Playlists: merges tracks into existing playlists with identical title or ID,
+  ///   or restores missing playlists preserving original identity.
+  /// - Liked songs: retains existing likes and merges restored non-duplicate likes.
+  /// - History: adds missing plays or updates playCount and timestamp.
+  /// - Downloads: validates that localPath exists on disk before keeping.
+  Future<RestoreResult> mergeBackupFromFile(File file) async {
+    try {
+      if (!await file.exists()) {
+        return const RestoreResult(
+          isSuccess: false,
+          error: 'Specified backup file does not exist',
+        );
+      }
+
+      if (await file.length() > _maxBackupBytes) {
+        return const RestoreResult(
+          isSuccess: false,
+          error: 'Backup file exceeds maximum allowed size (50MB)',
+        );
+      }
+
+      final dynamic payload = jsonDecode(await file.readAsString());
+      if (payload is! Map<String, dynamic>) {
+        return const RestoreResult(
+          isSuccess: false,
+          error: 'Backup file does not contain valid JSON metadata',
+        );
+      }
+
+      final downloadRoots = await DownloadPathGuard.allowedRoots();
+      final boxes = validateRestoredPayload(payload, downloadRoots: downloadRoots);
+      if (boxes == null) {
+        return const RestoreResult(
+          isSuccess: false,
+          error: 'Backup format is incompatible or contains corrupted entries',
+        );
+      }
+
+      final backedUpAtStr = payload['backedUpAt']?.toString();
+      final DateTime backupTime = backedUpAtStr != null
+          ? (DateTime.tryParse(backedUpAtStr) ?? await file.lastModified())
+          : await file.lastModified();
+
+      final restoredCounts = <String, int>{};
+
+      for (final String name in _boxes) {
+        final Map<String, dynamic>? entries = boxes[name];
+        if (entries == null || entries.isEmpty) continue;
+
+        final Box<dynamic> box = await Hive.openBox(name);
+        int mergedInBox = 0;
+
+        if (name == 'playlists') {
+          for (final MapEntry<String, dynamic> entry in entries.entries) {
+            final restoredPlaylistMap = Map<String, dynamic>.from(entry.value as Map);
+            final existingRaw = box.get(entry.key);
+            if (existingRaw == null) {
+              // Try to find if a playlist with the exact same name exists
+              String? matchingKey;
+              for (final dynamic key in box.keys) {
+                final cur = box.get(key);
+                if (cur is Map && cur['name'] == restoredPlaylistMap['name']) {
+                  matchingKey = key.toString();
+                  break;
+                }
+              }
+
+              if (matchingKey != null) {
+                final curMap = Map<String, dynamic>.from(box.get(matchingKey) as Map);
+                _mergePlaylistSongs(curMap, restoredPlaylistMap);
+                await box.put(matchingKey, curMap);
+              } else {
+                // Restore new playlist with original id
+                await box.put(entry.key, restoredPlaylistMap);
+              }
+              mergedInBox++;
+            } else if (existingRaw is Map) {
+              final existingMap = Map<String, dynamic>.from(existingRaw);
+              _mergePlaylistSongs(existingMap, restoredPlaylistMap);
+              await box.put(entry.key, existingMap);
+              mergedInBox++;
+            }
+          }
+        } else if (name == 'liked_songs' || name == 'search_history') {
+          for (final MapEntry<String, dynamic> entry in entries.entries) {
+            if (!box.containsKey(entry.key)) {
+              await box.put(entry.key, entry.value);
+              mergedInBox++;
+            }
+          }
+        } else if (name == 'listening_history') {
+          for (final MapEntry<String, dynamic> entry in entries.entries) {
+            if (!box.containsKey(entry.key)) {
+              await box.put(entry.key, entry.value);
+              mergedInBox++;
+            } else {
+              final existing = box.get(entry.key);
+              if (existing is Map && entry.value is Map) {
+                final merged = Map<String, dynamic>.from(existing);
+                final restored = Map<String, dynamic>.from(entry.value as Map);
+                final existingCount = (merged['playCount'] as num?)?.toInt() ?? 1;
+                final restoredCount = (restored['playCount'] as num?)?.toInt() ?? 1;
+                merged['playCount'] = existingCount + restoredCount;
+
+                final existingPlayedAt = DateTime.tryParse(merged['playedAt']?.toString() ?? '');
+                final restoredPlayedAt = DateTime.tryParse(restored['playedAt']?.toString() ?? '');
+                if (restoredPlayedAt != null &&
+                    (existingPlayedAt == null || restoredPlayedAt.isAfter(existingPlayedAt))) {
+                  merged['playedAt'] = restoredPlayedAt.toIso8601String();
+                }
+                await box.put(entry.key, merged);
+                mergedInBox++;
+              }
+            }
+          }
+        } else if (name == 'downloads') {
+          for (final MapEntry<String, dynamic> entry in entries.entries) {
+            if (entry.value is Map) {
+              final item = Map<String, dynamic>.from(entry.value as Map);
+              final localPath = item['localPath'] as String?;
+              if (localPath != null && File(localPath).existsSync()) {
+                await box.put(entry.key, item);
+                mergedInBox++;
+              }
+            }
+          }
+        } else {
+          for (final MapEntry<String, dynamic> entry in entries.entries) {
+            if (!box.containsKey(entry.key)) {
+              await box.put(entry.key, entry.value);
+              mergedInBox++;
+            }
+          }
+        }
+
+        restoredCounts[name] = mergedInBox;
+      }
+
+      return RestoreResult(
+        isSuccess: true,
+        backupTimestamp: backupTime,
+        restoredCounts: restoredCounts,
+      );
+    } catch (e) {
+      return RestoreResult(
+        isSuccess: false,
+        error: e.toString(),
+      );
+    }
+  }
+
+  void _mergePlaylistSongs(Map<String, dynamic> target, Map<String, dynamic> source) {
+    final targetSongs =
+        (target['songs'] as List?)?.map((s) => Map<String, dynamic>.from(s as Map)).toList() ?? [];
+    final sourceSongs =
+        (source['songs'] as List?)?.map((s) => Map<String, dynamic>.from(s as Map)).toList() ?? [];
+
+    final existingIds = targetSongs.map((s) => s['id']?.toString()).whereType<String>().toSet();
+    for (final song in sourceSongs) {
+      final songId = song['id']?.toString();
+      if (songId != null && !existingIds.contains(songId)) {
+        targetSongs.add(song);
+        existingIds.add(songId);
+      }
+    }
+    target['songs'] = targetSongs;
+    target['trackCount'] = targetSongs.length;
+    final totalMs = targetSongs.fold<int>(
+      0,
+      (sum, s) => sum + ((s['durationMs'] as num?)?.toInt() ?? 0),
+    );
+    target['totalDurationMs'] = totalMs;
+  }
+
   /// Imports and restores user data from a given backup file.
   Future<RestoreResult> importBackupFromFile(
     File file, {
@@ -578,7 +817,7 @@ class LocalBackupService {
     }
   }
 
-  /// Validates a decoded backup payload against the v1 schema.
+  /// Validates a decoded backup payload against the schema (v1 or v2).
   ///
   /// Returns the normalized box entries eligible for restore, or null when
   /// the payload must be rejected wholesale (wrong version, unexpected
@@ -591,7 +830,7 @@ class LocalBackupService {
     List<String> downloadRoots = const [],
   }) {
     final dynamic version = payload['version'];
-    if (version is! num || version != _version) return null;
+    if (version is! num || (version != 1 && version != 2)) return null;
 
     final dynamic rawBoxes = payload['boxes'];
     if (rawBoxes is! Map || rawBoxes.isEmpty) return null;
