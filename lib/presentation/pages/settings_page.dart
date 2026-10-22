@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide RepeatMode;
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -27,8 +28,10 @@ import '../blocs/player/player_state.dart';
 import 'downloads_page.dart';
 import '../widgets/equalizer/equalizer_bottom_sheet.dart';
 import '../widgets/player/mini_player.dart';
+import '../widgets/prism/prism_artwork.dart';
 import '../widgets/prism/prism_dialog.dart';
 import '../widgets/prism/prism_sheet.dart';
+import '../widgets/settings/about_diagnostics_sheet.dart';
 import '../widgets/settings/setting_row.dart';
 import '../widgets/settings/setting_section_card.dart';
 import '../widgets/settings/country_selection_sheet.dart';
@@ -881,37 +884,75 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _buildAboutSection() {
     return SettingSectionCard(
       title: 'About',
-      subtitle: 'Prism Music information',
+      subtitle: 'Build details, diagnostics, source code & licenses',
       icon: Icons.info_outline_rounded,
       children: [
         SettingRow(
-          leading: const Icon(Icons.smartphone_outlined),
+          leading: const PrismLogoMark(size: 24),
           title: 'Version',
           subtitle: 'Prism Music $_appVersion',
+          trailing: const Icon(Icons.copy_rounded, size: 16),
+          onTap: () {
+            Clipboard.setData(ClipboardData(text: 'Prism Music $_appVersion'));
+            showPrismToast(context, 'Version copied to clipboard');
+          },
         ),
         SettingRow(
           leading: const Icon(Icons.code_rounded),
-          title: 'Open Source',
-          subtitle: 'View on GitHub',
+          title: 'Source Code',
+          subtitle: 'GitHub repository (Jeswanth-009/Prism-Music)',
           trailing: const Icon(Icons.open_in_new_rounded, size: 18),
-          onTap: () async {
-            final url =
-                Uri.parse('https://github.com/Jeswanth-009/Prism-Music');
-            try {
-              final launched = await launchUrl(
-                url,
-                mode: LaunchMode.externalApplication,
-              );
-              if (!launched && mounted) {
-                showPrismToast(context, 'Could not open the browser');
-              }
-            } catch (_) {
-              if (mounted) showPrismToast(context, 'Could not open the browser');
-            }
+          onTap: () => _openUrl('https://github.com/Jeswanth-009/Prism-Music'),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.bug_report_outlined),
+          title: 'Support & Issues',
+          subtitle: 'Report a bug or suggest improvements',
+          trailing: const Icon(Icons.open_in_new_rounded, size: 18),
+          onTap: () => _openUrl('https://github.com/Jeswanth-009/Prism-Music/issues'),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.description_outlined),
+          title: 'Open Source Licenses',
+          subtitle: 'Third-party libraries & license texts',
+          trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+          onTap: () {
+            showLicensePage(
+              context: context,
+              applicationName: 'Prism Music',
+              applicationVersion: _appVersion,
+              applicationIcon: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: PrismLogoMark(size: 54),
+              ),
+              applicationLegalese: 'Crafted with precision for private, offline-first music listening.',
+            );
           },
+        ),
+        SettingRow(
+          leading: const Icon(Icons.terminal_rounded),
+          title: 'Diagnostics & System Info',
+          subtitle: 'Platform, audio engine, cache & backup details',
+          trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+          onTap: () => showPrismDiagnosticsSheet(context),
         ),
       ],
     );
+  }
+
+  Future<void> _openUrl(String urlString) async {
+    final url = Uri.parse(urlString);
+    try {
+      final launched = await launchUrl(
+        url,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && mounted) {
+        showPrismToast(context, 'Could not open the browser');
+      }
+    } catch (_) {
+      if (mounted) showPrismToast(context, 'Could not open the browser');
+    }
   }
 }
 
