@@ -19,7 +19,6 @@ import '../widgets/prism/prism_states.dart';
 import 'album_page.dart';
 import 'artist_page.dart';
 import 'remote_playlist_page.dart';
-import '../widgets/player/mini_player.dart';
 
 /// Search: filter chips, full-bleed results, genre/vibe discovery.
 class SearchPage extends StatefulWidget {
