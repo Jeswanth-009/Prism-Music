@@ -57,6 +57,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
 
   Future<void> _loadDownloads() async {
     setState(() => _isLoading = true);
+    await _downloadService.reconcileStorageState();
     final songs = _downloadService.getAllDownloadedSongs();
     final size = await _downloadService.getTotalDownloadSize();
 
@@ -67,6 +68,19 @@ class _DownloadsPageState extends State<DownloadsPage> {
         _isLoading = false;
       });
     }
+  }
+
+  void _retryDownload(DownloadInfo info) {
+    final song = Song(
+      id: info.songId,
+      title: info.songTitle ?? 'Unknown',
+      artist: info.artist ?? 'Unknown Artist',
+      duration: Duration.zero,
+      thumbnails: info.thumbnailUrl != null
+          ? Thumbnails.fromUrl(info.thumbnailUrl!)
+          : Thumbnails.empty(),
+    );
+    _downloadService.retryDownload(song);
   }
 
   Future<void> _deleteSong(String songId, String title) async {
@@ -255,12 +269,24 @@ class _DownloadsPageState extends State<DownloadsPage> {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  IconButton(
-                                    icon: const Icon(Icons.close_rounded,
-                                        size: 18),
-                                    tooltip: 'Cancel',
-                                    onPressed: () => _downloadService
-                                        .cancelDownload(info.songId),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (isFailed)
+                                        IconButton(
+                                          icon: const Icon(Icons.refresh_rounded,
+                                              size: 18),
+                                          tooltip: 'Retry',
+                                          onPressed: () => _retryDownload(info),
+                                        ),
+                                      IconButton(
+                                        icon: const Icon(Icons.close_rounded,
+                                            size: 18),
+                                        tooltip: isFailed ? 'Dismiss' : 'Cancel',
+                                        onPressed: () => _downloadService
+                                            .cancelDownload(info.songId),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
