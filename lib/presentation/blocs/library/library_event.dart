@@ -208,3 +208,18 @@ class SavePlaylistEvent extends LibraryEvent {
   List<Object?> get props => [playlist];
 }
 
+/// Toggle favorite status for an artist
+class ToggleFavoriteArtistEvent extends LibraryEvent {
+  final Artist artist;
+
+  const ToggleFavoriteArtistEvent(this.artist);
+
+  @override
+  List<Object?> get props => [artist];
+}
+
+/// Load favorite artists from storage
+class LoadFavoriteArtistsEvent extends LibraryEvent {
+  const LoadFavoriteArtistsEvent();
+}
+

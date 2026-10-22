@@ -59,6 +59,49 @@ class LibraryRepositoryImpl implements LibraryRepository {
     return _localDataSource.isSongLiked(songId);
   }
 
+  // ============ FAVORITE ARTISTS ============
+
+  @override
+  Future<Either<Failure, List<Artist>>> getFavoriteArtists() async {
+    try {
+      final artists = await _localDataSource.getFavoriteArtists();
+      return Right(artists);
+    } on CacheException catch (e) {
+      return Left(CacheFailure(message: e.message));
+    } catch (e) {
+      return Left(UnknownFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> saveFavoriteArtist(Artist artist) async {
+    try {
+      await _localDataSource.saveFavoriteArtist(artist);
+      return const Right(null);
+    } on CacheException catch (e) {
+      return Left(CacheFailure(message: e.message));
+    } catch (e) {
+      return Left(UnknownFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> removeFavoriteArtist(String artistId) async {
+    try {
+      await _localDataSource.removeFavoriteArtist(artistId);
+      return const Right(null);
+    } on CacheException catch (e) {
+      return Left(CacheFailure(message: e.message));
+    } catch (e) {
+      return Left(UnknownFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<bool> isArtistFavorite(String artistId) async {
+    return _localDataSource.isArtistFavorite(artistId);
+  }
+
   // ============ PLAYLISTS ============
 
   @override

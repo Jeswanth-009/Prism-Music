@@ -23,6 +23,20 @@ abstract class LocalDataSource {
   /// Check if a song is liked
   Future<bool> isSongLiked(String songId);
 
+  // ============ FAVORITE ARTISTS ============
+
+  /// Get all favorite artists
+  Future<List<Artist>> getFavoriteArtists();
+
+  /// Save an artist to favorites
+  Future<void> saveFavoriteArtist(Artist artist);
+
+  /// Remove an artist from favorites
+  Future<void> removeFavoriteArtist(String artistId);
+
+  /// Check if an artist is favorited
+  Future<bool> isArtistFavorite(String artistId);
+
   // ============ PLAYLISTS ============
   
   /// Get all user playlists
@@ -132,12 +146,14 @@ class LocalDataSourceImpl implements LocalDataSource {
   static const String _downloadsBoxName = 'downloads';
   static const String _playlistsBoxName = 'playlists';
   static const String _cacheBoxName = 'song_cache';
+  static const String _favoriteArtistsBoxName = 'favorite_artists';
   static const String _metaBoxName = 'app_metadata';
   static const String _schemaVersionKey = 'schema_version';
   static const int currentSchemaVersion = 2;
 
   Box? _historyBox;
   Box? _likedBox;
+  Box? _favoriteArtistsBox;
   Box? _searchHistoryBox;
   Box? _downloadsBox;
   Box? _playlistsBox;
@@ -207,6 +223,12 @@ class LocalDataSourceImpl implements LocalDataSource {
     if (_cacheBox != null && _cacheBox!.isOpen) return _cacheBox!;
     _cacheBox = await Hive.openBox(_cacheBoxName);
     return _cacheBox!;
+  }
+
+  Future<Box> _getFavoriteArtistsBox() async {
+    if (_favoriteArtistsBox != null && _favoriteArtistsBox!.isOpen) return _favoriteArtistsBox!;
+    _favoriteArtistsBox = await Hive.openBox(_favoriteArtistsBoxName);
+    return _favoriteArtistsBox!;
   }
 
   /// Persist user data to the on-device backup file (debounced).
@@ -360,6 +382,76 @@ class LocalDataSourceImpl implements LocalDataSource {
   Future<bool> isSongLiked(String songId) async {
     final box = await _getLikedBox();
     return box.containsKey(songId);
+  }
+
+  // ============ FAVORITE ARTISTS ============
+
+  Map<String, dynamic> _artistToMap(Artist artist) => {
+    'id': artist.id,
+    'name': artist.name,
+    'thumbnailLow': artist.thumbnails?.low,
+    'thumbnailMed': artist.thumbnails?.medium,
+    'thumbnailHigh': artist.thumbnails?.high,
+    'thumbnailMax': artist.thumbnails?.max,
+    'description': artist.description,
+    'subscriberCount': artist.subscriberCount,
+    'youtubeChannelId': artist.youtubeChannelId,
+    'spotifyId': artist.spotifyId,
+    'isVerified': artist.isVerified,
+  };
+
+  Artist _mapToArtist(Map data) => Artist(
+    id: data['id'] as String? ?? '',
+    name: data['name'] as String? ?? '',
+    thumbnails: (data['thumbnailLow'] != null ||
+            data['thumbnailMed'] != null ||
+            data['thumbnailHigh'] != null ||
+            data['thumbnailMax'] != null)
+        ? Thumbnails(
+            low: data['thumbnailLow'] as String?,
+            medium: data['thumbnailMed'] as String?,
+            high: data['thumbnailHigh'] as String?,
+            max: data['thumbnailMax'] as String?,
+          )
+        : null,
+    description: data['description'] as String?,
+    subscriberCount: data['subscriberCount'] as int?,
+    youtubeChannelId: data['youtubeChannelId'] as String?,
+    spotifyId: data['spotifyId'] as String?,
+    isVerified: data['isVerified'] as bool? ?? false,
+  );
+
+  @override
+  Future<List<Artist>> getFavoriteArtists() async {
+    final box = await _getFavoriteArtistsBox();
+    final artists = <Artist>[];
+    for (final key in box.keys) {
+      final data = box.get(key);
+      if (data is Map) {
+        artists.add(_mapToArtist(Map<String, dynamic>.from(data)));
+      }
+    }
+    return artists;
+  }
+
+  @override
+  Future<void> saveFavoriteArtist(Artist artist) async {
+    final box = await _getFavoriteArtistsBox();
+    await box.put(artist.id, _artistToMap(artist));
+    _triggerBackup();
+  }
+
+  @override
+  Future<void> removeFavoriteArtist(String artistId) async {
+    final box = await _getFavoriteArtistsBox();
+    await box.delete(artistId);
+    _triggerBackup();
+  }
+
+  @override
+  Future<bool> isArtistFavorite(String artistId) async {
+    final box = await _getFavoriteArtistsBox();
+    return box.containsKey(artistId);
   }
 
   // ============ PLAYLISTS ============

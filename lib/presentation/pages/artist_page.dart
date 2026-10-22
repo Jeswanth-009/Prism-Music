@@ -9,6 +9,9 @@ import '../../domain/entities/album.dart';
 import '../../domain/entities/artist.dart';
 import '../../domain/entities/song.dart';
 import '../../domain/repositories/music_repository.dart';
+import '../blocs/library/library_bloc.dart';
+import '../blocs/library/library_event.dart';
+import '../blocs/library/library_state.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
 import '../blocs/player/player_state.dart';
@@ -40,7 +43,6 @@ class _ArtistPageState extends State<ArtistPage> {
   final MusicRepository _musicRepository = getIt<MusicRepository>();
 
   bool _loading = true;
-  bool _isFavorite = false;
   String? _error;
   Artist? _artist;
   List<Song> _topSongs = const [];
@@ -334,23 +336,33 @@ class _ArtistPageState extends State<ArtistPage> {
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: Icon(
-                        _isFavorite
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_outline_rounded,
-                        color: _isFavorite
-                            ? theme.colorScheme.primary
-                            : Colors.white,
-                        size: 24,
-                      ),
-                      onPressed: () {
-                        setState(() => _isFavorite = !_isFavorite);
-                        showPrismToast(
-                          context,
-                          _isFavorite
-                              ? 'Added ${artist.name} to favorites'
-                              : 'Removed ${artist.name} from favorites',
+                    BlocBuilder<LibraryBloc, LibraryState>(
+                      builder: (context, libraryState) {
+                        final isFavorite = libraryState.isArtistFavorite(artist.id);
+                        return IconButton(
+                          icon: Icon(
+                            isFavorite
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_outline_rounded,
+                            color: isFavorite
+                                ? theme.colorScheme.primary
+                                : Colors.white,
+                            size: 24,
+                          ),
+                          tooltip: isFavorite
+                              ? 'Remove from favorites'
+                              : 'Add to favorites',
+                          onPressed: () {
+                            context
+                                .read<LibraryBloc>()
+                                .add(ToggleFavoriteArtistEvent(artist));
+                            showPrismToast(
+                              context,
+                              isFavorite
+                                  ? 'Removed ${artist.name} from favorites'
+                                  : 'Added ${artist.name} to favorites',
+                            );
+                          },
                         );
                       },
                     ),

@@ -511,4 +511,33 @@ void main() {
       expect(libraryRepo.downloadsSaved, isEmpty);
     });
   });
+
+  group('ToggleFavoriteArtistEvent', () {
+    test('favorites an unfavorited artist and saves to repo', () async {
+      const art = Artist(id: 'art1', name: 'Radiohead');
+
+      bloc.add(const ToggleFavoriteArtistEvent(art));
+      await waitFor(() => bloc.state.isArtistFavorite('art1'));
+
+      expect(libraryRepo.favoriteArtistsSaved, contains(art));
+      expect(bloc.state.favoriteArtists, contains(art));
+      expect(bloc.state.favoriteArtistIds, contains('art1'));
+    });
+
+    test('unfavorites an already favorited artist', () async {
+      const art = Artist(id: 'art1', name: 'Radiohead');
+      libraryRepo.favoriteArtists = [art];
+
+      bloc.add(const LoadLibraryEvent());
+      await waitFor(() => bloc.state.status == LibraryStatus.success);
+      expect(bloc.state.isArtistFavorite('art1'), isTrue);
+
+      bloc.add(const ToggleFavoriteArtistEvent(art));
+      await waitFor(() => !bloc.state.isArtistFavorite('art1'));
+
+      expect(libraryRepo.favoriteArtistsRemoved, contains('art1'));
+      expect(bloc.state.favoriteArtists, isEmpty);
+      expect(bloc.state.favoriteArtistIds, isEmpty);
+    });
+  });
 }

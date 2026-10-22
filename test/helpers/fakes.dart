@@ -455,6 +455,35 @@ class FakeLibraryRepository implements LibraryRepository {
   @override
   Future<bool> isSongLiked(String songId) => Future.value(false);
 
+  // Favorite Artists
+  List<Artist> favoriteArtists = const [];
+  final List<Artist> favoriteArtistsSaved = [];
+  final List<String> favoriteArtistsRemoved = [];
+
+  @override
+  Future<Either<Failure, List<Artist>>> getFavoriteArtists() async {
+    if (failLoad) return const Left(UnknownFailure(message: 'favorite artists load failed'));
+    return Right(favoriteArtists);
+  }
+
+  @override
+  Future<Either<Failure, void>> saveFavoriteArtist(Artist artist) async {
+    favoriteArtistsSaved.add(artist);
+    return const Right(null);
+  }
+
+  @override
+  Future<Either<Failure, void>> removeFavoriteArtist(String artistId) async {
+    favoriteArtistsRemoved.add(artistId);
+    return const Right(null);
+  }
+
+  @override
+  Future<bool> isArtistFavorite(String artistId) async {
+    return favoriteArtists.any((a) => a.id == artistId) ||
+        favoriteArtistsSaved.any((a) => a.id == artistId);
+  }
+
   @override
   Future<Either<Failure, void>> addToHistory(Song song) async {
     historyAdded.add(song);

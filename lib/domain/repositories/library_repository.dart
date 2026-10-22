@@ -19,6 +19,20 @@ abstract class LibraryRepository {
   /// Check if a song is liked
   Future<bool> isSongLiked(String songId);
 
+  // ============ FAVORITE ARTISTS ============
+
+  /// Get all favorite artists
+  Future<Either<Failure, List<Artist>>> getFavoriteArtists();
+
+  /// Save an artist to favorites
+  Future<Either<Failure, void>> saveFavoriteArtist(Artist artist);
+
+  /// Remove an artist from favorites
+  Future<Either<Failure, void>> removeFavoriteArtist(String artistId);
+
+  /// Check if an artist is favorited
+  Future<bool> isArtistFavorite(String artistId);
+
   // ============ PLAYLISTS ============
 
   /// Get all user-created playlists

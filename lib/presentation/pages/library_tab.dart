@@ -15,6 +15,7 @@ import '../widgets/prism/prism_quick_tile.dart';
 import '../widgets/prism/prism_section_header.dart';
 import '../widgets/prism/prism_sheet.dart';
 import '../widgets/prism/prism_states.dart';
+import 'artist_page.dart';
 import 'downloads_page.dart';
 import 'liked_songs_page.dart';
 import 'playlist_detail_page.dart';
@@ -169,6 +170,74 @@ class _LibraryTabState extends State<LibraryTab>
                 ),
               ),
             ),
+            if (state.favoriteArtists.isNotEmpty) ...[
+              const SliverToBoxAdapter(
+                child: PrismSectionHeader(
+                  title: 'Favorite Artists',
+                  padding: EdgeInsets.fromLTRB(20, 24, 20, 10),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 104,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    scrollDirection: Axis.horizontal,
+                    itemCount: state.favoriteArtists.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 14),
+                    itemBuilder: (context, index) {
+                      final artist = state.favoriteArtists[index];
+                      return InkWell(
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => ArtistPage(
+                              artistName: artist.name,
+                              artistId: artist.id,
+                              thumbnailUrl: artist.thumbnailUrl,
+                            ),
+                          ),
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircleAvatar(
+                              radius: 32,
+                              backgroundColor:
+                                  theme.colorScheme.surfaceContainerHighest,
+                              backgroundImage: artist.thumbnailUrl != null
+                                  ? NetworkImage(artist.thumbnailUrl!)
+                                  : null,
+                              child: artist.thumbnailUrl == null
+                                  ? Icon(
+                                      Icons.person_rounded,
+                                      size: 32,
+                                      color:
+                                          theme.colorScheme.onSurfaceVariant,
+                                    )
+                                  : null,
+                            ),
+                            const SizedBox(height: 6),
+                            SizedBox(
+                              width: 72,
+                              child: Text(
+                                artist.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
             const SliverToBoxAdapter(
               child: PrismSectionHeader(
                 title: 'Playlists',

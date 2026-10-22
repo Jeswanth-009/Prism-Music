@@ -35,6 +35,8 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     on<SavePlaylistEvent>(_onSavePlaylist);
     on<CancelImportEvent>(_onCancelImport);
     on<RefreshImportedPlaylistEvent>(_onRefreshImportedPlaylist);
+    on<ToggleFavoriteArtistEvent>(_onToggleFavoriteArtist);
+    on<LoadFavoriteArtistsEvent>(_onLoadFavoriteArtists);
   }
 
   void _onCancelImport(CancelImportEvent event, Emitter<LibraryState> emit) {
@@ -60,6 +62,7 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
         _libraryRepository.getRecentlyPlayed(limit: _libraryHistoryLimit),
         _libraryRepository.getDownloadedSongs(),
         _libraryRepository.getListeningStats(),
+        _libraryRepository.getFavoriteArtists(),
       ]);
 
       final likedResult = results[0] as Either<Failure, List<Song>>;
@@ -68,6 +71,7 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
       final recentResult = results[3] as Either<Failure, List<Song>>;
       final downloadsResult = results[4] as Either<Failure, List<Song>>;
       final statsResult = results[5] as Either<Failure, ListeningStats>;
+      final favoriteArtistsResult = results[6] as Either<Failure, List<Artist>>;
 
       final errors = <String>[];
 
@@ -118,6 +122,15 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
         (s) => s,
       );
 
+      final favoriteArtists = favoriteArtistsResult.fold(
+        (f) {
+          errors.add('Favorite artists: ${f.message}');
+          return state.favoriteArtists;
+        },
+        (a) => a,
+      );
+      final favoriteArtistIds = favoriteArtists.map((a) => a.id).toSet();
+
       final allFailed = likedResult.isLeft() &&
           playlistsResult.isLeft() &&
           historyResult.isLeft() &&
@@ -140,6 +153,8 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
           stats: stats,
           downloads: downloads,
           downloadedSongIds: downloadIds,
+          favoriteArtists: favoriteArtists,
+          favoriteArtistIds: favoriteArtistIds,
           errorMessage: errors.isNotEmpty ? errors.join('; ') : null,
         ));
       }
@@ -193,6 +208,76 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
           emit(state.copyWith(
             likedSongs: previousLiked,
             likedSongIds: previousIds,
+            status: LibraryStatus.error,
+            errorMessage: failure.message,
+          ));
+        },
+        (_) {},
+      );
+    }
+  }
+
+  Future<void> _onLoadFavoriteArtists(
+    LoadFavoriteArtistsEvent event,
+    Emitter<LibraryState> emit,
+  ) async {
+    final result = await _libraryRepository.getFavoriteArtists();
+    result.fold(
+      (failure) => emit(state.copyWith(
+        status: LibraryStatus.error,
+        errorMessage: failure.message,
+      )),
+      (artists) {
+        emit(state.copyWith(
+          favoriteArtists: artists,
+          favoriteArtistIds: artists.map((a) => a.id).toSet(),
+        ));
+      },
+    );
+  }
+
+  Future<void> _onToggleFavoriteArtist(
+    ToggleFavoriteArtistEvent event,
+    Emitter<LibraryState> emit,
+  ) async {
+    final isCurrentlyFav = state.isArtistFavorite(event.artist.id);
+    final previousFav = state.favoriteArtists;
+    final previousIds = state.favoriteArtistIds;
+
+    if (isCurrentlyFav) {
+      final updated = state.favoriteArtists.where((a) => a.id != event.artist.id).toList();
+      final updatedIds = Set<String>.from(state.favoriteArtistIds)..remove(event.artist.id);
+      emit(state.copyWith(
+        favoriteArtists: updated,
+        favoriteArtistIds: updatedIds,
+      ));
+
+      final result = await _libraryRepository.removeFavoriteArtist(event.artist.id);
+      result.fold(
+        (failure) {
+          emit(state.copyWith(
+            favoriteArtists: previousFav,
+            favoriteArtistIds: previousIds,
+            status: LibraryStatus.error,
+            errorMessage: failure.message,
+          ));
+        },
+        (_) {},
+      );
+    } else {
+      final updated = [event.artist, ...state.favoriteArtists];
+      final updatedIds = Set<String>.from(state.favoriteArtistIds)..add(event.artist.id);
+      emit(state.copyWith(
+        favoriteArtists: updated,
+        favoriteArtistIds: updatedIds,
+      ));
+
+      final result = await _libraryRepository.saveFavoriteArtist(event.artist);
+      result.fold(
+        (failure) {
+          emit(state.copyWith(
+            favoriteArtists: previousFav,
+            favoriteArtistIds: previousIds,
             status: LibraryStatus.error,
             errorMessage: failure.message,
           ));

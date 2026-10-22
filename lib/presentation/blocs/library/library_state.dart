@@ -51,6 +51,12 @@ class LibraryState extends Equatable {
   /// Most recent import outcome (contains matched and unmatched tracks)
   final ImportPlaylistResult? lastImportResult;
 
+  /// Favorite artists
+  final List<Artist> favoriteArtists;
+
+  /// Set of favorite artist IDs for quick lookup
+  final Set<String> favoriteArtistIds;
+
   /// Error message if status is error
   final String? errorMessage;
 
@@ -64,6 +70,8 @@ class LibraryState extends Equatable {
     this.downloads = const [],
     this.likedSongIds = const {},
     this.downloadedSongIds = const {},
+    this.favoriteArtists = const [],
+    this.favoriteArtistIds = const {},
     this.importProgress,
     this.importCurrentTrack,
     this.importTotalTracks,
@@ -77,6 +85,9 @@ class LibraryState extends Equatable {
   /// Check if a song is downloaded
   bool isSongDownloaded(String songId) => downloadedSongIds.contains(songId);
 
+  /// Check if an artist is favorited
+  bool isArtistFavorite(String artistId) => favoriteArtistIds.contains(artistId);
+
   LibraryState copyWith({
     LibraryStatus? status,
     List<Song>? likedSongs,
@@ -87,6 +98,8 @@ class LibraryState extends Equatable {
     List<Song>? downloads,
     Set<String>? likedSongIds,
     Set<String>? downloadedSongIds,
+    List<Artist>? favoriteArtists,
+    Set<String>? favoriteArtistIds,
     double? importProgress,
     int? importCurrentTrack,
     int? importTotalTracks,
@@ -103,6 +116,8 @@ class LibraryState extends Equatable {
       downloads: downloads ?? this.downloads,
       likedSongIds: likedSongIds ?? this.likedSongIds,
       downloadedSongIds: downloadedSongIds ?? this.downloadedSongIds,
+      favoriteArtists: favoriteArtists ?? this.favoriteArtists,
+      favoriteArtistIds: favoriteArtistIds ?? this.favoriteArtistIds,
       importProgress: importProgress ?? this.importProgress,
       importCurrentTrack: importCurrentTrack ?? this.importCurrentTrack,
       importTotalTracks: importTotalTracks ?? this.importTotalTracks,
@@ -122,6 +137,8 @@ class LibraryState extends Equatable {
         downloads,
         likedSongIds,
         downloadedSongIds,
+        favoriteArtists,
+        favoriteArtistIds,
         importProgress,
         importCurrentTrack,
         importTotalTracks,
