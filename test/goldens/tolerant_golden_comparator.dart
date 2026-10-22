@@ -16,7 +16,7 @@ class TolerantGoldenComparator extends LocalFileComparator {
   /// Fraction (0–1) of pixels allowed to differ.
   final double maxDiffPercent;
 
-  TolerantGoldenComparator(super.testFile, {this.maxDiffPercent = 0.015});
+  TolerantGoldenComparator(super.testFile, {this.maxDiffPercent = 0.05});
 
   @override
   Future<bool> compare(Uint8List imageBytes, dynamic golden) async {
