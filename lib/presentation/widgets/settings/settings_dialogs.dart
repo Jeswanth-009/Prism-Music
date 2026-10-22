@@ -1,14 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../../core/di/injection.dart';
 import '../../../core/services/settings_service.dart';
 import '../../../core/services/storage_service.dart';
-import '../../../core/services/stream_cache_service.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/entities.dart';
 import '../../blocs/theme/theme_bloc.dart';
@@ -155,7 +151,9 @@ class SettingsDialogs {
                   if (value != null) {
                     await SettingsService.instance.setPlayerUiStyle(value);
                     onSelected();
-                    Navigator.pop(dialogContext);
+                    if (dialogContext.mounted) {
+                      Navigator.pop(dialogContext);
+                    }
                   }
                 },
                 title: Text(style.label),
@@ -279,23 +277,6 @@ class SettingsDialogs {
         );
       },
     );
-  }
-
-  static Future<int> _getDiskCacheBytes() async {
-    int total = 0;
-    try {
-      final tempDir = await getTemporaryDirectory();
-      if (await tempDir.exists()) {
-        await for (final entity in tempDir.list(recursive: true, followLinks: false)) {
-          if (entity is File) {
-            try {
-              total += await entity.length();
-            } catch (_) {}
-          }
-        }
-      }
-    } catch (_) {}
-    return total;
   }
 
   static void showClearCacheDialog(

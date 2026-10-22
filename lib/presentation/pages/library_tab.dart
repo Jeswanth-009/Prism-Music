@@ -1398,7 +1398,7 @@ class _ManualTrackMatchDialogState extends State<_ManualTrackMatchDialog> {
                                         const EdgeInsets.symmetric(
                                             horizontal: 8, vertical: 2),
                                     leading: PrismArtwork(
-                                      url: song.thumbnailUrl ?? '',
+                                      url: song.thumbnailUrl,
                                       width: 42,
                                       height: 42,
                                       borderRadius: 6,

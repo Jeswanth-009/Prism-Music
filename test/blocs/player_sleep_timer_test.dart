@@ -30,7 +30,7 @@ class _FakeAudioPlayerService implements AudioPlayerService {
 
   int pauseCallCount = 0;
   bool _isPlaying = true;
-  bool _isQueueMode = true;
+  final bool _isQueueMode = true;
 
   @override
   Stream<Duration> get positionStream => _posCtrl.stream;

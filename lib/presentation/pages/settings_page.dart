@@ -211,6 +211,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 final res = await LocalBackupService.instance.importBackupFromFile(file);
                 if (!dialogContext.mounted) return;
                 Navigator.pop(dialogContext);
+                if (!mounted) return;
                 if (res.isSuccess) {
                   context.read<LibraryBloc>().add(const LoadLibraryEvent());
                   showPrismToast(context, 'Imported ${res.totalRestored} items from backup');

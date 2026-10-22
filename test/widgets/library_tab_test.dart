@@ -8,8 +8,6 @@ import 'package:prism_music/presentation/pages/library_tab.dart';
 
 import '../helpers/fakes.dart';
 
-import 'package:prism_music/presentation/widgets/prism/prism_sheet.dart';
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 

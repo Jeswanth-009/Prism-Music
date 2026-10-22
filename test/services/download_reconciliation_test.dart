@@ -4,8 +4,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:prism_music/core/services/download_service.dart';
 import 'package:prism_music/core/services/stream_loader_service.dart';
 import 'package:prism_music/core/services/settings_service.dart';
-import 'package:prism_music/domain/entities/song.dart';
-import 'package:prism_music/domain/entities/stream_info.dart';
 
 import '../helpers/fakes.dart';
 
@@ -48,20 +46,10 @@ void main() {
       lastNotified = info;
     });
 
-    // Simulate an active download in progress map
-    final activeInfo = DownloadInfo(
-      songId: 'song_123',
-      status: DownloadStatus.downloading,
-      progress: 0.45,
-      songTitle: 'My Song',
-      artist: 'My Artist',
-    );
-    downloadService.activeDownloads; // Map is unmodifiable getter
     // Trigger cancelDownload
     downloadService.cancelDownload('song_123');
 
-    // If it wasn't in _downloadProgress, lastNotified is null.
-    // Let's test cancelling with simulated progress by starting download or testing cancel:
+    expect(lastNotified, isNull);
     expect(downloadService.getDownloadStatus('song_123'), DownloadStatus.notDownloaded);
   });
 
