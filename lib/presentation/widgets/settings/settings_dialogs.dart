@@ -134,6 +134,42 @@ class SettingsDialogs {
     );
   }
 
+  static void showPlayerUiStyleDialog(
+    BuildContext context,
+    VoidCallback onSelected,
+  ) {
+    final currentStyle = SettingsService.instance.playerUiStyle;
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return SimpleDialog(
+          title: const Text('Player Layout'),
+          children: [
+            for (final style in PlayerUiStyle.values)
+              RadioListTile<PlayerUiStyle>(
+                value: style,
+                groupValue: currentStyle,
+                onChanged: (value) async {
+                  if (value != null) {
+                    await SettingsService.instance.setPlayerUiStyle(value);
+                    onSelected();
+                    Navigator.pop(dialogContext);
+                  }
+                },
+                title: Text(style.label),
+                subtitle: Text(
+                  style == PlayerUiStyle.modern
+                      ? 'Dynamic blur, expanded artwork and modern floating controls'
+                      : 'Classic compact layout with 5-button transport bar',
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
   static void showAudioQualityDialog(BuildContext context) {
     final currentQuality = SettingsService.instance.audioQuality;
 

@@ -395,6 +395,15 @@ class _SettingsPageState extends State<SettingsPage> {
             );
           },
         ),
+        SettingRow(
+          leading: const Icon(Icons.dashboard_customize_outlined),
+          title: 'Player Layout',
+          subtitle: _settingsService.playerUiStyle.label,
+          onTap: () => SettingsDialogs.showPlayerUiStyleDialog(
+            context,
+            _forceRebuild,
+          ),
+        ),
         if (_isInitialized)
           SettingRow(
             leading: Text(
