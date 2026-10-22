@@ -36,12 +36,14 @@ class PrismSheetAction extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.subtitle,
     this.destructive = false,
     this.trailing,
   });
 
   final IconData icon;
   final String label;
+  final String? subtitle;
   final VoidCallback onTap;
   final bool destructive;
   final Widget? trailing;
@@ -60,6 +62,14 @@ class PrismSheetAction extends StatelessWidget {
         label,
         style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w500),
       ),
+      subtitle: subtitle != null
+          ? Text(
+              subtitle!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            )
+          : null,
       trailing: trailing,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     );

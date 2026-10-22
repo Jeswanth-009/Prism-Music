@@ -11,7 +11,10 @@ import '../../core/utils/link_validation.dart';
 import '../../domain/entities/entities.dart';
 import '../../domain/repositories/music_repository.dart';
 import '../blocs/library/library.dart';
+import '../blocs/player/player_bloc.dart';
+import '../blocs/player/player_event.dart';
 import '../theme/prism_theme.dart';
+import '../widgets/playlist/playlist_export_sheet.dart';
 import '../widgets/prism/prism_artwork.dart';
 import '../widgets/prism/prism_quick_tile.dart';
 import '../widgets/prism/prism_section_header.dart';
@@ -39,9 +42,17 @@ class LibraryTab extends StatefulWidget {
 class _LibraryTabState extends State<LibraryTab>
     with AutomaticKeepAliveClientMixin {
   ImportCancellationToken? _activeCancelToken;
+  final TextEditingController _playlistSearchCtrl = TextEditingController();
+  bool _showPlaylistSearch = false;
 
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void dispose() {
+    _playlistSearchCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -240,12 +251,57 @@ class _LibraryTabState extends State<LibraryTab>
                 ),
               ),
             ],
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: PrismSectionHeader(
                 title: 'Playlists',
-                padding: EdgeInsets.fromLTRB(20, 28, 20, 6),
+                actionLabel: state.playlists.length > 1
+                    ? (_showPlaylistSearch ? 'Close' : 'Search')
+                    : null,
+                onAction: state.playlists.length > 1
+                    ? () {
+                        setState(() {
+                          _showPlaylistSearch = !_showPlaylistSearch;
+                          if (!_showPlaylistSearch) {
+                            _playlistSearchCtrl.clear();
+                          }
+                        });
+                      }
+                    : null,
+                padding: const EdgeInsets.fromLTRB(20, 28, 20, 6),
               ),
             ),
+            if (_showPlaylistSearch && state.playlists.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                  child: TextField(
+                    controller: _playlistSearchCtrl,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: 'Search playlists…',
+                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                      suffixIcon: _playlistSearchCtrl.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                              onPressed: () {
+                                _playlistSearchCtrl.clear();
+                                setState(() {});
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: theme.colorScheme.surfaceContainerHigh
+                          .withValues(alpha: 0.5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(PrismRadius.lg),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+              ),
             if (state.playlists.isEmpty)
               const SliverToBoxAdapter(
                 child: PrismEmptyState(
@@ -255,35 +311,67 @@ class _LibraryTabState extends State<LibraryTab>
                   compact: true,
                 ),
               )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-                sliver: SliverGrid.builder(
-                  gridDelegate:
-                      const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 220,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 0.8,
-                  ),
-                  itemCount: state.playlists.length,
-                  itemBuilder: (context, index) {
-                    final playlist = state.playlists[index];
-                    return _PlaylistCard(
-                      playlist: playlist,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              PlaylistDetailPage(playlist: playlist),
-                        ),
-                      ),
-                      onDelete: () => _deletePlaylist(
-                        playlist.id,
-                        playlist.name,
-                      ),
-                    );
-                  },
+            else if (state.playlists.where((p) {
+              final q = _playlistSearchCtrl.text.trim().toLowerCase();
+              if (q.isEmpty) return true;
+              return p.name.toLowerCase().contains(q) ||
+                  (p.description?.toLowerCase().contains(q) ?? false);
+            }).isEmpty)
+              SliverToBoxAdapter(
+                child: PrismEmptyState(
+                  icon: Icons.search_off_rounded,
+                  message: 'No matching playlists',
+                  hint: 'Try a different search term.',
+                  actionLabel: 'Clear filter',
+                  onAction: () => setState(() => _playlistSearchCtrl.clear()),
+                  compact: true,
                 ),
+              )
+            else
+              Builder(
+                builder: (context) {
+                  final q = _playlistSearchCtrl.text.trim().toLowerCase();
+                  final filtered = q.isEmpty
+                      ? state.playlists
+                      : state.playlists.where((p) {
+                          return p.name.toLowerCase().contains(q) ||
+                              (p.description?.toLowerCase().contains(q) ??
+                                  false);
+                        }).toList();
+
+                  return SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                    sliver: SliverGrid.builder(
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 220,
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: 0.8,
+                      ),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        final playlist = filtered[index];
+                        return _PlaylistCard(
+                          playlist: playlist,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  PlaylistDetailPage(playlist: playlist),
+                            ),
+                          ),
+                          onPlay: () => _playPlaylist(playlist),
+                          onRename: () => _renamePlaylist(playlist),
+                          onExport: () => _exportPlaylist(playlist),
+                          onDelete: () => _deletePlaylist(
+                            playlist.id,
+                            playlist.name,
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
               ),
             const SliverToBoxAdapter(
               child: PrismSectionHeader(
@@ -514,6 +602,108 @@ class _LibraryTabState extends State<LibraryTab>
     if (confirmed != true || !mounted) return;
     context.read<LibraryBloc>().add(DeletePlaylistEvent(id));
   }
+
+  Future<void> _renamePlaylist(Playlist playlist) async {
+    final nameController = TextEditingController(text: playlist.name);
+    final descController =
+        TextEditingController(text: playlist.description ?? '');
+    try {
+      final saved = await showDialog<bool>(
+        context: context,
+        builder: (dialogCtx) => AlertDialog(
+          title: const Text('Edit Playlist Details'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  labelText: 'Playlist name',
+                  hintText: 'e.g. Chill Beats',
+                  filled: true,
+                  fillColor: Theme.of(dialogCtx)
+                      .colorScheme
+                      .surfaceContainerHigh,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(PrismRadius.lg),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: descController,
+                maxLines: 2,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  labelText: 'Description (optional)',
+                  hintText: 'Add an optional description',
+                  filled: true,
+                  fillColor: Theme.of(dialogCtx)
+                      .colorScheme
+                      .surfaceContainerHigh,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(PrismRadius.lg),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(true),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      );
+
+      if (saved == true && mounted) {
+        final newName = nameController.text.trim();
+        final newDesc = descController.text.trim();
+        if (newName.isNotEmpty) {
+          context.read<LibraryBloc>().add(
+                RenamePlaylistEvent(
+                  playlistId: playlist.id,
+                  name: newName,
+                  description: newDesc.isEmpty ? null : newDesc,
+                ),
+              );
+          showPrismToast(context, 'Playlist updated');
+        }
+      }
+    } finally {
+      nameController.dispose();
+      descController.dispose();
+    }
+  }
+
+  void _exportPlaylist(Playlist playlist) {
+    PlaylistExportSheet.show(context, playlist);
+  }
+
+  void _playPlaylist(Playlist playlist) {
+    final songs = playlist.songs ?? const [];
+    if (songs.isEmpty) {
+      showPrismToast(context, 'This playlist has no songs yet');
+      return;
+    }
+    context.read<PlayerBloc>().add(
+          PlaySongEvent(
+            song: songs.first,
+            queue: songs,
+            queueIndex: 0,
+          ),
+        );
+  }
 }
 
 class _StatsCard extends StatelessWidget {
@@ -642,11 +832,17 @@ class _PlaylistCard extends StatelessWidget {
   const _PlaylistCard({
     required this.playlist,
     required this.onTap,
+    required this.onPlay,
+    required this.onRename,
+    required this.onExport,
     required this.onDelete,
   });
 
   final Playlist playlist;
   final VoidCallback onTap;
+  final VoidCallback onPlay;
+  final VoidCallback onRename;
+  final VoidCallback onExport;
   final VoidCallback onDelete;
 
   @override
@@ -688,7 +884,13 @@ class _PlaylistCard extends StatelessWidget {
                   Positioned(
                     top: 6,
                     right: 6,
-                    child: _CardDeleteButton(onDelete: onDelete),
+                    child: _CardMenuButton(
+                      playlist: playlist,
+                      onPlay: onPlay,
+                      onRename: onRename,
+                      onExport: onExport,
+                      onDelete: onDelete,
+                    ),
                   ),
                 ],
               ),
@@ -762,24 +964,100 @@ class _PlaylistCard extends StatelessWidget {
   }
 }
 
-class _CardDeleteButton extends StatelessWidget {
-  const _CardDeleteButton({required this.onDelete});
+class _CardMenuButton extends StatelessWidget {
+  const _CardMenuButton({
+    required this.playlist,
+    required this.onPlay,
+    required this.onRename,
+    required this.onExport,
+    required this.onDelete,
+  });
 
+  final Playlist playlist;
+  final VoidCallback onPlay;
+  final VoidCallback onRename;
+  final VoidCallback onExport;
   final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return IconButton(
-      onPressed: onDelete,
-      tooltip: 'Delete playlist',
-      icon: const Icon(Icons.close_rounded, size: 15),
-      style: IconButton.styleFrom(
-        backgroundColor: theme.colorScheme.surface.withValues(alpha: .88),
-        foregroundColor: theme.colorScheme.onSurface,
-        minimumSize: const Size(28, 28),
+    final count = playlist.trackCount;
+
+    return Theme(
+      data: theme.copyWith(
+        splashFactory: NoSplash.splashFactory,
+      ),
+      child: PopupMenuButton<String>(
+        tooltip: 'Playlist options',
         padding: EdgeInsets.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        icon: Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface.withValues(alpha: .88),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.more_vert_rounded,
+            size: 15,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        onSelected: (val) {
+          if (val == 'play') {
+            onPlay();
+          } else if (val == 'rename') {
+            onRename();
+          } else if (val == 'export') {
+            onExport();
+          } else if (val == 'delete') {
+            onDelete();
+          }
+        },
+        itemBuilder: (_) => [
+          if (count > 0)
+            const PopupMenuItem(
+              value: 'play',
+              child: Row(
+                children: [
+                  Icon(Icons.play_arrow_rounded, size: 18),
+                  SizedBox(width: 12),
+                  Text('Play'),
+                ],
+              ),
+            ),
+          if (playlist.isUserCreated)
+            const PopupMenuItem(
+              value: 'rename',
+              child: Row(
+                children: [
+                  Icon(Icons.edit_outlined, size: 18),
+                  SizedBox(width: 12),
+                  Text('Edit details'),
+                ],
+              ),
+            ),
+          const PopupMenuItem(
+            value: 'export',
+            child: Row(
+              children: [
+                Icon(Icons.ios_share_rounded, size: 18),
+                SizedBox(width: 12),
+                Text('Export playlist'),
+              ],
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'delete',
+            child: Row(
+              children: [
+                Icon(Icons.delete_outline_rounded, size: 18),
+                SizedBox(width: 12),
+                Text('Delete playlist'),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
