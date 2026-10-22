@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:prism_music/core/services/audio_effects_channel.dart';
 import 'package:prism_music/core/models/reverb_preset.dart';
+import 'package:prism_music/core/services/settings_service.dart';
 
 /// Service to manage audio equalizer and effects with real platform-specific audio processing
 class EqualizerService {
@@ -68,7 +69,35 @@ class EqualizerService {
   int _audioSessionId = 0;
   bool _isSupported = false;
 
-  EqualizerService();
+  EqualizerService() {
+    _loadPersistedSettings();
+  }
+
+  void _loadPersistedSettings() {
+    try {
+      final s = SettingsService.instance;
+      _currentPresetName = s.equalizerPreset;
+      _bassBoostLevel = s.equalizerBassBoostLevel;
+      _trebleLevel = s.equalizerTrebleLevel;
+      _bassBoostEnabled = s.bassBoostEnabled;
+      final reverbName = s.equalizerReverb;
+      _reverbPreset = ReverbPreset.values.firstWhere(
+        (r) => r.name == reverbName,
+        orElse: () => ReverbPreset.none,
+      );
+    } catch (_) {}
+  }
+
+  void _persistSettings() {
+    try {
+      final s = SettingsService.instance;
+      s.setEqualizerPreset(_currentPresetName);
+      s.setEqualizerBassBoostLevel(_bassBoostLevel);
+      s.setEqualizerTrebleLevel(_trebleLevel);
+      s.setBassBoost(_bassBoostEnabled);
+      s.setEqualizerReverb(_reverbPreset.name);
+    } catch (_) {}
+  }
 
   /// Whether native audio effects are supported and bound to a valid session
   bool get isSupported => _isSupported;
@@ -154,6 +183,7 @@ class EqualizerService {
     _trebleLevel = preset.treble;
     _reverbPreset = preset.reverb;
     _bassBoostEnabled = preset.bassBoost > 0.0;
+    _persistSettings();
 
     if (_isSupported) {
       await _reapplyEffects();
@@ -166,6 +196,7 @@ class EqualizerService {
     _bassBoostLevel = level.clamp(0.0, 1.0);
     _bassBoostEnabled = enabled;
     _currentPresetName = 'Custom';
+    _persistSettings();
 
     if (_isSupported) {
       try {
@@ -181,6 +212,7 @@ class EqualizerService {
   Future<void> setTreble(double level) async {
     _trebleLevel = level.clamp(0.0, 1.0);
     _currentPresetName = 'Custom';
+    _persistSettings();
 
     if (_isSupported) {
       try {
@@ -196,6 +228,7 @@ class EqualizerService {
   Future<void> setReverb(ReverbPreset preset) async {
     _reverbPreset = preset;
     _currentPresetName = 'Custom';
+    _persistSettings();
 
     if (_isSupported) {
       try {

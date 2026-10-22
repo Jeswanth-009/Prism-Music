@@ -106,6 +106,10 @@ class AudioPlayerService {
         onError: (e) => _handleNativeError('androidAudioSessionIdStream', e),
       ),
     );
+    final initialSessionId = _player.androidAudioSessionId;
+    if (initialSessionId != null && initialSessionId > 0) {
+      _equalizerService.bindAudioSession(initialSessionId);
+    }
 
     // Position updates
     _subscriptions.add(
@@ -366,6 +370,12 @@ class AudioPlayerService {
   Future<void> play() async {
     if (!_initialized) return;
     try {
+      final sessionId = _player.androidAudioSessionId;
+      if (sessionId != null &&
+          sessionId > 0 &&
+          _equalizerService.audioSessionId != sessionId) {
+        _equalizerService.bindAudioSession(sessionId);
+      }
       unawaited(
         _player.play().catchError((error, stackTrace) {
           debugPrint('AudioPlayerService: Asynchronous play() failed: $error');

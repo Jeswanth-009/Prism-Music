@@ -92,6 +92,10 @@ class SettingsService {
   static const String _autoBackupKey = 'auto_backup_enabled';
   static const String _sharedBackupKey = 'shared_backup_enabled';
   static const String _autoPlayKey = 'auto_play_enabled';
+  static const String _eqPresetKey = 'eq_preset';
+  static const String _eqBassBoostLevelKey = 'eq_bass_boost_level';
+  static const String _eqTrebleLevelKey = 'eq_treble_level';
+  static const String _eqReverbKey = 'eq_reverb';
   static const String _spotifyClientIdKey = 'spotify_client_id';
   static const String _spotifyClientSecretKey = 'spotify_client_secret';
   static SettingsService? _instance;
@@ -219,6 +223,62 @@ class SettingsService {
   /// Set bass boost
   Future<void> setBassBoost(bool enabled) async {
     await _settingsBox?.put('bass_boost', enabled);
+  }
+
+  /// Get active equalizer preset name (default: Normal)
+  String get equalizerPreset {
+    try {
+      return _settingsBox?.get(_eqPresetKey, defaultValue: 'Normal') ?? 'Normal';
+    } catch (_) {
+      return 'Normal';
+    }
+  }
+
+  /// Persist active equalizer preset name
+  Future<void> setEqualizerPreset(String preset) async {
+    await _settingsBox?.put(_eqPresetKey, preset);
+  }
+
+  /// Get active equalizer bass boost level (0.0 to 1.0)
+  double get equalizerBassBoostLevel {
+    try {
+      return (_settingsBox?.get(_eqBassBoostLevelKey, defaultValue: 0.5) as num?)?.toDouble() ?? 0.5;
+    } catch (_) {
+      return 0.5;
+    }
+  }
+
+  /// Persist active equalizer bass boost level
+  Future<void> setEqualizerBassBoostLevel(double level) async {
+    await _settingsBox?.put(_eqBassBoostLevelKey, level);
+  }
+
+  /// Get active equalizer treble level (0.0 to 1.0)
+  double get equalizerTrebleLevel {
+    try {
+      return (_settingsBox?.get(_eqTrebleLevelKey, defaultValue: 0.5) as num?)?.toDouble() ?? 0.5;
+    } catch (_) {
+      return 0.5;
+    }
+  }
+
+  /// Persist active equalizer treble level
+  Future<void> setEqualizerTrebleLevel(double level) async {
+    await _settingsBox?.put(_eqTrebleLevelKey, level);
+  }
+
+  /// Get active equalizer reverb preset name (default: none)
+  String get equalizerReverb {
+    try {
+      return _settingsBox?.get(_eqReverbKey, defaultValue: 'none') ?? 'none';
+    } catch (_) {
+      return 'none';
+    }
+  }
+
+  /// Persist active equalizer reverb preset name
+  Future<void> setEqualizerReverb(String reverb) async {
+    await _settingsBox?.put(_eqReverbKey, reverb);
   }
 
   /// Enable faster startup by initially using medium quality streams
