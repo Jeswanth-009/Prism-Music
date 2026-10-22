@@ -11,7 +11,7 @@ class MockMusicRepository implements MusicRepository {
   List<Song> mockSongs = [];
 
   @override
-  Future<Either<Failure, List<Song>>> searchSongs(String query, {int limit = 20, String? filter}) async {
+  Future<Either<Failure, List<Song>>> searchSongs(String query, {int limit = 20, String? filter, int offset = 0}) async {
     return Right(mockSongs);
   }
 
