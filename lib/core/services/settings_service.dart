@@ -87,6 +87,7 @@ class SettingsService {
   static const String _downloadFolderKey = 'download_folder_path';
   static const String _themeModeKey = 'theme_mode';
   static const String _dynamicAccentKey = 'dynamic_accent';
+  static const String _layoutModeKey = 'layout_mode';
   static const String _onboardingCompleteKey = 'onboarding_complete';
   static const String _autoBackupKey = 'auto_backup_enabled';
   static const String _sharedBackupKey = 'shared_backup_enabled';
@@ -293,6 +294,17 @@ class SettingsService {
   /// Persist dynamic accent preference
   Future<void> setDynamicAccent(bool enabled) async {
     await _settingsBox?.put(_dynamicAccentKey, enabled);
+  }
+
+  /// Selected layout mode (list / grid / minimalist)
+  String get layoutMode {
+    final stored = _settingsBox?.get(_layoutModeKey, defaultValue: 'list') as String?;
+    return stored ?? 'list';
+  }
+
+  /// Persist layout mode preference
+  Future<void> setLayoutMode(String mode) async {
+    await _settingsBox?.put(_layoutModeKey, mode);
   }
 
   /// Whether the first-launch onboarding has been completed

@@ -375,6 +375,26 @@ class _SettingsPageState extends State<SettingsPage> {
             );
           },
         ),
+        BlocBuilder<ThemeBloc, ThemeState>(
+          builder: (context, state) {
+            return SettingRow(
+              leading: Icon(
+                state.layoutMode == LayoutMode.grid
+                    ? Icons.grid_view_rounded
+                    : state.layoutMode == LayoutMode.minimalist
+                        ? Icons.view_headline_rounded
+                        : Icons.view_list_rounded,
+              ),
+              title: 'Layout Mode',
+              subtitle: state.layoutMode == LayoutMode.grid
+                  ? 'Grid'
+                  : state.layoutMode == LayoutMode.minimalist
+                      ? 'Minimalist'
+                      : 'List',
+              onTap: () => SettingsDialogs.showLayoutModeDialog(context),
+            );
+          },
+        ),
         if (_isInitialized)
           SettingRow(
             leading: Text(

@@ -100,6 +100,40 @@ class SettingsDialogs {
     );
   }
 
+  static void showLayoutModeDialog(BuildContext context) {
+    final currentLayout = context.read<ThemeBloc>().state.layoutMode;
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return SimpleDialog(
+          title: const Text('Layout Mode'),
+          children: [
+            for (final item in const [
+              (LayoutMode.list, 'List', 'Standard scrolling list layout'),
+              (LayoutMode.grid, 'Grid', 'Card-based grid layout'),
+              (LayoutMode.minimalist, 'Minimalist', 'Compact, text-focused display'),
+            ])
+              RadioListTile<LayoutMode>(
+                value: item.$1,
+                groupValue: currentLayout,
+                onChanged: (value) {
+                  if (value != null) {
+                    dialogContext.read<ThemeBloc>().add(
+                      SetLayoutModeEvent(value),
+                    );
+                    Navigator.pop(dialogContext);
+                  }
+                },
+                title: Text(item.$2),
+                subtitle: Text(item.$3),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
   static void showAudioQualityDialog(BuildContext context) {
     final currentQuality = SettingsService.instance.audioQuality;
 

@@ -89,16 +89,22 @@ void main() {
       await bloc.close();
     });
 
-    test('SetLayoutModeEvent updates the layout mode', () async {
+    test('SetLayoutModeEvent updates the layout mode and persists it', () async {
       final bloc = ThemeBloc(initialThemeMode: ThemeMode.system);
       bloc.add(const SetLayoutModeEvent(LayoutMode.grid));
 
       await Future<void>.delayed(const Duration(milliseconds: 10));
       expect(bloc.state.layoutMode, LayoutMode.grid);
+      expect(SettingsService.instance.layoutMode, 'grid');
       await bloc.close();
+
+      // Verify a newly created ThemeBloc picks up the persisted layout mode
+      final freshBloc = ThemeBloc(initialThemeMode: ThemeMode.system);
+      expect(freshBloc.state.layoutMode, LayoutMode.grid);
+      await freshBloc.close();
     });
 
-    test('ResetThemeEvent returns to defaults', () async {
+    test('ResetThemeEvent returns to defaults and persists them', () async {
       final bloc = ThemeBloc(initialThemeMode: ThemeMode.dark);
       bloc.add(const SetLayoutModeEvent(LayoutMode.minimalist));
       await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -108,6 +114,9 @@ void main() {
 
       expect(bloc.state.themeMode, ThemeMode.system);
       expect(bloc.state.layoutMode, LayoutMode.list);
+      expect(SettingsService.instance.layoutMode, 'list');
+      expect(SettingsService.instance.themeMode, ThemeMode.system);
+      expect(SettingsService.instance.dynamicAccent, isTrue);
       await bloc.close();
     });
   });

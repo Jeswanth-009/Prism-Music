@@ -10,12 +10,21 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
   static final Map<String, Color> _colorCache = {};
   int _colorExtractionGen = 0;
 
+  static LayoutMode _layoutModeFromString(String name) {
+    return LayoutMode.values.firstWhere(
+      (m) => m.name == name,
+      orElse: () => LayoutMode.list,
+    );
+  }
+
   ThemeBloc({ThemeMode initialThemeMode = ThemeMode.system})
       : super(
           ThemeState(
             themeMode: initialThemeMode,
             isDynamicColorEnabled:
                 SettingsService.instance.dynamicAccent,
+            layoutMode:
+                _layoutModeFromString(SettingsService.instance.layoutMode),
           ),
         ) {
     on<SetThemeModeEvent>(_onSetThemeMode);
@@ -119,7 +128,7 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     Emitter<ThemeState> emit,
   ) {
     emit(state.copyWith(layoutMode: event.mode));
-    // TODO: Persist preference
+    SettingsService.instance.setLayoutMode(event.mode.name);
   }
 
   void _onResetTheme(
@@ -127,5 +136,8 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
     Emitter<ThemeState> emit,
   ) {
     emit(const ThemeState());
+    SettingsService.instance.setThemeMode(ThemeMode.system);
+    SettingsService.instance.setDynamicAccent(true);
+    SettingsService.instance.setLayoutMode(LayoutMode.list.name);
   }
 }
