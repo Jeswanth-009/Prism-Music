@@ -171,11 +171,15 @@ class StorageService {
       }
     } catch (_) {}
 
-    // Delete temporary files safely
+    // Delete temporary files safely (skip active Hive database and lock files)
     try {
       final tempDir = await getTemporaryDirectory();
       if (await tempDir.exists()) {
         await for (final entity in tempDir.list(followLinks: false)) {
+          final lower = entity.path.toLowerCase();
+          if (lower.endsWith('.hive') || lower.endsWith('.lock')) {
+            continue;
+          }
           try {
             await entity.delete(recursive: true);
           } catch (_) {}
