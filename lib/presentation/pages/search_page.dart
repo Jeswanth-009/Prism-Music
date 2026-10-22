@@ -10,6 +10,7 @@ import '../blocs/search/search_event.dart';
 import '../blocs/search/search_state.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/player/mini_player.dart';
+import '../widgets/prism/prism_artwork.dart';
 import '../widgets/prism/prism_dialog.dart';
 import '../widgets/prism/prism_section_header.dart';
 import '../widgets/prism/prism_skeleton.dart';
@@ -497,17 +498,12 @@ class _SearchPageState extends State<SearchPage> {
                 ),
                 leading: Hero(
                   tag: 'artist_all_${artist.id}',
-                  child: CircleAvatar(
-                    radius: 22,
-                    backgroundColor: Theme.of(context)
-                        .colorScheme
-                        .surfaceContainerHigh,
-                    backgroundImage: (artist.thumbnailUrl ?? '').isNotEmpty
-                        ? NetworkImage(artist.thumbnailUrl!)
-                        : null,
-                    child: (artist.thumbnailUrl ?? '').isEmpty
-                        ? const Icon(Icons.person_rounded, size: 20)
-                        : null,
+                  child: PrismArtwork(
+                    url: artist.thumbnailUrl ?? '',
+                    width: 44,
+                    height: 44,
+                    isCircular: true,
+                    type: ArtworkType.artist,
                   ),
                 ),
                 title: Text(
@@ -713,18 +709,12 @@ class _SearchPageState extends State<SearchPage> {
               ),
               leading: Hero(
                 tag: 'artist_${artist.id}',
-                child: CircleAvatar(
-                  radius: 24,
-                  backgroundColor: Theme.of(context)
-                      .colorScheme
-                      .surfaceContainerHigh,
-                  backgroundImage:
-                      (artist.thumbnailUrl ?? '').isNotEmpty
-                          ? NetworkImage(artist.thumbnailUrl!)
-                          : null,
-                  child: (artist.thumbnailUrl ?? '').isEmpty
-                      ? const Icon(Icons.person_rounded, size: 22)
-                      : null,
+                child: PrismArtwork(
+                  url: artist.thumbnailUrl ?? '',
+                  width: 48,
+                  height: 48,
+                  isCircular: true,
+                  type: ArtworkType.artist,
                 ),
               ),
               title: Text(

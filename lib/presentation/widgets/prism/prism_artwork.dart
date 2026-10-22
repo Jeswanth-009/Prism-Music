@@ -3,6 +3,14 @@ import 'package:flutter/material.dart';
 
 import '../../theme/prism_theme.dart';
 
+/// Media type used to determine the semantic fallback icon and styling.
+enum ArtworkType {
+  song,
+  album,
+  artist,
+  playlist,
+}
+
 /// Artwork thumbnail with a quiet fallback. The only image widget pages
 /// should use directly.
 class PrismArtwork extends StatelessWidget {
@@ -13,6 +21,8 @@ class PrismArtwork extends StatelessWidget {
     this.height,
     this.borderRadius,
     this.fit = BoxFit.cover,
+    this.type = ArtworkType.song,
+    this.isCircular = false,
   });
 
   final String url;
@@ -20,11 +30,17 @@ class PrismArtwork extends StatelessWidget {
   final double? height;
   final double? borderRadius;
   final BoxFit fit;
+  final ArtworkType type;
+  final bool isCircular;
 
   @override
   Widget build(BuildContext context) {
-    final radius = borderRadius ?? PrismRadius.sm;
-    final fallback = _ArtworkFallback(borderRadius: radius);
+    final radius = borderRadius ?? (isCircular ? 999.0 : PrismRadius.sm);
+    final fallback = _ArtworkFallback(
+      type: type,
+      borderRadius: radius,
+      isCircular: isCircular,
+    );
 
     final Widget fallbackWidget = SizedBox(
       width: width,
@@ -43,14 +59,37 @@ class PrismArtwork extends StatelessWidget {
             errorWidget: (_, __, ___) => fallbackWidget,
           );
 
+    if (isCircular) {
+      return ClipOval(child: image);
+    }
     if (borderRadius == null) return image;
     return ClipRRect(borderRadius: BorderRadius.circular(radius), child: image);
   }
 }
 
 class _ArtworkFallback extends StatelessWidget {
-  const _ArtworkFallback({required this.borderRadius});
+  const _ArtworkFallback({
+    required this.type,
+    required this.borderRadius,
+    this.isCircular = false,
+  });
+
+  final ArtworkType type;
   final double borderRadius;
+  final bool isCircular;
+
+  IconData get _icon {
+    switch (type) {
+      case ArtworkType.artist:
+        return Icons.person_rounded;
+      case ArtworkType.album:
+        return Icons.album_rounded;
+      case ArtworkType.playlist:
+        return Icons.queue_music_rounded;
+      case ArtworkType.song:
+        return Icons.music_note_rounded;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,10 +97,15 @@ class _ArtworkFallback extends StatelessWidget {
     return Container(
       width: double.infinity,
       height: double.infinity,
-      color: scheme.surfaceContainerHigh,
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        shape: isCircular ? BoxShape.circle : BoxShape.rectangle,
+        borderRadius: isCircular ? null : BorderRadius.circular(borderRadius),
+      ),
+      alignment: Alignment.center,
       child: Icon(
-        Icons.music_note_outlined,
-        color: scheme.onSurfaceVariant.withValues(alpha: .6),
+        _icon,
+        color: scheme.onSurfaceVariant.withValues(alpha: .5),
       ),
     );
   }

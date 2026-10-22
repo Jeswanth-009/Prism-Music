@@ -6,6 +6,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:logging/logging.dart';
 
+import 'package:google_fonts/google_fonts.dart';
+
 import 'core/di/injection.dart';
 import 'core/services/audio_player_service.dart';
 import 'core/services/media_session_coordinator.dart';
@@ -21,6 +23,9 @@ import 'presentation/pages/onboarding_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Enforce bundled offline typography: prevent GoogleFonts from downloading over the network
+  GoogleFonts.config.allowRuntimeFetching = false;
 
   // Global logging setup: active only in debug mode to prevent leaking
   // search queries, stream URLs, or internal state in release logcat.
