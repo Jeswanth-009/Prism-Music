@@ -59,6 +59,9 @@ class SearchState extends Equatable {
   /// Whether there are more results to load
   final bool hasMore;
 
+  /// Current search page for pagination
+  final int page;
+
   /// Error message if status is error
   final String? errorMessage;
 
@@ -71,6 +74,7 @@ class SearchState extends Equatable {
     this.historyEntries = const [],
     this.history = const [],
     this.hasMore = false,
+    this.page = 1,
     this.errorMessage,
   });
 
@@ -97,6 +101,7 @@ class SearchState extends Equatable {
     List<Map<String, String>>? historyEntries,
     List<String>? history,
     bool? hasMore,
+    int? page,
     String? errorMessage,
   }) {
     return SearchState(
@@ -108,6 +113,7 @@ class SearchState extends Equatable {
       historyEntries: historyEntries ?? this.historyEntries,
       history: history ?? this.history,
       hasMore: hasMore ?? this.hasMore,
+      page: page ?? this.page,
       errorMessage: errorMessage ?? this.errorMessage,
     );
   }
@@ -122,6 +128,7 @@ class SearchState extends Equatable {
         historyEntries,
         history,
         hasMore,
+        page,
         errorMessage,
       ];
 }

@@ -46,6 +46,7 @@ class MusicRepositoryImpl implements MusicRepository {
     String query, {
     int limit = 20,
     String? filter,
+    int offset = 0,
   }) async {
     try {
       final items = await _ytMusicApiService.searchSongs(query);
@@ -55,6 +56,7 @@ class MusicRepositoryImpl implements MusicRepository {
       final songs = items
           .map((item) => songFromYtMusicApi(item))
           .where((song) => song.playableId.isNotEmpty)
+          .skip(offset)
           .take(limit)
           .toList();
       Logger.root.info(
@@ -66,8 +68,8 @@ class MusicRepositoryImpl implements MusicRepository {
       Logger.root.warning(
         'MusicRepository.searchSongs("$query"): 0 songs from ytMusicApi, falling back to YouTubeExplode',
       );
-      final fallbackSongs = await _youtubeMusicDataSource.searchSongs(query, limit: limit);
-      return Right(fallbackSongs);
+      final fallbackSongs = await _youtubeMusicDataSource.searchSongs(query, limit: limit + offset);
+      return Right(fallbackSongs.skip(offset).take(limit).toList());
     } on NetworkException {
       return const Left(NetworkFailure());
     } catch (e) {
@@ -75,9 +77,9 @@ class MusicRepositoryImpl implements MusicRepository {
         'MusicRepository.searchSongs("$query") failed ($e), falling back to YouTubeExplode',
       );
       try {
-        final fallbackSongs = await _youtubeMusicDataSource.searchSongs(query, limit: limit);
+        final fallbackSongs = await _youtubeMusicDataSource.searchSongs(query, limit: limit + offset);
         if (fallbackSongs.isNotEmpty) {
-          return Right(fallbackSongs);
+          return Right(fallbackSongs.skip(offset).take(limit).toList());
         }
       } catch (_) {}
       return Left(UnknownFailure(message: e.toString()));
@@ -88,12 +90,14 @@ class MusicRepositoryImpl implements MusicRepository {
   Future<Either<Failure, List<Artist>>> searchArtists(
     String query, {
     int limit = 20,
+    int offset = 0,
   }) async {
     try {
       final items = await _ytMusicApiService.searchArtists(query);
       final artists = items
           .map((item) => artistFromYtMusicApi(item))
           .where((artist) => artist.id.isNotEmpty)
+          .skip(offset)
           .take(limit)
           .toList();
       return Right(artists);
@@ -108,12 +112,14 @@ class MusicRepositoryImpl implements MusicRepository {
   Future<Either<Failure, List<Album>>> searchAlbums(
     String query, {
     int limit = 20,
+    int offset = 0,
   }) async {
     try {
       final items = await _ytMusicApiService.searchAlbums(query);
       final albums = items
           .map((item) => albumFromYtMusicApi(item))
           .where((album) => album.id.isNotEmpty)
+          .skip(offset)
           .take(limit)
           .toList();
       return Right(albums);
@@ -128,12 +134,14 @@ class MusicRepositoryImpl implements MusicRepository {
   Future<Either<Failure, List<Playlist>>> searchPlaylists(
     String query, {
     int limit = 20,
+    int offset = 0,
   }) async {
     try {
       final items = await _ytMusicApiService.searchPlaylists(query);
       final playlists = items
           .map((item) => playlistFromYtMusicApi(item))
           .where((playlist) => playlist.id.isNotEmpty)
+          .skip(offset)
           .take(limit)
           .toList();
       return Right(playlists);
@@ -148,6 +156,7 @@ class MusicRepositoryImpl implements MusicRepository {
   Future<Either<Failure, SearchResults>> searchAll(
     String query, {
     int limit = 10,
+    int offset = 0,
   }) async {
     try {
       final items = await _ytMusicApiService.search(query);
@@ -187,16 +196,16 @@ class MusicRepositoryImpl implements MusicRepository {
 
       if (songs.isEmpty) {
         try {
-          final fallbackSongs = await _youtubeMusicDataSource.searchSongs(query, limit: limit);
+          final fallbackSongs = await _youtubeMusicDataSource.searchSongs(query, limit: limit + offset);
           songs.addAll(fallbackSongs);
         } catch (_) {}
       }
 
       final primaryResults = SearchResults(
-        songs: songs.take(limit).toList(),
-        artists: artists.take(limit).toList(),
-        albums: albums.take(limit).toList(),
-        playlists: playlists.take(limit).toList(),
+        songs: songs.skip(offset).take(limit).toList(),
+        artists: artists.skip(offset).take(limit).toList(),
+        albums: albums.skip(offset).take(limit).toList(),
+        playlists: playlists.skip(offset).take(limit).toList(),
       );
       return Right(primaryResults);
     } on NetworkException {

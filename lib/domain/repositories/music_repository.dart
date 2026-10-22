@@ -15,30 +15,35 @@ abstract class MusicRepository {
     String query, {
     int limit = 20,
     String? filter,
+    int offset = 0,
   });
 
   /// Search for artists
   Future<Either<Failure, List<Artist>>> searchArtists(
     String query, {
     int limit = 20,
+    int offset = 0,
   });
 
   /// Search for albums
   Future<Either<Failure, List<Album>>> searchAlbums(
     String query, {
     int limit = 20,
+    int offset = 0,
   });
 
   /// Search for playlists
   Future<Either<Failure, List<Playlist>>> searchPlaylists(
     String query, {
     int limit = 20,
+    int offset = 0,
   });
 
   /// Universal search - returns all types
   Future<Either<Failure, SearchResults>> searchAll(
     String query, {
     int limit = 10,
+    int offset = 0,
   });
 
   // ============ STREAM OPERATIONS ============
@@ -169,6 +174,20 @@ class SearchResults {
 
   bool get isEmpty =>
       songs.isEmpty && artists.isEmpty && albums.isEmpty && playlists.isEmpty;
+
+  SearchResults copyWith({
+    List<Song>? songs,
+    List<Artist>? artists,
+    List<Album>? albums,
+    List<Playlist>? playlists,
+  }) {
+    return SearchResults(
+      songs: songs ?? this.songs,
+      artists: artists ?? this.artists,
+      albums: albums ?? this.albums,
+      playlists: playlists ?? this.playlists,
+    );
+  }
 }
 
 /// Extended artist details with songs and albums

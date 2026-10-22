@@ -139,6 +139,7 @@ class FakeMusicRepository implements MusicRepository {
     String query, {
     int limit = 20,
     String? filter,
+    int offset = 0,
   }) async {
     if (throwOnSearch) throw Exception('network down');
     searchSongsCallCount++;
@@ -150,6 +151,7 @@ class FakeMusicRepository implements MusicRepository {
   Future<Either<Failure, List<Artist>>> searchArtists(
     String query, {
     int limit = 20,
+    int offset = 0,
   }) async {
     searchSongsCallCount++;
     lastSearchQuery = query;
@@ -160,6 +162,7 @@ class FakeMusicRepository implements MusicRepository {
   Future<Either<Failure, List<Album>>> searchAlbums(
     String query, {
     int limit = 20,
+    int offset = 0,
   }) async {
     searchSongsCallCount++;
     lastSearchQuery = query;
@@ -170,6 +173,7 @@ class FakeMusicRepository implements MusicRepository {
   Future<Either<Failure, List<Playlist>>> searchPlaylists(
     String query, {
     int limit = 20,
+    int offset = 0,
   }) async {
     searchSongsCallCount++;
     lastSearchQuery = query;
@@ -180,6 +184,7 @@ class FakeMusicRepository implements MusicRepository {
   Future<Either<Failure, SearchResults>> searchAll(
     String query, {
     int limit = 10,
+    int offset = 0,
   }) async {
     searchSongsCallCount++;
     lastSearchQuery = query;

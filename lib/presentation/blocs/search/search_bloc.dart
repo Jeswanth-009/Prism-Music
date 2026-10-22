@@ -93,7 +93,8 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
               emit(state.copyWith(
                 status: SearchStatus.success,
                 results: SearchResults(songs: songs),
-                hasMore: false,
+                hasMore: songs.length >= 30,
+                page: 1,
                 entitySuggestions: [],
               ));
               add(AddToHistoryEvent(query));
@@ -116,7 +117,8 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
               emit(state.copyWith(
                 status: SearchStatus.success,
                 results: SearchResults(artists: artists),
-                hasMore: false,
+                hasMore: artists.length >= 30,
+                page: 1,
                 entitySuggestions: [],
               ));
               add(AddToHistoryEvent(query));
@@ -139,7 +141,8 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
               emit(state.copyWith(
                 status: SearchStatus.success,
                 results: SearchResults(albums: albums),
-                hasMore: false,
+                hasMore: albums.length >= 30,
+                page: 1,
                 entitySuggestions: [],
               ));
               add(AddToHistoryEvent(query));
@@ -162,7 +165,8 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
               emit(state.copyWith(
                 status: SearchStatus.success,
                 results: SearchResults(playlists: playlists),
-                hasMore: false,
+                hasMore: playlists.length >= 30,
+                page: 1,
                 entitySuggestions: [],
               ));
               add(AddToHistoryEvent(query));
@@ -189,6 +193,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
                 status: SearchStatus.success,
                 results: searchResults,
                 hasMore: false,
+                page: 1,
                 entitySuggestions: [],
               ));
               add(AddToHistoryEvent(query));
@@ -214,6 +219,8 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
       filter: state.filter,
       history: state.history,
       historyEntries: state.historyEntries,
+      page: 1,
+      hasMore: false,
     ));
   }
 
@@ -221,16 +228,103 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     LoadMoreResultsEvent event,
     Emitter<SearchState> emit,
   ) async {
-    if (!state.hasMore || state.isLoading) return;
+    if (!state.hasMore || state.isLoadingMore || state.query.trim().isEmpty) return;
 
+    final generation = _searchGeneration;
+    final nextPage = state.page + 1;
+    final query = state.query.trim();
     emit(state.copyWith(status: SearchStatus.loadingMore));
 
-    // TODO: Implement pagination
-    // For now, just mark as no more results
-    emit(state.copyWith(
-      status: SearchStatus.success,
-      hasMore: false,
-    ));
+    try {
+      switch (state.filter) {
+        case SearchFilter.songs:
+          final offset = state.results.songs.length;
+          final result = await _musicRepository.searchSongs(query, limit: 30, offset: offset);
+          if (emit.isDone || generation != _searchGeneration) return;
+          result.fold(
+            (failure) => emit(state.copyWith(status: SearchStatus.success, hasMore: false)),
+            (moreSongs) {
+              if (emit.isDone || generation != _searchGeneration) return;
+              final existingIds = state.results.songs.map((s) => s.playableId).toSet();
+              final newSongs = moreSongs.where((s) => !existingIds.contains(s.playableId)).toList();
+              final combined = [...state.results.songs, ...newSongs];
+              emit(state.copyWith(
+                status: SearchStatus.success,
+                results: state.results.copyWith(songs: combined),
+                hasMore: moreSongs.length >= 30,
+                page: nextPage,
+              ));
+            },
+          );
+          break;
+        case SearchFilter.artists:
+          final offset = state.results.artists.length;
+          final result = await _musicRepository.searchArtists(query, limit: 30, offset: offset);
+          if (emit.isDone || generation != _searchGeneration) return;
+          result.fold(
+            (failure) => emit(state.copyWith(status: SearchStatus.success, hasMore: false)),
+            (moreArtists) {
+              if (emit.isDone || generation != _searchGeneration) return;
+              final existingIds = state.results.artists.map((a) => a.id).toSet();
+              final newArtists = moreArtists.where((a) => !existingIds.contains(a.id)).toList();
+              final combined = [...state.results.artists, ...newArtists];
+              emit(state.copyWith(
+                status: SearchStatus.success,
+                results: state.results.copyWith(artists: combined),
+                hasMore: moreArtists.length >= 30,
+                page: nextPage,
+              ));
+            },
+          );
+          break;
+        case SearchFilter.albums:
+          final offset = state.results.albums.length;
+          final result = await _musicRepository.searchAlbums(query, limit: 30, offset: offset);
+          if (emit.isDone || generation != _searchGeneration) return;
+          result.fold(
+            (failure) => emit(state.copyWith(status: SearchStatus.success, hasMore: false)),
+            (moreAlbums) {
+              if (emit.isDone || generation != _searchGeneration) return;
+              final existingIds = state.results.albums.map((a) => a.id).toSet();
+              final newAlbums = moreAlbums.where((a) => !existingIds.contains(a.id)).toList();
+              final combined = [...state.results.albums, ...newAlbums];
+              emit(state.copyWith(
+                status: SearchStatus.success,
+                results: state.results.copyWith(albums: combined),
+                hasMore: moreAlbums.length >= 30,
+                page: nextPage,
+              ));
+            },
+          );
+          break;
+        case SearchFilter.playlists:
+          final offset = state.results.playlists.length;
+          final result = await _musicRepository.searchPlaylists(query, limit: 30, offset: offset);
+          if (emit.isDone || generation != _searchGeneration) return;
+          result.fold(
+            (failure) => emit(state.copyWith(status: SearchStatus.success, hasMore: false)),
+            (morePlaylists) {
+              if (emit.isDone || generation != _searchGeneration) return;
+              final existingIds = state.results.playlists.map((p) => p.id).toSet();
+              final newPlaylists = morePlaylists.where((p) => !existingIds.contains(p.id)).toList();
+              final combined = [...state.results.playlists, ...newPlaylists];
+              emit(state.copyWith(
+                status: SearchStatus.success,
+                results: state.results.copyWith(playlists: combined),
+                hasMore: morePlaylists.length >= 30,
+                page: nextPage,
+              ));
+            },
+          );
+          break;
+        case SearchFilter.all:
+          emit(state.copyWith(status: SearchStatus.success, hasMore: false));
+          break;
+      }
+    } catch (_) {
+      if (emit.isDone || generation != _searchGeneration) return;
+      emit(state.copyWith(status: SearchStatus.success, hasMore: false));
+    }
   }
 
   Future<void> _onUpdateFilter(

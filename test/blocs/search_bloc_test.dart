@@ -257,7 +257,7 @@ void main() {
   });
 
   group('LoadMoreResultsEvent', () {
-    test('is a safe no-op while pagination is unimplemented', () async {
+    test('is a safe no-op when hasMore is false or status is not success', () async {
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
       bloc.add(const LoadMoreResultsEvent());
@@ -265,6 +265,31 @@ void main() {
 
       expect(bloc.state.status, isNot(SearchStatus.loadingMore));
       expect(bloc.state.hasMore, isFalse);
+    });
+
+    test('loads next page and appends results when hasMore is true', () async {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      final initialSongs = List.generate(30, (i) => song('song_$i', 'Song $i'));
+      musicRepo.searchResult = Right(initialSongs);
+
+      bloc.add(const SearchQueryEvent(query: 'rock', filter: SearchFilter.songs));
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+
+      expect(bloc.state.status, SearchStatus.success);
+      expect(bloc.state.results.songs, hasLength(30));
+      expect(bloc.state.hasMore, isTrue);
+      expect(bloc.state.page, 1);
+
+      final nextSongs = List.generate(10, (i) => song('song_${i + 30}', 'Song ${i + 30}'));
+      musicRepo.searchResult = Right(nextSongs);
+
+      bloc.add(const LoadMoreResultsEvent());
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(bloc.state.status, SearchStatus.success);
+      expect(bloc.state.results.songs, hasLength(40));
+      expect(bloc.state.hasMore, isFalse); // only 10 returned (< 30)
+      expect(bloc.state.page, 2);
     });
   });
 }
