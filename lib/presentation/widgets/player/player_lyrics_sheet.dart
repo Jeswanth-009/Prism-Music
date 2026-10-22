@@ -84,6 +84,26 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
     );
   }
 
+  String _formatLineTime(int ms) {
+    final totalSeconds = (ms / 1000).floor();
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  void _toggleFollow() {
+    final next = !_followCurrentLine;
+    setState(() => _followCurrentLine = next);
+    if (next && _activeLine >= 0 && _scrollController.isAttached) {
+      _scrollController.scrollTo(
+        index: _activeLine,
+        duration: PrismMotion.base,
+        curve: PrismMotion.curve,
+        alignment: 0.3,
+      );
+    }
+  }
+
   void _syncToPosition(Duration position) {
     final synced = _lyrics?.syncedLyrics;
     if (synced == null || synced.isEmpty) return;
@@ -152,13 +172,16 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
                     final line = lines[index];
                     final isActive = index == _activeLine;
                     final isPast = _activeLine >= 0 && index < _activeLine;
+                    final timeLabel = _formatLineTime(line.startTimeMs);
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Material(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(PrismRadius.sm),
+                        color: isActive
+                            ? theme.colorScheme.primary.withValues(alpha: 0.12)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(PrismRadius.md),
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(PrismRadius.sm),
+                          borderRadius: BorderRadius.circular(PrismRadius.md),
                           onTap: () {
                             final seekPositionMs = (line.startTimeMs +
                                     _userOffsetMs)
@@ -177,24 +200,63 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
                           },
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
-                              vertical: 6,
-                              horizontal: 8,
+                              vertical: 8,
+                              horizontal: 12,
                             ),
-                            child: AnimatedDefaultTextStyle(
-                              duration: PrismMotion.base,
-                              style: (theme.textTheme.headlineSmall ??
-                                      const TextStyle())
-                                  .copyWith(
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: -0.4,
-                                height: 1.25,
-                                color: isActive
-                                    ? theme.colorScheme.primary
-                                    : theme.colorScheme.onSurface.withValues(
-                                        alpha: isPast ? 0.30 : 0.65,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: AnimatedDefaultTextStyle(
+                                    duration: PrismMotion.base,
+                                    style: (theme.textTheme.headlineSmall ??
+                                            const TextStyle())
+                                        .copyWith(
+                                      fontWeight: isActive
+                                          ? FontWeight.w800
+                                          : FontWeight.w600,
+                                      letterSpacing: -0.4,
+                                      height: 1.25,
+                                      color: isActive
+                                          ? theme.colorScheme.primary
+                                          : theme.colorScheme.onSurface
+                                              .withValues(
+                                              alpha: isPast ? 0.35 : 0.70,
+                                            ),
+                                    ),
+                                    child: Text(line.text.trim()),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                AnimatedOpacity(
+                                  duration: PrismMotion.base,
+                                  opacity: isActive ? 1.0 : 0.0,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.primary
+                                          .withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(
+                                        PrismRadius.xs,
                                       ),
-                              ),
-                              child: Text(line.text.trim()),
+                                    ),
+                                    child: Text(
+                                      timeLabel,
+                                      style:
+                                          theme.textTheme.labelSmall?.copyWith(
+                                        color: theme.colorScheme.primary,
+                                        fontWeight: FontWeight.w700,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -211,7 +273,8 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
               child: FilledButton.tonalIcon(
                 style: FilledButton.styleFrom(
                   visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                 ),
                 onPressed: () {
                   setState(() => _followCurrentLine = true);
@@ -231,6 +294,8 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
           _LyricsFooter(
             isSynced: true,
             syncOffsetMs: _userOffsetMs,
+            followCurrentLine: _followCurrentLine,
+            onToggleFollow: _toggleFollow,
             onAdjustSync: (delta) {
               setState(() => _userOffsetMs += delta);
               final state = context.read<PlayerBloc>().state;
@@ -338,6 +403,8 @@ class _LyricsFooter extends StatelessWidget {
     required this.onRefresh,
     this.isSynced = false,
     this.syncOffsetMs = 0,
+    this.followCurrentLine = true,
+    this.onToggleFollow,
     this.onAdjustSync,
     this.onResetSync,
   });
@@ -345,90 +412,98 @@ class _LyricsFooter extends StatelessWidget {
   final VoidCallback onRefresh;
   final bool isSynced;
   final int syncOffsetMs;
+  final bool followCurrentLine;
+  final VoidCallback? onToggleFollow;
   final void Function(int deltaMs)? onAdjustSync;
   final VoidCallback? onResetSync;
 
   void _showSyncModal(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       builder: (sheetContext) {
-        final theme = Theme.of(sheetContext);
-        final offsetSeconds = (syncOffsetMs / 1000).toStringAsFixed(1);
-        final offsetSign = syncOffsetMs > 0 ? '+' : '';
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Lyrics Sync Correction',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Current offset: $offsetSign${offsetSeconds}s',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
+        var currentOffset = syncOffsetMs;
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final theme = Theme.of(sheetContext);
+            final offsetSeconds = (currentOffset / 1000).toStringAsFixed(1);
+            final offsetSign = currentOffset > 0 ? '+' : '';
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    FilledButton.tonal(
-                      onPressed: () {
-                        onAdjustSync?.call(-500);
-                        Navigator.pop(sheetContext);
-                      },
-                      child: const Text('-0.5s'),
+                    Text(
+                      'Lyrics Sync Correction',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                    FilledButton.tonal(
-                      onPressed: () {
-                        onAdjustSync?.call(-200);
-                        Navigator.pop(sheetContext);
-                      },
-                      child: const Text('-0.2s'),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Current offset: $offsetSign${offsetSeconds}s ($offsetSign${currentOffset}ms)',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    OutlinedButton(
-                      onPressed: () {
-                        onResetSync?.call();
-                        Navigator.pop(sheetContext);
-                      },
-                      child: const Text('Reset'),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        FilledButton.tonal(
+                          onPressed: () {
+                            onAdjustSync?.call(-500);
+                            Navigator.pop(sheetContext);
+                          },
+                          child: const Text('-0.5s'),
+                        ),
+                        FilledButton.tonal(
+                          onPressed: () {
+                            onAdjustSync?.call(-100);
+                            Navigator.pop(sheetContext);
+                          },
+                          child: const Text('-0.1s'),
+                        ),
+                        OutlinedButton(
+                          onPressed: () {
+                            onResetSync?.call();
+                            Navigator.pop(sheetContext);
+                          },
+                          child: const Text('Reset'),
+                        ),
+                        FilledButton.tonal(
+                          onPressed: () {
+                            onAdjustSync?.call(100);
+                            Navigator.pop(sheetContext);
+                          },
+                          child: const Text('+0.1s'),
+                        ),
+                        FilledButton.tonal(
+                          onPressed: () {
+                            onAdjustSync?.call(500);
+                            Navigator.pop(sheetContext);
+                          },
+                          child: const Text('+0.5s'),
+                        ),
+                      ],
                     ),
-                    FilledButton.tonal(
-                      onPressed: () {
-                        onAdjustSync?.call(200);
-                        Navigator.pop(sheetContext);
-                      },
-                      child: const Text('+0.2s'),
-                    ),
-                    FilledButton.tonal(
-                      onPressed: () {
-                        onAdjustSync?.call(500);
-                        Navigator.pop(sheetContext);
-                      },
-                      child: const Text('+0.5s'),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Negative values advance lyrics; positive values delay them.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  'Negative values advance lyrics; positive values delay them.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -463,7 +538,22 @@ class _LyricsFooter extends StatelessWidget {
               ),
             ),
           ),
-          if (isSynced)
+          if (isSynced) ...[
+            IconButton(
+              tooltip: followCurrentLine
+                  ? 'Auto-follow is ON (click to disable)'
+                  : 'Auto-follow is OFF (click to enable)',
+              onPressed: onToggleFollow,
+              icon: Icon(
+                followCurrentLine
+                    ? Icons.vertical_align_center_rounded
+                    : Icons.pan_tool_outlined,
+                size: 20,
+                color: followCurrentLine
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
             IconButton(
               tooltip: syncOffsetMs == 0
                   ? 'Adjust sync timing'
@@ -483,6 +573,7 @@ class _LyricsFooter extends StatelessWidget {
                 ),
               ),
             ),
+          ],
           IconButton(
             tooltip: 'Refresh lyrics',
             onPressed: onRefresh,

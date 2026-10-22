@@ -234,4 +234,67 @@ void main() {
 
     expect(find.text('+0.5s'), findsOneWidget);
   });
+
+  testWidgets('auto-follow toggle toggles follow state', (tester) async {
+    musicRepo.lyricsResult = Right(syncedLyrics('FollowTest'));
+
+    await pumpTestWidget(
+      tester,
+      const PlayerLyricsView(song: Song(
+        id: 's1',
+        title: 'Song One',
+        artist: 'Artist',
+        duration: Duration(seconds: 200),
+        thumbnails: Thumbnails(),
+      )),
+      playerBloc: buildTestPlayerBloc(),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    // Initially auto-follow is ON
+    expect(find.byIcon(Icons.vertical_align_center_rounded), findsOneWidget);
+
+    // Tap to disable auto-follow
+    await tester.tap(find.byIcon(Icons.vertical_align_center_rounded));
+    await tester.pump();
+    expect(find.byIcon(Icons.pan_tool_outlined), findsOneWidget);
+
+    // Tap again to enable auto-follow
+    await tester.tap(find.byIcon(Icons.pan_tool_outlined));
+    await tester.pump();
+    expect(find.byIcon(Icons.vertical_align_center_rounded), findsOneWidget);
+  });
+
+  testWidgets('displays timestamps and fine-tuning offset buttons in sync modal', (tester) async {
+    musicRepo.lyricsResult = Right(syncedLyrics('FineSync'));
+
+    await pumpTestWidget(
+      tester,
+      const PlayerLyricsView(song: Song(
+        id: 's1',
+        title: 'Song One',
+        artist: 'Artist',
+        duration: Duration(seconds: 200),
+        thumbnails: Thumbnails(),
+      )),
+      playerBloc: buildTestPlayerBloc(),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    // Line timestamps are rendered
+    expect(find.text('0:00'), findsOneWidget);
+    expect(find.text('0:05'), findsOneWidget);
+
+    // Open sync modal
+    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // Has fine-grained steppers
+    expect(find.text('-0.1s'), findsOneWidget);
+    expect(find.text('+0.1s'), findsOneWidget);
+    expect(find.text('Reset'), findsOneWidget);
+  });
 }
