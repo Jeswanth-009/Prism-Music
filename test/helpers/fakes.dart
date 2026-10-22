@@ -490,6 +490,32 @@ class FakeLibraryRepository implements LibraryRepository {
     return const Right(null);
   }
 
+  final List<String> historyRemoved = [];
+
+  @override
+  Future<Either<Failure, void>> removeFromHistory(String songId) async {
+    historyRemoved.add(songId);
+    history = history.where((s) => s.id != songId && s.playableId != songId).toList();
+    recentlyPlayed = recentlyPlayed.where((s) => s.id != songId && s.playableId != songId).toList();
+    historyEntries = historyEntries.where((e) => e.song.id != songId && e.song.playableId != songId).toList();
+    return const Right(null);
+  }
+
+  @override
+  Future<Either<Failure, void>> clearHistory() async {
+    history = const [];
+    recentlyPlayed = const [];
+    historyEntries = const [];
+    return const Right(null);
+  }
+
+  List<HistoryEntry> historyEntries = const [];
+
+  @override
+  Future<Either<Failure, List<HistoryEntry>>> getHistoryEntries({int limit = 200}) async {
+    return Right(historyEntries);
+  }
+
   @override
   Future<Either<Failure, String>> downloadSong(
     Song song,

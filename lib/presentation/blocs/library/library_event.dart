@@ -225,3 +225,13 @@ class LoadFavoriteArtistsEvent extends LibraryEvent {
   const LoadFavoriteArtistsEvent();
 }
 
+/// Remove a single song from listening history
+class RemoveSongFromHistoryEvent extends LibraryEvent {
+  final String songId;
+
+  const RemoveSongFromHistoryEvent(this.songId);
+
+  @override
+  List<Object?> get props => [songId];
+}
+

@@ -78,6 +78,9 @@ abstract class LocalDataSource {
   /// Add song to listening history
   Future<void> addToHistory(Song song);
 
+  /// Remove a song from listening history
+  Future<void> removeFromHistory(String songId);
+
   /// Get every recorded play (not de-duplicated) with timestamps, newest first.
   Future<List<HistoryEntry>> getFullHistory();
 
@@ -703,6 +706,22 @@ class LocalDataSourceImpl implements LocalDataSource {
     for (final k in toDelete) {
       await box.delete(k);
     }
+  }
+
+  @override
+  Future<void> removeFromHistory(String songId) async {
+    final box = await _getHistoryBox();
+    final toDelete = <dynamic>[];
+    for (final dynamic key in box.keys) {
+      final keyStr = key.toString();
+      if (keyStr.endsWith('_$songId') || keyStr == songId) {
+        toDelete.add(key);
+      }
+    }
+    for (final k in toDelete) {
+      await box.delete(k);
+    }
+    _triggerBackup();
   }
 
   @override

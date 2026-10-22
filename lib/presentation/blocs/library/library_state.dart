@@ -27,6 +27,9 @@ class LibraryState extends Equatable {
   /// Recently played songs
   final List<Song> recentlyPlayed;
 
+  /// Listening history entries with timestamps
+  final List<HistoryEntry> historyEntries;
+
   /// Aggregated listening statistics
   final ListeningStats? stats;
 
@@ -66,6 +69,7 @@ class LibraryState extends Equatable {
     this.playlists = const [],
     this.history = const [],
     this.recentlyPlayed = const [],
+    this.historyEntries = const [],
     this.stats,
     this.downloads = const [],
     this.likedSongIds = const {},
@@ -94,6 +98,7 @@ class LibraryState extends Equatable {
     List<Playlist>? playlists,
     List<Song>? history,
     List<Song>? recentlyPlayed,
+    List<HistoryEntry>? historyEntries,
     ListeningStats? stats,
     List<Song>? downloads,
     Set<String>? likedSongIds,
@@ -112,6 +117,7 @@ class LibraryState extends Equatable {
       playlists: playlists ?? this.playlists,
       history: history ?? this.history,
       recentlyPlayed: recentlyPlayed ?? this.recentlyPlayed,
+      historyEntries: historyEntries ?? this.historyEntries,
       stats: stats ?? this.stats,
       downloads: downloads ?? this.downloads,
       likedSongIds: likedSongIds ?? this.likedSongIds,
@@ -133,6 +139,7 @@ class LibraryState extends Equatable {
         playlists,
         history,
         recentlyPlayed,
+        historyEntries,
         stats,
         downloads,
         likedSongIds,

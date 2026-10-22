@@ -37,6 +37,7 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     on<RefreshImportedPlaylistEvent>(_onRefreshImportedPlaylist);
     on<ToggleFavoriteArtistEvent>(_onToggleFavoriteArtist);
     on<LoadFavoriteArtistsEvent>(_onLoadFavoriteArtists);
+    on<RemoveSongFromHistoryEvent>(_onRemoveSongFromHistory);
   }
 
   void _onCancelImport(CancelImportEvent event, Emitter<LibraryState> emit) {
@@ -63,6 +64,7 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
         _libraryRepository.getDownloadedSongs(),
         _libraryRepository.getListeningStats(),
         _libraryRepository.getFavoriteArtists(),
+        _libraryRepository.getHistoryEntries(limit: _libraryHistoryLimit),
       ]);
 
       final likedResult = results[0] as Either<Failure, List<Song>>;
@@ -72,6 +74,7 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
       final downloadsResult = results[4] as Either<Failure, List<Song>>;
       final statsResult = results[5] as Either<Failure, ListeningStats>;
       final favoriteArtistsResult = results[6] as Either<Failure, List<Artist>>;
+      final entriesResult = results[7] as Either<Failure, List<HistoryEntry>>;
 
       final errors = <String>[];
 
@@ -106,6 +109,11 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
           return state.recentlyPlayed;
         },
         (r) => r,
+      );
+
+      final historyEntries = entriesResult.fold(
+        (f) => state.historyEntries,
+        (entries) => entries,
       );
 
       final downloads = downloadsResult.fold(
@@ -150,6 +158,7 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
           playlists: playlists,
           history: history,
           recentlyPlayed: recent,
+          historyEntries: historyEntries,
           stats: stats,
           downloads: downloads,
           downloadedSongIds: downloadIds,
@@ -701,8 +710,35 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     emit(state.copyWith(
       history: const [],
       recentlyPlayed: const [],
+      historyEntries: const [],
       stats: const ListeningStats(),
     ));
+  }
+
+  Future<void> _onRemoveSongFromHistory(
+    RemoveSongFromHistoryEvent event,
+    Emitter<LibraryState> emit,
+  ) async {
+    await _libraryRepository.removeFromHistory(event.songId);
+    final updatedHistory = state.history
+        .where((s) => s.id != event.songId && s.playableId != event.songId)
+        .toList();
+    final updatedRecent = state.recentlyPlayed
+        .where((s) => s.id != event.songId && s.playableId != event.songId)
+        .toList();
+    final updatedEntries = state.historyEntries
+        .where((e) =>
+            e.song.id != event.songId && e.song.playableId != event.songId)
+        .toList();
+
+    emit(state.copyWith(
+      history: updatedHistory,
+      recentlyPlayed: updatedRecent,
+      historyEntries: updatedEntries,
+    ));
+
+    final statsResult = await _libraryRepository.getListeningStats();
+    statsResult.fold((_) => null, (stats) => emit(state.copyWith(stats: stats)));
   }
 
   Future<void> _onDownloadSong(
