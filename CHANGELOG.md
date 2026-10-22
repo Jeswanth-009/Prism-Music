@@ -8,6 +8,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.44] - 2026-10-22
+
+### Added
+
+- Add comprehensive build diagnostics, source links, licenses, and support details
+- Bundle Inter typography locally and unify media fallback artwork
+- Enhance tap-to-seek, fine-grained manual offset controls, and auto-follow toggle
+- Implement temporal grouping and per-query deletion for search and listening history
+- Add rename, song reordering, search filtering, and m3u/json export UI
+
+### Changed
+
+- Set cross-platform font rasterization tolerance to 5% for Linux CI
+- Update reference snapshots for bundled Inter typography and unified artwork
+
 ## [0.2.43] - 2026-10-22
 
 ### Added
@@ -767,3 +782,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.41]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.41-build77
 [0.2.42]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.42-build78
 [0.2.43]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.43-build79
+[0.2.44]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.44-build80
