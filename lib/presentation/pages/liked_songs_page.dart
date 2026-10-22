@@ -126,11 +126,13 @@ class _LikedSongsPageState extends State<LikedSongsPage> {
         builder: (context, state) {
           final allSongs = state.likedSongs;
           if (allSongs.isEmpty) {
-            return const PrismEmptyState(
+            return PrismEmptyState(
               icon: Icons.favorite_outline_rounded,
               message: 'Songs you love live here',
               hint:
                   'Tap the heart while listening and Prism will keep it in your private library.',
+              actionLabel: 'Explore Music',
+              onAction: () => Navigator.of(context).pop(),
             );
           }
 

@@ -72,10 +72,12 @@ class RecentlyPlayedPage extends StatelessWidget {
               : state.recentlyPlayed;
 
           if (songs.isEmpty) {
-            return const PrismEmptyState(
+            return PrismEmptyState(
               icon: Icons.history_rounded,
               message: 'No recently played songs yet',
               hint: 'Tracks you listen to will automatically appear here.',
+              actionLabel: 'Discover Songs',
+              onAction: () => Navigator.of(context).pop(),
             );
           }
 

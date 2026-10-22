@@ -32,19 +32,30 @@ class _OnboardingPageState extends State<OnboardingPage> {
           'Your likes, playlists, and listening history stay on your device without user tracking. Streams are fetched directly from external providers (YouTube/JioSaavn), and optional features like Last.fm scrobbling are entirely up to you.',
     ),
     (
-      icon: Icons.equalizer_rounded,
-      title: 'Made for listening',
+      icon: Icons.verified_user_outlined,
+      title: 'Transparent\nPermissions',
+      body:
+          'We only ask for permissions that improve your listening:\n\n'
+          '• Media Notifications: Playback controls in notification tray & lock screen\n'
+          '• Background Audio: Continuous music when phone is locked or multitasking\n'
+          '• Storage & Backups: Strictly for offline downloads and local backups',
+    ),
+    (
+      icon: Icons.rocket_launch_rounded,
+      title: 'Ready to listen?',
       body:
           'Synced lyrics, a 10-band equalizer, sleep timer, and offline '
-          'downloads. Fine-tune your audio and trending region anytime in Settings.',
+          'downloads. Find your favorite track or dive into trending discovery mixes.',
     ),
   ];
 
-  void _finish() async {
+  void _finish({int initialIndex = 0}) async {
     await SettingsService.instance.setOnboardingComplete();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const HomePage()),
+      MaterialPageRoute(
+        builder: (_) => HomePage(initialIndex: initialIndex),
+      ),
     );
   }
 
@@ -66,7 +77,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
-                onPressed: _finish,
+                onPressed: () => _finish(initialIndex: 0),
                 child: const Text('Skip'),
               ),
             ),
@@ -145,33 +156,64 @@ class _OnboardingPageState extends State<OnboardingPage> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
-              child: SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: FilledButton(
-                  onPressed: () {
-                    if (isLast) {
-                      _finish();
-                    } else {
-                      _controller.nextPage(
-                        duration: PrismMotion.slow,
-                        curve: PrismMotion.curve,
-                      );
-                    }
-                  },
-                  style: FilledButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+              child: isLast
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: FilledButton.icon(
+                            onPressed: () => _finish(initialIndex: 1),
+                            icon: const Icon(Icons.search_rounded, size: 20),
+                            label: const Text('Search & Play Music'),
+                            style: FilledButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: OutlinedButton.icon(
+                            onPressed: () => _finish(initialIndex: 0),
+                            icon: const Icon(Icons.explore_outlined, size: 20),
+                            label: const Text('Explore Trending & Home'),
+                            style: OutlinedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: FilledButton(
+                        onPressed: () {
+                          _controller.nextPage(
+                            duration: PrismMotion.slow,
+                            curve: PrismMotion.curve,
+                          );
+                        },
+                        style: FilledButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: Text(
+                          'Next',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                  child: Text(
-                    isLast ? 'Get started' : 'Next',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
             ),
           ],
         ),

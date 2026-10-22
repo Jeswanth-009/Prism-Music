@@ -155,11 +155,13 @@ class _DownloadsPageState extends State<DownloadsPage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : (_downloadedSongs.isEmpty && activeDownloads.isEmpty)
-              ? const PrismEmptyState(
+              ? PrismEmptyState(
                   icon: Icons.download_rounded,
                   message: 'No downloads yet',
                   hint:
                       'Songs you download for offline playback will appear here.',
+                  actionLabel: 'Find Songs to Download',
+                  onAction: () => Navigator.of(context).pop(),
                 )
               : CustomScrollView(
                   physics: const BouncingScrollPhysics(),

@@ -18,11 +18,15 @@ class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
     this.tabBuilders,
+    this.initialIndex = 0,
   });
 
   /// Optional custom tab builders, primarily used for testing or modular shells.
   /// If null, [defaultTabBuilders] are used.
   final List<WidgetBuilder>? tabBuilders;
+
+  /// Initial tab index to select on mount (0: Home, 1: Search, 2: Charts, 3: Library).
+  final int initialIndex;
 
   static final List<WidgetBuilder> defaultTabBuilders = [
     (_) => const HomeTab(),
@@ -36,8 +40,15 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int _currentIndex = 0;
-  final Set<int> _visitedTabs = {0};
+  late int _currentIndex;
+  late final Set<int> _visitedTabs;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _visitedTabs = {widget.initialIndex};
+  }
 
   void _onTabSelect(int index) {
     if (_currentIndex == index && _visitedTabs.contains(index)) return;

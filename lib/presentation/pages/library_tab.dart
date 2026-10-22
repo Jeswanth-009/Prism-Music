@@ -294,11 +294,13 @@ class _LibraryTabState extends State<LibraryTab>
                 ),
               ),
             if (state.playlists.isEmpty)
-              const SliverToBoxAdapter(
+              SliverToBoxAdapter(
                 child: PrismEmptyState(
                   icon: Icons.queue_music_rounded,
                   message: 'No playlists yet',
-                  hint: 'Create one from the tile above.',
+                  hint: 'Organize your favorite tracks into custom playlists.',
+                  actionLabel: 'Create playlist',
+                  onAction: _createPlaylist,
                   compact: true,
                 ),
               )

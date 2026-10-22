@@ -73,4 +73,24 @@ void main() {
     expect(find.text('Tab 2 Content'), findsNothing);
     expect(tab2Builds, 0);
   });
+
+  testWidgets('HomePage mounts specified initialIndex directly', (tester) async {
+    await pumpTestWidget(
+      tester,
+      HomePage(
+        initialIndex: 1,
+        tabBuilders: [
+          (_) => const Text('Tab 0 Content'),
+          (_) => const Text('Tab 1 Content'),
+          (_) => const Text('Tab 2 Content'),
+          (_) => const Text('Tab 3 Content'),
+        ],
+      ),
+    );
+    await tester.pump();
+
+    // Tab 1 is initially mounted
+    expect(find.text('Tab 1 Content'), findsOneWidget);
+    expect(find.text('Tab 0 Content'), findsNothing);
+  });
 }

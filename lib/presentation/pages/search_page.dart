@@ -413,12 +413,14 @@ class _SearchPageState extends State<SearchPage> {
 
     if (songs.isEmpty && artists.isEmpty && albums.isEmpty && playlists.isEmpty) {
       return [
-        const SliverFillRemaining(
+        SliverFillRemaining(
           hasScrollBody: false,
           child: PrismEmptyState(
             icon: Icons.search_off_rounded,
             message: 'No results found',
-            hint: 'Try a different search or spelling.',
+            hint: 'Try a different search or check your spelling.',
+            actionLabel: 'Clear Search',
+            onAction: _clearSearch,
           ),
         ),
       ];
@@ -624,12 +626,14 @@ class _SearchPageState extends State<SearchPage> {
     final songs = state.results.songs;
     if (songs.isEmpty) {
       return [
-        const SliverFillRemaining(
+        SliverFillRemaining(
           hasScrollBody: false,
           child: PrismEmptyState(
             icon: Icons.search_off_rounded,
             message: 'No songs found',
             hint: 'Try a different search or spelling.',
+            actionLabel: 'Clear Search',
+            onAction: _clearSearch,
           ),
         ),
       ];
@@ -680,10 +684,12 @@ class _SearchPageState extends State<SearchPage> {
       return [
         SliverFillRemaining(
           hasScrollBody: false,
-          child: const PrismEmptyState(
+          child: PrismEmptyState(
             icon: Icons.search_off_rounded,
             message: 'No artists found',
             hint: 'Try a different search or spelling.',
+            actionLabel: 'Clear Search',
+            onAction: _clearSearch,
           ),
         ),
       ];
@@ -738,10 +744,12 @@ class _SearchPageState extends State<SearchPage> {
       return [
         SliverFillRemaining(
           hasScrollBody: false,
-          child: const PrismEmptyState(
+          child: PrismEmptyState(
             icon: Icons.search_off_rounded,
             message: 'No albums found',
             hint: 'Try a different search or spelling.',
+            actionLabel: 'Clear Search',
+            onAction: _clearSearch,
           ),
         ),
       ];
@@ -781,10 +789,12 @@ class _SearchPageState extends State<SearchPage> {
       return [
         SliverFillRemaining(
           hasScrollBody: false,
-          child: const PrismEmptyState(
+          child: PrismEmptyState(
             icon: Icons.search_off_rounded,
             message: 'No playlists found',
             hint: 'Try a different search or spelling.',
+            actionLabel: 'Clear Search',
+            onAction: _clearSearch,
           ),
         ),
       ];
