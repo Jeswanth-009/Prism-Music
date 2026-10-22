@@ -185,6 +185,7 @@ class _PrismNavBar extends StatelessWidget {
                     child: AnimatedContainer(
                       duration: PrismMotion.baseOf(context),
                       curve: PrismMotion.curve,
+                      constraints: const BoxConstraints(minHeight: 48),
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       decoration: BoxDecoration(
                         color:

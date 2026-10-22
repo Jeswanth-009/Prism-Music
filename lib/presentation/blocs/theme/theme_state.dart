@@ -90,7 +90,7 @@ class ThemeState extends Equatable {
       onSurface: onSurface,
       onSurfaceVariant: isDark
           ? const Color(0xFFA3A9BD)
-          : const Color(0xFF5E6373),
+          : const Color(0xFF494D5C),
       surfaceContainerLowest: isDark
           ? const Color(0xFF07080D)
           : Colors.white,
@@ -108,7 +108,7 @@ class ThemeState extends Equatable {
           : PrismColors.paperHighest,
       outline: isDark
           ? const Color(0xFF3A415A)
-          : const Color(0xFFC8C4BB),
+          : const Color(0xFFB0ACA2),
       outlineVariant: isDark
           ? const Color(0xFF262C3F)
           : const Color(0xFFE3E0D8),
@@ -261,6 +261,8 @@ class ThemeState extends Equatable {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
+          minimumSize: const Size(48, 48),
+          tapTargetSize: MaterialTapTargetSize.padded,
         ),
       ),
       snackBarTheme: SnackBarThemeData(

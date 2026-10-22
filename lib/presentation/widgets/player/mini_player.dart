@@ -48,7 +48,7 @@ class MiniPlayer extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Container(
-              height: 68,
+              constraints: const BoxConstraints(minHeight: 68),
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerLow.withValues(alpha: 0.97),
@@ -65,6 +65,7 @@ class MiniPlayer extends StatelessWidget {
               child: InkWell(
                 onTap: () => _openPlayer(context),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     LinearProgressIndicator(
                       minHeight: 2,
@@ -72,10 +73,9 @@ class MiniPlayer extends StatelessWidget {
                       color: scheme.primary,
                       backgroundColor: Colors.transparent,
                     ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(10, 0, 6, 0),
-                        child: Row(
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
+                      child: Row(
                           children: [
                             Hero(
                               tag:
@@ -177,7 +177,6 @@ class MiniPlayer extends StatelessWidget {
                           ],
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -207,9 +206,11 @@ class _MiniAction extends StatelessWidget {
       button: true,
       label: label,
       child: IconButton(
+        tooltip: label,
         onPressed: onPressed,
         style: IconButton.styleFrom(
-          fixedSize: const Size(44, 44),
+          minimumSize: const Size(48, 48),
+          tapTargetSize: MaterialTapTargetSize.padded,
           foregroundColor: scheme.onSurface,
           disabledForegroundColor: scheme.onSurface.withValues(alpha: 0.25),
         ),

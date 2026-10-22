@@ -161,8 +161,8 @@ class PrismSongTile extends StatelessWidget {
                     tooltip: 'More options for ${song.title}',
                     padding: EdgeInsets.zero,
                     constraints:
-                        const BoxConstraints(minWidth: 36, minHeight: 36),
-                    visualDensity: VisualDensity.compact,
+                        const BoxConstraints(minWidth: 44, minHeight: 44),
+                    visualDensity: VisualDensity.standard,
                     onPressed: () => showPrismSongActions(context, song),
                   ),
                 ],
