@@ -29,3 +29,4 @@ Add UI screenshots or short recordings when relevant.
 - [ ] I updated docs where behavior changed.
 - [ ] I added or updated tests where practical.
 - [ ] I checked for regressions in playback/search/recommendations.
+- [ ] If modifying/adding a music provider: followed [CONTRIBUTING_PROVIDERS.md](docs/CONTRIBUTING_PROVIDERS.md) and passed `test/providers/provider_isolation_test.dart`.

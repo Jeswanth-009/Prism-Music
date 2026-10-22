@@ -1,0 +1,60 @@
+name: Provider / Stream Resolution Issue
+description: Report a broken metadata provider, failed stream resolution, or request a new music provider
+labels:
+  - provider
+  - good first issue
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Prism Music's providers!
+        Prism Music uses modular providers decoupled from the audio engine. Check our [Contributor Guide](https://github.com/Jeswanth-009/Prism-Music/blob/main/docs/CONTRIBUTING_PROVIDERS.md) for architecture and isolation tests.
+
+  - type: dropdown
+    id: provider_name
+    attributes:
+      label: Provider affected
+      description: Select which music provider or stream resolver is failing
+      options:
+        - JioSaavn
+        - YouTube / YouTube Music
+        - Piped Proxy
+        - Invidious Fallback
+        - New Provider Request / Other
+    validations:
+      required: true
+
+  - type: input
+    id: track_example
+    attributes:
+      label: Track Title & Artist (or Search Query)
+      description: Give an example track or search term where resolution fails
+      placeholder: e.g. "Bohemian Rhapsody - Queen" or "https://..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: failure_type
+    attributes:
+      label: Type of failure
+      options:
+        - Stream resolution failed (403 / 404 / signature error)
+        - Metadata search returned empty or corrupted results
+        - Audio cut off / expired stream token
+        - Provider API rate-limited or blocked in region
+        - New Provider integration
+    validations:
+      required: true
+
+  - type: textarea
+    id: error_details
+    attributes:
+      label: Error logs / Diagnostics output
+      description: Copy logs from Settings -> Diagnostics or terminal stack trace
+      render: shell
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context & Region
+      description: What region/country was this tested in? Did switching WiFi/mobile network change behavior?
