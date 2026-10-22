@@ -214,21 +214,12 @@ class _LibraryTabState extends State<LibraryTab>
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            CircleAvatar(
-                              radius: 32,
-                              backgroundColor:
-                                  theme.colorScheme.surfaceContainerHighest,
-                              backgroundImage: artist.thumbnailUrl != null
-                                  ? NetworkImage(artist.thumbnailUrl!)
-                                  : null,
-                              child: artist.thumbnailUrl == null
-                                  ? Icon(
-                                      Icons.person_rounded,
-                                      size: 32,
-                                      color:
-                                          theme.colorScheme.onSurfaceVariant,
-                                    )
-                                  : null,
+                            PrismArtwork(
+                              url: artist.thumbnailUrl ?? '',
+                              width: 64,
+                              height: 64,
+                              isCircular: true,
+                              type: ArtworkType.artist,
                             ),
                             const SizedBox(height: 6),
                             SizedBox(

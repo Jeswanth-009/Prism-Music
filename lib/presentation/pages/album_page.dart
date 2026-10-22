@@ -152,6 +152,7 @@ class _AlbumPageState extends State<AlbumPage> {
                             url: _album.thumbnails.high ??
                                 _album.thumbnails.medium ??
                                 '',
+                            type: ArtworkType.album,
                           ),
                         ),
                       ),

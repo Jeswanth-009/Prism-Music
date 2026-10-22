@@ -16,6 +16,7 @@ import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
 import '../blocs/player/player_state.dart';
 import '../widgets/player/mini_player.dart';
+import '../widgets/prism/prism_artwork.dart';
 import '../widgets/prism/prism_sheet.dart';
 import '../widgets/prism/prism_song_tile.dart';
 import '../widgets/prism/prism_states.dart';
@@ -287,21 +288,12 @@ class _ArtistPageState extends State<ArtistPage> {
                   children: [
                     Hero(
                       tag: widget.heroTag ?? 'artist_${artist.id}',
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          width: 90,
-                          height: 90,
-                          color: theme.colorScheme.surfaceContainerHighest,
-                          child: image != null
-                              ? CachedNetworkImage(
-                                  imageUrl: image,
-                                  fit: BoxFit.cover)
-                              : Icon(Icons.person_rounded,
-                                  size: 42,
-                                  color: theme.colorScheme
-                                      .onSurfaceVariant),
-                        ),
+                      child: PrismArtwork(
+                        url: image ?? '',
+                        width: 90,
+                        height: 90,
+                        borderRadius: 16,
+                        type: ArtworkType.artist,
                       ),
                     ),
                     const SizedBox(width: 14),
