@@ -234,4 +234,20 @@ void main() {
       expect(info.filePath, '/tmp/test.json');
     });
   });
+
+  group('importBackupFromFile', () {
+    test('returns failure when file does not exist', () async {
+      final nonExistent = File('${tempDir.path}/missing_backup.json');
+      final result = await LocalBackupService.instance.importBackupFromFile(nonExistent);
+      expect(result.isSuccess, isFalse);
+      expect(result.error, contains('does not exist'));
+    });
+
+    test('returns failure when file contains invalid JSON', () async {
+      final invalidFile = File('${tempDir.path}/invalid.json');
+      await invalidFile.writeAsString('not a json content');
+      final result = await LocalBackupService.instance.importBackupFromFile(invalidFile);
+      expect(result.isSuccess, isFalse);
+    });
+  });
 }

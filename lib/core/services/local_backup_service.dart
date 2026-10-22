@@ -406,6 +406,104 @@ class LocalBackupService {
     }
   }
 
+  /// Exports the latest backup file. If none exists, creates one first.
+  Future<File?> getBackupFileForExport() async {
+    var candidates = await _existingBackupFiles();
+    if (candidates.isEmpty) {
+      final res = await backup();
+      if (!res.isSuccess) return null;
+      candidates = await _existingBackupFiles();
+    }
+    if (candidates.isEmpty) return null;
+    return candidates.first;
+  }
+
+  /// Imports and restores user data from a given backup file.
+  Future<RestoreResult> importBackupFromFile(
+    File file, {
+    bool overwrite = true,
+  }) async {
+    try {
+      if (!await file.exists()) {
+        return const RestoreResult(
+          isSuccess: false,
+          error: 'Specified backup file does not exist',
+        );
+      }
+
+      if (await file.length() > _maxBackupBytes) {
+        return const RestoreResult(
+          isSuccess: false,
+          error: 'Backup file exceeds maximum allowed size (50MB)',
+        );
+      }
+
+      final dynamic payload = jsonDecode(await file.readAsString());
+      if (payload is! Map<String, dynamic>) {
+        return const RestoreResult(
+          isSuccess: false,
+          error: 'Backup file does not contain valid JSON metadata',
+        );
+      }
+
+      final downloadRoots = await DownloadPathGuard.allowedRoots();
+      final boxes =
+          validateRestoredPayload(payload, downloadRoots: downloadRoots);
+      if (boxes == null) {
+        return const RestoreResult(
+          isSuccess: false,
+          error: 'Backup format is incompatible or contains corrupted entries',
+        );
+      }
+
+      final backedUpAtStr = payload['backedUpAt']?.toString();
+      final DateTime backupTime = backedUpAtStr != null
+          ? (DateTime.tryParse(backedUpAtStr) ?? await file.lastModified())
+          : await file.lastModified();
+
+      final restoredCounts = <String, int>{};
+      for (final String name in _boxes) {
+        final Map<String, dynamic>? entries = boxes[name];
+        if (entries == null || entries.isEmpty) continue;
+
+        final Box<dynamic> box = await Hive.openBox(name);
+        if (overwrite) {
+          await box.clear();
+        }
+        for (final MapEntry<String, dynamic> entry in entries.entries) {
+          await box.put(entry.key, entry.value);
+        }
+        restoredCounts[name] = entries.length;
+      }
+
+      return RestoreResult(
+        isSuccess: true,
+        backupTimestamp: backupTime,
+        restoredCounts: restoredCounts,
+      );
+    } catch (e) {
+      return RestoreResult(
+        isSuccess: false,
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// Deletes all backup files found across private and shared locations.
+  Future<int> deleteBackupFiles() async {
+    final candidates = await _existingBackupFiles();
+    int count = 0;
+    for (final file in candidates) {
+      try {
+        if (await file.exists()) {
+          await file.delete();
+          count++;
+        }
+      } catch (_) {}
+    }
+    return count;
+  }
+
   /// Removes backup files or refreshes backup after user explicitly clears data.
   Future<void> clearBackupData({List<String>? boxes}) async {
     try {

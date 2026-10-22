@@ -4,6 +4,7 @@ import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/di/injection.dart';
 import '../../core/services/lastfm_service.dart';
@@ -133,6 +134,111 @@ class _SettingsPageState extends State<SettingsPage> {
             'Restore failed: ${result.error ?? 'unknown error'}',
           );
         }
+      },
+    );
+  }
+
+  Future<void> _exportBackup() async {
+    final file = await LocalBackupService.instance.getBackupFileForExport();
+    if (!mounted) return;
+    if (file == null) {
+      showPrismToast(context, 'Unable to create backup for export');
+      return;
+    }
+    try {
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'application/json')],
+        subject: 'Prism Music Backup',
+        text: 'Prism Music library backup (${_formatBackupDate(DateTime.now())})',
+      );
+      if (mounted) {
+        showPrismToast(context, 'Backup ready for export');
+      }
+    } catch (e) {
+      if (mounted) {
+        showPrismToast(context, 'Export failed: $e');
+      }
+    }
+  }
+
+  void _showImportBackupDialog() {
+    final controller = TextEditingController();
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Import Backup'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Enter the path to a valid Prism Music backup JSON file, or restore directly from the latest device backup.',
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  labelText: 'Backup file path',
+                  hintText: '/path/to/library_backup.json',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            if (_latestBackupInfo != null)
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  _confirmAndRestoreBackup();
+                },
+                child: const Text('Restore Latest'),
+              ),
+            FilledButton(
+              onPressed: () async {
+                final path = controller.text.trim();
+                if (path.isEmpty) {
+                  showPrismToast(dialogContext, 'Please provide a file path');
+                  return;
+                }
+                final file = File(path);
+                final res = await LocalBackupService.instance.importBackupFromFile(file);
+                if (!dialogContext.mounted) return;
+                Navigator.pop(dialogContext);
+                if (res.isSuccess) {
+                  context.read<LibraryBloc>().add(const LoadLibraryEvent());
+                  showPrismToast(context, 'Imported ${res.totalRestored} items from backup');
+                  await _refreshBackupInfo();
+                } else {
+                  showPrismToast(context, 'Import failed: ${res.error ?? 'unknown error'}');
+                }
+              },
+              child: const Text('Import Path'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _confirmAndDeleteBackup() {
+    showPrismConfirmDialog(
+      context: context,
+      title: 'Delete Backups',
+      message: 'Are you sure you want to delete all stored backup snapshot files from this device? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      isDestructive: true,
+      onConfirm: () async {
+        final count = await LocalBackupService.instance.deleteBackupFiles();
+        if (!mounted) return;
+        showPrismToast(context, count > 0 ? 'Deleted $count backup files' : 'No backup files were found');
+        await _refreshBackupInfo();
       },
     );
   }
@@ -701,18 +807,41 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ),
         SettingRow(
+          leading: const Icon(Icons.info_outline_rounded),
+          title: 'Backup Status',
+          subtitle: _latestBackupInfo != null
+              ? '${_latestBackupInfo!.totalItems} items · ${Formatters.formatBytes(_latestBackupInfo!.fileSizeBytes)}\nLast backup: ${_formatBackupDate(_latestBackupInfo!.timestamp)}'
+              : 'No backup snapshot found on this device',
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: _autoBackupEnabled
+                  ? Theme.of(context).colorScheme.primaryContainer
+                  : Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              _autoBackupEnabled ? 'Active' : 'Disabled',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: _autoBackupEnabled
+                        ? Theme.of(context).colorScheme.onPrimaryContainer
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ),
+        ),
+        SettingRow(
           leading: const Icon(Icons.cloud_sync_outlined),
           title: 'Back up now',
-          subtitle: _latestBackupInfo != null
-              ? 'Last backup: ${_formatBackupDate(_latestBackupInfo!.timestamp)} (${(_latestBackupInfo!.fileSizeBytes / 1024).toStringAsFixed(1)} KB · ${_latestBackupInfo!.totalItems} items)'
-              : 'Write the backup files immediately',
+          subtitle: 'Write local backup snapshot immediately',
           onTap: () async {
             final result = await LocalBackupService.instance.backup();
             if (!mounted) return;
             if (result.isSuccess) {
               showPrismToast(
                 context,
-                'Backup saved: ${result.totalItems} items (${(result.bytesWritten / 1024).toStringAsFixed(1)} KB)',
+                'Backup saved: ${result.totalItems} items (${Formatters.formatBytes(result.bytesWritten)})',
               );
             } else {
               showPrismToast(
@@ -724,12 +853,25 @@ class _SettingsPageState extends State<SettingsPage> {
           },
         ),
         SettingRow(
-          leading: const Icon(Icons.settings_backup_restore_rounded),
-          title: 'Restore from backup',
-          subtitle: _latestBackupInfo != null
-              ? 'Restore ${_latestBackupInfo!.totalItems} items from ${_formatBackupDate(_latestBackupInfo!.timestamp)}'
-              : 'Restore library and playlists from device backup',
-          onTap: () => _confirmAndRestoreBackup(),
+          leading: const Icon(Icons.file_upload_outlined),
+          title: 'Export backup',
+          subtitle: 'Share or export backup JSON archive',
+          onTap: _exportBackup,
+        ),
+        SettingRow(
+          leading: const Icon(Icons.file_download_outlined),
+          title: 'Import backup',
+          subtitle: 'Restore from file path or latest backup',
+          onTap: _showImportBackupDialog,
+        ),
+        SettingRow(
+          leading: Icon(
+            Icons.delete_outline_rounded,
+            color: Theme.of(context).colorScheme.error,
+          ),
+          title: 'Delete backup files',
+          subtitle: 'Remove all local backup snapshot files',
+          onTap: _confirmAndDeleteBackup,
         ),
       ],
     );
