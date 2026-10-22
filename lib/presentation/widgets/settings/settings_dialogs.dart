@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../core/di/injection.dart';
 import '../../../core/services/settings_service.dart';
+import '../../../core/services/storage_service.dart';
 import '../../../core/services/stream_cache_service.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/entities.dart';
@@ -297,11 +298,12 @@ class SettingsDialogs {
     return total;
   }
 
-  static void showClearCacheDialog(BuildContext context) async {
-    final stats = getIt<StreamCacheService>().getStats();
-    final validStreams = stats['valid'] as int? ?? 0;
-    final diskBytes = await _getDiskCacheBytes();
-    final diskFormatted = Formatters.formatBytes(diskBytes);
+  static void showClearCacheDialog(
+    BuildContext context, {
+    VoidCallback? onCleared,
+  }) async {
+    final breakdown = await StorageService.instance.getStorageBreakdown();
+    final diskFormatted = Formatters.formatBytes(breakdown.cacheBytes);
 
     if (!context.mounted) return;
 
@@ -310,10 +312,34 @@ class SettingsDialogs {
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Clear cache?'),
-          content: Text(
-            'This frees approximately $diskFormatted of temporary storage, clearing '
-            '${Formatters.formatCount(validStreams, 'pre-resolved stream')}, cached album art, '
-            'and lyrics cache. Downloaded songs are safely kept.',
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'This frees approximately $diskFormatted of temporary storage, clearing pre-resolved streams, '
+                'cached album art, and lyric cache without affecting your saved music.',
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '• ${Formatters.formatCount(breakdown.streamCacheCount, 'pre-resolved stream')}\n'
+                '• ${Formatters.formatCount(breakdown.lyricsCacheCount, 'cached lyric')}\n'
+                '• Cached album art & temporary buffers',
+                style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              if (breakdown.downloadsCount > 0) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Note: ${Formatters.formatBytes(breakdown.downloadsBytes)} in ${breakdown.downloadsCount} downloaded tracks are safely kept.',
+                  style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
+                        fontStyle: FontStyle.italic,
+                        color: Theme.of(dialogContext).colorScheme.primary,
+                      ),
+                ),
+              ],
+            ],
           ),
           actions: [
             TextButton(
@@ -322,29 +348,16 @@ class SettingsDialogs {
             ),
             FilledButton(
               onPressed: () async {
-                getIt<StreamCacheService>().clearAll();
-                PaintingBinding.instance.imageCache.clear();
-                PaintingBinding.instance.imageCache.clearLiveImages();
-                try {
-                  await DefaultCacheManager().emptyCache();
-                } catch (_) {}
-                try {
-                  if (Hive.isBoxOpen('lyrics_cache')) {
-                    await Hive.box<Map>('lyrics_cache').clear();
-                  } else {
-                    final b = await Hive.openBox<Map>('lyrics_cache');
-                    await b.clear();
-                  }
-                } catch (_) {}
-                try {
-                  if (Hive.isBoxOpen('song_cache')) {
-                    await Hive.box('song_cache').clear();
-                  }
-                } catch (_) {}
+                final freedBytes = await StorageService.instance.clearCache();
+                final freedFormatted = Formatters.formatBytes(freedBytes);
                 if (dialogContext.mounted) {
-                  showPrismToast(dialogContext, 'Cache cleared ($diskFormatted freed)');
+                  showPrismToast(
+                    dialogContext,
+                    'Cache cleared ($freedFormatted freed)',
+                  );
                   Navigator.pop(dialogContext);
                 }
+                onCleared?.call();
               },
               style: FilledButton.styleFrom(
                 backgroundColor: Theme.of(dialogContext).colorScheme.error,

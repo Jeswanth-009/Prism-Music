@@ -11,7 +11,9 @@ import '../../core/services/local_backup_service.dart';
 import '../../core/services/permission_service.dart';
 import '../../core/services/recommendation_service.dart';
 import '../../core/services/settings_service.dart';
+import '../../core/services/storage_service.dart';
 import '../../core/services/audio_player_service.dart';
+import '../../core/utils/formatters.dart';
 
 import '../blocs/theme/theme_bloc.dart';
 import '../blocs/theme/theme_event.dart';
@@ -51,6 +53,7 @@ class _SettingsPageState extends State<SettingsPage> {
   int _prefetchLookahead = 1;
   String _appVersion = 'Loading...';
   BackupSnapshotInfo? _latestBackupInfo;
+  String? _cacheUsageSubtitle;
 
   @override
   void didChangeDependencies() {
@@ -75,6 +78,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
       _latestBackupInfo =
           await LocalBackupService.instance.getLatestBackupInfo();
+      await _refreshStorageInfo();
 
       if (mounted) setState(() {});
     } catch (e) {
@@ -82,6 +86,18 @@ class _SettingsPageState extends State<SettingsPage> {
       _recommendationService = null;
     }
     if (mounted) setState(() => _isInitialized = true);
+  }
+
+  Future<void> _refreshStorageInfo() async {
+    try {
+      final breakdown = await StorageService.instance.getStorageBreakdown();
+      if (mounted) {
+        setState(() {
+          _cacheUsageSubtitle =
+              '${Formatters.formatBytes(breakdown.cacheBytes)} temporary files';
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _refreshBackupInfo() async {
@@ -637,8 +653,11 @@ class _SettingsPageState extends State<SettingsPage> {
         SettingRow(
           leading: const Icon(Icons.cleaning_services_outlined),
           title: 'Cache',
-          subtitle: 'Clear temporary files',
-          onTap: () => SettingsDialogs.showClearCacheDialog(context),
+          subtitle: _cacheUsageSubtitle ?? 'Clear temporary files',
+          onTap: () => SettingsDialogs.showClearCacheDialog(
+            context,
+            onCleared: _refreshStorageInfo,
+          ),
         ),
       ],
     );
