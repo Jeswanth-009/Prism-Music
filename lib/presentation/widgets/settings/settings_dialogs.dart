@@ -786,4 +786,133 @@ class SettingsDialogs {
       secretController.dispose();
     });
   }
+
+  static const List<String> availableLanguages = [
+    'English',
+    'Hindi',
+    'Punjabi',
+    'Tamil',
+    'Telugu',
+    'Spanish',
+    'Korean',
+    'Japanese',
+    'Malayalam',
+    'Kannada',
+    'Marathi',
+    'Bengali',
+    'French',
+    'German',
+  ];
+
+  static Future<void> showLanguagePreferencesDialog(
+    BuildContext context,
+    VoidCallback onUpdated,
+  ) async {
+    final settings = SettingsService.instance;
+    final selected = List<String>.from(settings.preferredLanguages);
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Music Languages'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: availableLanguages.map((lang) {
+                      final isSelected = selected.contains(lang);
+                      return FilterChip(
+                        label: Text(lang),
+                        selected: isSelected,
+                        onSelected: (checked) {
+                          setDialogState(() {
+                            if (checked) {
+                              selected.add(lang);
+                            } else {
+                              if (selected.length > 1) {
+                                selected.remove(lang);
+                              }
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    await settings.setPreferredLanguages(selected);
+                    onUpdated();
+                    if (dialogContext.mounted) {
+                      Navigator.pop(dialogContext);
+                      showPrismToast(dialogContext, 'Languages updated');
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  static Future<void> showNotInterestedDialog(
+    BuildContext context,
+    VoidCallback onUpdated,
+  ) async {
+    final settings = SettingsService.instance;
+    final songCount = settings.notInterestedSongs.length;
+    final artistCount = settings.notInterestedArtists.length;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Not Interested Feedback'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Tracks and artists marked "Not interested" are suppressed from AutoPlay and smart recommendations.\n\n'
+                '• Hidden songs: $songCount\n'
+                '• Hidden artists: $artistCount',
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Close'),
+            ),
+            if (songCount > 0 || artistCount > 0)
+              FilledButton.tonal(
+                onPressed: () async {
+                  await settings.clearNotInterested();
+                  onUpdated();
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                    showPrismToast(dialogContext, 'Hidden list cleared');
+                  }
+                },
+                child: const Text('Clear All'),
+              ),
+          ],
+        );
+      },
+    );
+  }
 }

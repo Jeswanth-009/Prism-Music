@@ -105,6 +105,9 @@ class Song extends Equatable {
   /// International Standard Recording Code if available
   final String? isrc;
 
+  /// Explainable reason for this track being recommended or queued
+  final String? recommendationReason;
+
   const Song({
     required this.id,
     required this.title,
@@ -129,6 +132,7 @@ class Song extends Equatable {
     this.matchConfidence,
     this.originalPlatformId,
     this.isrc,
+    this.recommendationReason,
   });
 
   /// Get the primary playable ID (prefers YouTube for streaming)
@@ -169,6 +173,7 @@ class Song extends Equatable {
     double? matchConfidence,
     String? originalPlatformId,
     String? isrc,
+    String? recommendationReason,
   }) {
     return Song(
       id: id ?? this.id,
@@ -194,6 +199,7 @@ class Song extends Equatable {
       matchConfidence: matchConfidence ?? this.matchConfidence,
       originalPlatformId: originalPlatformId ?? this.originalPlatformId,
       isrc: isrc ?? this.isrc,
+      recommendationReason: recommendationReason ?? this.recommendationReason,
     );
   }
 
@@ -220,6 +226,7 @@ class Song extends Equatable {
         matchConfidence,
         originalPlatformId,
         isrc,
+        recommendationReason,
       ];
 }
 

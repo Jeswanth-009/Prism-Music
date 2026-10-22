@@ -82,7 +82,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
        _streamLoader = streamLoader,
        _downloadService = downloadService,
        _recommendationService = recommendationService,
-       super(const PlayerState()) {
+       super(PlayerState(autoPlay: SettingsService.instance.autoPlay)) {
     if (_recommendationService == null &&
         getIt.isRegistered<RecommendationService>()) {
       _recommendationService = getIt<RecommendationService>();
@@ -139,6 +139,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     on<_CompletedEvent>(_onCompleted);
     on<_AddRecommendationsEvent>(_onAddRecommendations);
     on<_IndexChangedEvent>(_onIndexChanged);
+    on<ToggleAutoPlayEvent>(_onToggleAutoPlay);
+    on<MarkSongNotInterestedEvent>(_onMarkSongNotInterested);
 
     // Initialize audio player stream listeners
     _initAudioPlayerStreams();
@@ -1525,7 +1527,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   void _checkAndAddRecommendations() {
     if (_isFetchingRecommendations || _recommendationService == null) return;
     if (state.currentSong == null || state.queue.isEmpty) return;
-    if (!_settingsService.autoPlay) return;
+    if (!state.autoPlay || !_settingsService.autoPlay) return;
     // Do not append recommendations when looping track or full queue
     if (state.repeatMode != RepeatMode.off) return;
     if (state.queue.length >= 50) return;
@@ -1660,6 +1662,36 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       );
       // Next button in the media notification may now be usable.
       MediaSessionCoordinator.instance.notifyQueueChanged();
+    }
+  }
+
+  /// Toggle autoplay on or off
+  Future<void> _onToggleAutoPlay(
+    ToggleAutoPlayEvent event,
+    Emitter<PlayerState> emit,
+  ) async {
+    final next = !state.autoPlay;
+    await _settingsService.setAutoPlay(next);
+    emit(state.copyWith(autoPlay: next));
+    if (next) {
+      _checkAndAddRecommendations();
+    }
+  }
+
+  /// Mark song as not interested: blacklist from recommendation service and remove from queue
+  Future<void> _onMarkSongNotInterested(
+    MarkSongNotInterestedEvent event,
+    Emitter<PlayerState> emit,
+  ) async {
+    final song = event.song;
+    await _settingsService.markSongNotInterested(song.playableId);
+    if (song.id.isNotEmpty && song.id != song.playableId) {
+      await _settingsService.markSongNotInterested(song.id);
+    }
+    await _recommendationService?.markSongNotInterested(song);
+    final targetIndex = state.queue.indexWhere((s) => s.playableId == song.playableId);
+    if (targetIndex != -1) {
+      add(RemoveFromQueueEvent(targetIndex));
     }
   }
 

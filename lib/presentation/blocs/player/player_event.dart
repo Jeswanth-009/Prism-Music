@@ -254,6 +254,20 @@ class PlayerErrorEvent extends PlayerEvent {
   List<Object?> get props => [message];
 }
 
+/// Toggle autoplay preference from queue or player controls
+class ToggleAutoPlayEvent extends PlayerEvent {
+  const ToggleAutoPlayEvent();
+}
+
+/// Mark song as not interested: suppress from recommendations and remove from queue
+class MarkSongNotInterestedEvent extends PlayerEvent {
+  final Song song;
+  const MarkSongNotInterestedEvent(this.song);
+
+  @override
+  List<Object?> get props => [song];
+}
+
 /// Repeat mode options
 enum RepeatMode {
   off,

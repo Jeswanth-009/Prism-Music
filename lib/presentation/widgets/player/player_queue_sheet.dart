@@ -34,11 +34,32 @@ class PlayerQueueSheet extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Up next',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          'Up next',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        FilterChip(
+                          visualDensity: VisualDensity.compact,
+                          label: Text(
+                            state.autoPlay ? 'AutoPlay On' : 'AutoPlay Off',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          avatar: Icon(
+                            state.autoPlay
+                                ? Icons.all_inclusive_rounded
+                                : Icons.do_not_disturb_on_outlined,
+                            size: 14,
+                          ),
+                          selected: state.autoPlay,
+                          onSelected: (_) =>
+                              context.read<PlayerBloc>().add(const ToggleAutoPlayEvent()),
+                        ),
+                      ],
                     ),
                     TextButton(
                       onPressed: () {
@@ -103,11 +124,31 @@ class PlayerQueueSheet extends StatelessWidget {
                               : null,
                         ),
                       ),
-                      subtitle: Text(
-                        song.artist,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall,
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            song.artist,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          if (song.recommendationReason != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                song.recommendationReason!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -122,12 +163,42 @@ class PlayerQueueSheet extends StatelessWidget {
                               ),
                             )
                           else
-                            IconButton(
-                              icon: const Icon(Icons.close_rounded, size: 18),
-                              tooltip: 'Remove',
-                              onPressed: () => context.read<PlayerBloc>().add(
-                                RemoveFromQueueEvent(index),
-                              ),
+                            PopupMenuButton<String>(
+                              icon: const Icon(Icons.more_vert_rounded, size: 18),
+                              tooltip: 'Song options',
+                              onSelected: (value) {
+                                if (value == 'not_interested') {
+                                  context.read<PlayerBloc>().add(
+                                        MarkSongNotInterestedEvent(song),
+                                      );
+                                } else if (value == 'remove') {
+                                  context.read<PlayerBloc>().add(
+                                        RemoveFromQueueEvent(index),
+                                      );
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'not_interested',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.thumb_down_outlined, size: 18),
+                                      SizedBox(width: 8),
+                                      Text('Not interested'),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'remove',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.remove_circle_outline_rounded, size: 18),
+                                      SizedBox(width: 8),
+                                      Text('Remove from queue'),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ReorderableDragStartListener(
                             index: index,

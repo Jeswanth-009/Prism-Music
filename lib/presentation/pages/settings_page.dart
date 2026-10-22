@@ -691,6 +691,22 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ),
         SettingRow(
+          leading: const Icon(Icons.language_rounded),
+          title: 'Music Languages',
+          subtitle: _settingsService.preferredLanguages.join(', '),
+          onTap: () async {
+            await SettingsDialogs.showLanguagePreferencesDialog(context, _forceRebuild);
+          },
+        ),
+        SettingRow(
+          leading: const Icon(Icons.thumb_down_outlined),
+          title: 'Not Interested Feedback',
+          subtitle: '${_settingsService.notInterestedSongs.length} songs, ${_settingsService.notInterestedArtists.length} artists hidden',
+          onTap: () async {
+            await SettingsDialogs.showNotInterestedDialog(context, _forceRebuild);
+          },
+        ),
+        SettingRow(
           leading: const Icon(Icons.tune_rounded),
           title: 'Track Transition (Fade Out / In)',
           subtitle: _settingsService.crossfadeDuration <= 0

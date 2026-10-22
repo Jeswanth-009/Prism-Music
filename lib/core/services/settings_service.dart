@@ -92,6 +92,9 @@ class SettingsService {
   static const String _autoBackupKey = 'auto_backup_enabled';
   static const String _sharedBackupKey = 'shared_backup_enabled';
   static const String _autoPlayKey = 'auto_play_enabled';
+  static const String _preferredLanguagesKey = 'preferred_music_languages';
+  static const String _notInterestedSongsKey = 'not_interested_songs';
+  static const String _notInterestedArtistsKey = 'not_interested_artists';
   static const String _eqPresetKey = 'eq_preset';
   static const String _eqBassBoostLevelKey = 'eq_bass_boost_level';
   static const String _eqTrebleLevelKey = 'eq_treble_level';
@@ -209,6 +212,68 @@ class SettingsService {
   /// Persist autoplay preference
   Future<void> setAutoPlay(bool enabled) async {
     await _settingsBox?.put(_autoPlayKey, enabled);
+  }
+
+  /// Get user's preferred music languages (e.g. ['English', 'Hindi', 'Punjabi'])
+  List<String> get preferredLanguages {
+    try {
+      final list = _settingsBox?.get(_preferredLanguagesKey);
+      if (list is List) return List<String>.from(list);
+      return const ['English', 'Hindi'];
+    } catch (_) {
+      return const ['English', 'Hindi'];
+    }
+  }
+
+  /// Persist preferred music languages
+  Future<void> setPreferredLanguages(List<String> languages) async {
+    await _settingsBox?.put(_preferredLanguagesKey, languages);
+  }
+
+  /// Get set of songs marked "Not Interested"
+  Set<String> get notInterestedSongs {
+    try {
+      final list = _settingsBox?.get(_notInterestedSongsKey);
+      if (list is List) return Set<String>.from(list);
+      return const {};
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  /// Mark song as not interested
+  Future<void> markSongNotInterested(String songId) async {
+    final set = notInterestedSongs.toSet()..add(songId);
+    await _settingsBox?.put(_notInterestedSongsKey, set.toList());
+  }
+
+  /// Unmark song from not interested
+  Future<void> unmarkSongNotInterested(String songId) async {
+    final set = notInterestedSongs.toSet()..remove(songId);
+    await _settingsBox?.put(_notInterestedSongsKey, set.toList());
+  }
+
+  /// Get set of artists marked "Not Interested"
+  Set<String> get notInterestedArtists {
+    try {
+      final list = _settingsBox?.get(_notInterestedArtistsKey);
+      if (list is List) return Set<String>.from(list);
+      return const {};
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  /// Mark artist as not interested
+  Future<void> markArtistNotInterested(String artist) async {
+    final set = notInterestedArtists.toSet()..add(artist.trim().toLowerCase());
+    await _settingsBox?.put(_notInterestedArtistsKey, set.toList());
+  }
+
+  /// Clear all not interested feedback
+  Future<void> clearNotInterested() async {
+    await _settingsBox?.delete(_notInterestedSongsKey);
+    await _settingsBox?.delete(_notInterestedArtistsKey);
   }
 
   /// Get bass boost setting

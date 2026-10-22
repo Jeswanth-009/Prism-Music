@@ -70,6 +70,9 @@ class PlayerState extends Equatable {
   /// Error message if status is error
   final String? errorMessage;
 
+  /// Whether autoplay of recommendations is enabled
+  final bool autoPlay;
+
   const PlayerState({
     this.status = PlayerStatus.initial,
     this.currentSong,
@@ -89,6 +92,7 @@ class PlayerState extends Equatable {
     this.originalQueue = const [],
     this.queueIndex = 0,
     this.errorMessage,
+    this.autoPlay = true,
   });
 
   /// Whether the player is currently playing
@@ -210,6 +214,7 @@ class PlayerState extends Equatable {
     DateTime? sleepTimerEnd,
     bool? sleepTimerEndOfTrack,
     bool clearSleepTimer = false,
+    bool? autoPlay,
   }) {
     return PlayerState(
       status: status ?? this.status,
@@ -232,6 +237,7 @@ class PlayerState extends Equatable {
           clearSleepTimer ? sleepTimerEnd : (sleepTimerEnd ?? this.sleepTimerEnd),
       sleepTimerEndOfTrack: sleepTimerEndOfTrack ??
           (clearSleepTimer ? false : this.sleepTimerEndOfTrack),
+      autoPlay: autoPlay ?? this.autoPlay,
     );
   }
 
@@ -248,12 +254,13 @@ class PlayerState extends Equatable {
         repeatMode,
         playbackSpeed,
         audioQuality,
-    currentStreamInfo,
-    queue,
-    sleepTimerEnd,
-    sleepTimerEndOfTrack,
-    originalQueue,
+        currentStreamInfo,
+        queue,
+        sleepTimerEnd,
+        sleepTimerEndOfTrack,
+        originalQueue,
         queueIndex,
         errorMessage,
+        autoPlay,
       ];
 }

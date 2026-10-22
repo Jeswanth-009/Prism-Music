@@ -511,13 +511,17 @@ class RecommendationService {
       }
 
       // 3. Language Consistency — Must match seed song's language family
+      final preferredLanguages = _settingsService.preferredLanguages;
+      final songLang = _detectLanguage(song);
       if (seedLanguage != null) {
-        final songLang = _detectLanguage(song);
         if (songLang == seedLanguage) {
           score += 6; // Matching language → strong boost
         } else if (songLang != null && songLang != seedLanguage && songLang != 'English') {
           score -= 7; // Different regional language → strong penalty
         }
+      }
+      if (songLang != null && preferredLanguages.any((l) => l.toLowerCase() == songLang.toLowerCase())) {
+        score += 4; // User preferred language bonus
       }
 
       // 4. Official high-quality release
@@ -546,6 +550,7 @@ class RecommendationService {
     final finalSongs = <Song>[];
     final finalArtistCounts = <String, int>{};
     final seenIds = <String>{};
+    final preferredLanguages = _settingsService.preferredLanguages;
 
     for (final item in scored) {
       final aKey = item.song.artist.toLowerCase().trim();
@@ -554,7 +559,13 @@ class RecommendationService {
 
       finalArtistCounts[aKey] = count + 1;
       seenIds.add(item.song.playableId);
-      finalSongs.add(item.song);
+      final reason = _generateExplainableReason(
+        song: item.song,
+        seedSong: seedSong,
+        isDirectMatch: directKeys.contains(item.song.playableId),
+        preferredLanguages: preferredLanguages,
+      );
+      finalSongs.add(item.song.copyWith(recommendationReason: reason));
       if (finalSongs.length >= limit) break;
     }
 
@@ -569,7 +580,13 @@ class RecommendationService {
 
         finalArtistCounts[aKey] = count + 1;
         seenIds.add(item.song.playableId);
-        finalSongs.add(item.song);
+        final reason = _generateExplainableReason(
+          song: item.song,
+          seedSong: seedSong,
+          isDirectMatch: directKeys.contains(item.song.playableId),
+          preferredLanguages: preferredLanguages,
+        );
+        finalSongs.add(item.song.copyWith(recommendationReason: reason));
         if (finalSongs.length >= limit) break;
       }
     }
@@ -593,12 +610,17 @@ class RecommendationService {
     }
 
     final filtered = <Song>[];
+    final notInterestedSongs = _settingsService.notInterestedSongs;
+    final notInterestedArtists = _settingsService.notInterestedArtists;
 
     for (final s in candidates) {
       if (s.playableId.isEmpty) continue;
+      if (notInterestedSongs.contains(s.playableId) || notInterestedSongs.contains(s.id)) continue;
 
       final titleLower = s.title.toLowerCase().trim();
       final artistLower = s.artist.toLowerCase().trim();
+      if (notInterestedArtists.contains(artistLower)) continue;
+
       final trackKey = '$titleLower|$artistLower';
 
       if (seenTracks.contains(trackKey)) continue;
@@ -740,9 +762,13 @@ class RecommendationService {
         final sArtist = s.artist.toLowerCase().trim();
         final sLang = _detectLanguage(s);
         final sGenre = _detectGenre(s);
+        final preferredLanguages = _settingsService.preferredLanguages;
 
         // Language affinity
         if (topLanguages.contains(sLang)) {
+          score += 5;
+        }
+        if (sLang != null && preferredLanguages.any((l) => l.toLowerCase() == sLang.toLowerCase())) {
           score += 5;
         }
 
@@ -786,7 +812,12 @@ class RecommendationService {
 
         artistCounts[aKey] = count + 1;
         seenIds.add(item.song.playableId);
-        output.add(item.song);
+        final reason = _generateDiscoverReason(
+          song: item.song,
+          countryName: _settingsService.selectedCountry.name,
+          topGenre: topGenre,
+        );
+        output.add(item.song.copyWith(recommendationReason: reason));
         if (output.length >= limit) break;
       }
 
@@ -806,7 +837,9 @@ class RecommendationService {
 
               artistCounts[aKey] = count + 1;
               seenIds.add(s.playableId);
-              output.add(s);
+              output.add(s.copyWith(
+                recommendationReason: '✦ Trending in ${_settingsService.selectedCountry.name}',
+              ));
               if (output.length >= limit) break;
             }
           });
@@ -1035,6 +1068,66 @@ class RecommendationService {
       'totalLanguagesTracked': _languagePlayCounts.length,
       'recentlyPlayedCount': _recentlyPlayedKeys.length,
     };
+  }
+
+  /// Generate explainable recommendation reason for Similar mode
+  String _generateExplainableReason({
+    required Song song,
+    required Song seedSong,
+    required bool isDirectMatch,
+    required List<String> preferredLanguages,
+  }) {
+    if (song.artist.toLowerCase().trim() == seedSong.artist.toLowerCase().trim()) {
+      return '✦ More from ${seedSong.artist}';
+    }
+    if (isDirectMatch) {
+      return '✦ Similar to "${seedSong.title}"';
+    }
+    if (_artistPlayCounts.containsKey(song.artist.toLowerCase().trim())) {
+      return '✦ Because you like ${song.artist}';
+    }
+    final lang = _detectLanguage(song);
+    if (lang != null && preferredLanguages.any((l) => l.toLowerCase() == lang.toLowerCase())) {
+      return '✦ Matches your $lang preference';
+    }
+    if (seedSong.genre != null && seedSong.genre!.isNotEmpty && song.genre == seedSong.genre) {
+      return '✦ Similar genre: ${seedSong.genre}';
+    }
+    return '✦ Similar to "${seedSong.title}"';
+  }
+
+  /// Generate explainable recommendation reason for Discover mode
+  String _generateDiscoverReason({
+    required Song song,
+    required String countryName,
+    String? topGenre,
+  }) {
+    final sArtist = song.artist.toLowerCase().trim();
+    if (_artistPlayCounts.containsKey(sArtist)) {
+      return '✦ Because you like ${song.artist}';
+    }
+    final sGenre = _detectGenre(song);
+    if (sGenre != null && sGenre == topGenre) {
+      return '✦ Discover $topGenre';
+    }
+    final lang = _detectLanguage(song);
+    if (lang != null && lang != 'English') {
+      return '✦ Popular in $lang';
+    }
+    return '✦ Trending in $countryName';
+  }
+
+  /// Mark song as not interested
+  Future<void> markSongNotInterested(Song song) async {
+    await _settingsService.markSongNotInterested(song.playableId);
+    if (song.id.isNotEmpty && song.id != song.playableId) {
+      await _settingsService.markSongNotInterested(song.id);
+    }
+  }
+
+  /// Mark artist as not interested
+  Future<void> markArtistNotInterested(String artist) async {
+    await _settingsService.markArtistNotInterested(artist);
   }
 }
 

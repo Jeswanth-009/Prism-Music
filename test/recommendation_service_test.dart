@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dartz/dartz.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:prism_music/core/services/recommendation_service.dart';
+import 'package:prism_music/core/services/settings_service.dart';
 import 'package:prism_music/domain/entities/song.dart';
 import 'package:prism_music/domain/repositories/music_repository.dart';
 import 'package:prism_music/domain/repositories/library_repository.dart';
@@ -74,12 +75,15 @@ void main() {
     }
     musicRepository = MockMusicRepository();
     libraryRepository = MockLibraryRepository();
+    await SettingsService.instance.initialize();
+    await SettingsService.instance.clearNotInterested();
     recommendationService = RecommendationService(musicRepository, libraryRepository);
     await recommendationService.initialize();
     await recommendationService.setMode(RecommendationMode.similar);
   });
 
   tearDown(() async {
+    await SettingsService.instance.clearNotInterested();
     await recommendationService.dispose();
   });
 
@@ -163,5 +167,95 @@ void main() {
     // Max 2 tracks per artist in discover mode
     final sameArtistCount = recommendations.where((s) => s.artist == 'Same Artist').length;
     expect(sameArtistCount, lessThanOrEqualTo(2));
+    expect(recommendations.first.recommendationReason, isNotNull);
+    expect(recommendations.first.recommendationReason, contains('✦'));
+  });
+
+  test('Explainable reasons are attached to Similar mode recommendations', () async {
+    const seedSong = Song(
+      id: 'seed1',
+      title: 'Shape of You',
+      artist: 'Ed Sheeran',
+      duration: Duration(seconds: 233),
+      thumbnails: Thumbnails(),
+      youtubeId: 'seed1',
+    );
+
+    musicRepository.mockSongs = [
+      const Song(
+        id: 'rec1',
+        title: 'Castle on the Hill',
+        artist: 'Ed Sheeran',
+        duration: Duration(seconds: 261),
+        thumbnails: Thumbnails(),
+        youtubeId: 'rec1',
+      ),
+      const Song(
+        id: 'rec2',
+        title: 'Perfect',
+        artist: 'Ed Sheeran',
+        duration: Duration(seconds: 263),
+        thumbnails: Thumbnails(),
+        youtubeId: 'rec2',
+      ),
+    ];
+
+    final recommendations = await recommendationService.getRecommendations(
+      currentSong: seedSong,
+      limit: 5,
+    );
+
+    expect(recommendations.isNotEmpty, isTrue);
+    expect(recommendations.first.recommendationReason, contains('More from Ed Sheeran'));
+  });
+
+  test('Not Interested songs and artists are strictly suppressed', () async {
+    const seedSong = Song(
+      id: 'seed_base',
+      title: 'Blinding Lights',
+      artist: 'The Weeknd',
+      duration: Duration(seconds: 200),
+      thumbnails: Thumbnails(),
+      youtubeId: 'seed_base',
+    );
+
+    final unwantedSong = const Song(
+      id: 'unwanted_1',
+      title: 'Unwanted Song',
+      artist: 'Blocked Artist',
+      duration: Duration(seconds: 210),
+      thumbnails: Thumbnails(),
+      youtubeId: 'unwanted_1',
+    );
+
+    final wantedSong = const Song(
+      id: 'wanted_1',
+      title: 'Save Your Tears',
+      artist: 'The Weeknd',
+      duration: Duration(seconds: 215),
+      thumbnails: Thumbnails(),
+      youtubeId: 'wanted_1',
+    );
+
+    musicRepository.mockSongs = [unwantedSong, wantedSong];
+
+    // Suppress unwanted song
+    await recommendationService.markSongNotInterested(unwantedSong);
+
+    final recommendations = await recommendationService.getRecommendations(
+      currentSong: seedSong,
+      limit: 5,
+    );
+
+    expect(recommendations.any((s) => s.id == 'unwanted_1'), isFalse);
+    expect(recommendations.any((s) => s.id == 'wanted_1'), isTrue);
+
+    // Suppress by artist
+    await recommendationService.markArtistNotInterested('The Weeknd');
+    final recommendationsAfterArtistBlock = await recommendationService.getRecommendations(
+      currentSong: seedSong,
+      limit: 5,
+    );
+    expect(recommendationsAfterArtistBlock.any((s) => s.artist == 'The Weeknd'), isFalse);
   });
 }
