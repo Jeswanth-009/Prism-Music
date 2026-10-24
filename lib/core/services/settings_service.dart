@@ -78,9 +78,26 @@ extension PlayerUiStyleX on PlayerUiStyle {
   }
 }
 
+/// Identifiers for customizable sections on the Home feed
+enum HomeSectionId {
+  hero('Quick Play & Greeting', 'Quick play hero banner at top'),
+  jumpBackIn('Jump Back In', 'Continue from recently played tracks'),
+  recommended('Recommended For You', 'Personalized algorithm picks'),
+  newAlbums('From Your Artists', 'Fresh album releases from artists you play'),
+  trending('Trending Now', 'Top trending tracks for your region'),
+  charts('Top Charts', 'Billboard and regional charts'),
+  curatedMoods('Made For Your Mood', 'Hand-picked mood and genre mixes'),
+  historyPrompt('Listening History', 'Bottom shortcut to recent listening history');
+
+  final String label;
+  final String description;
+  const HomeSectionId(this.label, this.description);
+}
+
 /// Service for managing app settings with persistence
 class SettingsService {
   static const String _boxName = 'app_settings';
+  static const String _homeSectionsConfigKey = 'home_sections_config';
   static const String _playerUiStyleKey = 'player_ui_style';
   static const String _fastStartKey = 'fast_start_enabled';
   static const String _prefetchLookaheadKey = 'prefetch_lookahead';
@@ -531,5 +548,42 @@ class SettingsService {
     } else {
       await _settingsBox?.put(_spotifyClientSecretKey, secret.trim());
     }
+  }
+
+  /// List of enabled home section IDs (by name).
+  List<String> get enabledHomeSections {
+    try {
+      final raw = _settingsBox?.get(_homeSectionsConfigKey);
+      if (raw is List) {
+        return raw.cast<String>();
+      }
+      return HomeSectionId.values.map((s) => s.name).toList();
+    } catch (_) {
+      return HomeSectionId.values.map((s) => s.name).toList();
+    }
+  }
+
+  /// Whether a specific home section is enabled.
+  bool isHomeSectionEnabled(HomeSectionId section) {
+    return enabledHomeSections.contains(section.name);
+  }
+
+  /// Enable or disable a specific home section.
+  Future<void> setHomeSectionEnabled(HomeSectionId section, bool enabled) async {
+    final current = List<String>.from(enabledHomeSections);
+    if (enabled && !current.contains(section.name)) {
+      current.add(section.name);
+    } else if (!enabled) {
+      current.remove(section.name);
+    }
+    await _settingsBox?.put(_homeSectionsConfigKey, current);
+  }
+
+  /// Reset all home sections to default (all enabled).
+  Future<void> resetHomeSections() async {
+    await _settingsBox?.put(
+      _homeSectionsConfigKey,
+      HomeSectionId.values.map((s) => s.name).toList(),
+    );
   }
 }

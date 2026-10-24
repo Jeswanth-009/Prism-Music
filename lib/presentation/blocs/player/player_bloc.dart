@@ -17,7 +17,7 @@ import '../../../core/services/widget_service.dart';
 import '../../../core/di/injection.dart';
 import '../../../domain/entities/entities.dart';
 import '../../../domain/repositories/repositories.dart';
-import '../library/library.dart';
+import '../library/library.dart' hide DownloadSongEvent;
 import 'player_event.dart';
 import 'player_state.dart';
 
