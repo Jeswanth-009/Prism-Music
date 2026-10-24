@@ -62,6 +62,16 @@ class _PlaylistExportSheetState extends State<PlaylistExportSheet> {
     }
   }
 
+  Future<void> _sharePlaylistCard() async {
+    setState(() => _isExporting = true);
+    try {
+      Navigator.of(context).pop();
+      await PlaylistExportService.instance.sharePlaylistCard(widget.playlist);
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -104,6 +114,12 @@ class _PlaylistExportSheetState extends State<PlaylistExportSheet> {
                 child: Center(child: CircularProgressIndicator()),
               )
             else ...[
+              PrismSheetAction(
+                icon: Icons.badge_outlined,
+                label: 'Share Playlist Card',
+                subtitle: 'Formatted summary with track counts, top artists and verified links',
+                onTap: _sharePlaylistCard,
+              ),
               PrismSheetAction(
                 icon: Icons.queue_music_rounded,
                 label: 'M3U8 Playlist (.m3u8)',

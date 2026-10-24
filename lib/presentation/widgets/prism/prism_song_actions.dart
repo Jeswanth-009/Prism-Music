@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/di/injection.dart';
+import '../../../core/utils/media_share_helper.dart';
 import '../../../domain/entities/song.dart';
 import '../../../domain/repositories/library_repository.dart';
 import '../../blocs/library/library.dart';
@@ -162,9 +163,7 @@ class _SongActionsSheet extends StatelessWidget {
                 label: 'Share',
                 onTap: () {
                   Navigator.pop(context);
-                  final videoId = song.youtubeId ?? song.id;
-                  final url = 'https://music.youtube.com/watch?v=$videoId';
-                  ShareSong.share(song.title, song.artist, url);
+                  ShareSong.shareSong(song);
                 },
               ),
               const SizedBox(height: 6),
@@ -314,6 +313,12 @@ class _PlaylistPickerSheet extends StatelessWidget {
 
 /// Share helper kept out of the widget tree for reuse.
 abstract final class ShareSong {
+  /// Shares a song with reliable URL verification and rich metadata formatting.
+  static void shareSong(Song song) {
+    Share.share(MediaShareHelper.formatShareableSongText(song));
+  }
+
+  /// Legacy helper for raw text/URL sharing.
   static void share(String title, String artist, String url) {
     Share.share('$title - $artist\n$url');
   }

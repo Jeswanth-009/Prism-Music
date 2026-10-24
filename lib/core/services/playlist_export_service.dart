@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../domain/entities/playlist.dart';
 import '../../domain/entities/song.dart';
 import '../utils/logger.dart';
+import '../utils/media_share_helper.dart';
 
 /// Service responsible for exporting playlist data to standard formats (M3U8, JSON)
 /// and sharing via system share dialog.
@@ -36,8 +37,14 @@ class PlaylistExportService {
       for (final song in songs) {
         final durationSec = song.duration.inSeconds;
         buffer.writeln('#EXTINF:$durationSec,${song.artist} - ${song.title}');
-        final trackId = song.youtubeId ?? song.id;
-        buffer.writeln('https://music.youtube.com/watch?v=$trackId');
+        final reliableUrl = MediaShareHelper.buildReliableSongUrl(song);
+        if (reliableUrl != null) {
+          buffer.writeln(reliableUrl);
+        } else if (song.streamUrl != null && song.streamUrl!.startsWith('http')) {
+          buffer.writeln(song.streamUrl);
+        } else {
+          buffer.writeln('https://music.youtube.com/watch?v=${song.youtubeId ?? song.id}');
+        }
       }
 
       final tempDir = await getTemporaryDirectory();
@@ -134,6 +141,19 @@ class PlaylistExportService {
       );
     } catch (e, st) {
       logError('Failed to share playlist as text: $e\n$st');
+    }
+  }
+
+  /// Formats the playlist as a rich summary card and opens the share sheet.
+  Future<void> sharePlaylistCard(Playlist playlist) async {
+    try {
+      final card = MediaShareHelper.formatShareablePlaylistCard(playlist);
+      await Share.share(
+        card,
+        subject: playlist.name,
+      );
+    } catch (e, st) {
+      logError('Failed to share playlist card: $e\n$st');
     }
   }
 

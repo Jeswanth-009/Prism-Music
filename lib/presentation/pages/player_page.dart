@@ -4,7 +4,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:palette_generator/palette_generator.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../core/di/injection.dart';
 import '../../core/services/audio_player_service.dart';
@@ -376,11 +375,7 @@ class _PlayerPageState extends State<PlayerPage> {
               label: 'Share',
               onTap: () {
                 Navigator.pop(sheetContext);
-                final videoId = song.youtubeId ?? song.id;
-                Share.share(
-                  '${song.title} - ${song.artist}\n'
-                  'https://music.youtube.com/watch?v=$videoId',
-                );
+                ShareSong.shareSong(song);
               },
             ),            BlocBuilder<PlayerBloc, PlayerState>(
               builder: (context, playerState) {

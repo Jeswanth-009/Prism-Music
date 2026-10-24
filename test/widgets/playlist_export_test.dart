@@ -108,6 +108,7 @@ void main() {
 
       expect(find.text('Export Playlist'), findsOneWidget);
       expect(find.text('Synthwave Night • 2 tracks'), findsOneWidget);
+      expect(find.text('Share Playlist Card'), findsOneWidget);
       expect(find.text('M3U8 Playlist (.m3u8)'), findsOneWidget);
       expect(find.text('JSON Archive (.json)'), findsOneWidget);
       expect(find.text('Share Tracklist (Text)'), findsOneWidget);
