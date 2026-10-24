@@ -8,6 +8,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.50] - 2026-10-24
+
+### Added
+
+- Seasonal and editorial content with explicit provenance and maintenance metadata
+- Complete vinyl record visual style with full controls and lyrics parity
+- Lightweight listening statistics export and social summary
+- Personalizable clutter-free home section customization
+- Lock-screen affordances and home screen playback widget
+- Reliable metadata validation and shareable playlist/song cards
+
 ## [0.2.49] - 2026-10-22
 
 ### Changed
@@ -818,3 +829,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.47]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.47-build83
 [0.2.48]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.48-build84
 [0.2.49]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.49-build85
+[0.2.50]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.50-build86
