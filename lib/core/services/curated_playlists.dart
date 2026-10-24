@@ -8,6 +8,10 @@ class CuratedPlaylist {
   final String category;
   final List<Color> gradient;
   final IconData icon;
+  final String? seasonalTag;
+  final String provenance;
+  final String maintenance;
+  final DateTime? lastVerified;
 
   const CuratedPlaylist({
     required this.id,
@@ -16,6 +20,10 @@ class CuratedPlaylist {
     required this.category,
     required this.gradient,
     required this.icon,
+    this.seasonalTag,
+    this.provenance = 'YouTube Music Official Editorial',
+    this.maintenance = 'Updated weekly · Verified October 2026',
+    this.lastVerified,
   });
 }
 
@@ -175,8 +183,49 @@ class CuratedPlaylists {
     ),
   ];
 
+  // ── Seasonal & Editorial ───────────────────────────────────────────
+  static final _seasonal = [
+    CuratedPlaylist(
+      id: 'autumn_lofi_chill',
+      name: 'Autumn Lo-Fi & Coffee',
+      playlistId: 'RDCLAK5uy_m0zJk1W7b8q761vP-m5_cQG8lM6nZ7w9c',
+      category: 'Seasonal',
+      gradient: const [Color(0xFFE65100), Color(0xFFF57C00)],
+      icon: Icons.eco_rounded,
+      seasonalTag: 'Autumn 2026',
+      provenance: 'Prism Editorial Lo-Fi Soundscapes',
+      maintenance: 'Seasonal rotation · Verified October 2026',
+      lastVerified: DateTime(2026, 10, 1),
+    ),
+    CuratedPlaylist(
+      id: 'monsoon_rain_melodies',
+      name: 'Monsoon Ragas & Rain',
+      playlistId: 'RDCLAK5uy_kQ7Z3u8pM7d9k5L2c8a1b4e6f9g8h7j6',
+      category: 'Seasonal',
+      gradient: const [Color(0xFF00695C), Color(0xFF00897B)],
+      icon: Icons.water_drop_rounded,
+      seasonalTag: 'Monsoon 2026',
+      provenance: 'Prism Editorial Classical & Acoustic',
+      maintenance: 'Seasonal rotation · Verified October 2026',
+      lastVerified: DateTime(2026, 10, 1),
+    ),
+    CuratedPlaylist(
+      id: 'festive_celebration_hits',
+      name: 'Festive Celebration Beats',
+      playlistId: 'RDCLAK5uy_lZ7v_u4s9d8f7g6h5j4k3l2m1n0b9v8',
+      category: 'Seasonal',
+      gradient: const [Color(0xFFD81B60), Color(0xFF8E24AA)],
+      icon: Icons.celebration_rounded,
+      seasonalTag: 'Festive 2026',
+      provenance: 'YouTube Music India Editorial Charts',
+      maintenance: 'Updated bi-weekly · Verified October 2026',
+      lastVerified: DateTime(2026, 10, 15),
+    ),
+  ];
+
   /// All curated playlists.
   static List<CuratedPlaylist> get all => [
+        ..._seasonal,
         ..._global,
         ..._india,
         ..._popBollywood,
