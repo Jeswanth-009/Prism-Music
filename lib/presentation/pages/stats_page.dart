@@ -10,6 +10,7 @@ import '../theme/prism_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../widgets/player/mini_player.dart';
 import '../widgets/prism/prism_states.dart';
+import '../widgets/stats/stats_export_sheet.dart';
 
 /// Full listening overview: headline numbers, a plays-per-day chart for the
 /// last two weeks, and the current top artists / songs / genres.
@@ -46,7 +47,29 @@ class _StatsPageState extends State<StatsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Listening stats')),
+      appBar: AppBar(
+        title: const Text('Listening stats'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share_rounded),
+            tooltip: 'Export or share stats',
+            onPressed: () {
+              final stats = context.read<LibraryBloc>().state.stats;
+              if (stats == null || stats.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('No listening data to export yet.')),
+                );
+                return;
+              }
+              StatsExportSheet.show(
+                context,
+                stats: stats,
+                entries: _entries,
+              );
+            },
+          ),
+        ],
+      ),
       body: BlocBuilder<LibraryBloc, LibraryState>(
         builder: (context, state) {
           final stats = state.stats;
