@@ -54,6 +54,19 @@ class MainActivity : AudioServiceActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.prismmusic/widget")
+            .setMethodCallHandler { call, result ->
+                if (call.method == "updateWidget") {
+                    val title = call.argument<String>("title") ?: "Prism Music"
+                    val artist = call.argument<String>("artist") ?: ""
+                    val isPlaying = call.argument<Boolean>("isPlaying") ?: false
+                    PrismAppWidgetProvider.updateWidget(this, title, artist, isPlaying)
+                    result.success(true)
+                } else {
+                    result.notImplemented()
+                }
+            }
     }
 
     private fun setBassBoost(level: Double, enabled: Boolean) {

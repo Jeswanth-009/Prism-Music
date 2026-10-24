@@ -41,25 +41,39 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
     });
   }
 
+  static const MediaControl favoriteControl = MediaControl(
+    androidIcon: 'drawable/ic_heart',
+    label: 'Favorite',
+    action: MediaAction.custom,
+  );
+
   void _broadcastState(PlaybackEvent event) {
     final playing = player.playing;
     final coordinator = MediaSessionCoordinator.instance;
     final controls = <MediaControl>[
-      // Only offer skips the real queue can satisfy, so buttons never
-      // appear on the card while doing nothing.
       if (coordinator.canSkipPrevious) MediaControl.skipToPrevious,
       if (playing) MediaControl.pause else MediaControl.play,
       if (coordinator.canSkipNext) MediaControl.skipToNext,
-      MediaControl.stop, // Adds the X (Close) button when expanded
+      favoriteControl,
+      MediaControl.fastForward,
+      MediaControl.rewind,
+      MediaControl.stop,
     ];
-    // The compact notification renders the first `length` actions named in
-    // androidCompactActionIndices; on Android <13 an index that exceeds the
-    // controls list CRASHES the app when the notification is posted. This
-    // happens exactly when previous/next are hidden (single-song queue, or
-    // a broadcast before the bloc state settles). Show up to 3 of the
-    // non-stop controls, which are always at indices 0..n-1 (stop is last).
-    final compactCount = math.max(0, math.min(3, controls.length - 1));
-    final compactActionIndices = List<int>.generate(compactCount, (i) => i);
+
+    // Compute compact action indices for lock screen: center on playback & skips.
+    final compactActionIndices = <int>[];
+    final prevIdx = controls.indexOf(MediaControl.skipToPrevious);
+    final playIdx = controls.indexOf(playing ? MediaControl.pause : MediaControl.play);
+    final nextIdx = controls.indexOf(MediaControl.skipToNext);
+    if (prevIdx != -1) {
+      compactActionIndices.add(prevIdx);
+    } else {
+      final favIdx = controls.indexOf(favoriteControl);
+      if (favIdx != -1) compactActionIndices.add(favIdx);
+    }
+    if (playIdx != -1) compactActionIndices.add(playIdx);
+    if (nextIdx != -1) compactActionIndices.add(nextIdx);
+
     playbackState.add(
       playbackState.value.copyWith(
         controls: controls,
@@ -67,7 +81,12 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
           MediaAction.seek,
           MediaAction.seekForward,
           MediaAction.seekBackward,
-          MediaAction.stop, // Required for Android 13+ to recognize the stop action
+          MediaAction.fastForward,
+          MediaAction.rewind,
+          MediaAction.setRepeatMode,
+          MediaAction.setShuffleMode,
+          MediaAction.custom,
+          MediaAction.stop,
         },
         androidCompactActionIndices: compactActionIndices,
         processingState: const {
@@ -114,4 +133,42 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> seek(Duration position) => player.seek(position);
+
+  @override
+  Future<void> fastForward() async {
+    final current = player.position;
+    final total = player.duration;
+    final target = current + const Duration(seconds: 10);
+    if (total != null && target > total) {
+      await player.seek(total);
+    } else {
+      await player.seek(target);
+    }
+  }
+
+  @override
+  Future<void> rewind() async {
+    final current = player.position;
+    final target = current - const Duration(seconds: 10);
+    await player.seek(target < Duration.zero ? Duration.zero : target);
+  }
+
+  @override
+  Future<void> setRepeatMode(AudioServiceRepeatMode repeatMode) async {
+    await MediaSessionCoordinator.instance.cycleRepeatMode();
+  }
+
+  @override
+  Future<void> setShuffleMode(AudioServiceShuffleMode shuffleMode) async {
+    await MediaSessionCoordinator.instance.toggleShuffle();
+  }
+
+  @override
+  Future<dynamic> customAction(String name, [Map<String, dynamic>? extras]) async {
+    if (name == 'toggleLike' || name == 'favorite' || name == 'like') {
+      await MediaSessionCoordinator.instance.toggleCurrentSongLike();
+      return true;
+    }
+    return super.customAction(name, extras);
+  }
 }

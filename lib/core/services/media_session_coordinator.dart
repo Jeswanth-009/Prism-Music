@@ -24,6 +24,9 @@ class MediaSessionCoordinator {
   Future<void> Function()? _onNext;
   Future<void> Function()? _onPrevious;
   Future<void> Function()? _onStop;
+  Future<void> Function()? _onToggleLike;
+  Future<void> Function()? _onToggleShuffle;
+  Future<void> Function()? _onCycleRepeat;
   bool Function()? _hasNext;
   bool Function()? _hasPrevious;
 
@@ -38,12 +41,18 @@ class MediaSessionCoordinator {
     required Future<void> Function() onNext,
     required Future<void> Function() onPrevious,
     required Future<void> Function() onStop,
+    Future<void> Function()? onToggleLike,
+    Future<void> Function()? onToggleShuffle,
+    Future<void> Function()? onCycleRepeat,
     required bool Function() hasNext,
     required bool Function() hasPrevious,
   }) {
     _onNext = onNext;
     _onPrevious = onPrevious;
     _onStop = onStop;
+    _onToggleLike = onToggleLike;
+    _onToggleShuffle = onToggleShuffle;
+    _onCycleRepeat = onCycleRepeat;
     _hasNext = hasNext;
     _hasPrevious = hasPrevious;
   }
@@ -75,6 +84,30 @@ class MediaSessionCoordinator {
   /// Notification dismissed/closed → let the bloc stop playback cleanly.
   Future<void> stopFromNotification() async {
     final callback = _onStop;
+    if (callback != null) {
+      await callback();
+    }
+  }
+
+  /// Lock screen / notification favorite pressed → toggle current song like status.
+  Future<void> toggleCurrentSongLike() async {
+    final callback = _onToggleLike;
+    if (callback != null) {
+      await callback();
+    }
+  }
+
+  /// Lock screen / notification shuffle pressed → toggle shuffle.
+  Future<void> toggleShuffle() async {
+    final callback = _onToggleShuffle;
+    if (callback != null) {
+      await callback();
+    }
+  }
+
+  /// Lock screen / notification repeat mode pressed → cycle repeat mode.
+  Future<void> cycleRepeatMode() async {
+    final callback = _onCycleRepeat;
     if (callback != null) {
       await callback();
     }

@@ -13,9 +13,11 @@ import '../../../core/services/stream_loader_service.dart';
 import '../../../core/services/download_service.dart';
 import '../../../core/services/permission_service.dart';
 import '../../../core/services/settings_service.dart';
+import '../../../core/services/widget_service.dart';
 import '../../../core/di/injection.dart';
 import '../../../domain/entities/entities.dart';
 import '../../../domain/repositories/repositories.dart';
+import '../library/library.dart';
 import 'player_event.dart';
 import 'player_state.dart';
 
@@ -102,6 +104,26 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       onStop: () async {
         if (!isClosed) add(const StopEvent());
       },
+      onToggleShuffle: () async {
+        if (!isClosed) add(const ToggleShuffleEvent());
+      },
+      onCycleRepeat: () async {
+        if (!isClosed) add(const CycleRepeatModeEvent());
+      },
+      onToggleLike: () async {
+        final current = state.currentSong;
+        if (current != null) {
+          final isLiked = await _libraryRepository.isSongLiked(current.id);
+          if (isLiked) {
+            await _libraryRepository.unlikeSong(current.id);
+          } else {
+            await _libraryRepository.likeSong(current);
+          }
+          if (getIt.isRegistered<LibraryBloc>()) {
+            getIt<LibraryBloc>().add(const LoadLibraryEvent());
+          }
+        }
+      },
       hasNext: () => !isClosed && state.canSkipNext,
       hasPrevious: () => !isClosed && state.canSkipPrevious,
     );
@@ -151,6 +173,31 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
     // Load persisted performance-related settings
     _loadSettings();
+  }
+
+  @override
+  void onChange(Change<PlayerState> change) {
+    super.onChange(change);
+    if (change.currentState.currentSong?.playableId != change.nextState.currentSong?.playableId ||
+        change.currentState.isPlaying != change.nextState.isPlaying) {
+      _syncWidgetState(change.nextState.currentSong, change.nextState.isPlaying);
+    }
+  }
+
+  void _syncWidgetState(Song? song, bool isPlaying) {
+    if (song != null) {
+      unawaited(WidgetService.instance.updateWidget(
+        title: song.title,
+        artist: song.artist,
+        isPlaying: isPlaying,
+      ));
+    } else {
+      unawaited(WidgetService.instance.updateWidget(
+        title: 'Prism Music',
+        artist: 'No song playing',
+        isPlaying: false,
+      ));
+    }
   }
 
   void _initAudioPlayerStreams() {
