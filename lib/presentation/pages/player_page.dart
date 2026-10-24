@@ -116,8 +116,7 @@ class _PlayerPageState extends State<PlayerPage> {
 
         final theme = Theme.of(context);
         final isTablet = MediaQuery.sizeOf(context).width > 600;
-        final isClassic =
-            SettingsService.instance.playerUiStyle == PlayerUiStyle.classic;
+        final style = SettingsService.instance.playerUiStyle;
 
         return Scaffold(
           extendBodyBehindAppBar: true,
@@ -172,9 +171,25 @@ class _PlayerPageState extends State<PlayerPage> {
                           ],
                         ),
                       ),
-                    if (isClassic)
+                    if (style == PlayerUiStyle.classic)
                       Expanded(
                         child: _ClassicPlayerLayout(
+                          song: song,
+                          state: state,
+                          showLyrics: _showLyrics,
+                          onToggleLyrics: () =>
+                              setState(() => _showLyrics = !_showLyrics),
+                          onArtistTap: _openArtistPage,
+                          onProvenanceTap: () => _showStreamDetailsSheet(
+                            context,
+                            song,
+                            state.currentStreamInfo,
+                          ),
+                        ),
+                      )
+                    else if (style == PlayerUiStyle.vinyl)
+                      Expanded(
+                        child: _VinylPlayerLayout(
                           song: song,
                           state: state,
                           showLyrics: _showLyrics,
@@ -1737,3 +1752,340 @@ class _ClassicUtilityRow extends StatelessWidget {
     );
   }
 }
+
+/// Audiophile Vinyl turntable player layout with rotating grooved disc,
+/// tonearm styling, complete transport controls, and full lyrics parity.
+class _VinylPlayerLayout extends StatefulWidget {
+  final Song song;
+  final PlayerState state;
+  final bool showLyrics;
+  final VoidCallback onToggleLyrics;
+  final void Function(String artistName) onArtistTap;
+  final VoidCallback onProvenanceTap;
+
+  const _VinylPlayerLayout({
+    required this.song,
+    required this.state,
+    required this.showLyrics,
+    required this.onToggleLyrics,
+    required this.onArtistTap,
+    required this.onProvenanceTap,
+  });
+
+  @override
+  State<_VinylPlayerLayout> createState() => _VinylPlayerLayoutState();
+}
+
+class _VinylPlayerLayoutState extends State<_VinylPlayerLayout>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _rotationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _rotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 18),
+    );
+    if (widget.state.isPlaying) {
+      _rotationController.repeat();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _VinylPlayerLayout oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.state.isPlaying && !_rotationController.isAnimating) {
+      _rotationController.repeat();
+    } else if (!widget.state.isPlaying && _rotationController.isAnimating) {
+      _rotationController.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _rotationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isTablet = MediaQuery.sizeOf(context).width > 600;
+
+    return Column(
+      children: [
+        Expanded(
+          child: widget.showLyrics
+              ? PlayerLyricsView(
+                  key: ValueKey('lyrics_${widget.song.id}'),
+                  song: widget.song,
+                )
+              : SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: isTablet ? 500 : double.infinity,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const SizedBox(height: 12),
+                          // Turntable and rotating vinyl disk
+                          _buildTurntable(context),
+                          const SizedBox(height: 24),
+                          // Track info with inline like button
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      widget.song.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.titleLarge?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: -0.3,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    GestureDetector(
+                                      onTap: () => widget.onArtistTap(widget.song.artist),
+                                      child: Text(
+                                        widget.song.artist,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.bodyMedium?.copyWith(
+                                          color: theme.colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                                    if (widget.song.album != null &&
+                                        widget.song.album!.isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        widget.song.album!,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.labelSmall?.copyWith(
+                                          color: theme.colorScheme.onSurfaceVariant
+                                              .withValues(alpha: 0.7),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              BlocBuilder<LibraryBloc, LibraryState>(
+                                builder: (context, lib) {
+                                  final isLiked = lib.isSongLiked(widget.song.id);
+                                  return IconButton(
+                                    icon: Icon(
+                                      isLiked
+                                          ? Icons.favorite_rounded
+                                          : Icons.favorite_outline_rounded,
+                                      color: isLiked
+                                          ? theme.colorScheme.primary
+                                          : theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                    onPressed: () => context
+                                        .read<LibraryBloc>()
+                                        .add(ToggleLikeSongEvent(widget.song)),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+        ),
+        // Vinyl Scrubber
+        _ProgressBar(state: widget.state),
+        const SizedBox(height: 12),
+        // Transport Controls
+        _ClassicTransportControls(state: widget.state),
+        const SizedBox(height: 12),
+        // Bottom utilities
+        _ClassicUtilityRow(
+          song: widget.song,
+          state: widget.state,
+          showLyrics: widget.showLyrics,
+          onToggleLyrics: widget.onToggleLyrics,
+          onProvenanceTap: widget.onProvenanceTap,
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  Widget _buildTurntable(BuildContext context) {
+    final diskSize = (MediaQuery.sizeOf(context).width - 64).clamp(240.0, 310.0);
+
+    return Center(
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Outer turntable platter rim
+          Container(
+            width: diskSize + 12,
+            height: diskSize + 12,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF161619),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.55),
+                  blurRadius: 26,
+                  spreadRadius: 2,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+          ),
+          // Rotating Vinyl Disc
+          RotationTransition(
+            turns: _rotationController,
+            child: Container(
+              width: diskSize,
+              height: diskSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const RadialGradient(
+                  colors: [
+                    Color(0xFF26262C),
+                    Color(0xFF141416),
+                    Color(0xFF1D1D21),
+                    Color(0xFF0F0F10),
+                  ],
+                  stops: [0.0, 0.45, 0.85, 1.0],
+                ),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  width: 1.5,
+                ),
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Outer groove ring
+                  Container(
+                    width: diskSize * 0.86,
+                    height: diskSize * 0.86,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  // Mid groove ring
+                  Container(
+                    width: diskSize * 0.72,
+                    height: diskSize * 0.72,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.04),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  // Inner groove ring
+                  Container(
+                    width: diskSize * 0.58,
+                    height: diskSize * 0.58,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  // Center artwork label
+                  Container(
+                    width: diskSize * 0.44,
+                    height: diskSize * 0.44,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFFD4AF37).withValues(alpha: 0.6),
+                        width: 2,
+                      ),
+                    ),
+                    child: ClipOval(
+                      child: PrismArtwork(
+                        url: widget.song.thumbnailUrl,
+                        width: double.infinity,
+                        height: double.infinity,
+                        borderRadius: 0,
+                      ),
+                    ),
+                  ),
+                  // Spindle hole
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF121214),
+                      border: Border.all(
+                        color: const Color(0xFFD4AF37),
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.7),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Tonearm accent (placed at top-right corner pointing towards vinyl)
+          Positioned(
+            top: 2,
+            right: 8,
+            child: IgnorePointer(
+              child: Transform.rotate(
+                angle: -0.35,
+                child: Container(
+                  width: 6,
+                  height: diskSize * 0.42,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFB0B0B4), Color(0xFF505054)],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                    borderRadius: BorderRadius.circular(3),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        blurRadius: 6,
+                        offset: const Offset(2, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

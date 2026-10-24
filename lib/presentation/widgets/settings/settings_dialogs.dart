@@ -158,9 +158,14 @@ class SettingsDialogs {
                 },
                 title: Text(style.label),
                 subtitle: Text(
-                  style == PlayerUiStyle.modern
-                      ? 'Dynamic blur, expanded artwork and modern floating controls'
-                      : 'Classic compact layout with 5-button transport bar',
+                  switch (style) {
+                    PlayerUiStyle.modern =>
+                      'Dynamic blur, expanded artwork and modern floating controls',
+                    PlayerUiStyle.classic =>
+                      'Classic compact layout with 5-button transport bar',
+                    PlayerUiStyle.vinyl =>
+                      'Audiophile turntable design with rotating vinyl artwork and complete controls',
+                  },
                 ),
               ),
           ],

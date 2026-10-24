@@ -62,12 +62,13 @@ const List<CountryInfo> supportedCountries = [
 ];
 
 /// Available layouts for the full screen player
-enum PlayerUiStyle { classic, modern }
+enum PlayerUiStyle { classic, modern, vinyl }
 
 extension PlayerUiStyleX on PlayerUiStyle {
   String get label => switch (this) {
         PlayerUiStyle.classic => 'Classic',
         PlayerUiStyle.modern => 'Modern',
+        PlayerUiStyle.vinyl => 'Vinyl',
       };
 
   static PlayerUiStyle fromValue(String? value) {
