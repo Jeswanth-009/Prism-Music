@@ -121,6 +121,7 @@ class SettingsService {
   static const String _spotifyClientSecretKey = 'spotify_client_secret';
   static const String _restoreQueueOnLaunchKey = 'restore_queue_on_launch';
   static const String _excludeIncognitoQueueKey = 'exclude_incognito_queue';
+  static const String _appLanguageKey = 'app_language';
   static SettingsService? _instance;
   
   Box? _settingsBox;
@@ -582,6 +583,14 @@ class SettingsService {
     await _settingsBox?.put(_homeSectionsConfigKey, current);
   }
 
+  /// Reset all home sections to default (all enabled).
+  Future<void> resetHomeSections() async {
+    await _settingsBox?.put(
+      _homeSectionsConfigKey,
+      HomeSectionId.values.map((s) => s.name).toList(),
+    );
+  }
+
   /// Whether to persist and restore previous queue on app launch.
   bool get restoreQueueOnLaunch {
     try {
@@ -609,5 +618,20 @@ class SettingsService {
   Future<void> setExcludeIncognitoQueue(bool value) async {
     await _settingsBox?.put(_excludeIncognitoQueueKey, value);
   }
+
+  /// Current app localization language code (default: 'en').
+  String get appLanguage {
+    try {
+      return _settingsBox?.get(_appLanguageKey, defaultValue: 'en') as String? ?? 'en';
+    } catch (_) {
+      return 'en';
+    }
+  }
+
+  /// Persist app localization language code.
+  Future<void> setAppLanguage(String code) async {
+    await _settingsBox?.put(_appLanguageKey, code);
+  }
 }
+
 

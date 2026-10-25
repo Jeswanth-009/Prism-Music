@@ -10,6 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   # UI & Icons
   cupertino_icons: ^1.0.8
@@ -53,7 +55,7 @@ dependencies:
   injectable: ^2.4.4
   
   # Utils
-  intl: ^0.19.0
+  intl: ^0.20.2
   path_provider: ^2.1.4
   permission_handler: ^13.0.1
   share_plus: ^13.3.0

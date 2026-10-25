@@ -7,6 +7,8 @@ import 'package:audio_service/audio_service.dart';
 import 'package:logging/logging.dart';
 
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'core/localization/prism_localizations.dart';
 
 import 'core/di/injection.dart';
 import 'core/services/audio_player_service.dart';
@@ -210,9 +212,18 @@ class PrismMusicApp extends StatelessWidget {
       ],
       child: BlocBuilder<ThemeBloc, ThemeState>(
         builder: (context, themeState) {
+          final currentLang = SettingsService.instance.appLanguage;
           return MaterialApp(
             title: 'Prism Music',
             debugShowCheckedModeBanner: false,
+            locale: Locale(currentLang),
+            supportedLocales: PrismLocalizations.supportedLocales,
+            localizationsDelegates: const [
+              PrismLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
             theme: themeState.lightTheme,
             darkTheme: themeState.darkTheme,
             themeMode: themeState.themeMode,

@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:logging/logging.dart';
 import 'package:rxdart/rxdart.dart';
+import '../../../core/utils/unicode_search_matcher.dart';
 import '../../../data/datasources/local/local_datasource.dart';
+import '../../../domain/entities/entities.dart';
 import '../../../domain/repositories/repositories.dart';
 import 'search_event.dart';
 import 'search_state.dart';
@@ -90,9 +93,21 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
             },
             (songs) {
               if (emit.isDone || generation != _searchGeneration) return;
+              final rankedSongs = List<Song>.from(songs);
+              rankedSongs.sort((a, b) {
+                final scoreA = max(
+                  UnicodeSearchMatcher.computeSimilarity(a.title, query),
+                  UnicodeSearchMatcher.computeSimilarity(a.artist, query),
+                );
+                final scoreB = max(
+                  UnicodeSearchMatcher.computeSimilarity(b.title, query),
+                  UnicodeSearchMatcher.computeSimilarity(b.artist, query),
+                );
+                return scoreB.compareTo(scoreA);
+              });
               emit(state.copyWith(
                 status: SearchStatus.success,
-                results: SearchResults(songs: songs),
+                results: SearchResults(songs: rankedSongs),
                 hasMore: songs.length >= 30,
                 page: 1,
                 entitySuggestions: [],
@@ -189,9 +204,21 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
             },
             (searchResults) {
               if (emit.isDone || generation != _searchGeneration) return;
+              final rankedSongs = List<Song>.from(searchResults.songs);
+              rankedSongs.sort((a, b) {
+                final scoreA = max(
+                  UnicodeSearchMatcher.computeSimilarity(a.title, query),
+                  UnicodeSearchMatcher.computeSimilarity(a.artist, query),
+                );
+                final scoreB = max(
+                  UnicodeSearchMatcher.computeSimilarity(b.title, query),
+                  UnicodeSearchMatcher.computeSimilarity(b.artist, query),
+                );
+                return scoreB.compareTo(scoreA);
+              });
               emit(state.copyWith(
                 status: SearchStatus.success,
-                results: searchResults,
+                results: searchResults.copyWith(songs: rankedSongs),
                 hasMore: false,
                 page: 1,
                 entitySuggestions: [],

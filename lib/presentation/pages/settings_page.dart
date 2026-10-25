@@ -16,6 +16,7 @@ import '../../core/services/settings_service.dart';
 import '../../core/services/storage_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/queue_persistence_service.dart';
+import '../../core/localization/prism_localizations.dart';
 import '../../core/utils/formatters.dart';
 
 import '../blocs/theme/theme_bloc.dart';
@@ -156,6 +157,62 @@ class _SettingsPageState extends State<SettingsPage> {
     final hour = local.hour.toString().padLeft(2, '0');
     final minute = local.minute.toString().padLeft(2, '0');
     return '${local.year}-$month-$day $hour:$minute';
+  }
+
+  Future<void> _showAppLanguageDialog() async {
+    final currentCode = _settingsService.appLanguage;
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (dialogCtx) => SimpleDialog(
+        title: const Text('Select App Language'),
+        children: supportedPrismLanguages.map((lang) {
+          final isSelected = lang.code == currentCode;
+          return SimpleDialogOption(
+            onPressed: () => Navigator.pop(dialogCtx, lang.code),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      lang.nativeName,
+                      style: TextStyle(
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    Text(
+                      lang.englishName,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color:
+                            Theme.of(dialogCtx).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                if (isSelected)
+                  Icon(
+                    Icons.check_rounded,
+                    color: Theme.of(dialogCtx).colorScheme.primary,
+                  ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+
+    if (selected != null) {
+      await _settingsService.setAppLanguage(selected);
+      if (!mounted) return;
+      setState(() {});
+      showPrismToast(
+        context,
+        'App language set to ${supportedPrismLanguages.firstWhere((l) => l.code == selected).nativeName}',
+      );
+    }
   }
 
   void _forceRebuild() {
@@ -629,6 +686,17 @@ class _SettingsPageState extends State<SettingsPage> {
             },
             child: const Text('Clear'),
           ),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.translate_rounded),
+          title: 'App Language',
+          subtitle: supportedPrismLanguages
+              .firstWhere(
+                (l) => l.code == _settingsService.appLanguage,
+                orElse: () => supportedPrismLanguages.first,
+              )
+              .nativeName,
+          onTap: _showAppLanguageDialog,
         ),
         SettingRow(
           leading: const Icon(Icons.language_rounded),
