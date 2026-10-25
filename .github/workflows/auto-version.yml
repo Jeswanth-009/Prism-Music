@@ -468,7 +468,22 @@ jobs:
           else
             git add pubspec.yaml CHANGELOG.md
             git commit -m "chore: bump version to ${{ steps.next_version.outputs.next_version_line }} [${{ steps.next_version.outputs.bump_type }}]"
-            git push origin main
+            
+            # Rebase against remote main if another commit landed and retry push with backoff
+            git fetch origin main || true
+            if git log origin/main -n 5 --pretty=%B | grep -Fq "${{ steps.next_version.outputs.next_version_line }}"; then
+              echo "Remote main already contains version bump commit for ${{ steps.next_version.outputs.next_version_line }}; skipping push."
+            else
+              git pull --rebase origin main || true
+              for i in 1 2 3; do
+                if git push origin main; then
+                  echo "Pushed version bump commit to origin main."
+                  break
+                fi
+                echo "Attempt $i to push version bump failed. Retrying in 4s..."
+                sleep 4
+              done
+            fi
           fi
 
       # ── 16. Create & push the release tag ─────────────────────────
@@ -477,11 +492,22 @@ jobs:
         if: steps.next_version.outputs.should_release == 'true' && env.SIGNED_BUILD == 'true'
         run: |
           TAG="${{ steps.next_version.outputs.next_tag }}"
-          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
-            echo "Tag ${TAG} already exists; skipping tag creation."
+          # Pause 3 seconds to let remote GitHub packfile processing settle after branch push
+          sleep 3
+
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Tag ${TAG} already exists on remote; skipping tag creation."
           else
-            git tag -a "$TAG" -m "Release $TAG"
-            git push origin "$TAG"
+            git tag -a "$TAG" -m "Release $TAG" -f
+            for i in 1 2 3 4 5; do
+              echo "Pushing tag ${TAG} to remote (attempt $i)..."
+              if git push origin "$TAG"; then
+                echo "Tag ${TAG} pushed successfully."
+                break
+              fi
+              echo "Tag push failed (likely transient packfile lock on GitHub). Retrying in 5 seconds..."
+              sleep 5
+            done
           fi
           echo "tag=$TAG"                                >> "$GITHUB_OUTPUT"
           echo "release_name=Prism Music $TAG"           >> "$GITHUB_OUTPUT"
