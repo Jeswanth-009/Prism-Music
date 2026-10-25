@@ -73,6 +73,9 @@ class PlayerState extends Equatable {
   /// Whether autoplay of recommendations is enabled
   final bool autoPlay;
 
+  /// Whether current queue was restored from a previous session safely paused
+  final bool isRestoredSession;
+
   const PlayerState({
     this.status = PlayerStatus.initial,
     this.currentSong,
@@ -93,6 +96,7 @@ class PlayerState extends Equatable {
     this.queueIndex = 0,
     this.errorMessage,
     this.autoPlay = true,
+    this.isRestoredSession = false,
   });
 
   /// Whether the player is currently playing
@@ -215,6 +219,7 @@ class PlayerState extends Equatable {
     bool? sleepTimerEndOfTrack,
     bool clearSleepTimer = false,
     bool? autoPlay,
+    bool? isRestoredSession,
   }) {
     return PlayerState(
       status: status ?? this.status,
@@ -238,6 +243,7 @@ class PlayerState extends Equatable {
       sleepTimerEndOfTrack: sleepTimerEndOfTrack ??
           (clearSleepTimer ? false : this.sleepTimerEndOfTrack),
       autoPlay: autoPlay ?? this.autoPlay,
+      isRestoredSession: isRestoredSession ?? this.isRestoredSession,
     );
   }
 
@@ -262,5 +268,6 @@ class PlayerState extends Equatable {
         queueIndex,
         errorMessage,
         autoPlay,
+        isRestoredSession,
       ];
 }

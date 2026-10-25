@@ -277,6 +277,32 @@ class SwitchStreamSourceEvent extends PlayerEvent {
   List<Object?> get props => [targetResolverName];
 }
 
+/// Restore a saved queue session safely paused (no surprise auto-play).
+class RestoreQueueEvent extends PlayerEvent {
+  final Song currentSong;
+  final List<Song> queue;
+  final int queueIndex;
+  final Duration position;
+  final bool autoPlay;
+
+  const RestoreQueueEvent({
+    required this.currentSong,
+    required this.queue,
+    required this.queueIndex,
+    required this.position,
+    this.autoPlay = false,
+  });
+
+  @override
+  List<Object?> get props =>
+      [currentSong, queue, queueIndex, position, autoPlay];
+}
+
+/// Explicit privacy control: completely clear the persisted queue session.
+class ClearPersistedQueueEvent extends PlayerEvent {
+  const ClearPersistedQueueEvent();
+}
+
 /// Repeat mode options
 enum RepeatMode {
   off,

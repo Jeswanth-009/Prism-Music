@@ -119,6 +119,8 @@ class SettingsService {
   static const String _eqReverbKey = 'eq_reverb';
   static const String _spotifyClientIdKey = 'spotify_client_id';
   static const String _spotifyClientSecretKey = 'spotify_client_secret';
+  static const String _restoreQueueOnLaunchKey = 'restore_queue_on_launch';
+  static const String _excludeIncognitoQueueKey = 'exclude_incognito_queue';
   static SettingsService? _instance;
   
   Box? _settingsBox;
@@ -580,11 +582,32 @@ class SettingsService {
     await _settingsBox?.put(_homeSectionsConfigKey, current);
   }
 
-  /// Reset all home sections to default (all enabled).
-  Future<void> resetHomeSections() async {
-    await _settingsBox?.put(
-      _homeSectionsConfigKey,
-      HomeSectionId.values.map((s) => s.name).toList(),
-    );
+  /// Whether to persist and restore previous queue on app launch.
+  bool get restoreQueueOnLaunch {
+    try {
+      return _settingsBox?.get(_restoreQueueOnLaunchKey, defaultValue: true) as bool? ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// Persist restore queue on launch setting.
+  Future<void> setRestoreQueueOnLaunch(bool value) async {
+    await _settingsBox?.put(_restoreQueueOnLaunchKey, value);
+  }
+
+  /// Whether to exclude incognito/private listening sessions from being persisted.
+  bool get excludeIncognitoQueue {
+    try {
+      return _settingsBox?.get(_excludeIncognitoQueueKey, defaultValue: true) as bool? ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// Persist exclude incognito queue setting.
+  Future<void> setExcludeIncognitoQueue(bool value) async {
+    await _settingsBox?.put(_excludeIncognitoQueueKey, value);
   }
 }
+

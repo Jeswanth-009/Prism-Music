@@ -15,12 +15,14 @@ import '../../core/services/recommendation_service.dart';
 import '../../core/services/settings_service.dart';
 import '../../core/services/storage_service.dart';
 import '../../core/services/audio_player_service.dart';
+import '../../core/services/queue_persistence_service.dart';
 import '../../core/utils/formatters.dart';
 
 import '../blocs/theme/theme_bloc.dart';
 import '../blocs/theme/theme_event.dart';
 import '../blocs/theme/theme_state.dart';
 import '../blocs/player/player_bloc.dart';
+import '../blocs/player/player_event.dart';
 import '../blocs/player/player_state.dart';
 
 import 'downloads_page.dart';
@@ -588,6 +590,44 @@ class _SettingsPageState extends State<SettingsPage> {
               await _settingsService.setAutoPlay(value);
               setState(() {});
             },
+          ),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.history_toggle_off_rounded),
+          title: 'Restore Queue on Launch',
+          subtitle: 'Restore previous queue safely paused without surprise playback',
+          trailing: Switch.adaptive(
+            value: _settingsService.restoreQueueOnLaunch,
+            onChanged: (value) async {
+              await _settingsService.setRestoreQueueOnLaunch(value);
+              setState(() {});
+            },
+          ),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.privacy_tip_outlined),
+          title: 'Exclude Incognito Sessions',
+          subtitle: 'Do not persist private listening sessions to disk',
+          trailing: Switch.adaptive(
+            value: _settingsService.excludeIncognitoQueue,
+            onChanged: (value) async {
+              await _settingsService.setExcludeIncognitoQueue(value);
+              setState(() {});
+            },
+          ),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.delete_sweep_outlined),
+          title: 'Clear Saved Queue',
+          subtitle: 'Erase persisted listening queue from private storage',
+          trailing: TextButton(
+            onPressed: () async {
+              await QueuePersistenceService.instance.clearSession();
+              if (!mounted) return;
+              context.read<PlayerBloc>().add(const ClearPersistedQueueEvent());
+              showPrismToast(context, 'Saved queue session cleared');
+            },
+            child: const Text('Clear'),
           ),
         ),
         SettingRow(

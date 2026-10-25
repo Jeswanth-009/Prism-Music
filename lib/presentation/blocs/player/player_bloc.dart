@@ -15,6 +15,7 @@ import '../../../core/services/permission_service.dart';
 import '../../../core/services/settings_service.dart';
 import '../../../core/services/widget_service.dart';
 import '../../../core/services/verified_recording_verifier.dart';
+import '../../../core/services/queue_persistence_service.dart';
 import '../../../core/di/injection.dart';
 import '../../../domain/entities/entities.dart';
 import '../../../domain/repositories/repositories.dart';
@@ -165,6 +166,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     on<ToggleAutoPlayEvent>(_onToggleAutoPlay);
     on<MarkSongNotInterestedEvent>(_onMarkSongNotInterested);
     on<SwitchStreamSourceEvent>(_onSwitchStreamSource);
+    on<RestoreQueueEvent>(_onRestoreQueue);
+    on<ClearPersistedQueueEvent>(_onClearPersistedQueue);
 
     // Initialize audio player stream listeners
     _initAudioPlayerStreams();
@@ -274,6 +277,12 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         unawaited(_audioFocus.activateForPlayback());
       }
     }
+
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      _persistCurrentSession();
+    }
   }
 
   void _loadSettings() {
@@ -287,6 +296,22 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
             _settingsService.audioQuality,
           );
           add(SetAudioQualityEvent(storedQuality));
+
+          if (_settingsService.restoreQueueOnLaunch) {
+            QueuePersistenceService.instance.getSavedSession().then((session) {
+              if (session != null && !isClosed && state.currentSong == null) {
+                add(
+                  RestoreQueueEvent(
+                    currentSong: session.currentSong,
+                    queue: session.queue,
+                    queueIndex: session.queueIndex,
+                    position: session.position,
+                    autoPlay: false, // Strict no surprise auto-play
+                  ),
+                );
+              }
+            }).catchError((_) {});
+          }
         })
         .catchError((error) {
           _log('Settings load failed: $error');
@@ -731,6 +756,21 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     _log('  - currentSong: ${state.currentSong?.title}');
     _log('  - current status: ${state.status}');
 
+    // If session was restored paused from previous app run, user tapping play resumes playback
+    if (state.isRestoredSession && state.currentSong != null) {
+      _log('  - Restored session resuming playback');
+      emit(state.copyWith(isRestoredSession: false));
+      add(
+        PlaySongEvent(
+          song: state.currentSong!,
+          queue: state.queue,
+          queueIndex: state.queueIndex,
+          userInitiated: true,
+        ),
+      );
+      return;
+    }
+
     // If player is in error state, user tapping play/resume initiates clean recovery
     if (state.currentSong != null && state.status == PlayerStatus.error) {
       _log('  - In error state, initiating fresh PlaySongEvent recovery');
@@ -778,6 +818,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     await _audioPlayer.pause();
     await _audioFocus.deactivate();
     emit(state.copyWith(status: PlayerStatus.paused));
+    _persistCurrentSession();
   }
 
   Future<void> _onTogglePlayPause(
@@ -1903,6 +1944,54 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       emit(state.copyWith(
         errorMessage: 'Source switch error: $e',
       ));
+    }
+  }
+
+  void _onRestoreQueue(RestoreQueueEvent event, Emitter<PlayerState> emit) {
+    emit(
+      state.copyWith(
+        status: PlayerStatus.paused,
+        currentSong: event.currentSong,
+        queue: event.queue,
+        originalQueue: event.queue,
+        queueIndex: event.queueIndex,
+        position: event.position,
+        duration: event.currentSong.duration,
+        isRestoredSession: true,
+      ),
+    );
+
+    if (event.autoPlay) {
+      add(
+        PlaySongEvent(
+          song: event.currentSong,
+          queue: event.queue,
+          queueIndex: event.queueIndex,
+          userInitiated: true,
+        ),
+      );
+    }
+  }
+
+  void _onClearPersistedQueue(
+    ClearPersistedQueueEvent event,
+    Emitter<PlayerState> emit,
+  ) {
+    unawaited(QueuePersistenceService.instance.clearSession());
+    emit(state.copyWith(isRestoredSession: false));
+  }
+
+  void _persistCurrentSession() {
+    final song = state.currentSong;
+    if (song != null && state.queue.isNotEmpty) {
+      unawaited(
+        QueuePersistenceService.instance.saveSession(
+          currentSong: song,
+          queue: state.queue,
+          queueIndex: state.queueIndex,
+          position: state.position,
+        ),
+      );
     }
   }
 
