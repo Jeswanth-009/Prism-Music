@@ -6,6 +6,7 @@ import '../blocs/player/player_state.dart';
 import '../blocs/theme/theme.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/player/mini_player.dart';
+import '../widgets/common/adaptive_layout.dart';
 import 'charts_hub_page.dart';
 import 'home_tab.dart';
 import 'library_tab.dart';
@@ -62,6 +63,105 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final builders = widget.tabBuilders ?? HomePage.defaultTabBuilders;
+    final isTablet = AdaptiveBreakpoints.isTablet(context);
+
+    final contentStack = Stack(
+      children: [
+        // Subtle single-hue tint at the top; otherwise flat surface.
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  scheme.primary.withValues(alpha: 0.04),
+                  scheme.surface,
+                  scheme.surface,
+                ],
+                stops: const [0, 0.22, 1],
+              ),
+            ),
+          ),
+        ),
+        IndexedStack(
+          index: _currentIndex,
+          children: [
+            for (var i = 0; i < builders.length; i++)
+              _visitedTabs.contains(i)
+                  ? builders[i](context)
+                  : const SizedBox.shrink(),
+          ],
+        ),
+      ],
+    );
+
+    if (isTablet) {
+      return Scaffold(
+        extendBody: false,
+        body: BlocListener<PlayerBloc, PlayerState>(
+          listenWhen: (prev, next) =>
+              prev.currentSong?.id != next.currentSong?.id,
+          listener: (context, state) {
+            final song = state.currentSong;
+            if (song != null && song.thumbnailUrl.isNotEmpty) {
+              context.read<ThemeBloc>().add(
+                UpdateDynamicColorEvent(imageUrl: song.thumbnailUrl),
+              );
+            }
+          },
+          child: Row(
+            children: [
+              NavigationRail(
+                selectedIndex: _currentIndex,
+                onDestinationSelected: _onTabSelect,
+                backgroundColor: scheme.surfaceContainer,
+                labelType: NavigationRailLabelType.all,
+                destinations: const [
+                  NavigationRailDestination(
+                    icon: Icon(Icons.home_outlined),
+                    selectedIcon: Icon(Icons.home_rounded),
+                    label: Text('Home'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.search_rounded),
+                    selectedIcon: Icon(Icons.search_rounded),
+                    label: Text('Search'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.bar_chart_outlined),
+                    selectedIcon: Icon(Icons.bar_chart_rounded),
+                    label: Text('Charts'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.library_music_outlined),
+                    selectedIcon: Icon(Icons.library_music_rounded),
+                    label: Text('Library'),
+                  ),
+                ],
+              ),
+              const VerticalDivider(thickness: 1, width: 1),
+              Expanded(
+                child: Column(
+                  children: [
+                    Expanded(child: contentStack),
+                    BlocBuilder<PlayerBloc, PlayerState>(
+                      builder: (context, state) {
+                        if (state.currentSong == null) return const SizedBox.shrink();
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: MiniPlayer(),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       extendBody: false,
@@ -77,36 +177,7 @@ class _HomePageState extends State<HomePage> {
             );
           }
         },
-        child: Stack(
-          children: [
-            // Subtle single-hue tint at the top; otherwise flat surface.
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      scheme.primary.withValues(alpha: 0.04),
-                      scheme.surface,
-                      scheme.surface,
-                    ],
-                    stops: const [0, 0.22, 1],
-                  ),
-                ),
-              ),
-            ),
-            IndexedStack(
-              index: _currentIndex,
-              children: [
-                for (var i = 0; i < builders.length; i++)
-                  _visitedTabs.contains(i)
-                      ? builders[i](context)
-                      : const SizedBox.shrink(),
-              ],
-            ),
-          ],
-        ),
+        child: contentStack,
       ),
       bottomNavigationBar: SafeArea(
         top: false,

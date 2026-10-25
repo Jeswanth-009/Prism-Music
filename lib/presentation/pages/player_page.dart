@@ -26,6 +26,7 @@ import '../widgets/player/provider_health_sheet.dart';
 import '../widgets/prism/prism_sheet.dart';
 import '../widgets/prism/prism_song_actions.dart';
 import '../widgets/prism/prism_states.dart';
+import '../widgets/common/adaptive_layout.dart';
 import 'artist_page.dart';
 
 /// Full-screen immersive player. Artwork colour drives the ambient
@@ -172,7 +173,24 @@ class _PlayerPageState extends State<PlayerPage> {
                           ],
                         ),
                       ),
-                    if (style == PlayerUiStyle.classic)
+                    if (AdaptiveBreakpoints.isExpanded(context))
+                      Expanded(
+                        child: _LandscapePlayerLayout(
+                          song: song,
+                          state: state,
+                          dominantColor: _dominantColor,
+                          showLyrics: _showLyrics,
+                          onToggleLyrics: () =>
+                              setState(() => _showLyrics = !_showLyrics),
+                          onArtistTap: _openArtistPage,
+                          onProvenanceTap: () => _showStreamDetailsSheet(
+                            context,
+                            song,
+                            state.currentStreamInfo,
+                          ),
+                        ),
+                      )
+                    else if (style == PlayerUiStyle.classic)
                       Expanded(
                         child: _ClassicPlayerLayout(
                           song: song,
@@ -1499,6 +1517,88 @@ class _SecondaryControls extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _LandscapePlayerLayout extends StatelessWidget {
+  final Song song;
+  final PlayerState state;
+  final Color? dominantColor;
+  final bool showLyrics;
+  final VoidCallback onToggleLyrics;
+  final void Function(String artistName) onArtistTap;
+  final VoidCallback onProvenanceTap;
+
+  const _LandscapePlayerLayout({
+    required this.song,
+    required this.state,
+    required this.dominantColor,
+    required this.showLyrics,
+    required this.onToggleLyrics,
+    required this.onArtistTap,
+    required this.onProvenanceTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Left Pane: Artwork or Lyrics
+          Expanded(
+            flex: 5,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 340, maxWidth: 340),
+                child: showLyrics
+                    ? PlayerLyricsView(
+                        key: ValueKey('lyrics_${song.id}'),
+                        song: song,
+                      )
+                    : _AlbumArtwork(
+                        song: song,
+                        dominantColor: dominantColor,
+                      ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 24),
+          // Right Pane: Song Info + Scrubber + Controls
+          Expanded(
+            flex: 6,
+            child: Center(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _SongInfo(
+                      song: song,
+                      streamInfo: state.currentStreamInfo,
+                      onArtistTap: onArtistTap,
+                      onProvenanceTap: onProvenanceTap,
+                    ),
+                    const SizedBox(height: 12),
+                    _ProgressBar(state: state),
+                    const SizedBox(height: 8),
+                    _MainControls(state: state),
+                    const SizedBox(height: 4),
+                    _SecondaryControls(
+                      song: song,
+                      state: state,
+                      showLyrics: showLyrics,
+                      onToggleLyrics: onToggleLyrics,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
