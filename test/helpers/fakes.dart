@@ -23,6 +23,7 @@ import 'package:prism_music/presentation/blocs/library/library_bloc.dart';
 import 'package:prism_music/presentation/blocs/player/player_bloc.dart';
 import 'package:prism_music/presentation/blocs/search/search_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:prism_music/presentation/blocs/theme/theme_bloc.dart';
 import 'package:prism_music/presentation/blocs/theme/theme_state.dart';
 
 /// Canonical fakes shared across test files.
@@ -934,11 +935,13 @@ Widget wrapForTests(
   LibraryBloc? libraryBloc,
   PlayerBloc? playerBloc,
   SearchBloc? searchBloc,
+  ThemeBloc? themeBloc,
 }) {
   GoogleFonts.config.allowRuntimeFetching = false;
   final themeState = const ThemeState();
   return MultiBlocProvider(
     providers: [
+      BlocProvider<ThemeBloc>.value(value: themeBloc ?? ThemeBloc()),
       BlocProvider<LibraryBloc>.value(
         value: libraryBloc ??
             LibraryBloc(
@@ -971,6 +974,7 @@ Future<void> pumpTestWidget(
   LibraryBloc? libraryBloc,
   PlayerBloc? playerBloc,
   SearchBloc? searchBloc,
+  ThemeBloc? themeBloc,
 }) async {
   tester.view.devicePixelRatio = 1.0;
   tester.view.physicalSize = size;
@@ -983,5 +987,6 @@ Future<void> pumpTestWidget(
     libraryBloc: libraryBloc,
     playerBloc: playerBloc,
     searchBloc: searchBloc,
+    themeBloc: themeBloc,
   ));
 }

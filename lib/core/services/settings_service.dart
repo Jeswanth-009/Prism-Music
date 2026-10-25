@@ -122,6 +122,9 @@ class SettingsService {
   static const String _restoreQueueOnLaunchKey = 'restore_queue_on_launch';
   static const String _excludeIncognitoQueueKey = 'exclude_incognito_queue';
   static const String _appLanguageKey = 'app_language';
+  static const String _downloadWifiOnlyKey = 'download_wifi_only';
+  static const String _cellularDataSaverKey = 'cellular_data_saver';
+  static const String _offlineArtworkPersistenceKey = 'offline_artwork_persistence';
   static SettingsService? _instance;
   
   Box? _settingsBox;
@@ -631,6 +634,48 @@ class SettingsService {
   /// Persist app localization language code.
   Future<void> setAppLanguage(String code) async {
     await _settingsBox?.put(_appLanguageKey, code);
+  }
+
+  /// Whether downloads are restricted to Wi-Fi networks only (default: true).
+  bool get downloadWifiOnly {
+    try {
+      return _settingsBox?.get(_downloadWifiOnlyKey, defaultValue: true) as bool? ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// Persist download Wi-Fi only setting.
+  Future<void> setDownloadWifiOnly(bool value) async {
+    await _settingsBox?.put(_downloadWifiOnlyKey, value);
+  }
+
+  /// Whether cellular data saver mode is enabled (default: false).
+  bool get cellularDataSaver {
+    try {
+      return _settingsBox?.get(_cellularDataSaverKey, defaultValue: false) as bool? ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Persist cellular data saver mode setting.
+  Future<void> setCellularDataSaver(bool value) async {
+    await _settingsBox?.put(_cellularDataSaverKey, value);
+  }
+
+  /// Whether to download and persist rich offline artwork alongside audio files (default: true).
+  bool get offlineArtworkPersistence {
+    try {
+      return _settingsBox?.get(_offlineArtworkPersistenceKey, defaultValue: true) as bool? ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// Persist offline artwork persistence setting.
+  Future<void> setOfflineArtworkPersistence(bool value) async {
+    await _settingsBox?.put(_offlineArtworkPersistenceKey, value);
   }
 }
 

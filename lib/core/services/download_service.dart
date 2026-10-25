@@ -8,6 +8,7 @@ import '../../domain/entities/stream_info.dart';
 import 'stream_loader_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../utils/logger.dart';
 import '../utils/path_safety.dart';
 import '../utils/formatters.dart';
@@ -274,6 +275,32 @@ class DownloadService {
       }
     }
 
+    // Wi-Fi only check: if downloadWifiOnly is enabled, verify network is Wi-Fi or Ethernet
+    if (SettingsService.instance.downloadWifiOnly) {
+      try {
+        final connectivityResults = await Connectivity().checkConnectivity();
+        final hasWifi = connectivityResults.contains(ConnectivityResult.wifi) ||
+            connectivityResults.contains(ConnectivityResult.ethernet);
+        if (!hasWifi) {
+          logDebug('Download skipped: Wi-Fi only is enabled and network is not Wi-Fi');
+          final blockedInfo = DownloadInfo(
+            songId: song.playableId,
+            status: DownloadStatus.failed,
+            progress: 0.0,
+            error: 'Wi-Fi only enabled. Connect to Wi-Fi to download.',
+            songTitle: song.title,
+            artist: song.artist,
+            thumbnailUrl: song.thumbnailUrl,
+          );
+          _downloadProgress[song.playableId] = blockedInfo;
+          _notifyListeners(blockedInfo);
+          return false;
+        }
+      } catch (e) {
+        logError('Connectivity check failed: $e');
+      }
+    }
+
     // Create cancel token for this download
     final cancelToken = CancelToken();
     _cancelTokens[song.playableId] = cancelToken;
@@ -393,17 +420,43 @@ class DownloadService {
       }
       await tempFile.rename(filePath);
 
-      // Save metadata to Hive
+      // Download and persist rich offline artwork alongside audio
+      String? localArtworkPath;
+      if (SettingsService.instance.offlineArtworkPersistence &&
+          song.thumbnailUrl.isNotEmpty) {
+        try {
+          final downloadDir = await _getDownloadDirectory();
+          final artworkName =
+              '${sanitizePathComponent(song.playableId, maxLength: 64)}_artwork.jpg';
+          final artworkFile = File('${downloadDir.path}/$artworkName');
+          await _dio.download(
+            song.thumbnailUrl,
+            artworkFile.path,
+            options: Options(receiveTimeout: const Duration(seconds: 15)),
+          );
+          if (await artworkFile.exists() && await artworkFile.length() > 512) {
+            localArtworkPath = artworkFile.path;
+          }
+        } catch (e) {
+          logDebug('Offline artwork caching skipped or failed: $e');
+        }
+      }
+
+      // Save enriched metadata to Hive
       await _downloadBox?.put(song.playableId, {
         'songId': song.playableId,
         'title': song.title,
         'artist': song.artist,
+        'artists': song.artists,
         'album': song.album,
         'duration': song.duration.inSeconds,
         'thumbnailUrl': song.thumbnailUrl,
+        'localArtworkPath': localArtworkPath,
         'localPath': filePath,
         'fileSize': fileSize,
         'contentType': contentType,
+        'bitrate': resolvedStream?.bitrate ?? 0,
+        'isrc': song.isrc,
         'downloadedAt': DateTime.now().toIso8601String(),
       });
 
@@ -470,6 +523,12 @@ class DownloadService {
       final localPath = info['localPath'] as String?;
       if (localPath != null && await DownloadPathGuard.canDelete(localPath)) {
         await File(localPath).delete();
+      }
+
+      final artworkPath = info['localArtworkPath'] as String?;
+      if (artworkPath != null && await DownloadPathGuard.canDelete(artworkPath)) {
+        final af = File(artworkPath);
+        if (await af.exists()) await af.delete();
       }
 
       await _downloadBox?.delete(songId);

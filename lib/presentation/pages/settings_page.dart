@@ -763,6 +763,48 @@ class _SettingsPageState extends State<SettingsPage> {
       icon: Icons.storage_outlined,
       children: [
         SettingRow(
+          leading: const Icon(Icons.wifi_rounded),
+          title: 'Download over Wi-Fi only',
+          subtitle: _settingsService.downloadWifiOnly
+              ? 'Only download audio tracks when connected to Wi-Fi'
+              : 'Allow downloads over cellular/mobile data networks',
+          trailing: Switch.adaptive(
+            value: _settingsService.downloadWifiOnly,
+            onChanged: (val) async {
+              await _settingsService.setDownloadWifiOnly(val);
+              if (mounted) setState(() {});
+            },
+          ),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.data_saver_on_rounded),
+          title: 'Cellular Data Saver',
+          subtitle: _settingsService.cellularDataSaver
+              ? 'Data saver active: conservative bitrates on mobile networks'
+              : 'Prefer high quality playback regardless of network type',
+          trailing: Switch.adaptive(
+            value: _settingsService.cellularDataSaver,
+            onChanged: (val) async {
+              await _settingsService.setCellularDataSaver(val);
+              if (mounted) setState(() {});
+            },
+          ),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.image_outlined),
+          title: 'Save Offline Artwork',
+          subtitle: _settingsService.offlineArtworkPersistence
+              ? 'Cache high-resolution artwork for offline playback'
+              : 'Save audio file only without local artwork caching',
+          trailing: Switch.adaptive(
+            value: _settingsService.offlineArtworkPersistence,
+            onChanged: (val) async {
+              await _settingsService.setOfflineArtworkPersistence(val);
+              if (mounted) setState(() {});
+            },
+          ),
+        ),
+        SettingRow(
           leading: const Icon(Icons.folder_outlined),
           title: 'Download Folder',
           subtitle: _settingsService.downloadFolderPath ?? 'Default',

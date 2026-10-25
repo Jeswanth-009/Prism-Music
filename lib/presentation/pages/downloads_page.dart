@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -98,10 +99,17 @@ class _DownloadsPageState extends State<DownloadsPage> {
       title: songData['title'] ?? 'Unknown',
       artist: songData['artist'] ?? 'Unknown Artist',
       duration: Duration(seconds: songData['duration'] ?? 0),
-      thumbnails: songData['thumbnailUrl'] != null
-          ? Thumbnails.fromUrl(songData['thumbnailUrl'])
-          : Thumbnails.empty(),
+      thumbnails: (songData['localArtworkPath'] != null &&
+              File(songData['localArtworkPath']).existsSync())
+          ? Thumbnails.fromUrl(songData['localArtworkPath'])
+          : (songData['thumbnailUrl'] != null
+              ? Thumbnails.fromUrl(songData['thumbnailUrl'])
+              : Thumbnails.empty()),
       album: songData['album'],
+      artists: (songData['artists'] is List)
+          ? List<String>.from(songData['artists'])
+          : [songData['artist'] ?? 'Unknown Artist'],
+      isrc: songData['isrc'],
       streamUrl: songData['localPath'],
       source: MusicSource.local,
     );
