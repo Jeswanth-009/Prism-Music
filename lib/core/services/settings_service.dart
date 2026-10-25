@@ -126,6 +126,7 @@ class SettingsService {
   static const String _cellularDataSaverKey = 'cellular_data_saver';
   static const String _offlineArtworkPersistenceKey = 'offline_artwork_persistence';
   static const String _reducedMotionModeKey = 'reduced_motion_mode';
+  static const String _telemetryConsentKey = 'telemetry_consent';
   static SettingsService? _instance;
   
   Box? _settingsBox;
@@ -691,6 +692,20 @@ class SettingsService {
   /// Persist reduced motion setting.
   Future<void> setReducedMotionMode(bool value) async {
     await _settingsBox?.put(_reducedMotionModeKey, value);
+  }
+
+  /// Whether user has granted explicit opt-in consent for anonymous telemetry diagnostics (default: false).
+  bool get telemetryConsent {
+    try {
+      return _settingsBox?.get(_telemetryConsentKey, defaultValue: false) as bool? ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Persist telemetry diagnostics consent setting.
+  Future<void> setTelemetryConsent(bool value) async {
+    await _settingsBox?.put(_telemetryConsentKey, value);
   }
 }
 

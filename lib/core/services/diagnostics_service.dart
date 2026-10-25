@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -125,5 +126,64 @@ class DiagnosticsService {
   Future<void> copyToClipboard(BuildContext context) async {
     final text = await formatDiagnosticsText();
     await Clipboard.setData(ClipboardData(text: text));
+  }
+
+  /// Whether the user has explicitly opted into anonymous diagnostics telemetry.
+  bool get hasTelemetryConsent => SettingsService.instance.telemetryConsent;
+
+  /// Redacts Personally Identifiable Information (user directories, IP addresses, tokens) from [text].
+  static String sanitizeText(String text) {
+    if (text.isEmpty) return text;
+    var sanitized = text;
+
+    // 1. Redact Windows absolute user directory paths
+    sanitized = sanitized.replaceAll(
+      RegExp(r'[A-Za-z]:\\(?:Users|Documents|Downloads|AppData)\\[^\s"''`,)]+'),
+      '[REDACTED_USER_PATH]',
+    );
+
+    // 2. Redact Unix/Android user directory paths
+    sanitized = sanitized.replaceAll(
+      RegExp(r'/(?:data/user/\d+|home/[^/\s]+|Users/[^/\s]+)/[^\s"''`,)]+'),
+      '[REDACTED_USER_PATH]',
+    );
+
+    // 3. Redact IPv4 addresses
+    sanitized = sanitized.replaceAll(
+      RegExp(r'\b(?:\d{1,3}\.){3}\d{1,3}\b'),
+      '[REDACTED_IP]',
+    );
+
+    // 4. Redact tokens, secrets, and auth credentials
+    sanitized = sanitized.replaceAllMapped(
+      RegExp(r'(client_secret|token|bearer|key)=([a-zA-Z0-9_\-\.]{8,})', caseSensitive: false),
+      (match) => '${match[1]}=[REDACTED_SECRET]',
+    );
+
+    return sanitized;
+  }
+
+  /// Generates an entirely local, privacy-sanitized diagnostics bundle.
+  Future<Map<String, dynamic>> generateSanitizedLocalBundle() async {
+    final raw = await collectDiagnostics();
+    final sanitizedMap = <String, dynamic>{
+      'diagnosticsVersion': 1,
+      'exportedAt': DateTime.now().toUtc().toIso8601String(),
+      'privacy': {
+        'telemetryConsentGranted': hasTelemetryConsent,
+        'piiSanitized': true,
+        'mode': 'local_export_only',
+      },
+      'system': raw,
+    };
+    return sanitizedMap;
+  }
+
+  /// Serializes the sanitized diagnostics bundle as formatted JSON for local copy or file export.
+  Future<String> exportSanitizedLocalBundleJson() async {
+    final bundle = await generateSanitizedLocalBundle();
+    const encoder = JsonEncoder.withIndent('  ');
+    final jsonStr = encoder.convert(bundle);
+    return sanitizeText(jsonStr);
   }
 }

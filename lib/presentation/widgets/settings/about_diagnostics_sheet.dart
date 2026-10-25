@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/benchmark/playback_benchmark_matrix.dart';
 import '../../../core/services/diagnostics_service.dart';
+import '../../../core/services/settings_service.dart';
 import '../../theme/prism_theme.dart';
 import '../prism/prism_sheet.dart';
 
@@ -202,6 +203,72 @@ class _DiagnosticsSheetContentState extends State<DiagnosticsSheetContent> {
                       )
                     : const Icon(Icons.speed_rounded, size: 18),
                 label: Text(_runningBenchmark ? 'Running Playback Benchmark...' : 'Run Playback Benchmark'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(PrismRadius.md),
+                border: Border.all(
+                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.security_rounded,
+                    size: 20,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Anonymous Diagnostics Consent',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          SettingsService.instance.telemetryConsent
+                              ? 'Consent active: crash statistics sanitized locally'
+                              : 'Consent disabled: 100% offline, zero network telemetry',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch.adaptive(
+                    value: SettingsService.instance.telemetryConsent,
+                    onChanged: (val) async {
+                      await SettingsService.instance.setTelemetryConsent(val);
+                      if (mounted) setState(() {});
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  final sanitizedJson =
+                      await DiagnosticsService.instance.exportSanitizedLocalBundleJson();
+                  await Clipboard.setData(ClipboardData(text: sanitizedJson));
+                  if (context.mounted) {
+                    showPrismToast(context, 'Sanitized local bundle copied');
+                  }
+                },
+                icon: const Icon(Icons.shield_outlined, size: 18),
+                label: const Text('Export Sanitized Diagnostics (Local Only)'),
               ),
             ),
             const SizedBox(height: 8),
