@@ -552,6 +552,20 @@ class _SettingsPageState extends State<SettingsPage> {
               child: const Text('Toggle'),
             ),
           ),
+        SettingRow(
+          leading: const Icon(Icons.motion_photos_off_rounded),
+          title: 'Reduced Motion',
+          subtitle: _settingsService.reducedMotionMode
+              ? 'Animations disabled for accessibility and smoothness'
+              : 'Standard motion and transitions active',
+          trailing: Switch.adaptive(
+            value: _settingsService.reducedMotionMode,
+            onChanged: (val) async {
+              await _settingsService.setReducedMotionMode(val);
+              if (mounted) setState(() {});
+            },
+          ),
+        ),
       ],
     );
   }

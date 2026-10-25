@@ -1272,24 +1272,29 @@ class _ProgressBarState extends State<_ProgressBar> {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: [
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              trackHeight: 4,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
-            ),
-            child: Slider(
-              value: displayProgress.clamp(0.0, 1.0),
-              onChanged: (value) {
-                setState(() => _dragValue = value);
-              },
-              onChangeEnd: (value) {
-                final newPosition = Duration(
-                  milliseconds: (value * duration.inMilliseconds).round(),
-                );
-                context.read<PlayerBloc>().add(SeekEvent(newPosition));
-                setState(() => _dragValue = null);
-              },
+          Semantics(
+            slider: true,
+            label: 'Track playback progress',
+            value: '${_format(displayPosition)} of ${_format(duration)}',
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 4,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+              ),
+              child: Slider(
+                value: displayProgress.clamp(0.0, 1.0),
+                onChanged: (value) {
+                  setState(() => _dragValue = value);
+                },
+                onChangeEnd: (value) {
+                  final newPosition = Duration(
+                    milliseconds: (value * duration.inMilliseconds).round(),
+                  );
+                  context.read<PlayerBloc>().add(SeekEvent(newPosition));
+                  setState(() => _dragValue = null);
+                },
+              ),
             ),
           ),
           Padding(
@@ -1333,6 +1338,7 @@ class _MainControls extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           IconButton(
+            tooltip: 'Previous Track',
             onPressed: state.canSkipPrevious
                 ? () => context.read<PlayerBloc>().add(const PreviousEvent())
                 : null,
@@ -1341,6 +1347,7 @@ class _MainControls extends StatelessWidget {
           ),
           _PlayPauseButton(state: state),
           IconButton(
+            tooltip: 'Next Track',
             onPressed: state.canSkipNext
                 ? () => context.read<PlayerBloc>().add(const NextEvent())
                 : null,

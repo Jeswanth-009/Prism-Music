@@ -125,6 +125,7 @@ class SettingsService {
   static const String _downloadWifiOnlyKey = 'download_wifi_only';
   static const String _cellularDataSaverKey = 'cellular_data_saver';
   static const String _offlineArtworkPersistenceKey = 'offline_artwork_persistence';
+  static const String _reducedMotionModeKey = 'reduced_motion_mode';
   static SettingsService? _instance;
   
   Box? _settingsBox;
@@ -676,6 +677,20 @@ class SettingsService {
   /// Persist offline artwork persistence setting.
   Future<void> setOfflineArtworkPersistence(bool value) async {
     await _settingsBox?.put(_offlineArtworkPersistenceKey, value);
+  }
+
+  /// Whether reduced motion is enabled to minimize animations (default: false).
+  bool get reducedMotionMode {
+    try {
+      return _settingsBox?.get(_reducedMotionModeKey, defaultValue: false) as bool? ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Persist reduced motion setting.
+  Future<void> setReducedMotionMode(bool value) async {
+    await _settingsBox?.put(_reducedMotionModeKey, value);
   }
 }
 

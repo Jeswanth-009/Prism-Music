@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/services/settings_service.dart';
 
 /// Prism's visual primitives.
 ///
@@ -133,11 +134,16 @@ abstract final class PrismMotion {
   static const slow = Duration(milliseconds: 320);
   static const curve = Curves.easeOutCubic;
 
+  /// Returns true if either the system or user setting requests reduced motion.
+  static bool isReducedMotion(BuildContext context) {
+    final systemDisabled = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final userDisabled = SettingsService.instance.reducedMotionMode;
+    return systemDisabled || userDisabled;
+  }
+
   /// Returns Duration.zero if the user has requested reduced motion.
   static Duration duration(BuildContext context, Duration standard) {
-    return MediaQuery.maybeDisableAnimationsOf(context) ?? false
-        ? Duration.zero
-        : standard;
+    return isReducedMotion(context) ? Duration.zero : standard;
   }
 
   static Duration fastOf(BuildContext context) => duration(context, fast);
