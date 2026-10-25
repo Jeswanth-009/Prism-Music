@@ -531,7 +531,10 @@ class _LibraryTabState extends State<LibraryTab>
 
   Future<void> _showImportSummarySheet(ImportPlaylistResult result) async {
     if (!mounted) return;
-    if (result.isFullyMatched) {
+    final hasUncertain = result.effectivePreviewItems.any(
+      (item) => item.confidenceLevel == ImportConfidenceLevel.uncertain,
+    );
+    if (result.isFullyMatched && !hasUncertain) {
       showPrismToast(
         context,
         'All ${result.totalSourceTracks} tracks matched and imported!',
@@ -1220,6 +1223,8 @@ class ImportReviewSheetState extends State<ImportReviewSheet> {
   late Playlist _playlist;
   late List<Song> _matchedTracks;
   late List<Song> _unmatchedTracks;
+  late List<ImportPreviewItem> _previewItems;
+  int _selectedFilterIndex = 0; // 0: All, 1: Uncertain, 2: Unmatched
 
   @override
   void initState() {
@@ -1227,6 +1232,7 @@ class ImportReviewSheetState extends State<ImportReviewSheet> {
     _playlist = widget.result.playlist;
     _matchedTracks = List.from(widget.result.matchedTracks);
     _unmatchedTracks = List.from(widget.result.unmatchedTracks);
+    _previewItems = List.from(widget.result.effectivePreviewItems);
   }
 
   int get _total => _matchedTracks.length + _unmatchedTracks.length;
@@ -1234,6 +1240,28 @@ class ImportReviewSheetState extends State<ImportReviewSheet> {
       _total == 0 ? 100 : ((_matchedTracks.length / _total) * 100).round();
   double get _matchRate =>
       _total == 0 ? 1.0 : (_matchedTracks.length / _total).clamp(0.0, 1.0);
+
+  int get _uncertainCount => _previewItems
+      .where((i) => i.confidenceLevel == ImportConfidenceLevel.uncertain)
+      .length;
+
+  List<ImportPreviewItem> get _displayedItems {
+    switch (_selectedFilterIndex) {
+      case 1:
+        return _previewItems
+            .where((i) => i.confidenceLevel == ImportConfidenceLevel.uncertain)
+            .toList();
+      case 2:
+        return _previewItems
+            .where((i) => i.confidenceLevel == ImportConfidenceLevel.unmatched)
+            .toList();
+      case 0:
+      default:
+        return _previewItems
+            .where((i) => i.confidenceLevel != ImportConfidenceLevel.unmatched)
+            .toList();
+    }
+  }
 
   Future<void> _matchTrackManually(Song unmatched) async {
     final matchedSong = await showDialog<Song>(
@@ -1257,6 +1285,24 @@ class ImportReviewSheetState extends State<ImportReviewSheet> {
           trackCount: _matchedTracks.length,
           songs: _matchedTracks,
         );
+        final idx = _previewItems.indexWhere(
+          (t) => t.sourceTrack.id == unmatched.id && t.sourceTrack.title == unmatched.title,
+        );
+        if (idx != -1) {
+          _previewItems[idx] = _previewItems[idx].copyWith(
+            matchedSong: matchedSong,
+            confidenceScore: 1.0,
+            confidenceLevel: ImportConfidenceLevel.exact,
+          );
+        } else {
+          _previewItems.add(
+            ImportPreviewItem.fromMatch(
+              sourceTrack: unmatched,
+              matchedSong: matchedSong,
+              confidence: 1.0,
+            ),
+          );
+        }
       });
 
       showPrismToast(
@@ -1266,14 +1312,117 @@ class ImportReviewSheetState extends State<ImportReviewSheet> {
     }
   }
 
+  Future<void> _correctMatch(ImportPreviewItem item) async {
+    final correctedSong = await showDialog<Song>(
+      context: context,
+      builder: (ctx) => _ManualTrackMatchDialog(unmatchedTrack: item.sourceTrack),
+    );
+
+    if (correctedSong != null && mounted) {
+      context.read<LibraryBloc>().add(
+            AddToPlaylistEvent(
+              playlistId: _playlist.id,
+              song: correctedSong,
+            ),
+          );
+
+      setState(() {
+        if (item.matchedSong != null) {
+          final oldIdx =
+              _matchedTracks.indexWhere((s) => s.id == item.matchedSong!.id);
+          if (oldIdx != -1) {
+            _matchedTracks[oldIdx] = correctedSong;
+          } else {
+            _matchedTracks.add(correctedSong);
+          }
+        } else {
+          _unmatchedTracks.removeWhere((s) => s.id == item.sourceTrack.id);
+          _matchedTracks.add(correctedSong);
+        }
+
+        _playlist = _playlist.copyWith(
+          trackCount: _matchedTracks.length,
+          songs: _matchedTracks,
+        );
+
+        final idx = _previewItems.indexOf(item);
+        if (idx != -1) {
+          _previewItems[idx] = item.copyWith(
+            matchedSong: correctedSong,
+            confidenceScore: 1.0,
+            confidenceLevel: ImportConfidenceLevel.exact,
+          );
+        }
+      });
+
+      showPrismToast(
+        context,
+        'Matched "${item.sourceTrack.title}" with "${correctedSong.title}"',
+      );
+    }
+  }
+
+  Widget _buildConfidenceBadge(ImportConfidenceLevel level, int percent) {
+    final Color badgeColor;
+    final IconData icon;
+    final String label;
+
+    switch (level) {
+      case ImportConfidenceLevel.exact:
+        badgeColor = Colors.green;
+        icon = Icons.verified_rounded;
+        label = 'Exact ($percent%)';
+        break;
+      case ImportConfidenceLevel.high:
+        badgeColor = Colors.teal;
+        icon = Icons.check_circle_outline_rounded;
+        label = 'High ($percent%)';
+        break;
+      case ImportConfidenceLevel.uncertain:
+        badgeColor = Colors.amber;
+        icon = Icons.help_outline_rounded;
+        label = 'Uncertain ($percent%)';
+        break;
+      case ImportConfidenceLevel.unmatched:
+        badgeColor = Colors.redAccent;
+        icon = Icons.cancel_outlined;
+        label = 'No Match';
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: badgeColor.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: badgeColor.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: badgeColor),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: badgeColor,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.65,
-      minChildSize: 0.4,
-      maxChildSize: 0.9,
+      initialChildSize: 0.75,
+      minChildSize: 0.45,
+      maxChildSize: 0.95,
       expand: false,
       builder: (context, scrollController) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
@@ -1339,7 +1488,39 @@ class ImportReviewSheetState extends State<ImportReviewSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
+            // Filter segmented chips
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  ChoiceChip(
+                    label: Text('All (${_previewItems.length})'),
+                    selected: _selectedFilterIndex == 0,
+                    onSelected: (val) {
+                      if (val) setState(() => _selectedFilterIndex = 0);
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: Text('Uncertain ($_uncertainCount)'),
+                    selected: _selectedFilterIndex == 1,
+                    onSelected: (val) {
+                      if (val) setState(() => _selectedFilterIndex = 1);
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: Text('Unmatched (${_unmatchedTracks.length})'),
+                    selected: _selectedFilterIndex == 2,
+                    onSelected: (val) {
+                      if (val) setState(() => _selectedFilterIndex = 2);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
             if (widget.result.isEmbedFallback)
               Container(
                 margin: const EdgeInsets.only(bottom: 12),
@@ -1395,7 +1576,9 @@ class ImportReviewSheetState extends State<ImportReviewSheet> {
                   ],
                 ),
               ),
-            if (_unmatchedTracks.isNotEmpty) ...[
+            // When filtered to unmatched or when displaying the unmatched section
+            if (_selectedFilterIndex == 2 ||
+                (_selectedFilterIndex == 0 && _unmatchedTracks.isNotEmpty)) ...[
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -1462,7 +1645,107 @@ class ImportReviewSheetState extends State<ImportReviewSheet> {
                     ),
                   )),
               const SizedBox(height: 16),
-            ] else if (widget.result.unmatchedTracks.isNotEmpty) ...[
+            ],
+            // Granular Preview and Confidence Section (for All or Uncertain views)
+            if (_selectedFilterIndex != 2 && _displayedItems.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Text(
+                  _selectedFilterIndex == 1
+                      ? 'Uncertain Matches (${_displayedItems.length})'
+                      : 'Matched Tracks (${_displayedItems.length})',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              ..._displayedItems.map((item) {
+                final source = item.sourceTrack;
+                final matched = item.matchedSong;
+                final isUncertain =
+                    item.confidenceLevel == ImportConfidenceLevel.uncertain;
+                final isUnmatched =
+                    item.confidenceLevel == ImportConfidenceLevel.unmatched;
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Material(
+                    color: isUncertain
+                        ? Colors.amber.withValues(alpha: 0.08)
+                        : theme.colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(8),
+                    child: ListTile(
+                      dense: true,
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      leading: Icon(
+                        isUnmatched
+                            ? Icons.music_off_outlined
+                            : Icons.music_note_rounded,
+                        size: 20,
+                        color: isUncertain
+                            ? Colors.amber
+                            : theme.colorScheme.primary,
+                      ),
+                      title: Text(
+                        source.title,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${source.artist} • ${Formatters.formatDuration(source.duration)}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (matched != null &&
+                              (matched.title != source.title ||
+                                  matched.artist != source.artist))
+                            Text(
+                              'Matched candidate: ${matched.title} - ${matched.artist}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: isUncertain
+                                    ? Colors.amber.shade700
+                                    : theme.colorScheme.onSurfaceVariant,
+                                fontStyle: FontStyle.italic,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          const SizedBox(height: 4),
+                          _buildConfidenceBadge(
+                            item.confidenceLevel,
+                            item.confidencePercent,
+                          ),
+                        ],
+                      ),
+                      trailing: isUncertain || isUnmatched
+                          ? FilledButton.tonalIcon(
+                              style: FilledButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 8),
+                              ),
+                              icon: const Icon(Icons.edit_note_rounded, size: 16),
+                              label: Text(isUnmatched ? 'Match' : 'Correct'),
+                              onPressed: () => _correctMatch(item),
+                            )
+                          : null,
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 16),
+            ],
+            if (_unmatchedTracks.isEmpty && widget.result.unmatchedTracks.isNotEmpty) ...[
               Container(
                 margin: const EdgeInsets.symmetric(vertical: 8),
                 padding: const EdgeInsets.all(12),

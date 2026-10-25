@@ -1,10 +1,11 @@
 import 'package:equatable/equatable.dart';
+import 'import_preview_item.dart';
 import 'playlist.dart';
 import 'song.dart';
 
 /// Structured outcome of importing an external playlist (Spotify, YouTube, etc.).
-/// Carries the persisted playlist, matched tracks, and any unmatched tracks
-/// so the user can review what could not be resolved.
+/// Carries the persisted playlist, matched tracks, unmatched tracks, and
+/// granular confidence-scored preview items for review and manual correction.
 class ImportPlaylistResult extends Equatable {
   /// The saved playlist entity containing matched tracks.
   final Playlist playlist;
@@ -14,6 +15,9 @@ class ImportPlaylistResult extends Equatable {
 
   /// Tracks from the source playlist that could not be matched with high confidence.
   final List<Song> unmatchedTracks;
+
+  /// Detailed preview items with match confidence scores and alternative candidates.
+  final List<ImportPreviewItem>? previewItems;
 
   /// Total tracks retrieved from the source playlist.
   final int totalSourceTracks;
@@ -29,6 +33,7 @@ class ImportPlaylistResult extends Equatable {
     required this.matchedTracks,
     required this.unmatchedTracks,
     required this.totalSourceTracks,
+    this.previewItems,
     this.wasCancelled = false,
     this.isEmbedFallback = false,
   });
@@ -50,11 +55,35 @@ class ImportPlaylistResult extends Equatable {
   bool get isFullyMatched =>
       totalSourceTracks > 0 && unmatchedTracks.isEmpty && !wasCancelled;
 
+  /// Returns granular preview items, generating them dynamically if not explicitly supplied.
+  List<ImportPreviewItem> get effectivePreviewItems {
+    if (previewItems != null && previewItems!.isNotEmpty) {
+      return previewItems!;
+    }
+    final items = <ImportPreviewItem>[];
+    for (final song in matchedTracks) {
+      items.add(ImportPreviewItem.fromMatch(
+        sourceTrack: song,
+        matchedSong: song,
+        confidence: song.matchConfidence ?? 0.88,
+      ));
+    }
+    for (final song in unmatchedTracks) {
+      items.add(ImportPreviewItem.fromMatch(
+        sourceTrack: song,
+        matchedSong: null,
+        confidence: 0.0,
+      ));
+    }
+    return items;
+  }
+
   @override
   List<Object?> get props => [
         playlist,
         matchedTracks,
         unmatchedTracks,
+        previewItems,
         totalSourceTracks,
         wasCancelled,
         isEmbedFallback,

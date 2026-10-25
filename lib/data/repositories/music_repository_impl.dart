@@ -862,13 +862,29 @@ class MusicRepositoryImpl implements MusicRepository {
 
       final matchedTracks = <Song>[];
       final unmatchedTracks = <Song>[];
+      final previewItems = <ImportPreviewItem>[];
 
       for (var i = 0; i < tracks.length; i++) {
+        final source = tracks[i];
         final match = matched[i];
         if (match != null) {
           matchedTracks.add(match);
+          previewItems.add(
+            ImportPreviewItem.fromMatch(
+              sourceTrack: source,
+              matchedSong: match,
+              confidence: match.matchConfidence,
+            ),
+          );
         } else {
-          unmatchedTracks.add(tracks[i]);
+          unmatchedTracks.add(source);
+          previewItems.add(
+            ImportPreviewItem.fromMatch(
+              sourceTrack: source,
+              matchedSong: null,
+              confidence: 0.0,
+            ),
+          );
         }
       }
 
@@ -902,6 +918,7 @@ class MusicRepositoryImpl implements MusicRepository {
         playlist: playlist,
         matchedTracks: matchedTracks,
         unmatchedTracks: unmatchedTracks,
+        previewItems: previewItems,
         totalSourceTracks: tracks.length,
         wasCancelled: cancelToken?.isCancelled ?? false,
         isEmbedFallback: details.isEmbedFallback,
