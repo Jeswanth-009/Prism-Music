@@ -579,6 +579,44 @@ class FakeLocalDataSource implements LocalDataSource {
     historyRows.remove(id);
   }
 
+  List<Song> likedSongs = [];
+  List<HistoryEntry> historyEntries = [];
+  final Map<String, Playlist> playlists = {};
+
+  @override
+  Future<List<Song>> getLikedSongs() async => likedSongs;
+
+  @override
+  Future<List<HistoryEntry>> getFullHistory() async => historyEntries;
+
+  @override
+  Future<Playlist> createPlaylist(String name, {String? description}) async {
+    final p = Playlist(
+      id: 'pl_${playlists.length + 1}',
+      name: name,
+      description: description,
+      trackCount: 0,
+      songs: [],
+    );
+    playlists[p.id] = p;
+    return p;
+  }
+
+  @override
+  Future<void> addSongToPlaylist(String playlistId, Song song) async {
+    final p = playlists[playlistId];
+    if (p != null) {
+      final updatedSongs = <Song>[...(p.songs ?? []), song];
+      playlists[playlistId] = p.copyWith(
+        trackCount: updatedSongs.length,
+        songs: updatedSongs,
+      );
+    }
+  }
+
+  @override
+  Future<Playlist?> getPlaylist(String playlistId) async => playlists[playlistId];
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

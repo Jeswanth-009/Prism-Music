@@ -14,6 +14,8 @@ import '../blocs/library/library.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
 import '../theme/prism_theme.dart';
+import '../../core/services/smart_playlist_service.dart';
+import '../widgets/library/smart_playlist_card.dart';
 import '../widgets/playlist/playlist_export_sheet.dart';
 import '../widgets/prism/prism_artwork.dart';
 import '../widgets/prism/prism_quick_tile.dart';
@@ -44,6 +46,20 @@ class _LibraryTabState extends State<LibraryTab>
   ImportCancellationToken? _activeCancelToken;
   final TextEditingController _playlistSearchCtrl = TextEditingController();
   bool _showPlaylistSearch = false;
+  Future<List<SmartPlaylist>>? _smartPlaylistsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshSmartPlaylists();
+  }
+
+  void _refreshSmartPlaylists() {
+    if (getIt.isRegistered<SmartPlaylistService>()) {
+      _smartPlaylistsFuture =
+          getIt<SmartPlaylistService>().generateSmartPlaylists();
+    }
+  }
 
   @override
   bool get wantKeepAlive => true;
@@ -242,6 +258,35 @@ class _LibraryTabState extends State<LibraryTab>
                 ),
               ),
             ],
+            SliverToBoxAdapter(
+              child: PrismSectionHeader(
+                title: 'Smart Playlists',
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 10),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: FutureBuilder<List<SmartPlaylist>>(
+                future: _smartPlaylistsFuture,
+                builder: (context, snapshot) {
+                  final smartLists = snapshot.data ?? const [];
+                  if (smartLists.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  return SizedBox(
+                    height: 124,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: smartLists.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                      itemBuilder: (context, index) =>
+                          SmartPlaylistCard(smartPlaylist: smartLists[index]),
+                    ),
+                  );
+                },
+              ),
+            ),
             SliverToBoxAdapter(
               child: PrismSectionHeader(
                 title: 'Playlists',

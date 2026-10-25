@@ -28,6 +28,7 @@ import '../services/recommendation_service.dart';
 import '../services/instance_health_service.dart';
 import '../services/spotify_auth_service.dart';
 import '../services/storage_service.dart';
+import '../services/smart_playlist_service.dart';
 
 /// Global service locator instance
 final GetIt getIt = GetIt.instance;
@@ -183,6 +184,14 @@ getIt.registerLazySingleton<LibraryRepository>(
       () => MediaResolverService(
         streamLoader: getIt<StreamLoaderService>(),
         downloadService: getIt<DownloadService>(),
+      ),
+    );
+
+    // Smart Playlist Service
+    getIt.registerLazySingleton<SmartPlaylistService>(
+      () => SmartPlaylistService(
+        localDataSource: getIt<LocalDataSource>(),
+        libraryRepository: getIt<LibraryRepository>(),
       ),
     );
 
