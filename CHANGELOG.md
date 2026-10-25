@@ -8,6 +8,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.54] - 2026-10-25
+
+### Added
+
+- Verified artifact downloads with device choices and certificate checksum integrity
+- Consent-based privacy-preserving diagnostics with sanitized local export
+
+### Fixed
+
+- Add git push retries and pause to avoid transient packfile lock on release tag
+
 ## [0.2.53] - 2026-10-25
 
 ### Added
@@ -858,3 +869,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.51]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.51-build87
 [0.2.52]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.52-build88
 [0.2.53]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.53-build89
+[0.2.54]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.54-build90
