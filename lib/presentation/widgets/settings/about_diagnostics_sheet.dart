@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/benchmark/playback_benchmark_matrix.dart';
+import '../../../core/services/artifact_verification_service.dart';
 import '../../../core/services/diagnostics_service.dart';
 import '../../../core/services/settings_service.dart';
 import '../../theme/prism_theme.dart';
@@ -76,7 +78,7 @@ class _DiagnosticsSheetContentState extends State<DiagnosticsSheetContent> {
     final storage = _data!['storage'] as Map<String, dynamic>;
 
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -274,6 +276,15 @@ class _DiagnosticsSheetContentState extends State<DiagnosticsSheetContent> {
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _showArtifactVerificationDialog(context),
+                icon: const Icon(Icons.verified_outlined, size: 18),
+                label: const Text('Artifact & Checksum Verification'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
               child: FilledButton.tonalIcon(
                 onPressed: () async {
                   await DiagnosticsService.instance.copyToClipboard(context);
@@ -289,6 +300,178 @@ class _DiagnosticsSheetContentState extends State<DiagnosticsSheetContent> {
           ],
         ),
       ),
+    );
+  }
+
+  void _showArtifactVerificationDialog(BuildContext context) {
+    final theme = Theme.of(context);
+    final service = ArtifactVerificationService.instance;
+    final arch = service.detectCurrentArch();
+    final choices = service.getArtifactChoices(detectedArch: arch);
+    final cert = service.getSigningCertificateMetadata();
+    final verifyCmd = service.getHashVerificationCommand(filename: 'prism-music-release.apk');
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.verified_rounded, color: theme.colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Verified Artifact Downloads',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Detected Architecture: ${arch.displayName}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Official builds are built via GitHub Actions and verified with automated SBOM and SHA-256 provenance attestations.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Available Device & Emulator Choices:',
+                style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              ...choices.map((c) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: c.isRecommended
+                            ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
+                            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(PrismRadius.sm),
+                        border: Border.all(
+                          color: c.isRecommended
+                              ? theme.colorScheme.primary.withValues(alpha: 0.4)
+                              : theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                c.title,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              if (c.isRecommended) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.primary,
+                                    borderRadius: BorderRadius.circular(PrismRadius.xs),
+                                  ),
+                                  child: Text(
+                                    'Recommended',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: theme.colorScheme.onPrimary,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            c.targetAudience,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 11,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(PrismRadius.sm),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Verify SHA-256 Checksum Command:',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    SelectableText(
+                      verifyCmd,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontFamily: 'monospace',
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: verifyCmd));
+                        if (context.mounted) {
+                          showPrismToast(context, 'Verification command copied');
+                        }
+                      },
+                      icon: const Icon(Icons.copy_rounded, size: 16),
+                      label: const Text('Copy Command'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton.tonalIcon(
+                      onPressed: () async {
+                        final uri = Uri.parse(cert['sbomUrl'] ?? 'https://github.com/Jeswanth-009/Prism-Music/releases');
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      },
+                      icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                      label: const Text('View Releases'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

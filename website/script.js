@@ -607,6 +607,120 @@
         mNote.hidden = false;
       }
     }
+
+    // Multi-artifact resolution for device/emulator choices
+    const assets = release.assets || [];
+    const arm64Apk = assets.find(a => /arm64|app-release/i.test(a.name) && !/x86|emulator/i.test(a.name));
+    const x86Apk = assets.find(a => /x86_64|emulator/i.test(a.name));
+    const armv7Apk = assets.find(a => /armeabi-v7a|armv7/i.test(a.name));
+    const aabAsset = assets.find(a => /\.aab$/i.test(a.name));
+
+    const btnDlArm64 = document.getElementById("btnDlArm64");
+    const sizeArm64 = document.getElementById("sizeArm64");
+    const tagArm64 = document.getElementById("tagArm64");
+    if (arm64Apk && btnDlArm64) {
+      btnDlArm64.href = arm64Apk.browser_download_url;
+      if (sizeArm64 && arm64Apk.size) sizeArm64.textContent = `${(arm64Apk.size / (1024 * 1024)).toFixed(1)} MB`;
+      if (tagArm64) tagArm64.textContent = version;
+    }
+
+    const btnDlX86 = document.getElementById("btnDlX86");
+    const sizeX86 = document.getElementById("sizeX86");
+    const tagX86 = document.getElementById("tagX86");
+    if (x86Apk && btnDlX86) {
+      btnDlX86.href = x86Apk.browser_download_url;
+      if (sizeX86 && x86Apk.size) sizeX86.textContent = `${(x86Apk.size / (1024 * 1024)).toFixed(1)} MB`;
+      if (tagX86) tagX86.textContent = version;
+    }
+
+    const btnDlArmv7 = document.getElementById("btnDlArmv7");
+    const sizeArmv7 = document.getElementById("sizeArmv7");
+    const tagArmv7 = document.getElementById("tagArmv7");
+    if (armv7Apk && btnDlArmv7) {
+      btnDlArmv7.href = armv7Apk.browser_download_url;
+      if (sizeArmv7 && armv7Apk.size) sizeArmv7.textContent = `${(armv7Apk.size / (1024 * 1024)).toFixed(1)} MB`;
+      if (tagArmv7) tagArmv7.textContent = version;
+    }
+
+    const btnDlAab = document.getElementById("btnDlAab");
+    const sizeAab = document.getElementById("sizeAab");
+    if (aabAsset && btnDlAab) {
+      btnDlAab.href = aabAsset.browser_download_url;
+      if (sizeAab && aabAsset.size) sizeAab.textContent = `${(aabAsset.size / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    // Fetch SHA-256 checksum asset text if available
+    const shaAsset = assets.find(a => /\.sha256$/i.test(a.name));
+    if (shaAsset && shaAsset.browser_download_url && window.fetch) {
+      fetch(shaAsset.browser_download_url)
+        .then(res => res.ok ? res.text() : null)
+        .then(text => {
+          if (!text) return;
+          const hashMatch = /^[a-f0-9]{64}/i.exec(text.trim());
+          if (hashMatch) {
+            const hashEl = document.getElementById("hashArm64");
+            if (hashEl) hashEl.textContent = hashMatch[0];
+          }
+        })
+        .catch(() => {});
+    }
+  }
+
+  /* ── Architecture Filter & Copy Verification Handlers ────── */
+  const archPills = document.querySelectorAll(".arch-pill");
+  const artifactCards = document.querySelectorAll(".artifact-card");
+  if (archPills.length && artifactCards.length) {
+    archPills.forEach(pill => {
+      pill.addEventListener("click", () => {
+        archPills.forEach(p => {
+          p.classList.remove("active");
+          p.setAttribute("aria-selected", "false");
+        });
+        pill.classList.add("active");
+        pill.setAttribute("aria-selected", "true");
+        const arch = pill.getAttribute("data-arch");
+        artifactCards.forEach(card => {
+          const itemArch = card.getAttribute("data-arch-item");
+          if (arch === "all" || itemArch === arch) {
+            card.hidden = false;
+          } else {
+            card.hidden = true;
+          }
+        });
+      });
+    });
+  }
+
+  document.querySelectorAll("[data-copy-target]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const targetId = btn.getAttribute("data-copy-target");
+      const targetEl = document.getElementById(targetId);
+      if (!targetEl) return;
+      const text = targetEl.textContent.trim();
+      if (!navigator.clipboard) return;
+      navigator.clipboard.writeText(text).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = "Copied!";
+        setTimeout(() => {
+          btn.textContent = orig;
+        }, 1800);
+      }).catch(() => {});
+    });
+  });
+
+  const btnCopyQuickVerify = document.getElementById("btnCopyQuickVerify");
+  const quickVerifyCmd = document.getElementById("quickVerifyCmd");
+  if (btnCopyQuickVerify && quickVerifyCmd) {
+    btnCopyQuickVerify.addEventListener("click", () => {
+      if (!navigator.clipboard) return;
+      navigator.clipboard.writeText(quickVerifyCmd.textContent.trim()).then(() => {
+        const orig = btnCopyQuickVerify.textContent;
+        btnCopyQuickVerify.textContent = "Copied!";
+        setTimeout(() => {
+          btnCopyQuickVerify.textContent = orig;
+        }, 1800);
+      }).catch(() => {});
+    });
   }
 
   function renderFeed(releases) {

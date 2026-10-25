@@ -620,27 +620,191 @@
   <!-- ── Download Section ───────────────────────────────────────── -->
   <section class="section" id="download">
     <div class="container">
-      <p class="eyebrow mono">// 05 — Direct Download</p>
+      <p class="eyebrow mono">// 05 — Verified Artifact Downloads</p>
       <h2 class="section-title" style="text-align:center;">Get Prism Music for Android</h2>
       <p class="section-sub" style="text-align:center; margin-inline:auto;">
-        Automated releases built from public GitHub Actions CI. Installs cleanly over previous versions.
+        Cryptographically signed releases with verifiable SHA-256 checksums, SBOM, and automated GitHub Actions build provenance attestations.
       </p>
 
-      <div class="manifest">
-        <div class="manifest-rows mono">
-          <div class="m-row"><span class="m-key">Release Tag</span><span class="m-val" id="mRelease">alpha-v0.2.36</span></div>
-          <div class="m-row"><span class="m-key">Installer Asset</span><span class="m-val" id="mAsset">app-release.apk</span></div>
-          <div class="m-row"><span class="m-key">Package Size</span><span class="m-val" id="mSize">~48 MB</span></div>
-          <div class="m-row"><span class="m-key">Last Updated</span><span class="m-val" id="mDate">Recently</span></div>
-          <div class="m-row"><span class="m-key">Compatibility</span><span class="m-val">Android 7.0+ (ARM64, ARMv7, x86_64)</span></div>
-        </div>
-        <p class="m-note mono" id="mNote" hidden></p>
-        <div class="manifest-actions">
-          <a class="btn btn-primary btn-lg" data-download-link href="https://github.com/Jeswanth-009/Prism-Music/releases/latest">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg>
-            Download APK Installer
+      <!-- Architecture Filter Pills -->
+      <div class="arch-filter-bar mono" role="tablist" aria-label="Target Architecture">
+        <button class="arch-pill active" data-arch="all" type="button" role="tab" aria-selected="true">All Artifacts</button>
+        <button class="arch-pill" data-arch="arm64" type="button" role="tab" aria-selected="false">Phone &amp; Tablet (ARM64)</button>
+        <button class="arch-pill" data-arch="x86_64" type="button" role="tab" aria-selected="false">Emulator &amp; PC (x86_64)</button>
+        <button class="arch-pill" data-arch="armv7" type="button" role="tab" aria-selected="false">Legacy 32-bit (ARMv7)</button>
+      </div>
+
+      <!-- Verified Artifact Cards Grid -->
+      <div class="artifact-grid" id="artifactGrid">
+        <!-- Card 1: ARM64-v8a -->
+        <div class="artifact-card" data-arch-item="arm64">
+          <div class="art-badge-row">
+            <span class="art-badge rec mono">Recommended</span>
+            <span class="art-arch mono">ARM64-v8a</span>
+          </div>
+          <h3 class="art-title">Modern Android Phones</h3>
+          <p class="art-desc">Optimal 64-bit build for Android 7.0+. Highest battery efficiency and performance on Google Pixel, Samsung Galaxy, OnePlus, Xiaomi, and modern devices.</p>
+          <div class="art-meta mono">
+            <span class="art-size" id="sizeArm64">~48 MB</span>
+            <span class="art-tag" id="tagArm64">Latest Release</span>
+          </div>
+          <a class="btn btn-primary btn-block" id="btnDlArm64" data-download-link href="https://github.com/Jeswanth-009/Prism-Music/releases/latest">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg>
+            Download ARM64 APK
           </a>
-          <a class="btn btn-ghost btn-lg" href="https://github.com/Jeswanth-009/Prism-Music/releases" target="_blank" rel="noopener">All Releases &amp; Checksums</a>
+          <details class="art-verify-drawer">
+            <summary class="mono">Verify SHA-256 &amp; Integrity ↓</summary>
+            <div class="art-verify-box mono">
+              <div class="verify-field">
+                <span class="v-label">SHA-256 Hash:</span>
+                <div class="v-copy-row">
+                  <code class="v-hash" id="hashArm64">Fetching verified checksum...</code>
+                  <button class="v-copy-btn" data-copy-target="hashArm64" type="button" title="Copy Hash">Copy</button>
+                </div>
+              </div>
+              <div class="verify-field">
+                <span class="v-label">Verify in Terminal:</span>
+                <div class="v-copy-row">
+                  <code class="v-cmd" id="cmdArm64">certutil -hashfile app-release.apk SHA256</code>
+                  <button class="v-copy-btn" data-copy-target="cmdArm64" type="button" title="Copy Command">Copy</button>
+                </div>
+              </div>
+              <div class="v-cert-badge">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Signed by GitHub Actions Attestation
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <!-- Card 2: x86_64 Emulator -->
+        <div class="artifact-card" data-arch-item="x86_64">
+          <div class="art-badge-row">
+            <span class="art-badge emu mono">Emulator Optimized</span>
+            <span class="art-arch mono">x86_64</span>
+          </div>
+          <h3 class="art-title">Android Emulator &amp; PC</h3>
+          <p class="art-desc">Native Intel/AMD 64-bit APK. Designed specifically for Android Studio Virtual Devices (AVD), ChromeOS, WSA, Genymotion, and Linux Waydroid.</p>
+          <div class="art-meta mono">
+            <span class="art-size" id="sizeX86">~49 MB</span>
+            <span class="art-tag" id="tagX86">AVD Ready</span>
+          </div>
+          <a class="btn btn-ghost btn-block" id="btnDlX86" href="https://github.com/Jeswanth-009/Prism-Music/releases">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg>
+            Download x86_64 APK
+          </a>
+          <details class="art-verify-drawer">
+            <summary class="mono">Verify SHA-256 &amp; Integrity ↓</summary>
+            <div class="art-verify-box mono">
+              <div class="verify-field">
+                <span class="v-label">SHA-256 Hash:</span>
+                <div class="v-copy-row">
+                  <code class="v-hash" id="hashX86">Fetching verified checksum...</code>
+                  <button class="v-copy-btn" data-copy-target="hashX86" type="button" title="Copy Hash">Copy</button>
+                </div>
+              </div>
+              <div class="verify-field">
+                <span class="v-label">Verify in Terminal:</span>
+                <div class="v-copy-row">
+                  <code class="v-cmd" id="cmdX86">certutil -hashfile prism-music-x86_64-emulator-release.apk SHA256</code>
+                  <button class="v-copy-btn" data-copy-target="cmdX86" type="button" title="Copy Command">Copy</button>
+                </div>
+              </div>
+              <div class="v-cert-badge">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Signed by GitHub Actions Attestation
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <!-- Card 3: ARMv7 32-bit Legacy -->
+        <div class="artifact-card" data-arch-item="armv7">
+          <div class="art-badge-row">
+            <span class="art-badge leg mono">Legacy Support</span>
+            <span class="art-arch mono">ARMv7 (32-bit)</span>
+          </div>
+          <h3 class="art-title">Older 32-bit Hardware</h3>
+          <p class="art-desc">Compiled with 32-bit ARM instructions for legacy Android devices, budget TV boxes, and older ARM Cortex-A7/A9 processors.</p>
+          <div class="art-meta mono">
+            <span class="art-size" id="sizeArmv7">~46 MB</span>
+            <span class="art-tag" id="tagArmv7">Android 5.0+</span>
+          </div>
+          <a class="btn btn-ghost btn-block" id="btnDlArmv7" href="https://github.com/Jeswanth-009/Prism-Music/releases">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg>
+            Download ARMv7 APK
+          </a>
+          <details class="art-verify-drawer">
+            <summary class="mono">Verify SHA-256 &amp; Integrity ↓</summary>
+            <div class="art-verify-box mono">
+              <div class="verify-field">
+                <span class="v-label">SHA-256 Hash:</span>
+                <div class="v-copy-row">
+                  <code class="v-hash" id="hashArmv7">Available in release assets</code>
+                  <button class="v-copy-btn" data-copy-target="hashArmv7" type="button" title="Copy Hash">Copy</button>
+                </div>
+              </div>
+              <div class="verify-field">
+                <span class="v-label">Linux / macOS / Termux:</span>
+                <div class="v-copy-row">
+                  <code class="v-cmd" id="cmdArmv7">sha256sum prism-music-armeabi-v7a-release.apk</code>
+                  <button class="v-copy-btn" data-copy-target="cmdArmv7" type="button" title="Copy Command">Copy</button>
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <!-- Card 4: Universal App Bundle -->
+        <div class="artifact-card" data-arch-item="arm64">
+          <div class="art-badge-row">
+            <span class="art-badge mono">Multi-Arch</span>
+            <span class="art-arch mono">.AAB Bundle</span>
+          </div>
+          <h3 class="art-title">Universal App Bundle</h3>
+          <p class="art-desc">Contains all CPU architectures and resource splits in a single signed package for audit and bundletool sideloading.</p>
+          <div class="art-meta mono">
+            <span class="art-size" id="sizeAab">~62 MB</span>
+            <span class="art-tag" id="tagAab">Universal</span>
+          </div>
+          <a class="btn btn-ghost btn-block" id="btnDlAab" href="https://github.com/Jeswanth-009/Prism-Music/releases">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg>
+            Download App Bundle
+          </a>
+          <details class="art-verify-drawer">
+            <summary class="mono">Verify SHA-256 &amp; Integrity ↓</summary>
+            <div class="art-verify-box mono">
+              <div class="verify-field">
+                <span class="v-label">SHA-256 Hash:</span>
+                <div class="v-copy-row">
+                  <code class="v-hash" id="hashAab">Available in release assets</code>
+                  <button class="v-copy-btn" data-copy-target="hashAab" type="button" title="Copy Hash">Copy</button>
+                </div>
+              </div>
+              <div class="verify-field">
+                <span class="v-label">Verify in Terminal:</span>
+                <div class="v-copy-row">
+                  <code class="v-cmd" id="cmdAab">certutil -hashfile prism-music-release.aab SHA256</code>
+                  <button class="v-copy-btn" data-copy-target="cmdAab" type="button" title="Copy Command">Copy</button>
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <!-- Quick Verify Command Bar -->
+      <div class="quick-verify-bar">
+        <div class="qv-header mono">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Quick SHA-256 Verification One-Liner:
+        </div>
+        <div class="qv-content mono">
+          <code id="quickVerifyCmd">certutil -hashfile app-release.apk SHA256</code>
+          <button class="btn btn-ghost btn-sm" id="btnCopyQuickVerify" type="button">Copy Command</button>
+        </div>
+        <div class="qv-footer mono">
+          <a href="https://github.com/Jeswanth-009/Prism-Music/releases" target="_blank" rel="noopener">Browse All Checksum Files (.sha256) &amp; SBOM on GitHub →</a>
         </div>
       </div>
     </div>
