@@ -8,6 +8,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.51] - 2026-10-25
+
+### Added
+
+- Rich offline metadata and artwork with Wi-Fi only and data-budget controls
+- Tablet and landscape adaptive layouts with split-pane player and responsive navigation
+- Regional-language localization and robust Unicode search matching
+- Persistent queue restore with explicit privacy controls and no surprise auto-play
+- Import preview with confidence indicators and manual correction for uncertain matches
+- Smart dynamic playlists from listening sessions, likes and recent additions
+- Provider health diagnostics and safe verified source switching
+
 ## [0.2.50] - 2026-10-24
 
 ### Added
@@ -830,3 +842,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.48]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.48-build84
 [0.2.49]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.49-build85
 [0.2.50]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.50-build86
+[0.2.51]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.51-build87
