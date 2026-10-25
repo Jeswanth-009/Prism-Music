@@ -6,7 +6,29 @@ import '../../data/datasources/remote/youtube/youtube_music_datasource.dart';
 import '../../data/datasources/remote/jiosaavn/jiosaavn_datasource.dart';
 import '../providers/audio_stream_resolver.dart';
 import '../providers/stream_resolvers.dart';
+import 'instance_health_service.dart';
 import 'stream_cache_service.dart';
+
+/// Health status and metrics for an individual stream provider
+class ProviderHealthStatus {
+  final String resolverName;
+  final String displayName;
+  final bool isCircuitOpen;
+  final bool isQuarantined;
+  final int consecutiveErrors;
+  final int averageLatencyMs;
+  final double successRate;
+
+  const ProviderHealthStatus({
+    required this.resolverName,
+    required this.displayName,
+    required this.isCircuitOpen,
+    required this.isQuarantined,
+    required this.consecutiveErrors,
+    required this.averageLatencyMs,
+    required this.successRate,
+  });
+}
 
 /// Strategy for fetching stream URLs
 enum StreamSource { jioSaavn, youtubeExplode, invidious, alternative }
@@ -342,5 +364,112 @@ class StreamLoaderService {
   /// Clear prefetch queue
   void clearPrefetchQueue() {
     _prefetchQueue.clear();
+  }
+
+  /// Explicitly resolves a stream from a specified resolver for comparison and safe source switching.
+  Future<StreamInfo?> resolveCandidateStream(
+    Song song,
+    String resolverName, {
+    AudioQuality preferredQuality = AudioQuality.high,
+  }) async {
+    final resolver = _resolvers.cast<AudioStreamResolver?>().firstWhere(
+          (r) => r?.resolverName == resolverName,
+          orElse: () => null,
+        );
+    if (resolver == null || !resolver.isAvailable) return null;
+
+    final stopwatch = Stopwatch()..start();
+    final source = _mapResolverToSource(resolverName);
+    try {
+      final stream = await resolver
+          .resolveStream(song, preferredQuality: preferredQuality)
+          .timeout(_streamFetchTimeout);
+      stopwatch.stop();
+
+      if (stream != null) {
+        _recordSourceSuccess(source);
+        _recordAttempt(
+          _FetchResult(
+            source: source,
+            streamInfo: stream,
+            error: null,
+            fetchTime: stopwatch.elapsed,
+          ),
+        );
+      } else {
+        _recordSourceFailure(source);
+      }
+      return stream;
+    } catch (e) {
+      stopwatch.stop();
+      _recordSourceFailure(source);
+      debugPrint('StreamLoader: Candidate resolution for $resolverName failed: $e');
+      return null;
+    }
+  }
+
+  /// Returns current diagnostics and health metrics for each registered audio provider.
+  Map<String, ProviderHealthStatus> getProviderHealthSummary() {
+    final healthService = InstanceHealthService();
+    final instanceStats = healthService.getStats();
+    final latencies = instanceStats['latencies'] as Map<String, int>? ?? {};
+    final summary = <String, ProviderHealthStatus>{};
+
+    for (final resolver in _resolvers) {
+      final name = resolver.resolverName;
+      final source = _mapResolverToSource(name);
+      final isCircuitOpen = _isCircuitOpen(source);
+      final consecutiveErrors = _consecutiveErrors[source] ?? 0;
+
+      final attempts = _recentAttempts.where((a) => a.source == source).toList();
+      final successes = attempts.where((a) => a.isSuccess).length;
+      final rate = attempts.isEmpty ? 100.0 : (successes / attempts.length) * 100.0;
+      final avgTime = attempts.isEmpty
+          ? 120
+          : (attempts.map((a) => a.fetchTime.inMilliseconds).reduce((a, b) => a + b) ~/
+              attempts.length);
+
+      String displayName;
+      bool isQuarantined = false;
+
+      switch (name) {
+        case 'jiosaavn':
+          displayName = 'JioSaavn 320kbps High-Fi';
+          break;
+        case 'youtube_explode':
+          displayName = 'YouTube Direct DASH';
+          break;
+        case 'piped':
+          displayName = 'Piped Audio Proxy Pool';
+          isQuarantined = healthService.pipedProxyPool.any(healthService.isHostQuarantined);
+          break;
+        case 'invidious':
+          displayName = 'Invidious Instance Network';
+          isQuarantined = healthService.invidiousPool.any(healthService.isHostQuarantined);
+          break;
+        default:
+          displayName = name;
+      }
+
+      int effectiveLatency = avgTime;
+      if (name == 'piped' || name == 'invidious') {
+        final hostLatencies = latencies.values;
+        if (hostLatencies.isNotEmpty) {
+          effectiveLatency = hostLatencies.reduce((a, b) => a + b) ~/ hostLatencies.length;
+        }
+      }
+
+      summary[name] = ProviderHealthStatus(
+        resolverName: name,
+        displayName: displayName,
+        isCircuitOpen: isCircuitOpen,
+        isQuarantined: isQuarantined,
+        consecutiveErrors: consecutiveErrors,
+        averageLatencyMs: effectiveLatency,
+        successRate: rate,
+      );
+    }
+
+    return summary;
   }
 }

@@ -14,6 +14,7 @@ import '../../../core/services/download_service.dart';
 import '../../../core/services/permission_service.dart';
 import '../../../core/services/settings_service.dart';
 import '../../../core/services/widget_service.dart';
+import '../../../core/services/verified_recording_verifier.dart';
 import '../../../core/di/injection.dart';
 import '../../../domain/entities/entities.dart';
 import '../../../domain/repositories/repositories.dart';
@@ -163,6 +164,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     on<_IndexChangedEvent>(_onIndexChanged);
     on<ToggleAutoPlayEvent>(_onToggleAutoPlay);
     on<MarkSongNotInterestedEvent>(_onMarkSongNotInterested);
+    on<SwitchStreamSourceEvent>(_onSwitchStreamSource);
 
     // Initialize audio player stream listeners
     _initAudioPlayerStreams();
@@ -1847,6 +1849,61 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     final streamId = streamMatch.group(1);
     const audioItags = {'139', '140', '141', '171', '172', '249', '250', '251'};
     return streamId != null && !audioItags.contains(streamId);
+  }
+
+  Future<void> _onSwitchStreamSource(
+    SwitchStreamSourceEvent event,
+    Emitter<PlayerState> emit,
+  ) async {
+    final song = state.currentSong;
+    if (song == null) return;
+
+    try {
+      final candidateStream = await _streamLoader.resolveCandidateStream(
+        song,
+        event.targetResolverName,
+        preferredQuality: state.audioQuality,
+      );
+
+      if (candidateStream == null) {
+        emit(state.copyWith(
+          errorMessage: 'Unable to resolve audio stream from ${event.targetResolverName}',
+        ));
+        return;
+      }
+
+      final verification = VerifiedRecordingVerifier.verify(
+        referenceSong: song,
+        candidateStream: candidateStream,
+      );
+
+      if (!verification.isVerified) {
+        emit(state.copyWith(
+          errorMessage: 'Cannot switch source: ${verification.reason}',
+        ));
+        return;
+      }
+
+      final success = await _audioPlayer.switchStreamSource(
+        candidateStream,
+        song: song,
+      );
+
+      if (success) {
+        emit(state.copyWith(
+          currentStreamInfo: candidateStream,
+          errorMessage: null,
+        ));
+      } else {
+        emit(state.copyWith(
+          errorMessage: 'Failed to switch player pipeline to ${event.targetResolverName}',
+        ));
+      }
+    } catch (e) {
+      emit(state.copyWith(
+        errorMessage: 'Source switch error: $e',
+      ));
+    }
   }
 
   @override

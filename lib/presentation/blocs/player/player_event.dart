@@ -268,6 +268,15 @@ class MarkSongNotInterestedEvent extends PlayerEvent {
   List<Object?> get props => [song];
 }
 
+/// Safely switch audio stream source on-the-fly to a verified recording
+class SwitchStreamSourceEvent extends PlayerEvent {
+  final String targetResolverName;
+  const SwitchStreamSourceEvent({required this.targetResolverName});
+
+  @override
+  List<Object?> get props => [targetResolverName];
+}
+
 /// Repeat mode options
 enum RepeatMode {
   off,

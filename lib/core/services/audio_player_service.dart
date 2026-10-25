@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
+import '../../domain/entities/song.dart';
+import '../../domain/entities/stream_info.dart';
 import 'youtube_audio_source.dart';
 import 'equalizer_service.dart';
 
@@ -403,6 +405,40 @@ class AudioPlayerService {
   Future<void> seek(Duration position) async {
     if (!_initialized) return;
     await _player.seek(position);
+  }
+
+  /// Safely hot-swaps the underlying audio source while preserving the exact playback position.
+  Future<bool> switchStreamSource(StreamInfo targetStream, {required Song song}) async {
+    if (!_initialized) return false;
+    final currentPos = _player.position;
+    final wasPlaying = _player.playing;
+
+    try {
+      final sanitizedHeaders = _prepareHeaders(targetStream.headers);
+      final source = AudioSource.uri(
+        Uri.parse(targetStream.url),
+        headers: sanitizedHeaders,
+        tag: MediaItem(
+          id: song.playableId,
+          title: song.title,
+          artist: song.artist,
+          album: song.album ?? 'Prism Music',
+          artUri: song.thumbnailUrl.isNotEmpty ? Uri.tryParse(song.thumbnailUrl) : null,
+          duration: song.duration,
+        ),
+      );
+
+      await _player.setAudioSource(source, initialPosition: currentPos);
+      if (wasPlaying) {
+        await _player.play();
+      }
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('AudioPlayerService: Safe switchStreamSource failed: $e');
+      }
+      return false;
+    }
   }
 
   /// Set volume (0.0 to 1.0)

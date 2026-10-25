@@ -720,6 +720,43 @@ class FakeStreamLoader implements StreamLoaderService {
   void prefetch(Song song, {AudioQuality preferredQuality = AudioQuality.high}) {}
 
   @override
+  Map<String, ProviderHealthStatus> getProviderHealthSummary() => {
+        'jiosaavn': const ProviderHealthStatus(
+          resolverName: 'jiosaavn',
+          displayName: 'JioSaavn 320kbps High-Fi',
+          isCircuitOpen: false,
+          isQuarantined: false,
+          consecutiveErrors: 0,
+          averageLatencyMs: 45,
+          successRate: 100.0,
+        ),
+        'youtube_explode': const ProviderHealthStatus(
+          resolverName: 'youtube_explode',
+          displayName: 'YouTube Direct DASH',
+          isCircuitOpen: false,
+          isQuarantined: false,
+          consecutiveErrors: 0,
+          averageLatencyMs: 120,
+          successRate: 100.0,
+        ),
+      };
+
+  @override
+  Future<StreamInfo?> resolveCandidateStream(
+    Song song,
+    String resolverName, {
+    AudioQuality preferredQuality = AudioQuality.high,
+  }) async =>
+      const StreamInfo(
+        url: 'https://stream.example.com/audio.m4a',
+        codec: 'mp4a.40.2',
+        bitrate: 320,
+        container: 'm4a',
+        quality: AudioQuality.high,
+        matchConfidence: 0.95,
+      );
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 

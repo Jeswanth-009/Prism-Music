@@ -22,6 +22,7 @@ import '../theme/prism_theme.dart';
 import '../widgets/equalizer/equalizer_bottom_sheet.dart';
 import '../widgets/player/player_lyrics_sheet.dart';
 import '../widgets/player/player_queue_sheet.dart';
+import '../widgets/player/provider_health_sheet.dart';
 import '../widgets/prism/prism_sheet.dart';
 import '../widgets/prism/prism_song_actions.dart';
 import '../widgets/prism/prism_states.dart';
@@ -426,6 +427,14 @@ class _PlayerPageState extends State<PlayerPage> {
                 );
               },
             ),
+            PrismSheetAction(
+              icon: Icons.health_and_safety_rounded,
+              label: 'Provider health & audio sources',
+              onTap: () {
+                Navigator.pop(sheetContext);
+                showProviderHealthSheet(context);
+              },
+            ),
             const SizedBox(height: 6),
           ],
         ),
@@ -664,6 +673,24 @@ class _PlayerPageState extends State<PlayerPage> {
                             ? 'Switching to YouTube Audio...'
                             : 'Attempting JioSaavn match...',
                       );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.tonalIcon(
+                    icon: const Icon(Icons.health_and_safety_rounded, size: 17),
+                    label: const Text('Provider Health & Safe Switch'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(PrismRadius.md),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(sheetContext);
+                      showProviderHealthSheet(context);
                     },
                   ),
                 ),
