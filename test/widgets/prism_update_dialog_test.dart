@@ -33,6 +33,9 @@ void main() {
     expect(find.text(testInfo.changelog), findsOneWidget);
     expect(find.text('Later'), findsOneWidget);
     expect(find.text('Update Now'), findsOneWidget);
+    expect(find.text('Direct APK'), findsOneWidget);
+    expect(find.byIcon(Icons.file_download_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.info_outline_rounded), findsOneWidget);
   });
 
   testWidgets('PrismUpdateDialog Later button triggers dismiss callback', (tester) async {

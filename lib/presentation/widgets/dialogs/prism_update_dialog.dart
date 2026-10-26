@@ -26,8 +26,10 @@ class PrismUpdateDialog extends StatelessWidget {
     );
   }
 
-  Future<void> _handleUpdate(BuildContext context) async {
-    final targetUrl = info.apkDownloadUrl ?? info.releaseUrl;
+  Future<void> _handleUpdate(BuildContext context, {bool preferReleasePage = true}) async {
+    final targetUrl = preferReleasePage
+        ? info.releaseUrl
+        : (info.apkDownloadUrl ?? info.releaseUrl);
     final uri = Uri.parse(targetUrl);
 
     try {
@@ -222,18 +224,55 @@ class PrismUpdateDialog extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
+
+                // Helper tip for browser download reliability
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainer.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 15,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'If direct APK download stalls at 100% in your browser, tap "Update Now" to download directly from the GitHub Release page.',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontSize: 11,
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
 
                 // Action buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     TextButton(
                       onPressed: () => _handleDismiss(context),
                       style: TextButton.styleFrom(
                         foregroundColor: theme.colorScheme.onSurfaceVariant,
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
+                          horizontal: 14,
                           vertical: 10,
                         ),
                         shape: RoundedRectangleBorder(
@@ -242,16 +281,34 @@ class PrismUpdateDialog extends StatelessWidget {
                       ),
                       child: const Text('Later'),
                     ),
-                    const SizedBox(width: 8),
+                    if (info.apkDownloadUrl != null)
+                      OutlinedButton.icon(
+                        onPressed: () => _handleUpdate(context, preferReleasePage: false),
+                        icon: const Icon(Icons.file_download_outlined, size: 16),
+                        label: const Text('Direct APK'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: theme.colorScheme.onSurface,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          side: BorderSide(
+                            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
                     FilledButton.icon(
-                      onPressed: () => _handleUpdate(context),
+                      onPressed: () => _handleUpdate(context, preferReleasePage: true),
                       icon: const Icon(Icons.download_rounded, size: 18),
                       label: const Text('Update Now'),
                       style: FilledButton.styleFrom(
                         backgroundColor: primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
+                          horizontal: 16,
                           vertical: 10,
                         ),
                         shape: RoundedRectangleBorder(
