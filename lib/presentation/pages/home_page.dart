@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -7,6 +8,8 @@ import '../blocs/theme/theme.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/player/mini_player.dart';
 import '../widgets/common/adaptive_layout.dart';
+import '../widgets/dialogs/prism_update_dialog.dart';
+import '../../core/services/app_update_service.dart';
 import 'charts_hub_page.dart';
 import 'home_tab.dart';
 import 'library_tab.dart';
@@ -20,6 +23,7 @@ class HomePage extends StatefulWidget {
     super.key,
     this.tabBuilders,
     this.initialIndex = 0,
+    this.enableUpdateCheck,
   });
 
   /// Optional custom tab builders, primarily used for testing or modular shells.
@@ -28,6 +32,9 @@ class HomePage extends StatefulWidget {
 
   /// Initial tab index to select on mount (0: Home, 1: Search, 2: Charts, 3: Library).
   final int initialIndex;
+
+  /// Whether to check for updates on mount. Defaults to true when using [defaultTabBuilders].
+  final bool? enableUpdateCheck;
 
   static final List<WidgetBuilder> defaultTabBuilders = [
     (_) => const HomeTab(),
@@ -43,12 +50,43 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   late int _currentIndex;
   late final Set<int> _visitedTabs;
+  Timer? _updateCheckTimer;
+
+  bool get _shouldCheckUpdates =>
+      widget.enableUpdateCheck ?? (widget.tabBuilders == null);
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
     _visitedTabs = {widget.initialIndex};
+    if (_shouldCheckUpdates) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkUpdateOnLaunch();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _updateCheckTimer?.cancel();
+    super.dispose();
+  }
+
+  void _checkUpdateOnLaunch() {
+    if (!mounted || !_shouldCheckUpdates) return;
+    _updateCheckTimer?.cancel();
+    _updateCheckTimer = Timer(const Duration(milliseconds: 1500), () async {
+      if (!mounted) return;
+
+      final info = await AppUpdateService.instance.checkForUpdate();
+      if (!mounted || info == null || !info.hasUpdate) return;
+
+      // Do not show if dismissed in this app session
+      if (AppUpdateService.instance.isDismissed(info.latestVersion)) return;
+
+      await PrismUpdateDialog.show(context, info);
+    });
   }
 
   void _onTabSelect(int index) {

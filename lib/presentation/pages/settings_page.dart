@@ -18,6 +18,8 @@ import '../../core/services/audio_player_service.dart';
 import '../../core/services/queue_persistence_service.dart';
 import '../../core/localization/prism_localizations.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/services/app_update_service.dart';
+import '../widgets/dialogs/prism_update_dialog.dart';
 
 import '../blocs/theme/theme_bloc.dart';
 import '../blocs/theme/theme_event.dart';
@@ -58,6 +60,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _sharedBackupEnabled = false;
   int _prefetchLookahead = 1;
   String _appVersion = 'Loading...';
+  bool _isCheckingUpdate = false;
   BackupSnapshotInfo? _latestBackupInfo;
   String? _cacheUsageSubtitle;
 
@@ -978,6 +981,21 @@ class _SettingsPageState extends State<SettingsPage> {
           },
         ),
         SettingRow(
+          leading: const Icon(Icons.system_update_rounded),
+          title: 'Check for Updates',
+          subtitle: _isCheckingUpdate
+              ? 'Checking GitHub for updates...'
+              : 'Check if a newer version is available',
+          trailing: _isCheckingUpdate
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.refresh_rounded, size: 20),
+          onTap: _isCheckingUpdate ? null : _manualCheckForUpdate,
+        ),
+        SettingRow(
           leading: const Icon(Icons.code_rounded),
           title: 'Source Code',
           subtitle: 'GitHub repository (Jeswanth-009/Prism-Music)',
@@ -1018,6 +1036,25 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ],
     );
+  }
+
+  Future<void> _manualCheckForUpdate() async {
+    setState(() => _isCheckingUpdate = true);
+    try {
+      final info = await AppUpdateService.instance.checkForUpdate(force: true);
+      if (!mounted) return;
+
+      if (info != null && info.hasUpdate) {
+        await PrismUpdateDialog.show(context, info);
+      } else {
+        showPrismToast(
+          context,
+          'You are on the latest version (${info?.currentVersion.isNotEmpty == true ? 'v${info!.currentVersion}' : _appVersion})',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isCheckingUpdate = false);
+    }
   }
 
   Future<void> _openUrl(String urlString) async {
