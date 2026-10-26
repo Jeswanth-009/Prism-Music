@@ -98,6 +98,27 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
     }
   }
 
+  Future<yt.StreamManifest> _fetchAudioManifest(String videoId) async {
+    try {
+      // Primary fast path: androidSdkless retrieves pure audio streams in ~600ms
+      return await _youtube.videos.streamsClient.getManifest(
+        videoId,
+        ytClients: [yt.YoutubeApiClient.androidSdkless],
+        requireWatchPage: false,
+      ).timeout(const Duration(milliseconds: 3500));
+    } catch (e) {
+      debugPrint('YouTubeDataSource: Primary androidSdkless client failed ($e), falling back...');
+      return await _youtube.videos.streamsClient.getManifest(
+        videoId,
+        ytClients: [
+          yt.YoutubeApiClient.ios,
+          yt.YoutubeApiClient.android,
+        ],
+        requireWatchPage: false,
+      ).timeout(const Duration(seconds: 8));
+    }
+  }
+
   @override
   Future<domain.StreamInfo> getStreamUrl(
     String videoId, {
@@ -129,14 +150,7 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
         'YouTubeDataSource: Trying YouTube Explode (audio-only manifest)...',
       );
       final manifestStopwatch = Stopwatch()..start();
-      final manifest = await _youtube.videos.streamsClient.getManifest(
-        videoId,
-        ytClients: [
-          yt.YoutubeApiClient.androidSdkless,
-          yt.YoutubeApiClient.ios,
-        ],
-        requireWatchPage: false,
-      );
+      final manifest = await _fetchAudioManifest(videoId);
       manifestStopwatch.stop();
 
       final selectStopwatch = Stopwatch()..start();
@@ -226,14 +240,7 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
         await Future.delayed(const Duration(milliseconds: 1500));
 
         try {
-          final manifest = await _youtube.videos.streamsClient.getManifest(
-            videoId,
-            ytClients: [
-              yt.YoutubeApiClient.androidSdkless,
-              yt.YoutubeApiClient.ios,
-            ],
-            requireWatchPage: false,
-          );
+          final manifest = await _fetchAudioManifest(videoId);
 
           final audioStreams = manifest.audioOnly.toList()
             ..sort(
@@ -306,14 +313,7 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
 
   @override
   Future<List<domain.StreamInfo>> getAvailableStreams(String videoId) async {
-    final manifest = await _youtube.videos.streamsClient.getManifest(
-      videoId,
-      ytClients: [
-        yt.YoutubeApiClient.androidSdkless,
-        yt.YoutubeApiClient.ios,
-      ],
-      requireWatchPage: false,
-    );
+    final manifest = await _fetchAudioManifest(videoId);
 
     return manifest.audioOnly
         .map(

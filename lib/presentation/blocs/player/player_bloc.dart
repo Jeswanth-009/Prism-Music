@@ -557,6 +557,11 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         // maxres URLs frequently 404, which leaves the media card art-less.
         final notificationArtwork =
             event.song.thumbnails.medium ?? event.song.thumbnailUrl;
+        final isYouTubeSong = (event.song.source == MusicSource.youtube ||
+                event.song.source == MusicSource.youtubeMusic ||
+                event.song.youtubeId != null) &&
+            event.song.playableId.isNotEmpty;
+
         final duration = shouldCrossfade
             ? await _audioPlayer
                   .crossfadeTo(
@@ -587,7 +592,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
                     album: event.song.album,
                     artworkUrl: notificationArtwork,
                     mediaDuration: event.song.duration,
-                    allowYouTubeFallbackOnDirectFailure: false,
+                    allowYouTubeFallbackOnDirectFailure: isYouTubeSong,
                   )
                   .timeout(_setSourceTimeout);
         if (generation != _playbackGeneration) return; // user moved on
