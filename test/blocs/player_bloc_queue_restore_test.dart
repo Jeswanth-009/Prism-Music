@@ -1,18 +1,19 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:prism_music/core/services/audio_focus_orchestrator_service.dart';
 import 'package:prism_music/core/services/audio_player_service.dart';
 import 'package:prism_music/core/services/download_service.dart';
 import 'package:prism_music/core/services/media_resolver_service.dart';
 import 'package:prism_music/core/services/playback_reliability_service.dart';
 import 'package:prism_music/core/services/stream_loader_service.dart';
+import 'package:prism_music/core/services/settings_service.dart';
 import 'package:prism_music/domain/entities/entities.dart';
 import 'package:prism_music/domain/repositories/repositories.dart';
 import 'package:prism_music/presentation/blocs/player/player_bloc.dart';
 import 'package:prism_music/presentation/blocs/player/player_event.dart';
 import 'package:prism_music/presentation/blocs/player/player_state.dart';
+
+import '../helpers/fakes.dart';
 
 class _FakeMusicRepository implements MusicRepository {
   @override
@@ -124,23 +125,12 @@ class _FakeDownloadService implements DownloadService {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  late Directory tempDir;
   late _FakeAudioPlayerService fakeAudio;
   late PlayerBloc bloc;
 
-  setUpAll(() async {
-    tempDir = await Directory.systemTemp.createTemp('player_bloc_restore_test_');
-    Hive.init(tempDir.path);
-  });
-
-  tearDownAll(() async {
-    await Hive.close();
-    try {
-      await tempDir.delete(recursive: true);
-    } catch (_) {}
-  });
-
-  setUp(() {
+  setUp(() async {
+    initTestHive('player_bloc_restore_test');
+    await SettingsService.instance.initialize();
     fakeAudio = _FakeAudioPlayerService();
     bloc = PlayerBloc(
       musicRepository: _FakeMusicRepository(),
@@ -156,7 +146,7 @@ void main() {
 
   tearDown(() async {
     await bloc.close();
-    fakeAudio.dispose();
+    await fakeAudio.dispose();
   });
 
   const song1 = Song(
@@ -230,5 +220,7 @@ void main() {
         predicate<PlayerState>((s) => !s.isRestoredSession),
       ),
     );
+    // Allow any pending async persistence cleanup to finish before tearing down
+    await Future<void>.delayed(const Duration(milliseconds: 50));
   });
 }
