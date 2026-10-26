@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.61] - 2026-10-26
+
+### Fixed
+
+- Optimize YouTube stream resolution speed and prevent playback skips
+
 ## [0.2.60] - 2026-10-26
 
 ### Fixed
@@ -917,3 +923,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.58]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.58-build94
 [0.2.59]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.59-build95
 [0.2.60]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.60-build96
+[0.2.61]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.61-build97
