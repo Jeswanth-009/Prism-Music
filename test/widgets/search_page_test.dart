@@ -157,7 +157,7 @@ void main() {
     expect(find.text('Heavy Metal Classics'), findsOneWidget);
   });
 
-  testWidgets('tapping song in search results queues all results with proper queue index', (tester) async {
+  testWidgets('tapping song in search results seeds queue with selected song for recommendations', (tester) async {
     final audio = FakeAudioPlayerService();
     final playerBloc = buildTestPlayerBloc(audioPlayerService: audio);
     addTearDown(playerBloc.close);
@@ -188,7 +188,6 @@ void main() {
     await tester.pump(const Duration(seconds: 4));
 
     expect(playerBloc.state.currentSong?.id, 's2');
-    expect(playerBloc.state.queue.length, 3);
-    expect(playerBloc.state.queue[1].id, 's2');
+    expect(playerBloc.state.queue.first.id, 's2');
   });
 }

@@ -455,7 +455,7 @@ class _SearchPageState extends State<SearchPage> {
                   isPlayingPaused: !playerState.isPlaying,
                   onTap: () {
                     context.read<PlayerBloc>().add(
-                      PlaySongEvent(song: song, queue: songs, queueIndex: index),
+                      PlaySongEvent(song: song, queue: [song], queueIndex: 0),
                     );
                     if (!widget.embedded) Navigator.of(context).maybePop();
                   },
@@ -653,7 +653,7 @@ class _SearchPageState extends State<SearchPage> {
                 isPlayingPaused: !playerState.isPlaying,
                 onTap: () {
                   context.read<PlayerBloc>().add(
-                    PlaySongEvent(song: song, queue: songs, queueIndex: index),
+                    PlaySongEvent(song: song, queue: [song], queueIndex: 0),
                   );
                   if (!widget.embedded) Navigator.of(context).maybePop();
                 },
