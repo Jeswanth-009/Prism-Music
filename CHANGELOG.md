@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.56] - 2026-10-26
+
+### Added
+
+- Fast automatic and manual app update checker with changelog dialog
+
 ## [0.2.55] - 2026-10-26
 
 ### Fixed
@@ -877,3 +883,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.53]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.53-build89
 [0.2.54]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.54-build90
 [0.2.55]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.55-build91
+[0.2.56]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.56-build92
