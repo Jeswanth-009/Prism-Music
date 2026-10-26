@@ -239,6 +239,11 @@ class AudioPlayerService {
         (!url.startsWith('http://') &&
             !url.startsWith('https://') &&
             File(url).existsSync());
+    final isGoogleVideo = url.contains('googlevideo.com');
+    final isYouTubeUrl =
+        url.contains('youtube.com') || url.contains('youtu.be') || isGoogleVideo;
+    final isYouTube = (videoId != null && videoId.isNotEmpty) || isYouTubeUrl;
+
     PlayerException? lastDirectException;
     Object? lastDirectError;
 
@@ -249,64 +254,99 @@ class AudioPlayerService {
           'AudioPlayerService: $label source ready, duration: ${_player.duration}',
         );
       }
-      return _player.duration;
+      return _player.duration ?? mediaDuration;
     }
 
-    // Prefer using the already resolved stream URL first for faster startup.
-    if (hasDirectUrl) {
+    // 1. For YouTube-family tracks, always use YouTubeAudioSource (StreamAudioSource).
+    // Raw googlevideo.com URLs fail in Android ExoPlayer due to IP binding, SSL handshakes,
+    // and missing range proxies. YouTubeAudioSource streams via localhost, providing bulletproof
+    // native playback without skipping.
+    if (isYouTube && !isLikelyLocalPath) {
       try {
-        final sourceUri = url.startsWith('file://')
-            ? Uri.parse(url)
-            : (isLikelyLocalPath ? Uri.file(url) : Uri.parse(url));
-        final directSource = AudioSource.uri(
-          sourceUri,
-          headers: isLikelyLocalPath ? null : sanitizedHeaders,
+        final ytSource = YouTubeAudioSource(
+          videoId: (videoId != null && videoId.isNotEmpty)
+              ? videoId
+              : (isGoogleVideo ? 'direct' : ''),
+          quality: quality,
+          initialStreamUrl: hasDirectUrl ? url : null,
           tag: MediaItem(
             id: videoId ?? url,
             title: title ?? 'Unknown Title',
             artist: artist ?? 'Unknown Artist',
             album: album ?? 'Prism Music',
             artUri: artworkUrl != null ? Uri.tryParse(artworkUrl) : null,
-            // Without a duration the lock-screen/notification seek bar cannot
-            // render and scrubbing is disabled on some system surfaces.
             duration: mediaDuration,
           ),
         );
 
-        return await setSource(directSource, 'Direct URL');
+        final dur = await setSource(ytSource, 'YouTube');
+        if (dur != null) return dur;
       } on PlayerException catch (e, st) {
         lastDirectException = e;
         if (kDebugMode) {
-          debugPrint('AudioPlayerService: Direct URL failed: $e');
-          debugPrint('Stack trace: $st');
-        }
-
-        if (isLikelyLocalPath) {
-          final errorMessage = _mapPlayerExceptionToMessage(e.message);
-          _errorController.add(errorMessage);
-          return null;
+          debugPrint('AudioPlayerService: YouTube source failed: $e\n$st');
         }
       } catch (e, st) {
         lastDirectError = e;
         if (kDebugMode) {
-          debugPrint('AudioPlayerService: Direct URL threw: $e');
-          debugPrint('Stack trace: $st');
-        }
-
-        if (isLikelyLocalPath) {
-          _errorController.add('Failed to load local audio file: $e');
-          return null;
+          debugPrint('AudioPlayerService: YouTube source threw: $e\n$st');
         }
       }
     }
 
-    // Resolver should own stream resolution. Only use player-side YouTube
-    // resolution when no URL was supplied, or when explicitly allowed.
+    // 2. For non-YouTube direct streams (e.g., JioSaavn CDN saavncdn.com) or local files:
+    if (!isYouTube || (lastDirectException != null || lastDirectError != null)) {
+      if (hasDirectUrl && !isGoogleVideo) {
+        try {
+          final sourceUri = url.startsWith('file://')
+              ? Uri.parse(url)
+              : (isLikelyLocalPath ? Uri.file(url) : Uri.parse(url));
+          final directSource = AudioSource.uri(
+            sourceUri,
+            headers: isLikelyLocalPath ? null : sanitizedHeaders,
+            tag: MediaItem(
+              id: videoId ?? url,
+              title: title ?? 'Unknown Title',
+              artist: artist ?? 'Unknown Artist',
+              album: album ?? 'Prism Music',
+              artUri: artworkUrl != null ? Uri.tryParse(artworkUrl) : null,
+              duration: mediaDuration,
+            ),
+          );
+
+          final dur = await setSource(directSource, 'Direct URL');
+          if (dur != null) return dur;
+        } on PlayerException catch (e, st) {
+          lastDirectException = e;
+          if (kDebugMode) {
+            debugPrint('AudioPlayerService: Direct URL failed: $e\n$st');
+          }
+
+          if (isLikelyLocalPath) {
+            final errorMessage = _mapPlayerExceptionToMessage(e.message);
+            _errorController.add(errorMessage);
+            return null;
+          }
+        } catch (e, st) {
+          lastDirectError = e;
+          if (kDebugMode) {
+            debugPrint('AudioPlayerService: Direct URL threw: $e\n$st');
+          }
+
+          if (isLikelyLocalPath) {
+            _errorController.add('Failed to load local audio file: $e');
+            return null;
+          }
+        }
+      }
+    }
+
+    // 3. Fallback: try YouTubeAudioSource with fresh manifest resolution if not yet attempted
     final canTryYouTubeFallback =
         videoId != null &&
         videoId.isNotEmpty &&
         (!hasDirectUrl || allowYouTubeFallbackOnDirectFailure);
-    if (canTryYouTubeFallback) {
+    if (canTryYouTubeFallback && (lastDirectException != null || lastDirectError != null)) {
       try {
         final ytSource = YouTubeAudioSource(
           videoId: videoId,
@@ -321,23 +361,11 @@ class AudioPlayerService {
           ),
         );
 
-        return await setSource(ytSource, 'YouTube');
-      } on PlayerException catch (e, st) {
-        if (kDebugMode) {
-          debugPrint(
-            'AudioPlayerService: PlayerException while loading YouTube source: $e',
-          );
-          debugPrint('Stack trace: $st');
-        }
-        final errorMessage = _mapPlayerExceptionToMessage(e.message);
-        _errorController.add(errorMessage);
-        return null;
+        final dur = await setSource(ytSource, 'YouTube (Fallback)');
+        if (dur != null) return dur;
       } catch (e, st) {
         if (kDebugMode) {
-          debugPrint(
-            'AudioPlayerService: Failed to load audio via YouTube source: $e',
-          );
-          debugPrint('Stack trace: $st');
+          debugPrint('AudioPlayerService: Fallback YouTube source failed: $e\n$st');
         }
         _errorController.add('Failed to load audio: $e');
         return null;
@@ -414,19 +442,42 @@ class AudioPlayerService {
     final wasPlaying = _player.playing;
 
     try {
-      final sanitizedHeaders = _prepareHeaders(targetStream.headers);
-      final source = AudioSource.uri(
-        Uri.parse(targetStream.url),
-        headers: sanitizedHeaders,
-        tag: MediaItem(
-          id: song.playableId,
-          title: song.title,
-          artist: song.artist,
-          album: song.album ?? 'Prism Music',
-          artUri: song.thumbnailUrl.isNotEmpty ? Uri.tryParse(song.thumbnailUrl) : null,
-          duration: song.duration,
-        ),
-      );
+      final isGoogleVideo = targetStream.url.contains('googlevideo.com');
+      final isYouTube = song.source == MusicSource.youtube ||
+          song.source == MusicSource.youtubeMusic ||
+          isGoogleVideo;
+
+      AudioSource source;
+      if (isYouTube) {
+        source = YouTubeAudioSource(
+          videoId: song.playableId,
+          initialStreamUrl: targetStream.url,
+          initialContentLength: targetStream.contentLength,
+          initialContentType: 'audio/${targetStream.container}',
+          tag: MediaItem(
+            id: song.playableId,
+            title: song.title,
+            artist: song.artist,
+            album: song.album ?? 'Prism Music',
+            artUri: song.thumbnailUrl.isNotEmpty ? Uri.tryParse(song.thumbnailUrl) : null,
+            duration: song.duration,
+          ),
+        );
+      } else {
+        final sanitizedHeaders = _prepareHeaders(targetStream.headers);
+        source = AudioSource.uri(
+          Uri.parse(targetStream.url),
+          headers: sanitizedHeaders,
+          tag: MediaItem(
+            id: song.playableId,
+            title: song.title,
+            artist: song.artist,
+            album: song.album ?? 'Prism Music',
+            artUri: song.thumbnailUrl.isNotEmpty ? Uri.tryParse(song.thumbnailUrl) : null,
+            duration: song.duration,
+          ),
+        );
+      }
 
       await _player.setAudioSource(source, initialPosition: currentPos);
       if (wasPlaying) {
@@ -567,25 +618,30 @@ class AudioPlayerService {
     try {
       AudioSource source;
 
-      if (url.isNotEmpty) {
+      final isGoogleVideo = url.contains('googlevideo.com');
+      final isYouTube = (videoId != null && videoId.isNotEmpty) ||
+          url.contains('youtube.com') ||
+          url.contains('youtu.be') ||
+          isGoogleVideo;
+
+      if (isYouTube) {
+        debugPrint('AudioPlayerService: Adding YouTube song to queue');
+        source = YouTubeAudioSource(
+          videoId: (videoId != null && videoId.isNotEmpty) ? videoId : 'direct',
+          quality: quality,
+          initialStreamUrl: url.isNotEmpty ? url : null,
+          tag: MediaItem(
+            id: videoId ?? url,
+            title: 'Loading...',
+            album: 'Prism Music',
+          ),
+        );
+      } else if (url.isNotEmpty) {
         debugPrint('AudioPlayerService: Adding regular URL to queue');
         source = AudioSource.uri(
           Uri.parse(url),
           headers: sanitizedHeaders,
           tag: MediaItem(id: url, title: 'Loading...', album: 'Prism Music'),
-        );
-      } else if (videoId != null && videoId.isNotEmpty) {
-        debugPrint(
-          'AudioPlayerService: Adding YouTube song to queue: $videoId',
-        );
-        source = YouTubeAudioSource(
-          videoId: videoId,
-          quality: quality,
-          tag: MediaItem(
-            id: videoId,
-            title: 'Loading...',
-            album: 'Prism Music',
-          ),
         );
       } else {
         throw Exception('No URL or videoId provided');
@@ -671,22 +727,26 @@ class AudioPlayerService {
 
         AudioSource source;
 
-        // PRIORITY: Use direct stream URL if available (faster, avoids bot checks)
-        if (url != null && url.isNotEmpty) {
+        final isGoogleVideo = url != null && url.contains('googlevideo.com');
+        final isYouTube = (videoId != null && videoId.isNotEmpty) ||
+            (url != null &&
+                (url.contains('youtube.com') ||
+                    url.contains('youtu.be') ||
+                    isGoogleVideo));
+
+        if (isYouTube) {
+          debugPrint('AudioPlayerService: Using YouTubeAudioSource for queued track');
+          source = YouTubeAudioSource(
+            videoId: (videoId != null && videoId.isNotEmpty) ? videoId : 'direct',
+            quality: quality,
+            initialStreamUrl: (url != null && url.isNotEmpty) ? url : null,
+            tag: mediaItem,
+          );
+        } else if (url != null && url.isNotEmpty) {
           debugPrint('AudioPlayerService: Using pre-loaded URL directly');
           source = AudioSource.uri(
             Uri.parse(url),
             headers: sanitizedHeaders,
-            tag: mediaItem,
-          );
-        } else if (videoId != null && videoId.isNotEmpty) {
-          // Fallback: Use YouTubeAudioSource
-          debugPrint(
-            'AudioPlayerService: Using YouTubeAudioSource for videoId: $videoId',
-          );
-          source = YouTubeAudioSource(
-            videoId: videoId,
-            quality: quality,
             tag: mediaItem,
           );
         } else {

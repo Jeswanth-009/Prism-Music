@@ -579,6 +579,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
                           .round()
                           .clamp(0, 10000),
                     ),
+                    allowYouTubeFallbackOnDirectFailure: isYouTubeSong,
                   )
                   .timeout(_setSourceTimeout)
             : await _audioPlayer

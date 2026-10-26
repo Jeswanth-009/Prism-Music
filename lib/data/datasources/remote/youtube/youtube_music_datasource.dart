@@ -111,7 +111,6 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
       return await _youtube.videos.streamsClient.getManifest(
         videoId,
         ytClients: [
-          yt.YoutubeApiClient.ios,
           yt.YoutubeApiClient.android,
         ],
         requireWatchPage: false,

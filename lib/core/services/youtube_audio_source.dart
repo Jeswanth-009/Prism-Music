@@ -17,10 +17,14 @@ class _CachedStream {
 }
 
 /// Custom audio source that streams YouTube audio directly in Flutter
+/// Custom audio source that streams YouTube audio directly in Flutter
 /// Inspired by BloomeeTunes implementation - no external proxy needed
 class YouTubeAudioSource extends StreamAudioSource {
   final String videoId;
   final String quality;
+  final String? initialStreamUrl;
+  final int? initialContentLength;
+  final String? initialContentType;
 
   static final _ytExplode = YoutubeExplode();
   
@@ -39,6 +43,9 @@ class YouTubeAudioSource extends StreamAudioSource {
   YouTubeAudioSource({
     required this.videoId,
     this.quality = 'high',
+    this.initialStreamUrl,
+    this.initialContentLength,
+    this.initialContentType,
     super.tag,
   });
 
@@ -98,7 +105,6 @@ class YouTubeAudioSource extends StreamAudioSource {
         manifest = await _ytExplode.videos.streamsClient.getManifest(
           videoId,
           ytClients: [
-            YoutubeApiClient.ios,
             YoutubeApiClient.android,
           ],
           requireWatchPage: false,
@@ -148,79 +154,110 @@ class YouTubeAudioSource extends StreamAudioSource {
   Future<StreamAudioResponse> request([int? start, int? end]) async {
     debugPrint('YouTubeAudioSource: request(start: $start, end: $end)');
     start ??= 0;
-    
+
     // Detect backward seeking (seeking to earlier position than last request)
-    final isSeekingBackward = _lastRequestPosition != null && start < _lastRequestPosition! - 1024 * 1024; // Only reset if seeking back more than 1MB
+    final isSeekingBackward = _lastRequestPosition != null &&
+        start < _lastRequestPosition! - 1024 * 1024; // Only reset if seeking back more than 1MB
     if (isSeekingBackward) {
-      debugPrint('YouTubeAudioSource: Detected significant backward seek from $_lastRequestPosition to $start');
-      // Don't clear cache on minor backward seeks - only on major jumps
+      debugPrint(
+        'YouTubeAudioSource: Detected significant backward seek from $_lastRequestPosition to $start',
+      );
     }
     _lastRequestPosition = start;
-    
+
     // Try up to 3 times with fresh URLs
     for (int attempt = 0; attempt < _maxRetries; attempt++) {
       try {
-        // Only force refresh on retry attempts, not the first try
-        final forceRefresh = attempt > 0;
-        
-        var audioStream = await _getStreamInfo(forceRefresh: forceRefresh);
-        final totalBytes = audioStream.size.totalBytes;
-        
-        // Ensure end doesn't exceed total bytes
-        if (end != null && end > totalBytes) {
+        String streamUrl;
+        int totalBytes;
+        String contentType;
+
+        final useInitialUrl = attempt == 0 &&
+            initialStreamUrl != null &&
+            initialStreamUrl!.isNotEmpty;
+
+        if (useInitialUrl) {
+          streamUrl = initialStreamUrl!;
+          totalBytes = initialContentLength ?? 0;
+          contentType = initialContentType ?? 'audio/mp4';
+        } else {
+          final forceRefresh = attempt > 0 || initialStreamUrl != null;
+          final audioStream = await _getStreamInfo(forceRefresh: forceRefresh);
+          totalBytes = audioStream.size.totalBytes;
+          streamUrl = audioStream.url.toString();
+          contentType = audioStream.codec.mimeType;
+        }
+
+        if (totalBytes > 0 && end != null && end > totalBytes) {
           end = totalBytes;
         }
-        
-        final rangeEnd = end ?? totalBytes;
 
-        debugPrint('YouTubeAudioSource: Requesting bytes $start-$rangeEnd/$totalBytes (attempt ${attempt + 1}/$_maxRetries)');
+        final rangeEnd = end ?? (totalBytes > 0 ? totalBytes : null);
 
-        // Use HTTP client with proper range headers for better reliability
-        final streamUrl = audioStream.url.toString();
-        debugPrint('YouTubeAudioSource: Stream URL: $streamUrl');
-        
+        debugPrint(
+          'YouTubeAudioSource: Requesting bytes $start-${rangeEnd ?? 'end'}/${totalBytes > 0 ? totalBytes : 'unknown'} (attempt ${attempt + 1}/$_maxRetries)',
+        );
+
         final request = http.Request('GET', Uri.parse(streamUrl));
-        
-        // Add range header for seeking support
-        request.headers['range'] = 'bytes=$start-${rangeEnd - 1}';
+
+        if (rangeEnd != null) {
+          request.headers['range'] = 'bytes=$start-${rangeEnd - 1}';
+        } else {
+          request.headers['range'] = 'bytes=$start-';
+        }
         request.headers['User-Agent'] =
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-        
+
         final response = await request.send().timeout(
           const Duration(seconds: 15),
           onTimeout: () => throw Exception('HTTP stream request timed out'),
         );
         debugPrint('YouTubeAudioSource: Response status: ${response.statusCode}');
-        debugPrint('YouTubeAudioSource: Response headers: ${response.headers}');
-        
+
         if (response.statusCode != 206 && response.statusCode != 200) {
           throw Exception('HTTP ${response.statusCode}: Failed to get stream');
         }
 
+        int resolvedSourceLength = totalBytes;
+        final contentRange = response.headers['content-range'];
+        if (resolvedSourceLength <= 0 && contentRange != null) {
+          final slashIdx = contentRange.lastIndexOf('/');
+          if (slashIdx != -1) {
+            resolvedSourceLength =
+                int.tryParse(contentRange.substring(slashIdx + 1).trim()) ?? 0;
+          }
+        }
+
+        final contentLength = response.contentLength ??
+            (rangeEnd != null ? rangeEnd - start : null);
+
         return StreamAudioResponse(
-          sourceLength: totalBytes,
-          contentLength: rangeEnd - start,
+          sourceLength: resolvedSourceLength > 0 ? resolvedSourceLength : null,
+          contentLength: contentLength,
           offset: start,
           stream: response.stream,
-          contentType: audioStream.codec.mimeType,
+          contentType: response.headers['content-type'] ?? contentType,
         );
       } catch (e) {
-        debugPrint('YouTubeAudioSource: Stream error (attempt ${attempt + 1}/$_maxRetries): $e');
-        
-        // If this isn't the last attempt, wait a bit before retrying
+        debugPrint(
+          'YouTubeAudioSource: Stream error (attempt ${attempt + 1}/$_maxRetries): $e',
+        );
+
         if (attempt < _maxRetries - 1) {
-          await Future.delayed(Duration(milliseconds: 500 * (attempt + 1)));
-          // Clear cache to force fresh URL on next attempt
+          await Future.delayed(Duration(milliseconds: 400 * (attempt + 1)));
           clearCache();
         } else {
-          // All retries failed
-          dev.log('Failed to load audio after $_maxRetries attempts: $e', name: 'YouTubeAudioSource');
-          throw Exception('Failed to load audio from YouTube after $_maxRetries attempts: $e');
+          dev.log(
+            'Failed to load audio after $_maxRetries attempts: $e',
+            name: 'YouTubeAudioSource',
+          );
+          throw Exception(
+            'Failed to load audio from YouTube after $_maxRetries attempts: $e',
+          );
         }
       }
     }
-    
-    // Should never reach here, but just in case
+
     throw Exception('Failed to load audio from YouTube');
   }
 
@@ -249,19 +286,17 @@ class YouTubeAudioSource extends StreamAudioSource {
           videoId,
           ytClients: [
             YoutubeApiClient.androidSdkless,
-            YoutubeApiClient.ios,
           ],
           requireWatchPage: false,
-        ).timeout(const Duration(seconds: 15));
+        ).timeout(const Duration(seconds: 8));
       } catch (e) {
         manifest = await _ytExplode.videos.streamsClient.getManifest(
           videoId,
           ytClients: [
-            YoutubeApiClient.ios,
             YoutubeApiClient.android,
           ],
           requireWatchPage: false,
-        ).timeout(const Duration(seconds: 15));
+        ).timeout(const Duration(seconds: 8));
       }
 
       final supportedStreams = manifest.audioOnly.sortByBitrate();
