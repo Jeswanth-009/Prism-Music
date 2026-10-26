@@ -70,9 +70,9 @@ void main() {
     expect(find.byIcon(Icons.lyrics_outlined), findsOneWidget);
     expect(find.byIcon(Icons.queue_music_rounded), findsOneWidget);
 
-    // Initial playing state should have tonearm at groove angle (-0.42)
+    // Initial playing state should have tonearm at groove angle (0.22)
     final tonearm = tester.widget<AudiophileTonearm>(find.byType(AudiophileTonearm));
-    expect(tonearm.angle, closeTo(-0.42, 0.01));
+    expect(tonearm.angle, closeTo(0.22, 0.01));
 
     // Tap lyrics button to toggle lyrics view
     await tester.tap(find.byIcon(Icons.lyrics_outlined));
@@ -109,9 +109,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    // When playing, tonearm is on vinyl grooves (-0.42 rad)
+    // When playing, tonearm is on vinyl grooves (0.22 rad)
     var tonearm = tester.widget<AudiophileTonearm>(find.byType(AudiophileTonearm));
-    expect(tonearm.angle, closeTo(-0.42, 0.01));
+    expect(tonearm.angle, closeTo(0.22, 0.01));
 
     // Pause playback
     playerBloc.emit(const PlayerState(
@@ -123,9 +123,9 @@ void main() {
     // Allow the 700ms animation to complete
     await tester.pump(const Duration(milliseconds: 750));
 
-    // Tonearm must now be at rest position on the side cradle (0.18 rad)
+    // Tonearm must now be at rest position on the side cradle (-0.42 rad)
     tonearm = tester.widget<AudiophileTonearm>(find.byType(AudiophileTonearm));
-    expect(tonearm.angle, closeTo(0.18, 0.01));
+    expect(tonearm.angle, closeTo(-0.42, 0.01));
 
     // Resume playback
     playerBloc.emit(const PlayerState(
@@ -137,9 +137,9 @@ void main() {
     // Allow the 700ms animation to complete
     await tester.pump(const Duration(milliseconds: 750));
 
-    // Tonearm must have swung back inward onto the vinyl grooves (-0.42 rad)
+    // Tonearm must have swung back inward onto the vinyl grooves (0.22 rad)
     tonearm = tester.widget<AudiophileTonearm>(find.byType(AudiophileTonearm));
-    expect(tonearm.angle, closeTo(-0.42, 0.01));
+    expect(tonearm.angle, closeTo(0.22, 0.01));
   });
 
   testWidgets('Tonearm starts at rest position when player opens in paused state',
@@ -170,6 +170,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     final tonearm = tester.widget<AudiophileTonearm>(find.byType(AudiophileTonearm));
-    expect(tonearm.angle, closeTo(0.18, 0.01));
+    expect(tonearm.angle, closeTo(-0.42, 0.01));
   });
 }

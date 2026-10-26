@@ -1917,10 +1917,10 @@ class _VinylPlayerLayoutState extends State<_VinylPlayerLayout>
   late final Animation<double> _tonearmAngleAnimation;
 
   /// Tonearm rest angle when paused (pointing outward to side rest cradle)
-  static const double _restAngle = 0.18;
+  static const double _restAngle = -0.42;
 
   /// Tonearm active angle when playing (tracking inside the vinyl audio groove)
-  static const double _grooveAngle = -0.42;
+  static const double _grooveAngle = 0.22;
 
   @override
   void initState() {
