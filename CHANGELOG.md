@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.59] - 2026-10-26
+
+### Fixed
+
+- Ensure release APK download completes reliably from update dialog
+
 ## [0.2.58] - 2026-10-26
 
 ### Fixed
@@ -902,3 +908,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.56]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.56-build92
 [0.2.57]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.57-build93
 [0.2.58]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.58-build94
+[0.2.59]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.59-build95
