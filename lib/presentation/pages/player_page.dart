@@ -1911,8 +1911,16 @@ class _VinylPlayerLayout extends StatefulWidget {
 }
 
 class _VinylPlayerLayoutState extends State<_VinylPlayerLayout>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _rotationController;
+  late final AnimationController _tonearmController;
+  late final Animation<double> _tonearmAngleAnimation;
+
+  /// Tonearm rest angle when paused (pointing outward to side rest cradle)
+  static const double _restAngle = 0.18;
+
+  /// Tonearm active angle when playing (tracking inside the vinyl audio groove)
+  static const double _grooveAngle = -0.42;
 
   @override
   void initState() {
@@ -1921,6 +1929,19 @@ class _VinylPlayerLayoutState extends State<_VinylPlayerLayout>
       vsync: this,
       duration: const Duration(seconds: 18),
     );
+    _tonearmController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+      value: widget.state.isPlaying ? 1.0 : 0.0,
+    );
+    _tonearmAngleAnimation = Tween<double>(
+      begin: _restAngle,
+      end: _grooveAngle,
+    ).animate(CurvedAnimation(
+      parent: _tonearmController,
+      curve: Curves.easeInOutCubic,
+    ));
+
     if (widget.state.isPlaying) {
       _rotationController.repeat();
     }
@@ -1929,16 +1950,25 @@ class _VinylPlayerLayoutState extends State<_VinylPlayerLayout>
   @override
   void didUpdateWidget(covariant _VinylPlayerLayout oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.state.isPlaying && !_rotationController.isAnimating) {
-      _rotationController.repeat();
-    } else if (!widget.state.isPlaying && _rotationController.isAnimating) {
-      _rotationController.stop();
+    if (widget.state.isPlaying != oldWidget.state.isPlaying) {
+      if (widget.state.isPlaying) {
+        _tonearmController.forward();
+        if (!_rotationController.isAnimating) {
+          _rotationController.repeat();
+        }
+      } else {
+        _tonearmController.reverse();
+        if (_rotationController.isAnimating) {
+          _rotationController.stop();
+        }
+      }
     }
   }
 
   @override
   void dispose() {
     _rotationController.dispose();
+    _tonearmController.dispose();
     super.dispose();
   }
 
@@ -2188,30 +2218,274 @@ class _VinylPlayerLayoutState extends State<_VinylPlayerLayout>
               ),
             ),
           ),
-          // Tonearm accent (placed at top-right corner pointing towards vinyl)
+          // Audiophile Tonearm (animated between rest cradle and vinyl sound groove)
           Positioned(
             top: 2,
             right: 8,
             child: IgnorePointer(
-              child: Transform.rotate(
-                angle: -0.35,
+              child: AnimatedBuilder(
+                animation: _tonearmAngleAnimation,
+                builder: (context, _) {
+                  return AudiophileTonearm(
+                    angle: _tonearmAngleAnimation.value,
+                    armLength: diskSize * 0.46,
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Detailed audiophile turntable tonearm with gimbal base, counterweight,
+/// brushed aluminum wand, angled headshell cartridge, stylus needle, and rest cradle.
+class AudiophileTonearm extends StatelessWidget {
+  final double angle;
+  final double armLength;
+
+  const AudiophileTonearm({
+    super.key,
+    required this.angle,
+    required this.armLength,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 70,
+      height: armLength + 40,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.topRight,
+        children: [
+          // 1. Tonearm Rest Post & Cradle (fixed to turntable deck at rest angle position)
+          Positioned(
+            top: 56,
+            right: -2,
+            child: Container(
+              width: 14,
+              height: 18,
+              decoration: BoxDecoration(
+                color: const Color(0xFF222226),
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    blurRadius: 4,
+                    offset: const Offset(1, 1),
+                  ),
+                ],
+              ),
+              child: Center(
                 child: Container(
                   width: 6,
-                  height: diskSize * 0.42,
+                  height: 8,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFB0B0B4), Color(0xFF505054)],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
-                    borderRadius: BorderRadius.circular(3),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.4),
-                        blurRadius: 6,
-                        offset: const Offset(2, 2),
+                    color: const Color(0xFF141416),
+                    borderRadius: BorderRadius.circular(1.5),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // 2. Rotating Arm Assembly (swings around gimbal pivot center)
+          Positioned(
+            top: 15,
+            right: 3,
+            child: Transform.rotate(
+              angle: angle,
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: 24,
+                height: armLength + 24,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.topCenter,
+                  children: [
+                    // Counterweight (extends upward behind pivot)
+                    Positioned(
+                      top: -18,
+                      child: Container(
+                        width: 16,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(3),
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFF6E6E78),
+                              Color(0xFF323238),
+                              Color(0xFF1C1C20),
+                              Color(0xFF4E4E56),
+                            ],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            width: 0.8,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              blurRadius: 4,
+                              offset: const Offset(1, 1),
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
+                    ),
+
+                    // Tonearm Wand (precision brushed aluminum / chrome rod)
+                    Positioned(
+                      top: 0,
+                      child: Container(
+                        width: 5.5,
+                        height: armLength,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(2.5),
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFFE8E8EE),
+                              Color(0xFFA8A8B2),
+                              Color(0xFF686870),
+                              Color(0xFF383840),
+                            ],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.45),
+                              blurRadius: 6,
+                              offset: const Offset(2.5, 3),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Subtle cueing lever accent along wand
+                    Positioned(
+                      top: 32,
+                      right: 1,
+                      child: Container(
+                        width: 6,
+                        height: 2.5,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFC0C0C8),
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
+                    ),
+
+                    // Headshell & Cartridge (angled inward toward groove)
+                    Positioned(
+                      top: armLength - 4,
+                      child: Transform.rotate(
+                        angle: -0.22,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Cartridge housing
+                            Container(
+                              width: 10,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1A1A1E),
+                                borderRadius: BorderRadius.circular(2.5),
+                                border: Border.all(
+                                  color: const Color(0xFFD4AF37).withValues(alpha: 0.8),
+                                  width: 1,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.6),
+                                    blurRadius: 4,
+                                    offset: const Offset(1.5, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Container(
+                                  width: 2.5,
+                                  height: 10,
+                                  color: const Color(0xFFD4AF37),
+                                ),
+                              ),
+                            ),
+                            // Stylus needle tip (precision indicator)
+                            Container(
+                              width: 2.5,
+                              height: 4.5,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFF453A),
+                                borderRadius: BorderRadius.circular(1),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFFF453A).withValues(alpha: 0.9),
+                                    blurRadius: 3,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // 3. Fixed Gimbal Pivot Bearing (mounted on deck, above the rotating assembly)
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const RadialGradient(
+                  colors: [
+                    Color(0xFF5E5E68),
+                    Color(0xFF2C2C32),
+                    Color(0xFF141416),
+                  ],
+                  stops: [0.0, 0.65, 1.0],
+                ),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.22),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.65),
+                    blurRadius: 8,
+                    offset: const Offset(1, 3),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Container(
+                  width: 11,
+                  height: 11,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFFD4AF37).withValues(alpha: 0.8),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      width: 1,
+                    ),
                   ),
                 ),
               ),

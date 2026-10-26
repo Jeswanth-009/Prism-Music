@@ -62,6 +62,7 @@ void main() {
 
     // Verify RotationTransition and transport controls
     expect(find.byType(RotationTransition), findsWidgets);
+    expect(find.byType(AudiophileTonearm), findsOneWidget);
     expect(find.byIcon(Icons.skip_previous_rounded), findsOneWidget);
     expect(find.byIcon(Icons.skip_next_rounded), findsOneWidget);
     expect(find.byIcon(Icons.shuffle_rounded), findsOneWidget);
@@ -69,10 +70,106 @@ void main() {
     expect(find.byIcon(Icons.lyrics_outlined), findsOneWidget);
     expect(find.byIcon(Icons.queue_music_rounded), findsOneWidget);
 
+    // Initial playing state should have tonearm at groove angle (-0.42)
+    final tonearm = tester.widget<AudiophileTonearm>(find.byType(AudiophileTonearm));
+    expect(tonearm.angle, closeTo(-0.42, 0.01));
+
     // Tap lyrics button to toggle lyrics view
     await tester.tap(find.byIcon(Icons.lyrics_outlined));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byKey(const ValueKey('lyrics_vinyl_01')), findsOneWidget);
+  });
+
+  testWidgets('Tonearm moves to side rest when paused and returns to groove when resumed',
+      (tester) async {
+    final playerBloc = buildTestPlayerBloc();
+    addTearDown(playerBloc.close);
+
+    const testSong = Song(
+      id: 'vinyl_02',
+      title: 'Groove Needle',
+      artist: 'Retro Horizon',
+      album: 'Turntable Sessions',
+      duration: Duration(seconds: 200),
+      thumbnails: Thumbnails(),
+    );
+
+    // Start in playing state
+    playerBloc.emit(const PlayerState(
+      status: PlayerStatus.playing,
+      currentSong: testSong,
+    ));
+
+    await pumpTestWidget(
+      tester,
+      const PlayerPage(),
+      playerBloc: playerBloc,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // When playing, tonearm is on vinyl grooves (-0.42 rad)
+    var tonearm = tester.widget<AudiophileTonearm>(find.byType(AudiophileTonearm));
+    expect(tonearm.angle, closeTo(-0.42, 0.01));
+
+    // Pause playback
+    playerBloc.emit(const PlayerState(
+      status: PlayerStatus.paused,
+      currentSong: testSong,
+    ));
+    await tester.pump();
+    await tester.pump();
+    // Allow the 700ms animation to complete
+    await tester.pump(const Duration(milliseconds: 750));
+
+    // Tonearm must now be at rest position on the side cradle (0.18 rad)
+    tonearm = tester.widget<AudiophileTonearm>(find.byType(AudiophileTonearm));
+    expect(tonearm.angle, closeTo(0.18, 0.01));
+
+    // Resume playback
+    playerBloc.emit(const PlayerState(
+      status: PlayerStatus.playing,
+      currentSong: testSong,
+    ));
+    await tester.pump();
+    await tester.pump();
+    // Allow the 700ms animation to complete
+    await tester.pump(const Duration(milliseconds: 750));
+
+    // Tonearm must have swung back inward onto the vinyl grooves (-0.42 rad)
+    tonearm = tester.widget<AudiophileTonearm>(find.byType(AudiophileTonearm));
+    expect(tonearm.angle, closeTo(-0.42, 0.01));
+  });
+
+  testWidgets('Tonearm starts at rest position when player opens in paused state',
+      (tester) async {
+    final playerBloc = buildTestPlayerBloc();
+    addTearDown(playerBloc.close);
+
+    const testSong = Song(
+      id: 'vinyl_03',
+      title: 'Dormant Deck',
+      artist: 'Retro Horizon',
+      album: 'Turntable Sessions',
+      duration: Duration(seconds: 180),
+      thumbnails: Thumbnails(),
+    );
+
+    playerBloc.emit(const PlayerState(
+      status: PlayerStatus.paused,
+      currentSong: testSong,
+    ));
+
+    await pumpTestWidget(
+      tester,
+      const PlayerPage(),
+      playerBloc: playerBloc,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final tonearm = tester.widget<AudiophileTonearm>(find.byType(AudiophileTonearm));
+    expect(tonearm.angle, closeTo(0.18, 0.01));
   });
 }
