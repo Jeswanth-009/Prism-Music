@@ -55,14 +55,14 @@ class StreamLoaderService {
   final StreamCacheService _cache;
   final List<AudioStreamResolver> _resolvers;
 
-  static const Duration _streamFetchTimeout = Duration(milliseconds: 4500);
-  static const Duration _overallResolutionBudget = Duration(seconds: 12);
+  static const Duration _streamFetchTimeout = Duration(milliseconds: 9000);
+  static const Duration _overallResolutionBudget = Duration(seconds: 22);
 
   // Circuit breaker state per source
   final Map<StreamSource, DateTime> _circuitCooldownUntil = {};
   final Map<StreamSource, int> _consecutiveErrors = {};
   static const int _circuitErrorThreshold = 3;
-  static const Duration _circuitCooldownDuration = Duration(seconds: 60);
+  static const Duration _circuitCooldownDuration = Duration(seconds: 30);
 
   // Set of videoIds invalidated while prefetching was in-flight
   final Set<String> _invalidatedVideoIds = {};
@@ -169,7 +169,7 @@ class StreamLoaderService {
     ).timeout(
       _overallResolutionBudget,
       onTimeout: () =>
-          throw TimeoutException('Overall stream resolution budget (15s) exceeded for $videoId'),
+          throw TimeoutException('Overall stream resolution budget (22s) exceeded for $videoId'),
     );
 
     // Cache the result

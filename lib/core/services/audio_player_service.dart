@@ -466,6 +466,7 @@ class AudioPlayerService {
     String? artworkUrl,
     Duration? mediaDuration,
     Duration duration = const Duration(seconds: 2),
+    bool allowYouTubeFallbackOnDirectFailure = false,
   }) async {
     if (!_initialized) return null;
 
@@ -500,6 +501,7 @@ class AudioPlayerService {
         album: album,
         artworkUrl: artworkUrl,
         mediaDuration: mediaDuration,
+        allowYouTubeFallbackOnDirectFailure: allowYouTubeFallbackOnDirectFailure,
       );
 
       if (d == null) {
@@ -537,6 +539,7 @@ class AudioPlayerService {
     String? artworkUrl,
     Duration? mediaDuration,
     Duration duration = const Duration(seconds: 2),
+    bool allowYouTubeFallbackOnDirectFailure = false,
   }) => fadeTransitionTo(
     url,
     headers: headers,
@@ -548,6 +551,7 @@ class AudioPlayerService {
     artworkUrl: artworkUrl,
     mediaDuration: mediaDuration,
     duration: duration,
+    allowYouTubeFallbackOnDirectFailure: allowYouTubeFallbackOnDirectFailure,
   );
 
   /// Add a song to the end of the playlist queue

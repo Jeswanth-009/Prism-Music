@@ -90,7 +90,6 @@ class YouTubeAudioSource extends StreamAudioSource {
           videoId,
           ytClients: [
             YoutubeApiClient.androidSdkless,
-            YoutubeApiClient.tv,
             YoutubeApiClient.ios,
           ],
           requireWatchPage: false,
@@ -100,8 +99,8 @@ class YouTubeAudioSource extends StreamAudioSource {
         manifest = await _ytExplode.videos.streamsClient.getManifest(
           videoId,
           ytClients: [
-            YoutubeApiClient.tv,
             YoutubeApiClient.ios,
+            YoutubeApiClient.android,
           ],
           requireWatchPage: false,
         ).timeout(const Duration(seconds: 15));
@@ -249,7 +248,6 @@ class YouTubeAudioSource extends StreamAudioSource {
           videoId,
           ytClients: [
             YoutubeApiClient.androidSdkless,
-            YoutubeApiClient.tv,
             YoutubeApiClient.ios,
           ],
           requireWatchPage: false,
@@ -258,8 +256,8 @@ class YouTubeAudioSource extends StreamAudioSource {
         manifest = await _ytExplode.videos.streamsClient.getManifest(
           videoId,
           ytClients: [
-            YoutubeApiClient.tv,
             YoutubeApiClient.ios,
+            YoutubeApiClient.android,
           ],
           requireWatchPage: false,
         ).timeout(const Duration(seconds: 15));

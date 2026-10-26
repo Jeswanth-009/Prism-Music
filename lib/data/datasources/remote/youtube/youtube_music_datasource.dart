@@ -133,7 +133,6 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
         videoId,
         ytClients: [
           yt.YoutubeApiClient.androidSdkless,
-          yt.YoutubeApiClient.tv,
           yt.YoutubeApiClient.ios,
         ],
         requireWatchPage: false,
@@ -193,6 +192,10 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
           contentLength: selectedStream.size.totalBytes,
           expiresAt: _extractExpiryFromUrl(directUrl),
           isAudioOnly: true,
+          headers: const {
+            'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          },
         );
 
         _cache?.cache(
@@ -227,7 +230,6 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
             videoId,
             ytClients: [
               yt.YoutubeApiClient.androidSdkless,
-              yt.YoutubeApiClient.tv,
               yt.YoutubeApiClient.ios,
             ],
             requireWatchPage: false,
@@ -258,6 +260,10 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
               contentLength: selectedStream.size.totalBytes,
               expiresAt: _extractExpiryFromUrl(selectedStream.url.toString()),
               isAudioOnly: true,
+              headers: const {
+                'User-Agent':
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              },
             );
 
             _cache?.cache(
@@ -304,7 +310,6 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
       videoId,
       ytClients: [
         yt.YoutubeApiClient.androidSdkless,
-        yt.YoutubeApiClient.tv,
         yt.YoutubeApiClient.ios,
       ],
       requireWatchPage: false,
@@ -320,6 +325,10 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
             quality: _bitrateToQuality(s.bitrate.kiloBitsPerSecond.toInt()),
             contentLength: s.size.totalBytes,
             isAudioOnly: true,
+            headers: const {
+              'User-Agent':
+                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            },
           ),
         )
         .toList();
