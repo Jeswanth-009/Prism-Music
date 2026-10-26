@@ -574,7 +574,6 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
                           .round()
                           .clamp(0, 10000),
                     ),
-                    allowYouTubeFallbackOnDirectFailure: true,
                   )
                   .timeout(_setSourceTimeout)
             : await _audioPlayer
@@ -588,7 +587,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
                     album: event.song.album,
                     artworkUrl: notificationArtwork,
                     mediaDuration: event.song.duration,
-                    allowYouTubeFallbackOnDirectFailure: true,
+                    allowYouTubeFallbackOnDirectFailure: false,
                   )
                   .timeout(_setSourceTimeout);
         if (generation != _playbackGeneration) return; // user moved on
