@@ -8,6 +8,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.57] - 2026-10-26
+
+### Added
+
+- Realistic animated vinyl turntable tonearm and rest cradle
+
+### Fixed
+
+- Use initTestHive and await async persistence in player_bloc_queue_restore_test
+
 ## [0.2.56] - 2026-10-26
 
 ### Added
@@ -884,3 +894,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.54]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.54-build90
 [0.2.55]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.55-build91
 [0.2.56]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.56-build92
+[0.2.57]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.57-build93
