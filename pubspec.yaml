@@ -2,7 +2,7 @@ name: prism_music
 description: "Prism Music - A privacy-first, high-fidelity music streaming app with no login required."
 publish_to: 'none'
 
-version: 0.2.62+98
+version: 0.2.63+99
 
 environment:
   sdk: ^3.9.2

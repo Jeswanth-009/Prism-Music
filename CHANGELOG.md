@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.63] - 2026-10-27
+
+### Changed
+
+- Extract player monolith into modular widgets and targeted bloc builders
+
 ## [0.2.62] - 2026-10-26
 
 ### Fixed
@@ -931,3 +937,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.60]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.60-build96
 [0.2.61]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.61-build97
 [0.2.62]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.62-build98
+[0.2.63]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.63-build99
