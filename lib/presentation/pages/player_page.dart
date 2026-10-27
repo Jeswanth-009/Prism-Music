@@ -3,6 +3,7 @@ import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:palette_generator/palette_generator.dart';
 
+import '../../core/error/error_message_mapper.dart';
 import '../../core/services/settings_service.dart';
 import '../../domain/entities/song.dart';
 import '../blocs/player/player_bloc.dart';
@@ -327,7 +328,7 @@ class _PlayerPageState extends State<PlayerPage> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              state.errorMessage!,
+              ErrorMessageMapper.map(state.errorMessage!),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(

@@ -11,6 +11,7 @@ import '../blocs/library/library.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
 import '../theme/prism_theme.dart';
+import '../widgets/common/prism_snackbar.dart';
 import '../widgets/library/import/import_progress_dialog.dart';
 import '../widgets/library/import/import_review_sheet.dart';
 import '../widgets/library/import/import_sheet.dart';
@@ -321,7 +322,7 @@ class _LibraryTabState extends State<LibraryTab>
       }
       if (!mounted) return;
       if (error != null) {
-        showPrismToast(context, error);
+        showPrismErrorSnackBar(context, error: error);
       }
     } on TimeoutException {
       if (!dialogClosed && mounted) {
@@ -329,7 +330,11 @@ class _LibraryTabState extends State<LibraryTab>
         Navigator.of(context, rootNavigator: true).maybePop();
       }
       if (!mounted) return;
-      showPrismToast(context, 'Import is taking too long.');
+      showPrismErrorSnackBar(
+        context,
+        error: 'Import timed out. Please check your internet connection.',
+        onRetry: _importPlaylist,
+      );
     }
   }
 

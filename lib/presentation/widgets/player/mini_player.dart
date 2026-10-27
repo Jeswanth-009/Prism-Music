@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/error/error_message_mapper.dart';
 import '../../blocs/player/player.dart';
 import '../../pages/player_page.dart';
 import '../../theme/prism_theme.dart';
@@ -107,8 +108,9 @@ class MiniPlayer extends StatelessWidget {
                                   const SizedBox(height: 1),
                                   if (state.status == PlayerStatus.error)
                                     Text(
-                                      state.errorMessage ??
-                                          'Playback error · Tap to retry',
+                                      state.errorMessage != null
+                                          ? ErrorMessageMapper.map(state.errorMessage!)
+                                          : 'Playback error · Tap to retry',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: theme.textTheme.bodySmall?.copyWith(
