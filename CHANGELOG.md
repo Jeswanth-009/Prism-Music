@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.64] - 2026-10-29
+
+### Changed
+
+- Split library tab into focused sub-views and dedicated import components
+
 ## [0.2.63] - 2026-10-27
 
 ### Changed
@@ -938,3 +944,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.61]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.61-build97
 [0.2.62]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.62-build98
 [0.2.63]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.63-build99
+[0.2.64]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.64-build100
