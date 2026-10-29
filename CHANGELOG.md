@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.67] - 2026-10-29
+
+### Changed
+
+- Gate audio player debug prints behind kDebugMode and logDebug
+
 ## [0.2.66] - 2026-10-29
 
 ### Fixed
@@ -959,3 +965,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.64]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.64-build100
 [0.2.65]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.65-build101
 [0.2.66]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.66-build102
+[0.2.67]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.67-build103
