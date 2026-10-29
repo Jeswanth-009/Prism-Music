@@ -11,7 +11,7 @@ import '../../data/datasources/remote/spotify/spotify_datasource.dart';
 import '../../data/datasources/remote/lyrics/lyrics_datasource.dart';
 import '../../data/datasources/remote/jiosaavn/jiosaavn_datasource.dart';
 import '../../data/datasources/local/local_datasource.dart';
-import '../../presentation/blocs/player/player_bloc.dart';
+import '../../presentation/blocs/player/player.dart';
 import '../../presentation/blocs/search/search_bloc.dart';
 import '../../presentation/blocs/library/library_bloc.dart';
 import '../../presentation/blocs/theme/theme_bloc.dart';
@@ -203,7 +203,29 @@ getIt.registerLazySingleton<LibraryRepository>(
 
     // ============ BLOCS ============
   
-  getIt.registerFactory<PlayerBloc>(
+  getIt.registerLazySingleton<QueueBloc>(
+    () => QueueBloc(
+      musicRepository: getIt<MusicRepository>(),
+      recommendationService: getIt<RecommendationService>(),
+      settingsService: SettingsService.instance,
+    ),
+  );
+
+  getIt.registerLazySingleton<PlaybackBloc>(
+    () => PlaybackBloc(
+      musicRepository: getIt<MusicRepository>(),
+      libraryRepository: getIt<LibraryRepository>(),
+      audioPlayerService: getIt<AudioPlayerService>(),
+      audioFocus: getIt<AudioFocusOrchestratorService>(),
+      mediaResolver: getIt<MediaResolverService>(),
+      reliability: getIt<PlaybackReliabilityService>(),
+      streamLoader: getIt<StreamLoaderService>(),
+      downloadService: getIt<DownloadService>(),
+      recommendationService: getIt<RecommendationService>(),
+    ),
+  );
+
+  getIt.registerLazySingleton<PlayerBloc>(
     () => PlayerBloc(
       musicRepository: getIt<MusicRepository>(),
       libraryRepository: getIt<LibraryRepository>(),
@@ -214,6 +236,8 @@ getIt.registerLazySingleton<LibraryRepository>(
       streamLoader: getIt<StreamLoaderService>(),
       downloadService: getIt<DownloadService>(),
       recommendationService: getIt<RecommendationService>(),
+      playbackBloc: getIt<PlaybackBloc>(),
+      queueBloc: getIt<QueueBloc>(),
     ),
   );
   
