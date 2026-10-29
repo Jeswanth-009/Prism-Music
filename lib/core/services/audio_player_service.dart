@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
+import '../utils/logger.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../domain/entities/song.dart';
 import '../../domain/entities/stream_info.dart';
@@ -408,7 +409,7 @@ class AudioPlayerService {
       }
       unawaited(
         _player.play().catchError((error, stackTrace) {
-          debugPrint('AudioPlayerService: Asynchronous play() failed: $error');
+          if (kDebugMode) debugPrint('AudioPlayerService: Asynchronous play() failed: $error');
           _handleNativeError('play', error);
         }),
       );
@@ -625,7 +626,7 @@ class AudioPlayerService {
           isGoogleVideo;
 
       if (isYouTube) {
-        debugPrint('AudioPlayerService: Adding YouTube song to queue');
+        logDebug('AudioPlayerService: Adding YouTube song to queue');
         source = YouTubeAudioSource(
           videoId: (videoId != null && videoId.isNotEmpty) ? videoId : 'direct',
           quality: quality,
@@ -637,7 +638,7 @@ class AudioPlayerService {
           ),
         );
       } else if (url.isNotEmpty) {
-        debugPrint('AudioPlayerService: Adding regular URL to queue');
+        logDebug('AudioPlayerService: Adding regular URL to queue');
         source = AudioSource.uri(
           Uri.parse(url),
           headers: sanitizedHeaders,
@@ -668,11 +669,9 @@ class AudioPlayerService {
         );
       }
 
-      debugPrint(
-        'AudioPlayerService: ✓ Added song to queue (Queue length: ${_queueSources.length})',
-      );
+      logDebug('AudioPlayerService: ✓ Added song to queue (Queue length: ${_queueSources.length})');
     } catch (e) {
-      debugPrint('AudioPlayerService: ✗ Failed to add to queue: $e');
+      logError('AudioPlayerService: ✗ Failed to add to queue', e);
       _errorController.add('Failed to add to queue: $e');
     }
   }
@@ -686,9 +685,7 @@ class AudioPlayerService {
     if (!_initialized) return null;
 
     try {
-      debugPrint(
-        'AudioPlayerService: Loading queue with ${songs.length} songs, starting at index $initialIndex',
-      );
+      logDebug('AudioPlayerService: Loading queue with ${songs.length} songs, starting at index $initialIndex');
 
       _queueSources.clear();
       final sources = <AudioSource>[];
@@ -721,9 +718,7 @@ class AudioPlayerService {
           artUri: artUri != null ? Uri.tryParse(artUri) : null,
         );
 
-        debugPrint(
-          'AudioPlayerService: Processing song - videoId: $videoId, hasUrl: ${url != null}, urlLength: ${url?.length ?? 0}',
-        );
+        logDebug('AudioPlayerService: Processing song - videoId: $videoId, hasUrl: ${url != null}, urlLength: ${url?.length ?? 0}');
 
         AudioSource source;
 
@@ -735,7 +730,7 @@ class AudioPlayerService {
                     isGoogleVideo));
 
         if (isYouTube) {
-          debugPrint('AudioPlayerService: Using YouTubeAudioSource for queued track');
+          logDebug('AudioPlayerService: Using YouTubeAudioSource for queued track');
           source = YouTubeAudioSource(
             videoId: (videoId != null && videoId.isNotEmpty) ? videoId : 'direct',
             quality: quality,
@@ -743,21 +738,21 @@ class AudioPlayerService {
             tag: mediaItem,
           );
         } else if (url != null && url.isNotEmpty) {
-          debugPrint('AudioPlayerService: Using pre-loaded URL directly');
+          logDebug('AudioPlayerService: Using pre-loaded URL directly');
           source = AudioSource.uri(
             Uri.parse(url),
             headers: sanitizedHeaders,
             tag: mediaItem,
           );
         } else {
-          debugPrint('AudioPlayerService: ERROR - No URL or videoId provided!');
+          logDebug('AudioPlayerService: ERROR - No URL or videoId provided!');
           continue; // Skip this song
         }
         sources.add(source);
       }
 
       if (sources.isEmpty) {
-        debugPrint('AudioPlayerService: ERROR - No valid sources to play!');
+        logDebug('AudioPlayerService: ERROR - No valid sources to play!');
         _errorController.add('No valid audio sources');
         return null;
       }
@@ -778,22 +773,17 @@ class AudioPlayerService {
         children: sources,
       );
 
-      debugPrint(
-        'AudioPlayerService: Setting ConcatenatingAudioSource with ${sources.length} items...',
-      );
+      logDebug('AudioPlayerService: Setting ConcatenatingAudioSource with ${sources.length} items...');
       await _player.setAudioSource(
         _playlist!,
         initialIndex: startIndex,
         preload: false, // Lazy load for better performance
       );
 
-      debugPrint(
-        'AudioPlayerService: ✓ Queue loaded successfully, duration: ${_player.duration}',
-      );
+      logDebug('AudioPlayerService: ✓ Queue loaded successfully, duration: ${_player.duration}');
       return _player.duration;
     } catch (e, st) {
-      debugPrint('AudioPlayerService: ✗ Failed to load queue: $e');
-      debugPrint('Stack trace: $st');
+      logError('AudioPlayerService: ✗ Failed to load queue', e, st);
       _errorController.add('Failed to load queue: $e');
       return null;
     }
@@ -853,12 +843,10 @@ class AudioPlayerService {
       if (sources.isNotEmpty) {
         await _playlist!.addAll(sources);
         _queueSources.addAll(sources);
-        debugPrint(
-          'AudioPlayerService: Appended ${sources.length} songs to queue (total: ${_queueSources.length})',
-        );
+        logDebug('AudioPlayerService: Appended ${sources.length} songs to queue (total: ${_queueSources.length})');
       }
     } catch (e) {
-      debugPrint('AudioPlayerService: Failed to append to queue: $e');
+      logError('AudioPlayerService: Failed to append to queue', e);
     }
   }
 
