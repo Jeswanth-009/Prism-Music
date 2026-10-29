@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/services/audio_player_service.dart';
-import '../../../core/services/lastfm_service.dart';
 import '../../../core/services/media_session_coordinator.dart';
 import '../../../core/services/recommendation_service.dart';
 import '../../../core/services/audio_focus_orchestrator_service.dart';
@@ -22,10 +21,14 @@ import '../../../domain/repositories/repositories.dart';
 import '../library/library.dart' hide DownloadSongEvent;
 import 'player_event.dart';
 import 'player_state.dart';
+import 'mixins/scrobble_mixin.dart';
+import 'mixins/sleep_timer_mixin.dart';
+import 'playback_bloc.dart';
+import 'queue_bloc.dart';
 
 /// BLoC for managing audio player state
 class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SleepTimerMixin, ScrobbleMixin {
   final MusicRepository _musicRepository;
   final LibraryRepository _libraryRepository;
   final AudioPlayerService _audioPlayer;
@@ -39,10 +42,13 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   int _prefetchLookahead = 1;
   double _crossfadeDurationSeconds = 0.0;
   int _lastNearEndPrefetchIndex = -1;
-  Timer? _sleepTimer;
-  final LastFmService _lastFmService = LastFmService();
   RecommendationService? _recommendationService;
   int _recommendationGeneration = 0;
+  final PlaybackBloc? _playbackBloc;
+  final QueueBloc? _queueBloc;
+
+  PlaybackBloc? get playbackBloc => _playbackBloc;
+  QueueBloc? get queueBloc => _queueBloc;
 
   StreamSubscription<Duration>? _positionSubscription;
   StreamSubscription<Duration>? _bufferedSubscription;
@@ -52,13 +58,6 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   StreamSubscription<String>? _errorSubscription;
   StreamSubscription<bool>? _completedSubscription;
   StreamSubscription<int?>? _indexSubscription;
-
-  // Scrobbling tracking
-  bool _hasScrobbled = false;
-  bool _hasUpdatedNowPlaying = false;
-  bool _hasRecordedHistory = false;
-  String? _lastRecordedSongId;
-  DateTime? _lastRecordedTime;
   AppLifecycleState _lastLifecycleState = AppLifecycleState.resumed;
   int _consecutiveFailureSkips = 0;
   final Set<String> _attemptedFreshResolutions = {};
@@ -77,6 +76,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     required StreamLoaderService streamLoader,
     required DownloadService downloadService,
     RecommendationService? recommendationService,
+    PlaybackBloc? playbackBloc,
+    QueueBloc? queueBloc,
   }) : _musicRepository = musicRepository,
        _libraryRepository = libraryRepository,
        _audioPlayer = audioPlayerService,
@@ -86,6 +87,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
        _streamLoader = streamLoader,
        _downloadService = downloadService,
        _recommendationService = recommendationService,
+       _playbackBloc = playbackBloc,
+       _queueBloc = queueBloc,
        super(PlayerState(autoPlay: SettingsService.instance.autoPlay)) {
     if (_recommendationService == null &&
         getIt.isRegistered<RecommendationService>()) {
@@ -479,9 +482,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         null; // allow fresh recommendations for new track or queue
 
     // Reset scrobbling and history recording flags for new song
-    _hasScrobbled = false;
-    _hasUpdatedNowPlaying = false;
-    _hasRecordedHistory = false;
+    resetScrobbleState();
 
     try {
       _refreshRuntimeSettings();
@@ -632,7 +633,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         _reliability.registerSuccess(event.song.playableId);
         _attemptedFreshResolutions.remove(event.song.playableId);
         _consecutiveFailureSkips = 0;
-        _updateNowPlaying(event.song);
+        updateNowPlaying(event.song);
         // Position in the queue changed → notification skip buttons may
         // have become usable/unusable.
         MediaSessionCoordinator.instance.notifyQueueChanged();
@@ -687,71 +688,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     }
   }
 
-  Future<void> _updateNowPlaying(Song song) async {
-    if (!_hasUpdatedNowPlaying && _lastFmService.isAuthenticated) {
-      _hasUpdatedNowPlaying = true;
-      await _lastFmService.updateNowPlaying(
-        track: song.title,
-        artist: song.artist,
-        album: song.album ?? '',
-      );
-    }
-  }
 
-  Future<void> _attemptScrobble(
-    Song song,
-    Duration position,
-    Duration duration,
-  ) async {
-    if (_hasScrobbled || !_lastFmService.isAuthenticated) return;
-
-    // Scrobble if: played for more than 4 minutes OR more than 50% of the track
-    final shouldScrobble =
-        position.inSeconds > 240 ||
-        (duration.inSeconds > 0 &&
-            position.inSeconds > duration.inSeconds * 0.5);
-
-    if (shouldScrobble) {
-      _hasScrobbled = true;
-      await _lastFmService.scrobble(
-        track: song.title,
-        artist: song.artist,
-        album: song.album ?? '',
-      );
-    }
-  }
-
-  Future<void> _attemptRecordListeningSession(
-    Song song,
-    Duration position,
-    Duration duration,
-  ) async {
-    if (_hasRecordedHistory) return;
-
-    // Minimum listening threshold: played for >= 30 seconds, or >= 50% of track length, or >= 4 minutes
-    final posSec = position.inSeconds;
-    final durSec = duration.inSeconds;
-    final eligible = posSec >= 30 ||
-        (durSec > 0 && posSec >= (durSec * 0.5)) ||
-        posSec >= 240;
-
-    if (eligible) {
-      final now = DateTime.now();
-      // Spam play deduplication: skip if the same song was already recorded within the last 30s
-      if (_lastRecordedSongId == song.playableId &&
-          _lastRecordedTime != null &&
-          now.difference(_lastRecordedTime!).inSeconds < 30) {
-        _hasRecordedHistory = true;
-        return;
-      }
-
-      _hasRecordedHistory = true;
-      _lastRecordedSongId = song.playableId;
-      _lastRecordedTime = now;
-      unawaited(_libraryRepository.addToHistory(song));
-      _recommendationService?.recordPlay(song);
-    }
-  }
 
   Future<void> _onResume(ResumeEvent event, Emitter<PlayerState> emit) async {
     _log('PlayerBloc: _onResume called');
@@ -836,8 +773,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
   Future<void> _onNext(NextEvent event, Emitter<PlayerState> emit) async {
     if (state.sleepTimerEndOfTrack) {
-      _sleepTimer?.cancel();
-      _sleepTimer = null;
+      cancelSleepTimer();
       emit(state.copyWith(clearSleepTimer: true, sleepTimerEndOfTrack: false));
     }
 
@@ -879,8 +815,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     Emitter<PlayerState> emit,
   ) async {
     if (state.sleepTimerEndOfTrack) {
-      _sleepTimer?.cancel();
-      _sleepTimer = null;
+      cancelSleepTimer();
       emit(state.copyWith(clearSleepTimer: true, sleepTimerEndOfTrack: false));
     }
 
@@ -1175,8 +1110,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     SetSleepTimerEvent event,
     Emitter<PlayerState> emit,
   ) async {
-    _sleepTimer?.cancel();
-    _sleepTimer = null;
+    cancelSleepTimer();
 
     if (event.endOfTrack) {
       emit(
@@ -1200,8 +1134,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         sleepTimerEndOfTrack: false,
       ),
     );
-    _sleepTimer = Timer(duration, () {
-      _sleepTimer = null;
+    startSleepTimer(duration, onElapsed: () {
       // Two events: pause playback first, then surface the cleared timer.
       add(const PauseEvent());
       add(const _SleepTimerClearedEvent());
@@ -1217,8 +1150,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
   Future<void> _onStop(StopEvent event, Emitter<PlayerState> emit) async {
     _playbackGeneration++;
-    _sleepTimer?.cancel();
-    _sleepTimer = null;
+    cancelSleepTimer();
     await _audioPlayer.stop();
     await _audioFocus.deactivate();
     _reliability.resetCircuitBreaker();
@@ -1233,8 +1165,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         state.duration > Duration.zero &&
         event.position >= state.duration) {
       _log('PlayerBloc: End-of-track sleep timer reached track duration limit');
-      _sleepTimer?.cancel();
-      _sleepTimer = null;
+      cancelSleepTimer();
       unawaited(_audioPlayer.pause());
       emit(state.copyWith(
         clearSleepTimer: true,
@@ -1248,12 +1179,14 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     final currentSong = state.currentSong;
     if (currentSong != null) {
       if (state.duration.inSeconds > 0) {
-        _attemptScrobble(currentSong, event.position, state.duration);
+        attemptScrobble(currentSong, event.position, state.duration);
       }
-      _attemptRecordListeningSession(
-        currentSong,
-        event.position,
-        state.duration,
+      attemptRecordListeningSession(
+        song: currentSong,
+        position: event.position,
+        duration: state.duration,
+        libraryRepository: _libraryRepository,
+        recommendationService: _recommendationService,
       );
     }
 
@@ -1310,18 +1243,15 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   }
 
   void _onCompleted(_CompletedEvent event, Emitter<PlayerState> emit) async {
-    if (!_hasRecordedHistory && state.currentSong != null) {
-      _hasRecordedHistory = true;
-      _lastRecordedSongId = state.currentSong!.playableId;
-      _lastRecordedTime = DateTime.now();
-      unawaited(_libraryRepository.addToHistory(state.currentSong!));
-      _recommendationService?.recordPlay(state.currentSong!);
-    }
+    handleTrackCompleted(
+      currentSong: state.currentSong,
+      libraryRepository: _libraryRepository,
+      recommendationService: _recommendationService,
+    );
 
     if (state.sleepTimerEndOfTrack) {
       _log('PlayerBloc: End-of-track sleep timer triggered on track completed');
-      _sleepTimer?.cancel();
-      _sleepTimer = null;
+      cancelSleepTimer();
       await _audioPlayer.pause();
       emit(state.copyWith(
         clearSleepTimer: true,
@@ -1822,8 +1752,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       _log(
         'PlayerBloc: End-of-track sleep timer triggered on queue track advance - pausing playback',
       );
-      _sleepTimer?.cancel();
-      _sleepTimer = null;
+      cancelSleepTimer();
       unawaited(_audioPlayer.pause());
       emit(
         state.copyWith(
@@ -1838,8 +1767,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     _log('PlayerBloc: Synced active queue item to: ${newSong.title}');
 
     // Reset scrobbling flags for new song
-    _hasScrobbled = false;
-    _hasUpdatedNowPlaying = false;
+    resetScrobbleState();
     _lastNearEndPrefetchIndex = -1;
 
     // Update state to reflect new song/index.
@@ -1853,9 +1781,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     );
 
     // Update now playing and prefetch ahead.
-    _hasScrobbled = false;
-    _hasUpdatedNowPlaying = false;
-    _hasRecordedHistory = false;
+    resetScrobbleState();
     // Add to history in background.
     _libraryRepository.addToHistory(newSong);
     _recommendationService?.recordPlay(newSong);
@@ -2000,7 +1926,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   @override
   Future<void> close() async {
     WidgetsBinding.instance.removeObserver(this);
-    _sleepTimer?.cancel();
+    cancelSleepTimer();
     await _positionSubscription?.cancel();
     await _bufferedSubscription?.cancel();
     await _durationSubscription?.cancel();
