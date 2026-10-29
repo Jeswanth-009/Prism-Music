@@ -1,5 +1,7 @@
+import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show ThemeMode;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../utils/logger.dart';
 
@@ -132,13 +134,28 @@ class SettingsService {
   Box? _settingsBox;
   bool _initialized = false;
 
+  FlutterSecureStorage _secureStorage;
+  String? _spotifyClientId;
+  String? _spotifyClientSecret;
+
   // Private constructor for singleton
-  SettingsService._();
+  SettingsService._({FlutterSecureStorage? secureStorage})
+      : _secureStorage = secureStorage ?? const FlutterSecureStorage();
 
   /// Get singleton instance
   static SettingsService get instance {
     _instance ??= SettingsService._();
     return _instance!;
+  }
+
+  @visibleForTesting
+  static void resetForTesting({FlutterSecureStorage? secureStorage}) {
+    _instance = SettingsService._(secureStorage: secureStorage);
+  }
+
+  @visibleForTesting
+  void setSecureStorageForTesting(FlutterSecureStorage secureStorage) {
+    _secureStorage = secureStorage;
   }
 
   /// Initialize the settings service
@@ -151,6 +168,35 @@ class SettingsService {
       } else {
         _settingsBox = await Hive.openBox(_boxName);
       }
+      // Load Spotify credentials from secure storage & perform transparent migration from Hive if present
+      try {
+        _spotifyClientId = await _secureStorage.read(key: _spotifyClientIdKey);
+        _spotifyClientSecret = await _secureStorage.read(key: _spotifyClientSecretKey);
+
+        final legacyId = _settingsBox?.get(_spotifyClientIdKey)?.toString();
+        final legacySecret = _settingsBox?.get(_spotifyClientSecretKey)?.toString();
+
+        if (legacyId != null && legacyId.isNotEmpty) {
+          if (_spotifyClientId == null || _spotifyClientId!.isEmpty) {
+            _spotifyClientId = legacyId.trim();
+            await _secureStorage.write(key: _spotifyClientIdKey, value: _spotifyClientId!);
+          }
+          await _settingsBox?.delete(_spotifyClientIdKey);
+        }
+
+        if (legacySecret != null && legacySecret.isNotEmpty) {
+          if (_spotifyClientSecret == null || _spotifyClientSecret!.isEmpty) {
+            _spotifyClientSecret = legacySecret.trim();
+            await _secureStorage.write(key: _spotifyClientSecretKey, value: _spotifyClientSecret!);
+          }
+          await _settingsBox?.delete(_spotifyClientSecretKey);
+        }
+      } catch (e, stack) {
+        if (e is! MissingPluginException) {
+          logError('SettingsService: Error reading/migrating secure Spotify credentials', e, stack);
+        }
+      }
+
       _initialized = true;
       logDebug('SettingsService: Initialized successfully');
     } catch (e, stack) {
@@ -524,39 +570,51 @@ class SettingsService {
   }
 
   /// Optional Spotify Developer Client ID for uncapped imports and ISRC metadata.
-  String? get spotifyClientId {
-    try {
-      return _settingsBox?.get(_spotifyClientIdKey) as String?;
-    } catch (_) {
-      return null;
-    }
-  }
+  String? get spotifyClientId => _spotifyClientId;
 
   /// Persist Spotify Developer Client ID.
   Future<void> setSpotifyClientId(String? id) async {
-    if (id == null || id.trim().isEmpty) {
-      await _settingsBox?.delete(_spotifyClientIdKey);
+    final trimmed = id?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      _spotifyClientId = null;
+      try {
+        await _secureStorage.delete(key: _spotifyClientIdKey);
+      } catch (e, stack) {
+        logError('SettingsService: Error deleting secure Spotify Client ID', e, stack);
+      }
     } else {
-      await _settingsBox?.put(_spotifyClientIdKey, id.trim());
+      _spotifyClientId = trimmed;
+      try {
+        await _secureStorage.write(key: _spotifyClientIdKey, value: trimmed);
+      } catch (e, stack) {
+        logError('SettingsService: Error saving secure Spotify Client ID', e, stack);
+      }
     }
+    await _settingsBox?.delete(_spotifyClientIdKey);
   }
 
   /// Optional Spotify Developer Client Secret for uncapped imports and ISRC metadata.
-  String? get spotifyClientSecret {
-    try {
-      return _settingsBox?.get(_spotifyClientSecretKey) as String?;
-    } catch (_) {
-      return null;
-    }
-  }
+  String? get spotifyClientSecret => _spotifyClientSecret;
 
   /// Persist Spotify Developer Client Secret.
   Future<void> setSpotifyClientSecret(String? secret) async {
-    if (secret == null || secret.trim().isEmpty) {
-      await _settingsBox?.delete(_spotifyClientSecretKey);
+    final trimmed = secret?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      _spotifyClientSecret = null;
+      try {
+        await _secureStorage.delete(key: _spotifyClientSecretKey);
+      } catch (e, stack) {
+        logError('SettingsService: Error deleting secure Spotify Client Secret', e, stack);
+      }
     } else {
-      await _settingsBox?.put(_spotifyClientSecretKey, secret.trim());
+      _spotifyClientSecret = trimmed;
+      try {
+        await _secureStorage.write(key: _spotifyClientSecretKey, value: trimmed);
+      } catch (e, stack) {
+        logError('SettingsService: Error saving secure Spotify Client Secret', e, stack);
+      }
     }
+    await _settingsBox?.delete(_spotifyClientSecretKey);
   }
 
   /// List of enabled home section IDs (by name).
