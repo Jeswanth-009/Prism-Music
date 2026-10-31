@@ -64,5 +64,35 @@ void main() {
 
       expect(cache.getStats()['total'], 0);
     });
+
+    test('isUrlExpired correctly flags expired vs fresh YouTube expire parameters', () {
+      final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final pastUrl = 'https://googlevideo.com/videoplayback?expire=${nowSec - 100}';
+      final futureUrl = 'https://googlevideo.com/videoplayback?expire=${nowSec + 3600}';
+      final plainUrl = 'https://stream.example.com/audio.mp3';
+
+      expect(StreamCacheService.isUrlExpired(pastUrl), isTrue);
+      expect(StreamCacheService.isUrlExpired(futureUrl), isFalse);
+      expect(StreamCacheService.isUrlExpired(plainUrl), isFalse);
+    });
+
+    test('isFresh proactively invalidates and returns false for expired stream URL', () {
+      final pastSec = (DateTime.now().millisecondsSinceEpoch ~/ 1000) - 60;
+      final expiredInfo = streamInfo('https://googlevideo.com/videoplayback?expire=$pastSec');
+      cache.cache('yt_expired', expiredInfo);
+
+      expect(cache.isFresh('yt_expired'), isFalse);
+      // Cache was proactively invalidated
+      expect(cache.getCached('yt_expired'), isNull);
+    });
+
+    test('isFresh returns true for stream URL with plenty of validity remaining', () {
+      final futureSec = (DateTime.now().millisecondsSinceEpoch ~/ 1000) + 7200;
+      final freshInfo = streamInfo('https://googlevideo.com/videoplayback?expire=$futureSec');
+      cache.cache('yt_fresh', freshInfo);
+
+      expect(cache.isFresh('yt_fresh'), isTrue);
+      expect(cache.getCached('yt_fresh'), isNotNull);
+    });
   });
 }

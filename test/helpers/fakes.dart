@@ -757,6 +757,9 @@ class FakeMediaResolver implements MediaResolverService {
 
 class FakeStreamLoader implements StreamLoaderService {
   @override
+  bool isStreamFresh(Song song, {AudioQuality preferredQuality = AudioQuality.high}) => true;
+
+  @override
   void prefetch(Song song, {AudioQuality preferredQuality = AudioQuality.high}) {}
 
   @override

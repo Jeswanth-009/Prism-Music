@@ -6,12 +6,15 @@ import '../../domain/entities/stream_info.dart';
 class _CacheEntry {
   final StreamInfo streamInfo;
   final DateTime expiresAt;
-  
+
   _CacheEntry(this.streamInfo, Duration ttl)
       : expiresAt = DateTime.now().add(ttl);
-  
-  bool get isExpired => DateTime.now().isAfter(expiresAt);
-  
+
+  bool get isExpired {
+    if (DateTime.now().isAfter(expiresAt)) return true;
+    return StreamCacheService.isUrlExpired(streamInfo.url);
+  }
+
   Duration get remainingTime => expiresAt.difference(DateTime.now());
 }
 
@@ -21,6 +24,22 @@ class StreamCacheService {
   
   // Conservative baseline TTL
   static const Duration _defaultTTL = Duration(minutes: 45);
+
+  /// Checks whether a stream URL with an embedded `expire` parameter is expired or expiring soon.
+  static bool isUrlExpired(String url, {Duration safetyBuffer = const Duration(minutes: 5)}) {
+    try {
+      final uri = Uri.tryParse(url);
+      if (uri != null && uri.queryParameters.containsKey('expire')) {
+        final expireSeconds = int.tryParse(uri.queryParameters['expire']!);
+        if (expireSeconds != null) {
+          final expireDate =
+              DateTime.fromMillisecondsSinceEpoch(expireSeconds * 1000);
+          return DateTime.now().add(safetyBuffer).isAfter(expireDate);
+        }
+      }
+    } catch (_) {}
+    return false;
+  }
 
   String _buildKey(String videoId, [AudioQuality? quality]) =>
       quality != null ? '${videoId}_${quality.name}' : videoId;
@@ -56,9 +75,8 @@ class StreamCacheService {
     }
     
     if (entry.isExpired) {
-      debugPrint('StreamCache: Removing expired cache for $key');
-      _cache.remove(key);
-      if (key != videoId) _cache.remove(videoId);
+      debugPrint('StreamCache: Proactively removing expired cache for $key');
+      invalidate(videoId);
       return null;
     }
     
@@ -96,7 +114,33 @@ class StreamCacheService {
   bool isCached(String videoId, [AudioQuality? quality]) {
     final key = _buildKey(videoId, quality);
     final entry = _cache[key] ?? (quality != null ? _cache[videoId] : null);
-    return entry != null && !entry.isExpired;
+    if (entry == null) return false;
+    if (entry.isExpired) {
+      invalidate(videoId);
+      return false;
+    }
+    return true;
+  }
+
+  /// Proactively check if a stream is cached and fresh (both TTL and URL expiration).
+  /// If expired or stale within [threshold], proactively invalidates the cache and returns false.
+  bool isFresh(
+    String videoId, [
+    AudioQuality? quality,
+    Duration threshold = const Duration(minutes: 5),
+  ]) {
+    final key = _buildKey(videoId, quality);
+    final entry = _cache[key] ?? (quality != null ? _cache[videoId] : null);
+    if (entry == null) return false;
+
+    if (entry.isExpired ||
+        entry.remainingTime <= threshold ||
+        isUrlExpired(entry.streamInfo.url, safetyBuffer: threshold)) {
+      debugPrint('StreamCache: Proactively invalidating stale cache for $key');
+      invalidate(videoId);
+      return false;
+    }
+    return true;
   }
   
   /// Clear expired entries

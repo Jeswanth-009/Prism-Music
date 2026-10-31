@@ -22,6 +22,7 @@ class PlaySongEvent extends PlayerEvent {
   /// and remain subject to the breaker.
   final bool userInitiated;
   final String? preferredResolver;
+  final Duration? initialPosition;
 
   const PlaySongEvent({
     required this.song,
@@ -29,10 +30,11 @@ class PlaySongEvent extends PlayerEvent {
     this.queueIndex,
     this.userInitiated = true,
     this.preferredResolver,
+    this.initialPosition,
   });
 
   @override
-  List<Object?> get props => [song, queue, queueIndex, userInitiated, preferredResolver];
+  List<Object?> get props => [song, queue, queueIndex, userInitiated, preferredResolver, initialPosition];
 }
 
 /// Play/Resume current song

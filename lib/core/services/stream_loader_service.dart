@@ -297,6 +297,12 @@ class StreamLoaderService {
         });
   }
 
+  /// Check if cached stream for [song] is fresh (both TTL and URL expiry).
+  /// Proactively invalidates cache if stale.
+  bool isStreamFresh(Song song, {AudioQuality preferredQuality = AudioQuality.high}) {
+    return _cache.isFresh(song.playableId, preferredQuality);
+  }
+
   /// Invalidate cached stream for a song
   void invalidateCache(String videoId) {
     _invalidatedVideoIds.add(videoId);

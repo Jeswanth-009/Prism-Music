@@ -8,6 +8,7 @@ import '../../../core/services/recommendation_service.dart';
 import '../../../core/services/audio_focus_orchestrator_service.dart';
 import '../../../core/services/media_resolver_service.dart';
 import '../../../core/services/playback_reliability_service.dart';
+import '../../../core/services/stream_cache_service.dart';
 import '../../../core/services/stream_loader_service.dart';
 import '../../../core/services/download_service.dart';
 import '../../../core/services/permission_service.dart';
@@ -615,6 +616,13 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         // F01: Treat playback startup and lifetime completion as separate operations.
         // Commit playing status, metadata, and history immediately without awaiting
         // the entire playback lifetime of the song.
+        final resumePos = event.initialPosition ?? Duration.zero;
+        if (resumePos > Duration.zero) {
+          try {
+            await _audioPlayer.seek(resumePos);
+          } catch (_) {}
+        }
+
         emit(
           state.copyWith(
             status: PlayerStatus.playing,
@@ -624,7 +632,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
                 ? state.originalQueue
                 : state.queue,
             queueIndex: queueIndex,
-            position: Duration.zero,
+            position: resumePos,
           ),
         );
 
@@ -722,6 +730,35 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         ),
       );
       return;
+    }
+
+    // Proactively check stream URL freshness before playback resume.
+    // If stream URL is expired or cache is stale (e.g. paused for hours), invalidate cache and re-resolve.
+    if (state.currentSong != null &&
+        !_downloadService.isDownloaded(state.currentSong!.playableId)) {
+      final currentUrl = state.currentStreamInfo?.url ?? state.currentSong!.streamUrl;
+      final isUrlExpired = currentUrl != null && StreamCacheService.isUrlExpired(currentUrl);
+      final isCacheStale = state.currentStreamInfo != null &&
+          !_streamLoader.isStreamFresh(state.currentSong!, preferredQuality: state.audioQuality);
+
+      if (isUrlExpired || isCacheStale) {
+        _log(
+          'PlayerBloc: Stream URL for "${state.currentSong!.title}" is expired/stale on resume. '
+          'Proactively invalidating cache and re-resolving stream.',
+        );
+        _mediaResolver.invalidate(state.currentSong!.playableId);
+        _attemptedFreshResolutions.remove(state.currentSong!.playableId);
+        add(
+          PlaySongEvent(
+            song: state.currentSong!,
+            queue: state.queue,
+            queueIndex: state.queueIndex,
+            userInitiated: true,
+            initialPosition: state.position,
+          ),
+        );
+        return;
+      }
     }
 
     // Only resume if we have a song AND it's in a paused/ready state
