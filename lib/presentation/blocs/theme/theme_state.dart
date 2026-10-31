@@ -141,6 +141,10 @@ class ThemeState extends Equatable {
             letterSpacing: -1.2,
             fontWeight: FontWeight.w700,
           ),
+          displayMedium: baseTextTheme.displayMedium?.copyWith(
+            letterSpacing: -1.0,
+            fontWeight: FontWeight.w700,
+          ),
           displaySmall: baseTextTheme.displaySmall?.copyWith(
             letterSpacing: -0.8,
             fontWeight: FontWeight.w700,
@@ -153,6 +157,10 @@ class ThemeState extends Equatable {
             letterSpacing: -0.6,
             fontWeight: FontWeight.w600,
           ),
+          headlineSmall: baseTextTheme.headlineSmall?.copyWith(
+            letterSpacing: -0.4,
+            fontWeight: FontWeight.w600,
+          ),
           titleLarge: baseTextTheme.titleLarge?.copyWith(
             letterSpacing: -0.3,
             fontWeight: FontWeight.w600,
@@ -161,8 +169,40 @@ class ThemeState extends Equatable {
             letterSpacing: -0.2,
             fontWeight: FontWeight.w600,
           ),
+          titleSmall: baseTextTheme.titleSmall?.copyWith(
+            letterSpacing: -0.1,
+            fontWeight: FontWeight.w500,
+          ),
+          bodyLarge: baseTextTheme.bodyLarge?.copyWith(
+            letterSpacing: 0.15,
+            fontWeight: FontWeight.w400,
+          ),
+          bodyMedium: baseTextTheme.bodyMedium?.copyWith(
+            letterSpacing: 0.25,
+            fontWeight: FontWeight.w400,
+          ),
+          bodySmall: baseTextTheme.bodySmall?.copyWith(
+            letterSpacing: 0.4,
+            fontWeight: FontWeight.w400,
+          ),
+          labelLarge: baseTextTheme.labelLarge?.copyWith(
+            letterSpacing: 0.1,
+            fontWeight: FontWeight.w500,
+          ),
+          labelMedium: baseTextTheme.labelMedium?.copyWith(
+            letterSpacing: 0.5,
+            fontWeight: FontWeight.w500,
+          ),
+          labelSmall: baseTextTheme.labelSmall?.copyWith(
+            letterSpacing: 0.5,
+            fontWeight: FontWeight.w500,
+          ),
         )
-        .apply(bodyColor: scheme.onSurface, displayColor: scheme.onSurface);
+        .apply(
+          bodyColor: scheme.onSurface,
+          displayColor: scheme.onSurface,
+          fontFamily: 'Inter',
+        );
 
     final spec = PrismSpec(
       accent: scheme.primary,
@@ -178,6 +218,7 @@ class ThemeState extends Equatable {
 
     return ThemeData(
       useMaterial3: true,
+      fontFamily: 'Inter',
       colorScheme: scheme,
       brightness: brightness,
       scaffoldBackgroundColor: scheme.surface,

@@ -119,5 +119,38 @@ void main() {
       expect(SettingsService.instance.dynamicAccent, isTrue);
       await bloc.close();
     });
+
+    test('complete TextTheme defines all 15 typography styles with Inter weights', () {
+      final state = const ThemeState();
+      for (final theme in [state.lightTheme, state.darkTheme]) {
+        final tt = theme.textTheme;
+
+        // Bold roles (w700)
+        expect(tt.displayLarge?.fontWeight, FontWeight.w700);
+        expect(tt.displayMedium?.fontWeight, FontWeight.w700);
+        expect(tt.displaySmall?.fontWeight, FontWeight.w700);
+        expect(tt.headlineLarge?.fontWeight, FontWeight.w700);
+
+        // SemiBold roles (w600)
+        expect(tt.headlineMedium?.fontWeight, FontWeight.w600);
+        expect(tt.headlineSmall?.fontWeight, FontWeight.w600);
+        expect(tt.titleLarge?.fontWeight, FontWeight.w600);
+        expect(tt.titleMedium?.fontWeight, FontWeight.w600);
+
+        // Medium roles (w500)
+        expect(tt.titleSmall?.fontWeight, FontWeight.w500);
+        expect(tt.labelLarge?.fontWeight, FontWeight.w500);
+        expect(tt.labelMedium?.fontWeight, FontWeight.w500);
+        expect(tt.labelSmall?.fontWeight, FontWeight.w500);
+
+        // Regular roles (w400)
+        expect(tt.bodyLarge?.fontWeight, FontWeight.w400);
+        expect(tt.bodyMedium?.fontWeight, FontWeight.w400);
+        expect(tt.bodySmall?.fontWeight, FontWeight.w400);
+
+        // Font family check
+        expect(tt.bodyMedium?.fontFamily, contains('Inter'));
+      }
+    });
   });
 }
