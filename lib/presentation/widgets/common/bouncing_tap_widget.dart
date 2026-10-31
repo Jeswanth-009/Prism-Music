@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/prism_theme.dart';
 
 class BouncingTapWidget extends StatefulWidget {
   final Widget child;
@@ -41,15 +42,20 @@ class _BouncingTapWidgetState extends State<BouncingTapWidget>
   }
 
   void _onTapDown(TapDownDetails details) {
+    if (PrismMotion.isReducedMotion(context)) return;
     _controller.forward();
   }
 
   void _onTapUp(TapUpDetails details) {
-    _controller.reverse();
+    if (!PrismMotion.isReducedMotion(context)) {
+      _controller.reverse();
+    }
   }
 
   void _onTapCancel() {
-    _controller.reverse();
+    if (!PrismMotion.isReducedMotion(context)) {
+      _controller.reverse();
+    }
   }
 
   @override

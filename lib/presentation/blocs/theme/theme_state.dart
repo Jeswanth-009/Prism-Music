@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'theme_event.dart';
+import '../../theme/prism_page_transitions.dart';
 import '../../theme/prism_theme.dart';
 
 /// Represents the complete theme state
@@ -219,6 +220,15 @@ class ThemeState extends Equatable {
       scaffoldBackgroundColor: scheme.surface,
       textTheme: textTheme,
       extensions: [spec],
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: PrismPageTransitionsBuilder(),
+          TargetPlatform.iOS: PrismPageTransitionsBuilder(),
+          TargetPlatform.linux: PrismPageTransitionsBuilder(),
+          TargetPlatform.macOS: PrismPageTransitionsBuilder(),
+          TargetPlatform.windows: PrismPageTransitionsBuilder(),
+        },
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         foregroundColor: scheme.onSurface,
