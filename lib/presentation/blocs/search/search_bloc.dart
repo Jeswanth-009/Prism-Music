@@ -16,6 +16,12 @@ EventTransformer<E> _restartableDebounce<E>(Duration duration) {
   return (events, mapper) => events.debounceTime(duration).switchMap(mapper);
 }
 
+/// Custom event transformer for droppable pagination (drops overlapping requests)
+EventTransformer<E> _droppablePagination<E>() {
+  return (events, mapper) =>
+      events.throttleTime(const Duration(milliseconds: 300)).exhaustMap(mapper);
+}
+
 /// BLoC for managing search functionality
 class SearchBloc extends Bloc<SearchEvent, SearchState> {
   final MusicRepository _musicRepository;
@@ -33,7 +39,10 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
       transformer: _restartableDebounce(const Duration(milliseconds: 300)),
     );
     on<ClearSearchEvent>(_onClearSearch);
-    on<LoadMoreResultsEvent>(_onLoadMoreResults);
+    on<LoadMoreResultsEvent>(
+      _onLoadMoreResults,
+      transformer: _droppablePagination(),
+    );
     on<UpdateFilterEvent>(_onUpdateFilter);
     on<AddToHistoryEvent>(_onAddToHistory);
     on<ClearHistoryEvent>(_onClearHistory);

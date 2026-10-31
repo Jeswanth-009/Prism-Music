@@ -131,6 +131,8 @@ void main() {
       expect(bloc.state.status, SearchStatus.success);
       expect(bloc.state.results.songs.single.title, 'Universal Hit');
     });
+
+
   });
 
   group('UpdateFilterEvent', () {
@@ -290,6 +292,27 @@ void main() {
       expect(bloc.state.results.songs, hasLength(40));
       expect(bloc.state.hasMore, isFalse); // only 10 returned (< 30)
       expect(bloc.state.page, 2);
+    });
+
+    test('rapid successive LoadMoreResultsEvents are throttled by exhaustMap transformer', () async {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      final initialSongs = List.generate(30, (i) => song('song_', 'Song '));
+      musicRepo.searchResult = Right(initialSongs);
+
+      bloc.add(const SearchQueryEvent(query: 'rock', filter: SearchFilter.songs));
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+
+      final nextSongs = List.generate(30, (i) => song('song_', 'Song '));
+      musicRepo.searchResult = Right(nextSongs);
+
+      final callsBefore = musicRepo.searchSongsCallCount;
+      // Fire multiple rapid pagination events
+      bloc.add(const LoadMoreResultsEvent());
+      bloc.add(const LoadMoreResultsEvent());
+      bloc.add(const LoadMoreResultsEvent());
+
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(musicRepo.searchSongsCallCount, callsBefore + 1);
     });
   });
 }
