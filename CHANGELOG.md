@@ -8,6 +8,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.73] - 2026-10-31
+
+### Added
+
+- Define complete TextTheme with Inter weights and offline typography in ThemeBloc
+
+### Fixed
+
+- Preserve asset mapper resolution in Inter text theme
+
 ## [0.2.72] - 2026-10-31
 
 ### Added
@@ -1001,3 +1011,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.70]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.70-build106
 [0.2.71]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.71-build107
 [0.2.72]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.72-build108
+[0.2.73]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.73-build109
