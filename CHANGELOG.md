@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.69] - 2026-10-31
+
+### Changed
+
+- Register PlayerBloc and sub-blocs as lazy singletons
+
 ## [0.2.68] - 2026-10-29
 
 ### Changed
@@ -973,3 +979,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.66]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.66-build102
 [0.2.67]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.67-build103
 [0.2.68]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.68-build104
+[0.2.69]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.69-build105
