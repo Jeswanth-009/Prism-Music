@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.72] - 2026-10-31
+
+### Added
+
+- Implement queued concurrency pool with max 3 active downloads
+
 ## [0.2.71] - 2026-10-31
 
 ### Fixed
@@ -994,3 +1000,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.69]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.69-build105
 [0.2.70]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.70-build106
 [0.2.71]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.71-build107
+[0.2.72]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.72-build108
