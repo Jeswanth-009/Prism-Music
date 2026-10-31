@@ -143,7 +143,7 @@ class _PlayerPageState extends State<PlayerPage> {
                     if (state.errorMessage != null &&
                         state.status == PlayerStatus.error)
                       _buildErrorBanner(context, theme, song, state),
-                    if (AdaptiveBreakpoints.isExpanded(context))
+                    if (AdaptiveBreakpoints.isLandscape(context) || (AdaptiveBreakpoints.isTablet(context) && MediaQuery.sizeOf(context).aspectRatio > 1.1))
                       Expanded(
                         child: LandscapePlayerLayout(
                           song: song,

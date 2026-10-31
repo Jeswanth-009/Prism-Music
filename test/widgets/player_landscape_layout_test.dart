@@ -43,6 +43,67 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('PlayerPage renders landscape tablet layout cleanly on 1280x800',
+        (tester) async {
+      final playerBloc = buildTestPlayerBloc();
+      addTearDown(playerBloc.close);
+
+      playerBloc.emit(const PlayerState(
+        status: PlayerStatus.playing,
+        currentSong: Song(
+          id: 'tablet_landscape_track',
+          title: 'Tablet Landscape Song',
+          artist: 'Tablet Artist',
+          duration: Duration(seconds: 210),
+          thumbnails: Thumbnails(),
+        ),
+      ));
+
+      await pumpTestWidget(
+        tester,
+        const PlayerPage(),
+        playerBloc: playerBloc,
+        size: const Size(1280, 800),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byType(LandscapePlayerLayout), findsOneWidget);
+      expect(find.text('Tablet Landscape Song'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('PlayerPage renders tablet portrait layout cleanly on 800x1280',
+        (tester) async {
+      final playerBloc = buildTestPlayerBloc();
+      addTearDown(playerBloc.close);
+
+      playerBloc.emit(const PlayerState(
+        status: PlayerStatus.playing,
+        currentSong: Song(
+          id: 'tablet_portrait_track',
+          title: 'Tablet Portrait Song',
+          artist: 'Tablet Artist',
+          duration: Duration(seconds: 180),
+          thumbnails: Thumbnails(),
+        ),
+      ));
+
+      await pumpTestWidget(
+        tester,
+        const PlayerPage(),
+        playerBloc: playerBloc,
+        size: const Size(800, 1280),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // On portrait tablet, should use vertical centered layout
+      expect(find.byType(LandscapePlayerLayout), findsNothing);
+      expect(find.text('Tablet Portrait Song'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('HomePage renders NavigationRail when on tablet width',
         (tester) async {
       final playerBloc = buildTestPlayerBloc();
