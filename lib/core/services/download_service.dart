@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -23,6 +24,7 @@ String downloadFileName(String playableId, String title) =>
 
 enum DownloadStatus {
   notDownloaded,
+  queued,
   downloading,
   completed,
   failed,
@@ -75,15 +77,19 @@ class DownloadInfo {
 class DownloadService {
   static const String _downloadBoxName = 'downloads';
   static const int _minValidAudioBytes = 16 * 1024;
+  static const int _maxConcurrentDownloads = 3;
   final StreamLoaderService _streamLoaderService;
-  final Dio _dio = Dio();
+  final Dio _dio;
   final Map<String, CancelToken> _cancelTokens = {};
-  
+
+  final List<({Song song, StreamInfo? resolvedStream, Completer<bool> completer})> _downloadQueue = [];
+  final Set<String> _activeDownloadIds = {};
+
   Box? _downloadBox;
   final Map<String, DownloadInfo> _downloadProgress = {};
   final List<Function(DownloadInfo)> _listeners = [];
 
-  DownloadService(this._streamLoaderService);
+  DownloadService(this._streamLoaderService, {Dio? dio}) : _dio = dio ?? Dio();
 
   Future<void> initialize() async {
     try {
@@ -261,11 +267,12 @@ class DownloadService {
       }
     }
 
-    // Check if currently downloading (but allow retry if failed)
+    // Check if currently downloading or queued (allow retry if failed)
     if (_downloadProgress.containsKey(song.playableId)) {
       final currentStatus = _downloadProgress[song.playableId]!.status;
-      if (currentStatus == DownloadStatus.downloading) {
-        logDebug('Song already downloading: ${song.title}');
+      if (currentStatus == DownloadStatus.downloading ||
+          currentStatus == DownloadStatus.queued) {
+        logDebug('Song already downloading or queued: ${song.title}');
         return false;
       }
       // Remove failed downloads to allow retry
@@ -301,6 +308,64 @@ class DownloadService {
       }
     }
 
+    if (_activeDownloadIds.length >= _maxConcurrentDownloads) {
+      logDebug('Max concurrent downloads reached (3). Queueing: ${song.title}');
+      final completer = Completer<bool>();
+      final queuedInfo = DownloadInfo(
+        songId: song.playableId,
+        status: DownloadStatus.queued,
+        progress: 0.0,
+        songTitle: song.title,
+        artist: song.artist,
+        thumbnailUrl: song.thumbnailUrl,
+      );
+      _downloadProgress[song.playableId] = queuedInfo;
+      _downloadQueue.add((
+        song: song,
+        resolvedStream: resolvedStream,
+        completer: completer,
+      ));
+      _notifyListeners(queuedInfo);
+      return completer.future;
+    }
+
+    return _executeDownload(song, resolvedStream: resolvedStream);
+  }
+
+  Future<bool> _executeDownload(Song song, {StreamInfo? resolvedStream}) async {
+    _activeDownloadIds.add(song.playableId);
+    try {
+      return await _downloadSongInternal(song, resolvedStream: resolvedStream);
+    } finally {
+      _activeDownloadIds.remove(song.playableId);
+      _processNextInQueue();
+    }
+  }
+
+  void _processNextInQueue() {
+    if (_downloadQueue.isEmpty) return;
+    if (_activeDownloadIds.length >= _maxConcurrentDownloads) return;
+
+    final next = _downloadQueue.removeAt(0);
+    // If was cancelled while queued, advance to next
+    if (!_downloadProgress.containsKey(next.song.playableId) ||
+        _downloadProgress[next.song.playableId]!.status != DownloadStatus.queued) {
+      _processNextInQueue();
+      return;
+    }
+
+    _executeDownload(next.song, resolvedStream: next.resolvedStream).then((success) {
+      if (!next.completer.isCompleted) {
+        next.completer.complete(success);
+      }
+    }).catchError((e) {
+      if (!next.completer.isCompleted) {
+        next.completer.complete(false);
+      }
+    });
+  }
+
+  Future<bool> _downloadSongInternal(Song song, {StreamInfo? resolvedStream}) async {
     // Create cancel token for this download
     final cancelToken = CancelToken();
     _cancelTokens[song.playableId] = cancelToken;
@@ -588,6 +653,27 @@ class DownloadService {
 
   /// Cancel download
   void cancelDownload(String songId) {
+    // If waiting in queue, cancel and remove cleanly without I/O
+    final queueIndex =
+        _downloadQueue.indexWhere((item) => item.song.playableId == songId);
+    if (queueIndex != -1) {
+      final item = _downloadQueue.removeAt(queueIndex);
+      if (!item.completer.isCompleted) {
+        item.completer.complete(false);
+      }
+      final prev = _downloadProgress.remove(songId);
+      _notifyListeners(
+        DownloadInfo(
+          songId: songId,
+          status: DownloadStatus.notDownloaded,
+          songTitle: prev?.songTitle ?? item.song.title,
+          artist: prev?.artist ?? item.song.artist,
+          thumbnailUrl: prev?.thumbnailUrl ?? item.song.thumbnailUrl,
+        ),
+      );
+      return;
+    }
+
     final prev = _downloadProgress[songId];
     _cancelTokens[songId]?.cancel();
     _cancelTokens.remove(songId);

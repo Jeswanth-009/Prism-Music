@@ -146,6 +146,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
     final theme = Theme.of(context);
     final activeDownloads = _downloadService.activeDownloads.values
         .where((d) =>
+            d.status == DownloadStatus.queued ||
             d.status == DownloadStatus.downloading ||
             d.status == DownloadStatus.failed)
         .toList();
@@ -223,8 +224,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                                               child: Icon(
                                                 isFailed
                                                     ? Icons.error_outline_rounded
-                                                    : Icons
-                                                        .downloading_rounded,
+                                                    : (info.status == DownloadStatus.queued ? Icons.hourglass_top_rounded : Icons.downloading_rounded),
                                                 color: isFailed
                                                     ? theme.colorScheme.error
                                                     : theme.colorScheme.primary,
@@ -251,7 +251,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                                         Text(
                                           isFailed
                                               ? (info.error ?? 'Download failed')
-                                              : (info.artist ?? 'Downloading…'),
+                                              : (info.status == DownloadStatus.queued ? 'Queued' : (info.artist ?? 'Downloading…')),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: theme.textTheme.bodySmall
@@ -266,9 +266,11 @@ class _DownloadsPageState extends State<DownloadsPage> {
                                         LinearProgressIndicator(
                                           value: isFailed
                                               ? 0
-                                              : (info.progress > 0
-                                                  ? info.progress
-                                                  : null),
+                                              : (info.status == DownloadStatus.queued
+                                                  ? 0
+                                                  : (info.progress > 0
+                                                      ? info.progress
+                                                      : null)),
                                           backgroundColor: theme.colorScheme
                                               .surfaceContainerHighest,
                                           color: isFailed
