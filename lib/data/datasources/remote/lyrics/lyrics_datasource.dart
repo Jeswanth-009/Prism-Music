@@ -1,3 +1,4 @@
+import 'fallback_lyrics_provider.dart';
 import 'package:dio/dio.dart';
 
 import '../../../../core/utils/lyrics_matching.dart';
@@ -42,10 +43,15 @@ class LyricsOutageException implements Exception {
 class LyricsDataSourceImpl implements LyricsDataSource {
   final Dio _dio;
   final LyricsLocalCache _cache;
+  final FallbackLyricsProvider? _fallbackProvider;
 
-  LyricsDataSourceImpl({required Dio dio, LyricsLocalCache? cache})
-      : _dio = dio,
-        _cache = cache ?? LyricsLocalCache();
+  LyricsDataSourceImpl({
+    required Dio dio,
+    LyricsLocalCache? cache,
+    FallbackLyricsProvider? fallbackProvider,
+  })  : _dio = dio,
+        _cache = cache ?? LyricsLocalCache(),
+        _fallbackProvider = fallbackProvider;
 
   static const String _lrclibBaseUrl = 'https://lrclib.net/api';
 
@@ -79,26 +85,73 @@ class LyricsDataSourceImpl implements LyricsDataSource {
         duration: duration,
       );
       if (cached != null) return cached;
+
+      final fallbackCached = await _cache.get(
+        title,
+        artist,
+        songId,
+        duration: duration,
+        provider: 'lyrics.ovh',
+      );
+      if (fallbackCached != null) return fallbackCached;
     }
 
     final query = LyricsQuery(title: title, artist: artist, duration: duration);
 
-    // 1. Exact lookup. Duration only when plausible — YouTube-sourced songs
-    //    sometimes carry 0 or a placeholder that would poison matching.
-    final exact = await _fetchFromGet(query);
+    Lyrics? exact;
+    LyricsOutageException? outage;
+    try {
+      exact = await _fetchFromGet(query);
+    } on LyricsOutageException catch (e) {
+      outage = e;
+    }
+
     if (exact != null) {
       await _cacheSuccess(title, artist, exact, duration: duration);
       return exact;
     }
 
-    // 2. Candidate search with scoring.
-    final scored = await _fetchFromSearch(query);
+    Lyrics? scored;
+    if (outage == null) {
+      try {
+        scored = await _fetchFromSearch(query);
+      } on LyricsOutageException catch (e) {
+        outage = e;
+      }
+    }
+
     if (scored != null) {
       await _cacheSuccess(title, artist, scored, duration: duration);
       return scored;
     }
 
-    // Both exact and scored lookups completed without finding lyrics (and without network outage).
+    // 3. Fallback provider (plain lyrics from secondary source, e.g. lyrics.ovh)
+    if (_fallbackProvider != null) {
+      try {
+        final fallbackPlain = await _fallbackProvider.fetchLyrics(
+          _usable(query.title) ?? query.title,
+          _usableArtist(query.artist) ?? query.artist,
+        );
+        if (fallbackPlain != null && fallbackPlain.trim().isNotEmpty) {
+          final fallbackLyrics = Lyrics(
+            songId: songId,
+            plainLyrics: fallbackPlain.trim(),
+            syncedLyrics: null,
+            source: 'lyrics.ovh',
+          );
+          await _cacheSuccess(title, artist, fallbackLyrics, duration: duration);
+          return fallbackLyrics;
+        }
+      } catch (_) {
+        // Fallback provider errors are non-fatal
+      }
+    }
+
+    if (outage != null) {
+      throw outage;
+    }
+
+    // Both primary and fallback lookups completed without finding lyrics (and without network outage).
     // Mark as verified not-found so future plays do not spam the remote lyrics API.
     await _cache.markNotFound(title, artist, duration: duration);
 
@@ -244,6 +297,7 @@ class LyricsDataSourceImpl implements LyricsDataSource {
       title,
       artist,
       duration: duration,
+      provider: lyrics.source,
       plainLyrics: lyrics.plainLyrics,
       syncedLrc: _encodeLrc(lyrics.syncedLyrics),
     );
