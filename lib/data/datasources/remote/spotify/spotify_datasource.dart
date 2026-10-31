@@ -62,10 +62,16 @@ abstract class SpotifyDataSource {
 class SpotifyDataSourceImpl implements SpotifyDataSource {
   final Dio _dio;
   final SpotifyAuthService? _authService;
+  final Duration batchPacing;
+  final Duration initialBackoff;
+  final int maxRetries;
 
   SpotifyDataSourceImpl({
     required Dio dio,
     SpotifyAuthService? authService,
+    this.batchPacing = const Duration(milliseconds: 150),
+    this.initialBackoff = const Duration(milliseconds: 500),
+    this.maxRetries = 3,
   })  : _dio = dio,
         _authService = authService;
 
@@ -211,7 +217,7 @@ class SpotifyDataSourceImpl implements SpotifyDataSource {
       final coverUrl = _bestCoverUrlFromList(metaData['images'] as List?);
       final total = (metaData['tracks']?['total'] as num?)?.toInt() ?? 0;
 
-      // 2. Paginate tracks in batches of 100
+      // 2. Paginate tracks in batches of 100 with exponential backoff & rate-limit pacing
       final tracks = <Song>[];
       var offset = 0;
       const limit = 100;
@@ -219,28 +225,86 @@ class SpotifyDataSourceImpl implements SpotifyDataSource {
       while (offset < total) {
         if (cancelToken?.isCancelled ?? false) break;
 
-        final tracksResponse = await _dio.get<Map<String, dynamic>>(
-          'https://api.spotify.com/v1/playlists/$playlistId/tracks',
-          queryParameters: {
-            'offset': offset,
-            'limit': limit,
-            'fields':
-                'items(track(id,name,duration_ms,explicit,external_ids,artists(name),album(name,images)))',
-          },
-          options: Options(
-            headers: {'Authorization': 'Bearer $token'},
-            responseType: ResponseType.json,
-            validateStatus: (status) => status != null && status < 500,
-          ),
-        );
+        Response<Map<String, dynamic>>? tracksResponse;
+        var retryCount = 0;
+        var currentBackoff = initialBackoff;
 
-        if (tracksResponse.statusCode == 401) {
-          _authService?.invalidateToken();
-          if (tracks.isNotEmpty) break;
-          return null;
+        while (retryCount <= maxRetries) {
+          if (cancelToken?.isCancelled ?? false) break;
+
+          try {
+            tracksResponse = await _dio.get<Map<String, dynamic>>(
+              'https://api.spotify.com/v1/playlists/$playlistId/tracks',
+              queryParameters: {
+                'offset': offset,
+                'limit': limit,
+                'fields':
+                    'items(track(id,name,duration_ms,explicit,external_ids,artists(name),album(name,images)))',
+              },
+              options: Options(
+                headers: {'Authorization': 'Bearer $token'},
+                responseType: ResponseType.json,
+                validateStatus: (status) => status != null && status < 600,
+              ),
+            );
+
+            // Handle 401 Unauthorized
+            if (tracksResponse.statusCode == 401) {
+              _authService?.invalidateToken();
+              if (tracks.isNotEmpty) break;
+              return null;
+            }
+
+            // Handle 429 Rate Limit
+            if (tracksResponse.statusCode == 429) {
+              retryCount++;
+              if (retryCount > maxRetries) break;
+
+              final retryAfterHeader =
+                  tracksResponse.headers.value('retry-after');
+              final retryAfterSec = retryAfterHeader != null
+                  ? int.tryParse(retryAfterHeader)
+                  : null;
+              final delay = retryAfterSec != null && retryAfterSec > 0
+                  ? Duration(seconds: retryAfterSec.clamp(1, 30))
+                  : currentBackoff;
+
+              if (delay > Duration.zero) {
+                await Future.delayed(delay);
+              }
+              currentBackoff *= 2;
+              continue;
+            }
+
+            // Handle 5xx Server Transient Errors
+            if (tracksResponse.statusCode != null &&
+                tracksResponse.statusCode! >= 500) {
+              retryCount++;
+              if (retryCount > maxRetries) break;
+              if (currentBackoff > Duration.zero) {
+                await Future.delayed(currentBackoff);
+              }
+              currentBackoff *= 2;
+              continue;
+            }
+
+            // Success or terminal 4xx
+            break;
+          } on DioException {
+            retryCount++;
+            if (retryCount > maxRetries) break;
+            if (currentBackoff > Duration.zero) {
+              await Future.delayed(currentBackoff);
+            }
+            currentBackoff *= 2;
+          } catch (_) {
+            break;
+          }
         }
 
-        if (tracksResponse.statusCode != 200 || tracksResponse.data == null) {
+        if (tracksResponse == null ||
+            tracksResponse.statusCode != 200 ||
+            tracksResponse.data == null) {
           break;
         }
 
@@ -257,6 +321,13 @@ class SpotifyDataSourceImpl implements SpotifyDataSource {
 
         onProgress?.call(tracks.length, total);
         offset += limit;
+
+        // Pacing delay between batches to avoid burst rate-limiting on large playlists
+        if (offset < total &&
+            batchPacing > Duration.zero &&
+            !(cancelToken?.isCancelled ?? false)) {
+          await Future.delayed(batchPacing);
+        }
       }
 
       if (tracks.isEmpty) return null;
