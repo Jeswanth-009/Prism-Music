@@ -142,7 +142,7 @@
         <div class="hero-meta">
           <p class="hero-version mono">
             <span class="version-dot" aria-hidden="true"></span>
-            <span class="mono-dim">release</span> <strong id="versionLabel">alpha-v0.2.36</strong> <span class="mono-dim" id="buildLabel"></span>
+            <span class="mono-dim">release</span> <strong id="versionLabel">alpha-v0.2.77</strong> <span class="mono-dim" id="buildLabel"></span>
           </p>
           <div class="hero-chips mono" id="heroChips" hidden>
             <a class="chip" href="https://github.com/Jeswanth-009/Prism-Music/stargazers" target="_blank" rel="noopener">
@@ -204,8 +204,8 @@
   <!-- ── Ticker ─────────────────────────────────────────────────── -->
   <div class="ticker" aria-hidden="true">
     <div class="ticker-track mono">
-      <span>Zero Accounts</span><i>◆</i><span>Line-Synced Lyrics</span><i>◆</i><span>320 kbps JioSaavn &amp; OPUS</span><i>◆</i><span>Native Equalizer</span><i>◆</i><span>Infinite Radio</span><i>◆</i><span>Offline Downloads</span><i>◆</i><span>Crossfade</span><i>◆</i><span>Docked Navigation</span><i>◆</i><span>Local-First Data</span><i>◆</i>
-      <span>Zero Accounts</span><i>◆</i><span>Line-Synced Lyrics</span><i>◆</i><span>320 kbps JioSaavn &amp; OPUS</span><i>◆</i><span>Native Equalizer</span><i>◆</i><span>Infinite Radio</span><i>◆</i><span>Offline Downloads</span><i>◆</i><span>Crossfade</span><i>◆</i><span>Docked Navigation</span><i>◆</i><span>Local-First Data</span><i>◆</i>
+      <span>Zero Accounts</span><i>◆</i><span>Dual-Tier Lyrics</span><i>◆</i><span>3-Worker Concurrency Pool</span><i>◆</i><span>320 kbps JioSaavn &amp; OPUS</span><i>◆</i><span>Adaptive Tablet Layout</span><i>◆</i><span>Native Equalizer</span><i>◆</i><span>Infinite Radio</span><i>◆</i><span>Hardware Keystore</span><i>◆</i><span>Offline Inter Fonts</span><i>◆</i><span>Local-First Data</span><i>◆</i>
+      <span>Zero Accounts</span><i>◆</i><span>Dual-Tier Lyrics</span><i>◆</i><span>3-Worker Concurrency Pool</span><i>◆</i><span>320 kbps JioSaavn &amp; OPUS</span><i>◆</i><span>Adaptive Tablet Layout</span><i>◆</i><span>Native Equalizer</span><i>◆</i><span>Infinite Radio</span><i>◆</i><span>Hardware Keystore</span><i>◆</i><span>Offline Inter Fonts</span><i>◆</i><span>Local-First Data</span><i>◆</i>
     </div>
   </div>
 
@@ -218,11 +218,11 @@
 
       <div class="bento">
 
-        <!-- Interactive Line-Synced Lyrics -->
+        <!-- Interactive Line-Synced Lyrics with Dual-Tier Fallback -->
         <article class="tile tile-lyrics">
           <div class="tile-head">
-            <h3>Line-Synced Lyrics</h3>
-            <p>Word-for-word synced lyrics powered by LRCLIB with auto-scroll and manual sync adjustment. Tap any line below to test seek:</p>
+            <h3>Line-Synced Lyrics &amp; Dual Fallback</h3>
+            <p>Word-for-word synced lyrics powered by LRCLIB with an automated secondary fallback provider, offline lyrics caching, and tap-to-seek sync. Tap any line below to test seek:</p>
           </div>
           <div class="lyrics-interactive-box">
             <div class="lyric-item active" data-time="0">The light bends through the prism</div>
@@ -275,7 +275,7 @@
         <article class="tile tile-queue">
           <div class="tile-head">
             <h3>Infinite Radio from Search</h3>
-            <p>Pick any song from search. Prism seeds playback with that track and automatically spins an endless station of recommended songs.</p>
+            <p>Pick any song from 350ms debounced search. Prism seeds playback with that track and automatically spins an endless station of recommended songs.</p>
           </div>
           <div class="queue-demo-box">
             <div class="q-card">
@@ -305,11 +305,11 @@
           </div>
         </article>
 
-        <!-- Offline Downloads Simulation -->
+        <!-- 3-Worker Concurrency Pool & Offline Downloads Simulation -->
         <article class="tile tile-dl">
           <div class="tile-head">
-            <h3>Resilient Offline Downloads</h3>
-            <p>Atomic downloads (.tmp verification), container integrity validation, and rich transfer queues with song art and progress.</p>
+            <h3>3-Worker Concurrency Pool &amp; Downloads</h3>
+            <p>Managed background download queue (max 3 concurrent streams) preventing network saturation, with atomic .tmp verification and container integrity checks.</p>
           </div>
           <div class="dl-interactive-stage">
             <div class="dl-progress-ring">
@@ -327,7 +327,7 @@
         <article class="tile tile-stats">
           <div class="tile-head">
             <h3>14-Day Listening Analytics &amp; Privacy</h3>
-            <p>Tracks your plays, unique artists, and daily history completely on your device. Cleared history preserves lifetime stats.</p>
+            <p>Tracks your plays, unique artists, and daily history completely on your device in Hive. Cleared history preserves lifetime stats.</p>
           </div>
           <div class="stats-chart-wrap" aria-label="14-day play history chart">
             <div class="stats-bar-col"><div class="stats-bar" style="height:45%" data-val="18"></div><span class="stats-label mono">1</span></div>
@@ -347,23 +347,41 @@
           </div>
         </article>
 
-        <!-- Mini Tiles -->
+        <!-- Mini Tiles (6-Card Architecture System) -->
         <article class="tile tile-mini">
           <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.6-9.5-9A5.5 5.5 0 0 1 12 6.1 5.5 5.5 0 0 1 21.5 12C19 16.4 12 21 12 21Z"/></svg></div>
-          <h3>Local-First Data</h3>
-          <p>Likes, playlists, and history stay inside Hive on your phone with instant JSON export.</p>
+          <h3>Local-First Hive DB</h3>
+          <p>Likes, playlists, and listening history stay strictly inside Hive on your phone with instant JSON export.</p>
+        </article>
+
+        <article class="tile tile-mini">
+          <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+          <h3>Hardware Keystore</h3>
+          <p>Client credentials and access tokens are secured with Android Keymaster hardware encryption.</p>
+        </article>
+
+        <article class="tile tile-mini">
+          <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+          <h3>Adaptive Tablet Layout</h3>
+          <p>Fluid two-column responsive player layout for tablets, foldables, and landscape screens.</p>
+        </article>
+
+        <article class="tile tile-mini">
+          <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></div>
+          <h3>Staggered Animations</h3>
+          <p>Tactile list animations with full respect for system <code>prefers-reduced-motion</code> accessibility.</p>
+        </article>
+
+        <article class="tile tile-mini">
+          <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg></div>
+          <h3>Universal Playlist Import</h3>
+          <p>Import Spotify &amp; YouTube playlists with fuzzy matching, exponential backoff, and 429 retries.</p>
         </article>
 
         <article class="tile tile-mini">
           <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
           <h3>Sleep Timer &amp; Crossfade</h3>
           <p>0–10 second crossfade and end-of-track sleep timers for uninterrupted evenings.</p>
-        </article>
-
-        <article class="tile tile-mini">
-          <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a9 9 0 0 0-9 9c0 1.5 2 2.5 2 4 0 1.5-1 2-1 3h16c0-1-1-1.5-1-3 0-1.5 2-2.5 2-4a9 9 0 0 0-9-9Z"/><path d="M10 21h4"/></svg></div>
-          <h3>Last.fm Scrobbling</h3>
-          <p>Native scrobbling integration to automatically track every play to your Last.fm profile.</p>
         </article>
 
       </div>
@@ -450,9 +468,9 @@
 
       <div class="pipeline-card">
         <div class="pipeline-flow">
-          <div class="pipe-step active" id="stepYt">1. YouTube Explode</div>
+          <div class="pipe-step active" id="stepJio">1. JioSaavn (320 kbps)</div>
           <span class="pipe-arrow-icon">→</span>
-          <div class="pipe-step" id="stepJio">2. JioSaavn (320 kbps)</div>
+          <div class="pipe-step" id="stepYt">2. YouTube Explode (Proxy)</div>
           <span class="pipe-arrow-icon">→</span>
           <div class="pipe-step" id="stepPipe">3. Piped Mirrors</div>
           <span class="pipe-arrow-icon">→</span>
@@ -549,11 +567,32 @@
               </td>
             </tr>
             <tr>
+              <td>Download Concurrency Pool</td>
+              <td class="col-highlight">
+                <span class="cell-pill good">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>
+                  Max 3 Active Workers
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Paywalled
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Paywalled
+                </span>
+              </td>
+            </tr>
+            <tr>
               <td>Line-Synced Lyrics</td>
               <td class="col-highlight">
                 <span class="cell-pill good">
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>
-                  Unlimited (LRCLIB)
+                  Dual-Tier (LRCLIB + Fallback)
                 </span>
               </td>
               <td>
@@ -587,6 +626,48 @@
                 <span class="cell-pill bad">
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
                   Restricted to 128 kbps
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td>Adaptive Tablet Layout</td>
+              <td class="col-highlight">
+                <span class="cell-pill good">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>
+                  Split Dual-Pane Player
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Basic Single View
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Basic Single View
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td>Credential Security</td>
+              <td class="col-highlight">
+                <span class="cell-pill good">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>
+                  Hardware Keymaster Keystore
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Proprietary Cloud
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Proprietary Cloud
                 </span>
               </td>
             </tr>
@@ -839,29 +920,34 @@
           <h3>Latest releases &amp; notes</h3>
           <ol class="feed" id="feedList">
             <li>
-              <span class="f-ver mono">v0.2.36</span>
-              <span class="f-msg">Seed queue with single song so recommendation service appends new tracks</span>
-              <span class="f-date mono">Oct 11</span>
+              <span class="f-ver mono">v0.2.77</span>
+              <span class="f-msg">Exponential backoff and rate-limit retry to playlist import pagination</span>
+              <span class="f-date mono">Oct 31</span>
             </li>
             <li>
-              <span class="f-ver mono">v0.2.35</span>
-              <span class="f-msg">Docked navigation bar, deduplicated continue-listening &amp; download metadata</span>
-              <span class="f-date mono">Oct 11</span>
+              <span class="f-ver mono">v0.2.76</span>
+              <span class="f-msg">Secondary fallback lyrics provider with offline cache support</span>
+              <span class="f-date mono">Oct 31</span>
             </li>
             <li>
-              <span class="f-ver mono">v0.2.34</span>
-              <span class="f-msg">Tap-to-seek line-synced lyrics &amp; regional script preservation</span>
-              <span class="f-date mono">Oct 11</span>
+              <span class="f-ver mono">v0.2.75</span>
+              <span class="f-msg">Staggered list animations, page transitions, and reduced-motion skeleton shimmer</span>
+              <span class="f-date mono">Oct 31</span>
             </li>
             <li>
-              <span class="f-ver mono">v0.2.33</span>
-              <span class="f-msg">Multi-source audio failover &amp; JioSaavn 320 kbps streaming engine</span>
-              <span class="f-date mono">Oct 10</span>
+              <span class="f-ver mono">v0.2.74</span>
+              <span class="f-msg">Adaptive tablet and landscape player split-screen layout</span>
+              <span class="f-date mono">Oct 31</span>
             </li>
             <li>
-              <span class="f-ver mono">v0.2.32</span>
-              <span class="f-msg">Hardware-accelerated 5-band equalizer &amp; bass boost</span>
-              <span class="f-date mono">Oct 9</span>
+              <span class="f-ver mono">v0.2.73</span>
+              <span class="f-msg">Complete Inter typography and offline TextTheme weights</span>
+              <span class="f-date mono">Oct 31</span>
+            </li>
+            <li>
+              <span class="f-ver mono">v0.2.72</span>
+              <span class="f-msg">Queued download concurrency pool with max 3 active streams</span>
+              <span class="f-date mono">Oct 31</span>
             </li>
           </ol>
           <a class="feed-more" href="https://github.com/Jeswanth-009/Prism-Music/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Full changelog →</a>
@@ -904,7 +990,15 @@
         </details>
         <details class="faq">
           <summary><span class="mono faq-num">05</span> Can I import my playlists from Spotify or YouTube?</summary>
-          <p>Yes. Simply copy your public Spotify or YouTube playlist URL, navigate to Library → Import, and Prism Music will automatically resolve the tracks and save them to your device.</p>
+          <p>Yes. Simply copy your public Spotify or YouTube playlist URL, navigate to Library → Import, and Prism Music will automatically resolve the tracks and save them to your device with automated exponential backoff and 429 rate-limit protection.</p>
+        </details>
+        <details class="faq">
+          <summary><span class="mono faq-num">06</span> How does the dual-tier lyrics engine work offline?</summary>
+          <p>Prism Music queries LRCLIB for line-synced lyrics first, falling back smoothly to a secondary provider if not found. Once loaded, lyrics are cached locally on your device so you can sing along without an active network connection.</p>
+        </details>
+        <details class="faq">
+          <summary><span class="mono faq-num">07</span> Why is download concurrency capped at 3 tracks?</summary>
+          <p>Prism Music uses an intelligent worker pool that caps concurrent active downloads at 3 songs while queueing any remaining requests. This prevents mobile network saturation, avoids socket exhaustion, and guarantees smooth background audio playback while downloading.</p>
         </details>
       </div>
     </div>

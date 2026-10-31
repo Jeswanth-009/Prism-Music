@@ -463,19 +463,19 @@
   if (simFailoverBtn && simLog) {
     simFailoverBtn.addEventListener("click", () => {
       simFailoverBtn.disabled = true;
-      simLog.textContent = "[1/3] Resolving stream from YouTube Explode...";
-      if (stepYt) stepYt.className = "pipe-step active";
-      if (stepJio) stepJio.className = "pipe-step";
+      simLog.textContent = "[1/3] Resolving 320 kbps stream from JioSaavn...";
+      if (stepJio) stepJio.className = "pipe-step active";
+      if (stepYt) stepYt.className = "pipe-step";
       if (stepPipe) stepPipe.className = "pipe-step";
 
       setTimeout(() => {
-        if (stepYt) stepYt.className = "pipe-step failed";
-        simLog.textContent = "[2/3] YouTube 403 Forbidden. Circuit breaker failing over to JioSaavn...";
-        if (stepJio) stepJio.className = "pipe-step active";
+        if (stepJio) stepJio.className = "pipe-step failed";
+        simLog.textContent = "[2/3] JioSaavn catalog miss. Circuit breaker failing over to YouTube Explode...";
+        if (stepYt) stepYt.className = "pipe-step active";
 
         setTimeout(() => {
-          simLog.textContent = "[3/3] JioSaavn resolved 320 kbps stream in 180ms. Audio playback uninterrupted!";
-          if (stepJio) stepJio.className = "pipe-step active";
+          simLog.textContent = "[3/3] YouTube Explode resolved 160 kbps OPUS via StreamAudioSource proxy in 120ms. Playback uninterrupted!";
+          if (stepYt) stepYt.className = "pipe-step active";
           simFailoverBtn.disabled = false;
         }, 1200);
       }, 1000);
@@ -581,7 +581,7 @@
       updateDownloadLinks(apkAsset.browser_download_url, release.tag_name);
     }
 
-    const tag = release.tag_name || "alpha-v0.2.36";
+    const tag = release.tag_name || "alpha-v0.2.77";
     const parsed = parseTag(tag);
     const version = parsed ? `v${parsed[0]}.${parsed[1]}.${parsed[2]}` : tag;
     const build = parsed && parsed[3] ? ` · build ${parsed[3]}` : "";
