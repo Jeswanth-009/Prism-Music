@@ -198,11 +198,7 @@ class ThemeState extends Equatable {
             fontWeight: FontWeight.w500,
           ),
         )
-        .apply(
-          bodyColor: scheme.onSurface,
-          displayColor: scheme.onSurface,
-          fontFamily: 'Inter',
-        );
+        .apply(bodyColor: scheme.onSurface, displayColor: scheme.onSurface);
 
     final spec = PrismSpec(
       accent: scheme.primary,
@@ -218,7 +214,6 @@ class ThemeState extends Equatable {
 
     return ThemeData(
       useMaterial3: true,
-      fontFamily: 'Inter',
       colorScheme: scheme,
       brightness: brightness,
       scaffoldBackgroundColor: scheme.surface,
