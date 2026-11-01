@@ -316,7 +316,10 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
           if (_settingsService.restoreQueueOnLaunch) {
             QueuePersistenceService.instance.getSavedSession().then((session) {
-              if (session != null && !isClosed && state.currentSong == null) {
+              if (session != null &&
+                  !isClosed &&
+                  state.currentSong == null &&
+                  _playbackGeneration == 0) {
                 add(
                   RestoreQueueEvent(
                     currentSong: session.currentSong,
@@ -655,14 +658,23 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         _attemptedFreshResolutions.remove(event.song.playableId);
         _consecutiveFailureSkips = 0;
         updateNowPlaying(event.song);
-        _libraryRepository.isSongLiked(event.song.id).then((liked) {
+        try {
+          _libraryRepository.isSongLiked(event.song.id).then((liked) {
+            final isDown = _downloadService.isDownloaded(event.song.id);
+            final qLabel = isDown ? 'Offline • Downloaded' : state.audioQuality.displayName;
+            MediaSessionCoordinator.instance.updatePlaybackInfo(
+              isLiked: liked,
+              qualityLabel: qLabel,
+            );
+          }).catchError((_) {});
+        } catch (_) {
           final isDown = _downloadService.isDownloaded(event.song.id);
           final qLabel = isDown ? 'Offline • Downloaded' : state.audioQuality.displayName;
           MediaSessionCoordinator.instance.updatePlaybackInfo(
-            isLiked: liked,
+            isLiked: event.song.isLiked,
             qualityLabel: qLabel,
           );
-        });
+        }
         _persistCurrentSession(customPosition: resumePos);
         // Position in the queue changed → notification skip buttons may
         // have become usable/unusable.
@@ -1978,6 +1990,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   DateTime _lastPositionPersistTime = DateTime.fromMillisecondsSinceEpoch(0);
 
   void _onRestoreQueue(RestoreQueueEvent event, Emitter<PlayerState> emit) {
+    if (state.currentSong != null || _playbackGeneration > 0) return;
     emit(
       state.copyWith(
         status: PlayerStatus.paused,

@@ -116,6 +116,9 @@ class _FakeLibraryRepository implements LibraryRepository {
   final List<Song> history = [];
 
   @override
+  Future<bool> isSongLiked(String songId) async => false;
+
+  @override
   Future<Either<Failure, void>> addToHistory(Song song) async {
     history.add(song);
     return const Right(null);

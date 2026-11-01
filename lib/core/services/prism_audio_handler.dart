@@ -28,12 +28,25 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
     // Broadcast player state to the system notification
     player.playbackEventStream.listen(_broadcastState);
 
-    // Update notification metadata (title, artist, artwork)
+    // Duration listener to enrich mediaItem with exact player duration for seekbar
+    player.durationStream.listen((duration) {
+      if (duration != null &&
+          mediaItem.value != null &&
+          mediaItem.value!.duration != duration) {
+        mediaItem.add(mediaItem.value!.copyWith(duration: duration));
+      }
+    });
+
+    // Update notification metadata (title, artist, artwork, quality)
     player.sequenceStateStream.listen((sequenceState) {
       if (sequenceState.currentSource != null) {
         final tag = sequenceState.currentSource!.tag;
         if (tag is MediaItem) {
-          mediaItem.add(tag);
+          final quality = MediaSessionCoordinator.instance.currentQualityLabel;
+          final enriched = tag.copyWith(
+            displayDescription: quality.isNotEmpty ? quality : null,
+          );
+          mediaItem.add(enriched);
           // Re-broadcast so the control buttons re-render for the new
           // track's position in the queue (e.g. previous becomes usable).
           _broadcastState(player.playbackEvent);
@@ -51,20 +64,30 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
     });
   }
 
-  static const MediaControl favoriteControl = MediaControl(
+  static const MediaControl likedControl = MediaControl(
     androidIcon: 'drawable/ic_heart',
-    label: 'Favorite',
+    label: 'Unlike',
     action: MediaAction.custom,
   );
+
+  static const MediaControl unlikedControl = MediaControl(
+    androidIcon: 'drawable/ic_heart_outline',
+    label: 'Like',
+    action: MediaAction.custom,
+  );
+
+  /// Backwards-compatibility alias for tests
+  static const MediaControl favoriteControl = unlikedControl;
 
   void _broadcastState(PlaybackEvent event) {
     final playing = player.playing;
     final coordinator = MediaSessionCoordinator.instance;
+    final favControl = coordinator.isCurrentSongLiked ? likedControl : unlikedControl;
     final controls = <MediaControl>[
       if (coordinator.canSkipPrevious) MediaControl.skipToPrevious,
       if (playing) MediaControl.pause else MediaControl.play,
       if (coordinator.canSkipNext) MediaControl.skipToNext,
-      favoriteControl,
+      favControl,
       MediaControl.fastForward,
       MediaControl.rewind,
       MediaControl.stop,
@@ -75,11 +98,11 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
     final prevIdx = controls.indexOf(MediaControl.skipToPrevious);
     final playIdx = controls.indexOf(playing ? MediaControl.pause : MediaControl.play);
     final nextIdx = controls.indexOf(MediaControl.skipToNext);
+    final favIdx = controls.indexOf(favControl);
     if (prevIdx != -1) {
       compactActionIndices.add(prevIdx);
-    } else {
-      final favIdx = controls.indexOf(favoriteControl);
-      if (favIdx != -1) compactActionIndices.add(favIdx);
+    } else if (favIdx != -1) {
+      compactActionIndices.add(favIdx);
     }
     if (playIdx != -1) compactActionIndices.add(playIdx);
     if (nextIdx != -1) compactActionIndices.add(nextIdx);
@@ -117,6 +140,17 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
 
   /// Re-render the notification's controls after queue enablement changed.
   void refreshNotificationState() {
+    _broadcastState(player.playbackEvent);
+  }
+
+  /// Re-render the notification's metadata (e.g. quality, like status)
+  void refreshNotificationMetadata() {
+    if (mediaItem.value != null) {
+      final quality = MediaSessionCoordinator.instance.currentQualityLabel;
+      mediaItem.add(mediaItem.value!.copyWith(
+        displayDescription: quality.isNotEmpty ? quality : null,
+      ));
+    }
     _broadcastState(player.playbackEvent);
   }
 

@@ -82,7 +82,7 @@ class MediaSessionCoordinator {
       changed = true;
     }
     if (changed) {
-      _handler?.refreshNotificationState();
+      _handler?.refreshNotificationMetadata();
     }
   }
 

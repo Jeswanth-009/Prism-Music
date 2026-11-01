@@ -50,6 +50,7 @@ void main() {
     mockLibrary = MockLibraryRepository();
 
     when(() => mockPlayer.playbackEventStream).thenAnswer((_) => const Stream.empty());
+    when(() => mockPlayer.durationStream).thenAnswer((_) => const Stream.empty());
     when(() => mockPlayer.sequenceStateStream).thenAnswer((_) => const Stream.empty());
     when(() => mockPlayer.sequenceStream).thenAnswer((_) => const Stream.empty());
     when(() => mockPlayer.playing).thenReturn(false);

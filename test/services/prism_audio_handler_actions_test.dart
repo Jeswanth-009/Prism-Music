@@ -17,6 +17,7 @@ void main() {
   setUp(() {
     mockPlayer = MockAudioPlayer();
     when(() => mockPlayer.playbackEventStream).thenAnswer((_) => const Stream.empty());
+    when(() => mockPlayer.durationStream).thenAnswer((_) => const Stream.empty());
     when(() => mockPlayer.sequenceStateStream).thenAnswer((_) => const Stream.empty());
     when(() => mockPlayer.sequenceStream).thenAnswer((_) => const Stream.empty());
     when(() => mockPlayer.playing).thenReturn(true);
@@ -36,7 +37,7 @@ void main() {
       handler.refreshNotificationState();
       final state = handler.playbackState.value;
 
-      expect(state.controls.any((c) => c.label == 'Favorite'), isTrue);
+      expect(state.controls.any((c) => c.label == 'Like' || c.label == 'Unlike' || c.label == 'Favorite'), isTrue);
       expect(state.controls.any((c) => c.action == MediaAction.fastForward), isTrue);
       expect(state.controls.any((c) => c.action == MediaAction.rewind), isTrue);
 
