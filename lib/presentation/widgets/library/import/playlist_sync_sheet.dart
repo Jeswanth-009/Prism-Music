@@ -44,7 +44,6 @@ class _PlaylistSyncSheetState extends State<PlaylistSyncSheet> {
   List<Song> _upstreamSongs = [];
   List<Song> _addedSongs = [];
   List<Song> _removedSongs = [];
-  List<Song> _retainedSongs = [];
 
   int _selectedFilter = 0; // 0: All, 1: Added, 2: Removed
 
@@ -98,15 +97,12 @@ class _PlaylistSyncSheetState extends State<PlaylistSyncSheet> {
           upstream.where((s) => !localIds.contains(s.playableId)).toList();
       final removed =
           localSongs.where((s) => !upstreamIds.contains(s.playableId)).toList();
-      final retained =
-          upstream.where((s) => localIds.contains(s.playableId)).toList();
 
       if (mounted) {
         setState(() {
           _upstreamSongs = upstream;
           _addedSongs = added;
           _removedSongs = removed;
-          _retainedSongs = retained;
           _isLoading = false;
         });
       }

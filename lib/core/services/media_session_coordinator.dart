@@ -1,3 +1,4 @@
+import '../../domain/entities/song.dart';
 import 'prism_audio_handler.dart';
 
 /// Bridge between the audio_service handler (system media notification) and
@@ -27,8 +28,13 @@ class MediaSessionCoordinator {
   Future<void> Function()? _onToggleLike;
   Future<void> Function()? _onToggleShuffle;
   Future<void> Function()? _onCycleRepeat;
+  void Function(Song song, List<Song> queue, int queueIndex)? _onPlayMedia;
   bool Function()? _hasNext;
   bool Function()? _hasPrevious;
+
+  /// Dynamic like status & audio quality indicator for notification
+  bool isCurrentSongLiked = false;
+  String currentQualityLabel = 'High Quality';
 
   /// Called once from main() after AudioService.init so the coordinator can
   /// ask the handler to re-render its controls when the queue changes.
@@ -44,6 +50,7 @@ class MediaSessionCoordinator {
     Future<void> Function()? onToggleLike,
     Future<void> Function()? onToggleShuffle,
     Future<void> Function()? onCycleRepeat,
+    void Function(Song song, List<Song> queue, int queueIndex)? onPlayMedia,
     required bool Function() hasNext,
     required bool Function() hasPrevious,
   }) {
@@ -53,8 +60,30 @@ class MediaSessionCoordinator {
     _onToggleLike = onToggleLike;
     _onToggleShuffle = onToggleShuffle;
     _onCycleRepeat = onCycleRepeat;
+    _onPlayMedia = onPlayMedia;
     _hasNext = hasNext;
     _hasPrevious = hasPrevious;
+  }
+
+  /// Car Mode / Android Auto play selection → route to bloc's playback logic.
+  void playFromMedia(Song song, List<Song> queue, int queueIndex) {
+    _onPlayMedia?.call(song, queue, queueIndex);
+  }
+
+  /// Update dynamic playback metadata for notifications and lock screens.
+  void updatePlaybackInfo({bool? isLiked, String? qualityLabel}) {
+    var changed = false;
+    if (isLiked != null && isLiked != isCurrentSongLiked) {
+      isCurrentSongLiked = isLiked;
+      changed = true;
+    }
+    if (qualityLabel != null && qualityLabel != currentQualityLabel) {
+      currentQualityLabel = qualityLabel;
+      changed = true;
+    }
+    if (changed) {
+      _handler?.refreshNotificationState();
+    }
   }
 
   /// Whether the current queue position allows skipping forward — drives the

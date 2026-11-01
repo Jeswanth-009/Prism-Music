@@ -402,6 +402,7 @@ class _SearchPageState extends State<SearchPage> {
       SearchFilter.artists => _artistsSlivers(state),
       SearchFilter.albums => _albumsSlivers(state),
       SearchFilter.playlists => _playlistsSlivers(state),
+      SearchFilter.downloads => _songsSlivers(state),
     };
   }
 
@@ -867,6 +868,7 @@ class _FilterChips extends StatelessWidget {
     SearchFilter.playlists => 'Playlists',
     SearchFilter.albums => 'Albums',
     SearchFilter.artists => 'Artists',
+    SearchFilter.downloads => 'Downloads',
   };
 
   @override

@@ -30,7 +30,7 @@ class QueuePersistenceService {
   Box? _box;
   final SettingsService? _settingsService;
 
-  QueuePersistenceService._([this._settingsService]);
+  QueuePersistenceService._() : _settingsService = null;
 
   @visibleForTesting
   QueuePersistenceService.forTest({Box? box, SettingsService? settingsService})

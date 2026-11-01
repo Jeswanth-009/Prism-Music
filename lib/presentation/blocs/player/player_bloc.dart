@@ -123,12 +123,24 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
           final isLiked = await _libraryRepository.isSongLiked(current.id);
           if (isLiked) {
             await _libraryRepository.unlikeSong(current.id);
+            MediaSessionCoordinator.instance.updatePlaybackInfo(isLiked: false);
           } else {
             await _libraryRepository.likeSong(current);
+            MediaSessionCoordinator.instance.updatePlaybackInfo(isLiked: true);
           }
           if (getIt.isRegistered<LibraryBloc>()) {
             getIt<LibraryBloc>().add(const LoadLibraryEvent());
           }
+        }
+      },
+      onPlayMedia: (song, queue, index) {
+        if (!isClosed) {
+          add(PlaySongEvent(
+            song: song,
+            queue: queue,
+            queueIndex: index,
+            userInitiated: true,
+          ));
         }
       },
       hasNext: () => !isClosed && state.canSkipNext,
@@ -643,6 +655,14 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         _attemptedFreshResolutions.remove(event.song.playableId);
         _consecutiveFailureSkips = 0;
         updateNowPlaying(event.song);
+        _libraryRepository.isSongLiked(event.song.id).then((liked) {
+          final isDown = _downloadService.isDownloaded(event.song.id);
+          final qLabel = isDown ? 'Offline • Downloaded' : state.audioQuality.displayName;
+          MediaSessionCoordinator.instance.updatePlaybackInfo(
+            isLiked: liked,
+            qualityLabel: qLabel,
+          );
+        });
         _persistCurrentSession(customPosition: resumePos);
         // Position in the queue changed → notification skip buttons may
         // have become usable/unusable.
