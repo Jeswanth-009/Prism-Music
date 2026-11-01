@@ -9,6 +9,7 @@ import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
 import '../blocs/player/player_state.dart';
 import '../theme/prism_theme.dart';
+import '../widgets/library/import/playlist_sync_sheet.dart';
 import '../widgets/player/mini_player.dart';
 import '../widgets/playlist/playlist_export_sheet.dart';
 import '../widgets/prism/prism_artwork.dart';
@@ -126,20 +127,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
   }
 
   void _refreshFromSource(BuildContext context, Playlist playlist) {
-    showPrismToast(context, 'Refreshing playlist from source…');
-    context.read<LibraryBloc>().add(
-          RefreshImportedPlaylistEvent(
-            playlist.id,
-            onDone: (error) {
-              if (!context.mounted) return;
-              if (error != null) {
-                showPrismToast(context, 'Refresh failed: $error');
-              } else {
-                showPrismToast(context, 'Playlist refreshed successfully');
-              }
-            },
-          ),
-        );
+    PlaylistSyncSheet.show(context, playlist);
   }
 
   @override

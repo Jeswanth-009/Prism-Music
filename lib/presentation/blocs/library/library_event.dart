@@ -138,6 +138,22 @@ class RefreshImportedPlaylistEvent extends LibraryEvent {
   List<Object?> get props => [playlistId];
 }
 
+/// Atomically replace/sync all songs in an imported playlist
+class SyncPlaylistSongsEvent extends LibraryEvent {
+  final String playlistId;
+  final List<Song> songs;
+  final void Function(String? error)? onDone;
+
+  const SyncPlaylistSongsEvent({
+    required this.playlistId,
+    required this.songs,
+    this.onDone,
+  });
+
+  @override
+  List<Object?> get props => [playlistId, songs];
+}
+
 /// Load listening history
 class LoadHistoryEvent extends LibraryEvent {
   const LoadHistoryEvent();

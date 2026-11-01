@@ -35,6 +35,7 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     on<SavePlaylistEvent>(_onSavePlaylist);
     on<CancelImportEvent>(_onCancelImport);
     on<RefreshImportedPlaylistEvent>(_onRefreshImportedPlaylist);
+    on<SyncPlaylistSongsEvent>(_onSyncPlaylistSongs);
     on<ToggleFavoriteArtistEvent>(_onToggleFavoriteArtist);
     on<LoadFavoriteArtistsEvent>(_onLoadFavoriteArtists);
     on<RemoveSongFromHistoryEvent>(_onRemoveSongFromHistory);
@@ -639,6 +640,44 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     } else {
       event.onDone?.call('This playlist was not imported from an external source');
     }
+  }
+
+  Future<void> _onSyncPlaylistSongs(
+    SyncPlaylistSongsEvent event,
+    Emitter<LibraryState> emit,
+  ) async {
+    final result = await _libraryRepository.updatePlaylistSongs(
+      event.playlistId,
+      event.songs,
+    );
+
+    result.fold(
+      (failure) {
+        emit(state.copyWith(
+          status: LibraryStatus.error,
+          errorMessage: failure.message,
+        ));
+        event.onDone?.call(failure.message);
+      },
+      (_) {
+        final updatedPlaylists = state.playlists.map((p) {
+          if (p.id == event.playlistId) {
+            return p.copyWith(
+              songs: event.songs,
+              trackCount: event.songs.length,
+              updatedAt: DateTime.now(),
+            );
+          }
+          return p;
+        }).toList();
+
+        emit(state.copyWith(
+          status: LibraryStatus.success,
+          playlists: updatedPlaylists,
+        ));
+        event.onDone?.call(null);
+      },
+    );
   }
 
   /// Save an imported playlist into the local library so it survives app
