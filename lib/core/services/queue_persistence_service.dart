@@ -28,11 +28,22 @@ class QueuePersistenceService {
   static QueuePersistenceService? _instance;
 
   Box? _box;
+  final SettingsService? _settingsService;
 
-  QueuePersistenceService._();
+  QueuePersistenceService._([this._settingsService]);
+
+  @visibleForTesting
+  QueuePersistenceService.forTest({Box? box, SettingsService? settingsService})
+      : _box = box,
+        _settingsService = settingsService;
 
   static QueuePersistenceService get instance =>
       _instance ??= QueuePersistenceService._();
+
+  @visibleForTesting
+  static void setInstance(QueuePersistenceService? testInstance) {
+    _instance = testInstance;
+  }
 
   Future<Box> _getBox() async {
     if (_box != null && _box!.isOpen) return _box!;
@@ -48,7 +59,7 @@ class QueuePersistenceService {
     required Duration position,
     bool isIncognito = false,
   }) async {
-    final settings = SettingsService.instance;
+    final settings = _settingsService ?? SettingsService.instance;
 
     // 1. Explicit user privacy check
     if (!settings.restoreQueueOnLaunch) {
@@ -71,11 +82,12 @@ class QueuePersistenceService {
       final data = {
         'currentSong': _songToMap(currentSong),
         'queue': queue.map(_songToMap).toList(),
-        'queueIndex': queueIndex,
-        'positionMs': position.inMilliseconds,
+        'queueIndex': queueIndex.clamp(0, queue.length - 1),
+        'positionMs': position.inMilliseconds > 0 ? position.inMilliseconds : 0,
         'updatedAt': DateTime.now().toIso8601String(),
       };
       await box.put(_sessionKey, data);
+      await box.flush();
     } catch (e) {
       debugPrint('QueuePersistenceService: Failed to save session: $e');
     }
@@ -83,7 +95,7 @@ class QueuePersistenceService {
 
   /// Retrieves the saved queue session if permitted by privacy settings.
   Future<SavedQueueSession?> getSavedSession() async {
-    final settings = SettingsService.instance;
+    final settings = _settingsService ?? SettingsService.instance;
     if (!settings.restoreQueueOnLaunch) {
       return null;
     }

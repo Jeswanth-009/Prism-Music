@@ -643,6 +643,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         _attemptedFreshResolutions.remove(event.song.playableId);
         _consecutiveFailureSkips = 0;
         updateNowPlaying(event.song);
+        _persistCurrentSession(customPosition: resumePos);
         // Position in the queue changed → notification skip buttons may
         // have become usable/unusable.
         MediaSessionCoordinator.instance.notifyQueueChanged();
@@ -922,6 +923,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   Future<void> _onSeek(SeekEvent event, Emitter<PlayerState> emit) async {
     await _audioPlayer.seek(event.position);
     emit(state.copyWith(position: event.position));
+    _persistCurrentSession(customPosition: event.position);
   }
 
   Future<void> _onSetVolume(
@@ -1044,6 +1046,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
     emit(state.copyWith(queue: updatedQueue, originalQueue: updatedOriginal));
     MediaSessionCoordinator.instance.notifyQueueChanged();
+    _persistCurrentSession();
 
     final preferredQuality = _startupQuality(state.audioQuality);
     _streamLoader.prefetch(event.song, preferredQuality: preferredQuality);
@@ -1108,6 +1111,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       queueIndex: newIndex,
     ));
     MediaSessionCoordinator.instance.notifyQueueChanged();
+    _persistCurrentSession();
   }
 
   Future<void> _onReorderQueue(
@@ -1139,6 +1143,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
     emit(state.copyWith(queue: updatedQueue, queueIndex: newIndex));
     MediaSessionCoordinator.instance.notifyQueueChanged();
+    _persistCurrentSession();
   }
 
   Future<void> _onClearQueue(
@@ -1156,6 +1161,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       ),
     );
     MediaSessionCoordinator.instance.notifyQueueChanged();
+    _persistCurrentSession();
   }
 
   Future<void> _onSetPlaybackSpeed(
@@ -1263,6 +1269,12 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
     // Ensure next track is prefetched when nearing end of current song
     _maybePrefetchUpcomingNearEnd(event.position);
+
+    final now = DateTime.now();
+    if (now.difference(_lastPositionPersistTime).inSeconds >= 5) {
+      _lastPositionPersistTime = now;
+      _persistCurrentSession(customPosition: event.position);
+    }
   }
 
   void _onBufferedPositionUpdate(
@@ -1943,6 +1955,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     }
   }
 
+  DateTime _lastPositionPersistTime = DateTime.fromMillisecondsSinceEpoch(0);
+
   void _onRestoreQueue(RestoreQueueEvent event, Emitter<PlayerState> emit) {
     emit(
       state.copyWith(
@@ -1956,6 +1970,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         isRestoredSession: true,
       ),
     );
+
+    _queueBloc?.add(event);
+    _syncWidgetState(event.currentSong, false);
 
     if (event.autoPlay) {
       add(
@@ -1977,7 +1994,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     emit(state.copyWith(isRestoredSession: false));
   }
 
-  void _persistCurrentSession() {
+  void _persistCurrentSession({Duration? customPosition}) {
     final song = state.currentSong;
     if (song != null && state.queue.isNotEmpty) {
       unawaited(
@@ -1985,7 +2002,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
           currentSong: song,
           queue: state.queue,
           queueIndex: state.queueIndex,
-          position: state.position,
+          position: customPosition ?? state.position,
         ),
       );
     }
