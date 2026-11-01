@@ -8,6 +8,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.78] - 2026-11-01
+
+### Added
+
+- Notification progress seekbar, dynamic like/unlike action, and quality indicator
+- Android Auto support with MediaBrowserService browse tree and playback callbacks
+- Interactive re-sync UI for Spotify and YouTube imported playlists
+- Reliable background queue persistence across app kills and cold-start restoration
+- Full offline mode with auto-switch, download search, and offline queue
+- Elevate landing page with v0.2.77 features, refreshed bento grid, and visual polish
+
+### Changed
+
+- Update README to v0.2.77 with latest features, architecture, and open-source guides
+
 ## [0.2.77] - 2026-10-31
 
 ### Added
@@ -1040,3 +1055,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.75]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.75-build111
 [0.2.76]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.76-build112
 [0.2.77]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.77-build113
+[0.2.78]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.78-build114
