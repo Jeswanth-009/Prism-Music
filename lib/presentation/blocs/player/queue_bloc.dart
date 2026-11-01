@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../core/di/injection.dart';
+import '../../../core/services/download_service.dart';
+import '../../../core/services/offline_mode_service.dart';
 import '../../../core/services/queue_persistence_service.dart';
 import '../../../core/services/recommendation_service.dart';
 import '../../../core/services/settings_service.dart';
@@ -399,6 +402,30 @@ class QueueBloc extends Bloc<PlayerEvent, QueueState> {
     int requestGen,
     void Function(List<Song>)? onAppend,
   ) async {
+    if (OfflineModeService.instance.isOffline) {
+      final downloadService = getIt.isRegistered<DownloadService>()
+          ? getIt<DownloadService>()
+          : null;
+      if (downloadService != null) {
+        final downloaded = downloadService.getDownloadedSongsList();
+        final queueIds = state.queue.map((s) => s.playableId).toSet();
+        final available =
+            downloaded.where((s) => !queueIds.contains(s.playableId)).toList();
+        if (available.isNotEmpty) {
+          available.shuffle();
+          final recs = available.take(_recommendationBatchSize).toList();
+          if (requestGen == _recommendationGeneration) {
+            if (onAppend != null) {
+              onAppend(recs);
+            } else {
+              add(_InternalAddRecommendationsEvent(recs));
+            }
+          }
+        }
+      }
+      return;
+    }
+
     final recommendationService = _recommendationService;
     if (recommendationService == null || _isFetchingRecommendations) return;
 

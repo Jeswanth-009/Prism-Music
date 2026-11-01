@@ -93,27 +93,8 @@ class _DownloadsPageState extends State<DownloadsPage> {
     }
   }
 
-  Song _mapToSong(Map<String, dynamic> songData) {
-    return Song(
-      id: songData['songId'],
-      title: songData['title'] ?? 'Unknown',
-      artist: songData['artist'] ?? 'Unknown Artist',
-      duration: Duration(seconds: songData['duration'] ?? 0),
-      thumbnails: (songData['localArtworkPath'] != null &&
-              File(songData['localArtworkPath']).existsSync())
-          ? Thumbnails.fromUrl(songData['localArtworkPath'])
-          : (songData['thumbnailUrl'] != null
-              ? Thumbnails.fromUrl(songData['thumbnailUrl'])
-              : Thumbnails.empty()),
-      album: songData['album'],
-      artists: (songData['artists'] is List)
-          ? List<String>.from(songData['artists'])
-          : [songData['artist'] ?? 'Unknown Artist'],
-      isrc: songData['isrc'],
-      streamUrl: songData['localPath'],
-      source: MusicSource.local,
-    );
-  }
+  Song _mapToSong(Map<String, dynamic> songData) =>
+      DownloadService.mapDownloadToSong(songData);
 
   void _playSong(Map<String, dynamic> songData) {
     final song = _mapToSong(songData);

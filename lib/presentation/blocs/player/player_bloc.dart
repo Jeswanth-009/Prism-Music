@@ -11,6 +11,7 @@ import '../../../core/services/playback_reliability_service.dart';
 import '../../../core/services/stream_cache_service.dart';
 import '../../../core/services/stream_loader_service.dart';
 import '../../../core/services/download_service.dart';
+import '../../../core/services/offline_mode_service.dart';
 import '../../../core/services/permission_service.dart';
 import '../../../core/services/settings_service.dart';
 import '../../../core/services/widget_service.dart';
@@ -818,7 +819,27 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       // A manual skip is explicit user intent: clear any open circuit and
       // per-song retry budgets so the target song always gets a real attempt.
       _reliability.resetCircuitBreaker();
-      final nextIndex = state.queueIndex + 1;
+      int nextIndex = state.queueIndex + 1;
+      if (OfflineModeService.instance.isOffline) {
+        int found = -1;
+        for (int i = state.queueIndex + 1; i < state.queue.length; i++) {
+          if (_downloadService.isDownloaded(state.queue[i].playableId)) {
+            found = i;
+            break;
+          }
+        }
+        if (found != -1) {
+          nextIndex = found;
+        } else if (state.repeatMode == RepeatMode.all) {
+          for (int i = 0; i < state.queue.length; i++) {
+            if (_downloadService.isDownloaded(state.queue[i].playableId)) {
+              found = i;
+              break;
+            }
+          }
+          if (found != -1) nextIndex = found;
+        }
+      }
       final nextSong = state.queue[nextIndex];
 
       // Immediately update queue index to show responsiveness
@@ -859,7 +880,17 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     if (state.hasPrevious) {
       // Same as _onNext: user intent overrides the circuit breaker.
       _reliability.resetCircuitBreaker();
-      final prevIndex = state.queueIndex - 1;
+      int prevIndex = state.queueIndex - 1;
+      if (OfflineModeService.instance.isOffline) {
+        int found = -1;
+        for (int i = state.queueIndex - 1; i >= 0; i--) {
+          if (_downloadService.isDownloaded(state.queue[i].playableId)) {
+            found = i;
+            break;
+          }
+        }
+        if (found != -1) prevIndex = found;
+      }
       final prevSong = state.queue[prevIndex];
 
       emit(state.copyWith(queueIndex: prevIndex, status: PlayerStatus.loading));

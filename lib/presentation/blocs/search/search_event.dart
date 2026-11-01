@@ -90,4 +90,5 @@ enum SearchFilter {
   artists,
   albums,
   playlists,
+  downloads,
 }

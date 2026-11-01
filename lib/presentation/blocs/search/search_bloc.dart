@@ -4,6 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:logging/logging.dart';
 import 'package:rxdart/rxdart.dart';
+import '../../../core/di/injection.dart';
+import '../../../core/services/download_service.dart';
+import '../../../core/services/offline_mode_service.dart';
 import '../../../core/utils/unicode_search_matcher.dart';
 import '../../../data/datasources/local/local_datasource.dart';
 import '../../../domain/entities/entities.dart';
@@ -26,13 +29,19 @@ EventTransformer<E> _droppablePagination<E>() {
 class SearchBloc extends Bloc<SearchEvent, SearchState> {
   final MusicRepository _musicRepository;
   final LocalDataSource _localDataSource;
+  final DownloadService? _downloadService;
+  final OfflineModeService? _offlineModeService;
   int _searchGeneration = 0;
 
   SearchBloc({
     required MusicRepository musicRepository,
     required LocalDataSource localDataSource,
+    DownloadService? downloadService,
+    OfflineModeService? offlineModeService,
   })  : _musicRepository = musicRepository,
         _localDataSource = localDataSource,
+        _downloadService = downloadService,
+        _offlineModeService = offlineModeService,
         super(const SearchState()) {
     on<SearchQueryEvent>(
       _onSearchQuery,
@@ -82,6 +91,31 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
       filter: event.filter,
       errorMessage: null,
     ));
+
+    final dlService = _downloadService ??
+        (getIt.isRegistered<DownloadService>()
+            ? getIt<DownloadService>()
+            : null);
+    final offlineService = _offlineModeService ??
+        (getIt.isRegistered<OfflineModeService>()
+            ? getIt<OfflineModeService>()
+            : OfflineModeService.instance);
+
+    final isOffline = offlineService.isOffline;
+
+    if (isOffline || event.filter == SearchFilter.downloads) {
+      final offlineSongs = dlService?.searchDownloadedSongs(query) ?? <Song>[];
+      emit(state.copyWith(
+        status: SearchStatus.success,
+        results: SearchResults(songs: offlineSongs),
+        hasMore: false,
+        page: 1,
+        entitySuggestions: [],
+        isOfflineResults: true,
+      ));
+      add(AddToHistoryEvent(query));
+      return;
+    }
 
     try {
       // Route to specific search methods based on active filter for better relevance
@@ -236,9 +270,36 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
             },
           );
           break;
+        case SearchFilter.downloads:
+          final offlineSongs =
+              dlService?.searchDownloadedSongs(query) ?? <Song>[];
+          emit(state.copyWith(
+            status: SearchStatus.success,
+            results: SearchResults(songs: offlineSongs),
+            hasMore: false,
+            page: 1,
+            entitySuggestions: [],
+            isOfflineResults: true,
+          ));
+          add(AddToHistoryEvent(query));
+          break;
       }
     } catch (e) {
       if (emit.isDone || generation != _searchGeneration) return;
+      final fallbackSongs =
+          dlService?.searchDownloadedSongs(query) ?? <Song>[];
+      if (fallbackSongs.isNotEmpty) {
+        emit(state.copyWith(
+          status: SearchStatus.success,
+          results: SearchResults(songs: fallbackSongs),
+          hasMore: false,
+          page: 1,
+          entitySuggestions: [],
+          isOfflineResults: true,
+        ));
+        add(AddToHistoryEvent(query));
+        return;
+      }
       emit(state.copyWith(
         status: SearchStatus.error,
         errorMessage: e.toString(),
@@ -354,6 +415,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
           );
           break;
         case SearchFilter.all:
+        case SearchFilter.downloads:
           emit(state.copyWith(status: SearchStatus.success, hasMore: false));
           break;
       }

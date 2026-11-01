@@ -13,6 +13,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import '../utils/logger.dart';
 import '../utils/path_safety.dart';
 import '../utils/formatters.dart';
+import '../utils/unicode_search_matcher.dart';
 import 'settings_service.dart';
 
 /// Builds a filesystem-safe file name for a downloaded song.
@@ -628,6 +629,66 @@ class DownloadService {
       }
     }
     return songs;
+  }
+
+  /// Maps a raw download Hive record to a strongly typed domain Song entity.
+  static Song mapDownloadToSong(Map<String, dynamic> songData) {
+    return Song(
+      id: songData['songId']?.toString() ?? '',
+      title: songData['title'] ?? 'Unknown',
+      artist: songData['artist'] ?? 'Unknown Artist',
+      duration: Duration(seconds: songData['duration'] ?? 0),
+      thumbnails: (songData['localArtworkPath'] != null &&
+              File(songData['localArtworkPath']).existsSync())
+          ? Thumbnails.fromUrl(songData['localArtworkPath'])
+          : (songData['thumbnailUrl'] != null
+              ? Thumbnails.fromUrl(songData['thumbnailUrl'])
+              : Thumbnails.empty()),
+      album: songData['album'],
+      artists: (songData['artists'] is List)
+          ? List<String>.from(songData['artists'])
+          : [songData['artist'] ?? 'Unknown Artist'],
+      isrc: songData['isrc'],
+      streamUrl: songData['localPath'],
+      source: MusicSource.local,
+    );
+  }
+
+  /// Returns all validated downloaded songs as domain Song entities.
+  List<Song> getDownloadedSongsList() {
+    return getAllDownloadedSongs().map(mapDownloadToSong).toList();
+  }
+
+  /// Fuzzy and substring search within downloaded songs.
+  List<Song> searchDownloadedSongs(String query) {
+    final cleanQuery = query.trim().toLowerCase();
+    if (cleanQuery.isEmpty) return [];
+
+    final songs = getDownloadedSongsList();
+    final matched = <({Song song, double score})>[];
+
+    for (final song in songs) {
+      final titleNorm = song.title.toLowerCase();
+      final artistNorm = song.artist.toLowerCase();
+      final albumNorm = (song.album ?? '').toLowerCase();
+
+      final containsTitle = titleNorm.contains(cleanQuery);
+      final containsArtist = artistNorm.contains(cleanQuery);
+      final containsAlbum = albumNorm.contains(cleanQuery);
+
+      if (containsTitle || containsArtist || containsAlbum) {
+        final simTitle =
+            UnicodeSearchMatcher.computeSimilarity(song.title, cleanQuery);
+        final simArtist =
+            UnicodeSearchMatcher.computeSimilarity(song.artist, cleanQuery);
+        final baseScore = containsTitle ? 1.0 : (containsArtist ? 0.8 : 0.6);
+        final score = baseScore + (simTitle > simArtist ? simTitle : simArtist);
+        matched.add((song: song, score: score));
+      }
+    }
+
+    matched.sort((a, b) => b.score.compareTo(a.score));
+    return matched.map((m) => m.song).toList();
   }
 
   /// Get total download size

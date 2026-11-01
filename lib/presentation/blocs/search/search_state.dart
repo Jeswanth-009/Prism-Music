@@ -65,6 +65,9 @@ class SearchState extends Equatable {
   /// Error message if status is error
   final String? errorMessage;
 
+  /// Whether current results were resolved offline from downloads
+  final bool isOfflineResults;
+
   const SearchState({
     this.status = SearchStatus.initial,
     this.query = '',
@@ -76,6 +79,7 @@ class SearchState extends Equatable {
     this.hasMore = false,
     this.page = 1,
     this.errorMessage,
+    this.isOfflineResults = false,
   });
 
   /// Whether search is in progress
@@ -103,6 +107,7 @@ class SearchState extends Equatable {
     bool? hasMore,
     int? page,
     String? errorMessage,
+    bool? isOfflineResults,
   }) {
     return SearchState(
       status: status ?? this.status,
@@ -115,6 +120,7 @@ class SearchState extends Equatable {
       hasMore: hasMore ?? this.hasMore,
       page: page ?? this.page,
       errorMessage: errorMessage ?? this.errorMessage,
+      isOfflineResults: isOfflineResults ?? this.isOfflineResults,
     );
   }
 
@@ -130,5 +136,6 @@ class SearchState extends Equatable {
         hasMore,
         page,
         errorMessage,
+        isOfflineResults,
       ];
 }

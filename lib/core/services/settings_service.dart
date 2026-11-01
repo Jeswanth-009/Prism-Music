@@ -129,6 +129,7 @@ class SettingsService {
   static const String _offlineArtworkPersistenceKey = 'offline_artwork_persistence';
   static const String _reducedMotionModeKey = 'reduced_motion_mode';
   static const String _telemetryConsentKey = 'telemetry_consent';
+  static const String _forceOfflineModeKey = 'force_offline_mode';
   static SettingsService? _instance;
   
   Box? _settingsBox;
@@ -764,6 +765,20 @@ class SettingsService {
   /// Persist telemetry diagnostics consent setting.
   Future<void> setTelemetryConsent(bool value) async {
     await _settingsBox?.put(_telemetryConsentKey, value);
+  }
+
+  /// Whether user has manually forced offline mode (default: false).
+  bool get forceOfflineMode {
+    try {
+      return _settingsBox?.get(_forceOfflineModeKey, defaultValue: false) as bool? ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Persist manual offline mode setting.
+  Future<void> setForceOfflineMode(bool value) async {
+    await _settingsBox?.put(_forceOfflineModeKey, value);
   }
 }
 

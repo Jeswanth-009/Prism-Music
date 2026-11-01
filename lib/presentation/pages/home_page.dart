@@ -10,6 +10,8 @@ import '../widgets/player/mini_player.dart';
 import '../widgets/common/adaptive_layout.dart';
 import '../widgets/dialogs/prism_update_dialog.dart';
 import '../../core/services/app_update_service.dart';
+import '../../core/services/offline_mode_service.dart';
+import '../widgets/prism/prism_sheet.dart';
 import 'charts_hub_page.dart';
 import 'home_tab.dart';
 import 'library_tab.dart';
@@ -51,6 +53,7 @@ class _HomePageState extends State<HomePage> {
   late int _currentIndex;
   late final Set<int> _visitedTabs;
   Timer? _updateCheckTimer;
+  StreamSubscription<void>? _offlineTransitionSub;
 
   bool get _shouldCheckUpdates =>
       widget.enableUpdateCheck ?? (widget.tabBuilders == null);
@@ -65,10 +68,26 @@ class _HomePageState extends State<HomePage> {
         _checkUpdateOnLaunch();
       });
     }
+
+    _offlineTransitionSub =
+        OfflineModeService.instance.onSwitchedToOffline.listen((_) {
+      if (!mounted) return;
+      if (_currentIndex == 0 || _currentIndex == 2) {
+        setState(() {
+          _currentIndex = 3;
+          _visitedTabs.add(3);
+        });
+        showPrismToast(
+          context,
+          'Offline mode active — switched to local library',
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
+    _offlineTransitionSub?.cancel();
     _updateCheckTimer?.cancel();
     super.dispose();
   }

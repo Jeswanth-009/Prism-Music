@@ -24,6 +24,7 @@ import '../services/stream_loader_service.dart';
 import '../services/media_resolver_service.dart';
 import '../services/playback_reliability_service.dart';
 import '../services/download_service.dart';
+import '../services/offline_mode_service.dart';
 import '../services/ytmusic_api_service.dart';
 import '../services/recommendation_service.dart';
 import '../services/instance_health_service.dart';
@@ -174,6 +175,13 @@ getIt.registerLazySingleton<LibraryRepository>(
      getIt.registerSingleton<DownloadService>(downloadService);
    }
 
+   // Offline Mode Service (singleton)
+   {
+     final offlineModeService = OfflineModeService.instance;
+     await offlineModeService.initialize();
+     getIt.registerSingleton<OfflineModeService>(offlineModeService);
+   }
+
 // Recommendation Service (singleton) depends on MusicRepository and LibraryRepository
     {
       final recommendationService = RecommendationService(
@@ -249,6 +257,8 @@ getIt.registerLazySingleton<LibraryRepository>(
     () => SearchBloc(
       musicRepository: getIt<MusicRepository>(),
       localDataSource: getIt<LocalDataSource>(),
+      downloadService: getIt<DownloadService>(),
+      offlineModeService: getIt<OfflineModeService>(),
     ),
   );
   
