@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../domain/entities/entities.dart';
 import 'download_service.dart';
+import 'offline_mode_service.dart';
 import 'stream_loader_service.dart';
 import 'youtube_audio_source.dart';
 
@@ -70,6 +71,10 @@ class MediaResolverService {
         isOffline: false,
         videoId: song.playableId,
       );
+    }
+
+    if (OfflineModeService.instance.isOffline) {
+      throw const SocketException('App is in offline mode and track is not downloaded');
     }
 
     final streamResolveStopwatch = Stopwatch()..start();

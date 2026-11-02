@@ -461,6 +461,51 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     // Build initial queue immediately so UI reflects it
     List<Song> initialQueue = event.queue ?? [event.song];
     int initialQueueIndex = event.queueIndex ?? 0;
+    Song songToPlay = event.song;
+
+    // Offline check & fallback to downloaded tracks
+    if (OfflineModeService.instance.isOffline &&
+        !_downloadService.isDownloaded(songToPlay.playableId)) {
+      _log(
+        'PlayerBloc: Offline mode active and "${songToPlay.title}" is not downloaded. Searching for offline fallback.',
+      );
+
+      // 1. Try to find a downloaded song within the initial queue
+      int fallbackIndex = -1;
+      for (int i = 0; i < initialQueue.length; i++) {
+        if (_downloadService.isDownloaded(initialQueue[i].playableId)) {
+          fallbackIndex = i;
+          break;
+        }
+      }
+
+      if (fallbackIndex != -1) {
+        songToPlay = initialQueue[fallbackIndex];
+        initialQueueIndex = fallbackIndex;
+        _log('PlayerBloc: Found downloaded song in queue: "${songToPlay.title}"');
+      } else {
+        // 2. Queue has no downloaded songs; fall back to library downloads
+        final downloadedSongs = _downloadService.getDownloadedSongsList();
+        if (downloadedSongs.isNotEmpty) {
+          songToPlay = downloadedSongs.first;
+          initialQueue = List<Song>.from(downloadedSongs);
+          initialQueueIndex = 0;
+          _log(
+            'PlayerBloc: Falling back to downloaded library track: "${songToPlay.title}"',
+          );
+        } else {
+          // 3. No downloaded songs exist anywhere
+          emit(
+            state.copyWith(
+              status: PlayerStatus.error,
+              errorMessage:
+                  'Offline mode: No downloaded songs available. Connect to internet or download tracks.',
+            ),
+          );
+          return;
+        }
+      }
+    }
 
     // Honor the persisted Auto Shuffle preference: on a user-initiated play
     // of a multi-song queue, shuffle the remaining songs behind the picked
@@ -477,7 +522,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     }
 
     if (event.userInitiated) {
-      _attemptedFreshResolutions.remove(event.song.playableId);
+      _attemptedFreshResolutions.remove(songToPlay.playableId);
     }
 
     final Song? previousSong = state.currentSong;
@@ -486,7 +531,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     emit(
       state.copyWith(
         status: PlayerStatus.loading,
-        currentSong: event.song,
+        currentSong: songToPlay,
         position: Duration.zero,
         duration: Duration.zero,
         queue: initialQueue,
@@ -528,13 +573,13 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       final resolveStopwatch = Stopwatch()..start();
       final preResolved = event.preferredResolver != null
           ? null
-          : _mediaResolver.takePreResolved(event.song.playableId);
+          : _mediaResolver.takePreResolved(songToPlay.playableId);
       final usedPreResolved = preResolved != null;
       final resolvedSource =
           preResolved ??
           await (_mediaResolver
               .resolveForPlayback(
-                event.song,
+                songToPlay,
                 preferredQuality: playbackQuality,
                 preferredResolverName: event.preferredResolver,
               )
@@ -560,7 +605,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
       try {
         _log(
-          'PlayerBloc: Starting playback for: ${event.song.title} '
+          'PlayerBloc: Starting playback for: ${songToPlay.title} '
           '(offline=${resolvedSource.isOffline})',
         );
 
@@ -568,17 +613,17 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
             _crossfadeDurationSeconds > 0 &&
             previousSong != null &&
             _audioPlayer.playing &&
-            previousSong.playableId != event.song.playableId;
+            previousSong.playableId != songToPlay.playableId;
 
         final setSourceStopwatch = Stopwatch()..start();
         // Notification artwork prefers the medium thumbnail: YouTube's
         // maxres URLs frequently 404, which leaves the media card art-less.
         final notificationArtwork =
-            event.song.thumbnails.medium ?? event.song.thumbnailUrl;
-        final isYouTubeSong = (event.song.source == MusicSource.youtube ||
-                event.song.source == MusicSource.youtubeMusic ||
-                event.song.youtubeId != null) &&
-            event.song.playableId.isNotEmpty;
+            songToPlay.thumbnails.medium ?? songToPlay.thumbnailUrl;
+        final isYouTubeSong = (songToPlay.source == MusicSource.youtube ||
+                songToPlay.source == MusicSource.youtubeMusic ||
+                songToPlay.youtubeId != null) &&
+            songToPlay.playableId.isNotEmpty;
 
         final duration = shouldCrossfade
             ? await _audioPlayer
@@ -587,11 +632,11 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
                     headers: resolvedSource.headers,
                     videoId: resolvedSource.videoId,
                     quality: _mapAudioQuality(state.audioQuality),
-                    title: event.song.title,
-                    artist: event.song.artist,
-                    album: event.song.album,
+                    title: songToPlay.title,
+                    artist: songToPlay.artist,
+                    album: songToPlay.album,
                     artworkUrl: notificationArtwork,
-                    mediaDuration: event.song.duration,
+                    mediaDuration: songToPlay.duration,
                     duration: Duration(
                       milliseconds: (_crossfadeDurationSeconds * 1000)
                           .round()
@@ -606,11 +651,11 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
                     headers: resolvedSource.headers,
                     videoId: resolvedSource.videoId,
                     quality: _mapAudioQuality(state.audioQuality),
-                    title: event.song.title,
-                    artist: event.song.artist,
-                    album: event.song.album,
+                    title: songToPlay.title,
+                    artist: songToPlay.artist,
+                    album: songToPlay.album,
                     artworkUrl: notificationArtwork,
-                    mediaDuration: event.song.duration,
+                    mediaDuration: songToPlay.duration,
                     allowYouTubeFallbackOnDirectFailure: isYouTubeSong,
                   )
                   .timeout(_setSourceTimeout);
@@ -642,7 +687,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         emit(
           state.copyWith(
             status: PlayerStatus.playing,
-            currentSong: event.song,
+            currentSong: songToPlay,
             currentStreamInfo: resolvedSource.streamInfo,
             originalQueue: state.originalQueue.isNotEmpty
                 ? state.originalQueue
@@ -652,15 +697,15 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
           ),
         );
 
-        _libraryRepository.addToHistory(event.song);
-        _recommendationService?.recordPlay(event.song);
-        _reliability.registerSuccess(event.song.playableId);
-        _attemptedFreshResolutions.remove(event.song.playableId);
+        _libraryRepository.addToHistory(songToPlay);
+        _recommendationService?.recordPlay(songToPlay);
+        _reliability.registerSuccess(songToPlay.playableId);
+        _attemptedFreshResolutions.remove(songToPlay.playableId);
         _consecutiveFailureSkips = 0;
-        updateNowPlaying(event.song);
+        updateNowPlaying(songToPlay);
         try {
-          _libraryRepository.isSongLiked(event.song.id).then((liked) {
-            final isDown = _downloadService.isDownloaded(event.song.id);
+          _libraryRepository.isSongLiked(songToPlay.id).then((liked) {
+            final isDown = _downloadService.isDownloaded(songToPlay.id);
             final qLabel = isDown ? 'Offline • Downloaded' : state.audioQuality.displayName;
             MediaSessionCoordinator.instance.updatePlaybackInfo(
               isLiked: liked,
@@ -668,10 +713,10 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
             );
           }).catchError((_) {});
         } catch (_) {
-          final isDown = _downloadService.isDownloaded(event.song.id);
+          final isDown = _downloadService.isDownloaded(songToPlay.id);
           final qLabel = isDown ? 'Offline • Downloaded' : state.audioQuality.displayName;
           MediaSessionCoordinator.instance.updatePlaybackInfo(
-            isLiked: event.song.isLiked,
+            isLiked: songToPlay.isLiked,
             qualityLabel: qLabel,
           );
         }
@@ -687,7 +732,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
               if (generation == _playbackGeneration && !isClosed) {
                 _handlePlaybackError(
                   emit,
-                  failedSong: event.song,
+                  failedSong: songToPlay,
                   error: playError,
                   queue: state.queue,
                   queueIndex: queueIndex,
@@ -706,7 +751,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         if (generation != _playbackGeneration) return; // user moved on
         _handlePlaybackError(
           emit,
-          failedSong: event.song,
+          failedSong: songToPlay,
           error: playbackError,
           queue: event.queue ?? state.queue,
           queueIndex: event.queueIndex ?? state.queueIndex,
@@ -719,7 +764,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       if (generation != _playbackGeneration) return; // user moved on
       _handlePlaybackError(
         emit,
-        failedSong: event.song,
+        failedSong: songToPlay,
         error: e,
         queue: event.queue ?? state.queue,
         queueIndex: event.queueIndex ?? state.queueIndex,

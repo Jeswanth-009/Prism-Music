@@ -805,7 +805,20 @@ class FakeStreamLoader implements StreamLoaderService {
 
 class FakeDownloadService implements DownloadService {
   @override
-  bool isDownloaded(String songId) => false;
+  final Set<String> downloadedIds;
+  final List<Song> downloadedSongs;
+
+  FakeDownloadService({
+    Set<String>? downloadedIds,
+    List<Song>? downloadedSongs,
+  })  : downloadedIds = downloadedIds ?? {},
+        downloadedSongs = downloadedSongs ?? [];
+
+  @override
+  bool isDownloaded(String songId) => downloadedIds.contains(songId);
+
+  @override
+  List<Song> getDownloadedSongsList() => downloadedSongs;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -820,6 +833,7 @@ PlayerBloc buildTestPlayerBloc({
   FakeAudioPlayerService? audioPlayerService,
   FakeMediaResolver? mediaResolver,
   RecommendationService? recommendationService,
+  DownloadService? downloadService,
 }) {
   ensureWidgetTestHive();
   return PlayerBloc(
@@ -830,7 +844,7 @@ PlayerBloc buildTestPlayerBloc({
       mediaResolver: mediaResolver ?? FakeMediaResolver(),
       reliability: PlaybackReliabilityService(),
       streamLoader: FakeStreamLoader(),
-      downloadService: FakeDownloadService(),
+      downloadService: downloadService ?? FakeDownloadService(),
       recommendationService: recommendationService,
     );
 }

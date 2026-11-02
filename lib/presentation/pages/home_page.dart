@@ -8,6 +8,7 @@ import '../blocs/theme/theme.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/player/mini_player.dart';
 import '../widgets/common/adaptive_layout.dart';
+import '../widgets/common/offline_banner.dart';
 import '../widgets/dialogs/prism_update_dialog.dart';
 import '../../core/services/app_update_service.dart';
 import '../../core/services/offline_mode_service.dart';
@@ -201,6 +202,9 @@ class _HomePageState extends State<HomePage> {
               Expanded(
                 child: Column(
                   children: [
+                    OfflineBanner(
+                      onTap: () => _onTabSelect(3),
+                    ),
                     Expanded(child: contentStack),
                     BlocBuilder<PlayerBloc, PlayerState>(
                       builder: (context, state) {
@@ -241,6 +245,9 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            OfflineBanner(
+              onTap: () => _onTabSelect(3),
+            ),
             BlocBuilder<PlayerBloc, PlayerState>(
               builder: (context, state) {
                 if (state.currentSong == null) return const SizedBox.shrink();
