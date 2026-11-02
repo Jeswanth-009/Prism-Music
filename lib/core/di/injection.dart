@@ -132,11 +132,12 @@ Future<void> initializeDependencies() async {
     () => LocalDataSourceImpl(),
   );
   
-  // Stream Loader Service - depends on datasource and cache
+  // Stream Loader Service - depends on datasource, cache, and reliability policy
   getIt.registerLazySingleton<StreamLoaderService>(
     () => StreamLoaderService(
       getIt<YouTubeMusicDataSource>(),
       getIt<StreamCacheService>(),
+      reliability: getIt<PlaybackReliabilityService>(),
     ),
   );
 

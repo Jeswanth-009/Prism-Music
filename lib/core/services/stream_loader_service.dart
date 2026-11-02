@@ -7,7 +7,10 @@ import '../../data/datasources/remote/jiosaavn/jiosaavn_datasource.dart';
 import '../providers/audio_stream_resolver.dart';
 import '../providers/stream_resolvers.dart';
 import 'instance_health_service.dart';
+import 'playback_reliability_service.dart';
 import 'stream_cache_service.dart';
+
+export 'playback_reliability_service.dart' show StreamSource;
 
 /// Health status and metrics for an individual stream provider
 class ProviderHealthStatus {
@@ -30,8 +33,6 @@ class ProviderHealthStatus {
   });
 }
 
-/// Strategy for fetching stream URLs
-enum StreamSource { jioSaavn, youtubeExplode, invidious, alternative }
 
 /// Result from a stream fetch attempt
 class _FetchResult {
@@ -58,11 +59,8 @@ class StreamLoaderService {
   static const Duration _streamFetchTimeout = Duration(milliseconds: 9000);
   static const Duration _overallResolutionBudget = Duration(seconds: 22);
 
-  // Circuit breaker state per source
-  final Map<StreamSource, DateTime> _circuitCooldownUntil = {};
-  final Map<StreamSource, int> _consecutiveErrors = {};
-  static const int _circuitErrorThreshold = 3;
-  static const Duration _circuitCooldownDuration = Duration(seconds: 30);
+  final PlaybackReliabilityService _reliability;
+  PlaybackReliabilityService get reliability => _reliability;
 
   // Set of videoIds invalidated while prefetching was in-flight
   final Set<String> _invalidatedVideoIds = {};
@@ -79,7 +77,9 @@ class StreamLoaderService {
     this._cache, {
     JioSaavnDataSource? jioSaavn,
     List<AudioStreamResolver>? resolvers,
-  }) : _resolvers = resolvers ??
+    PlaybackReliabilityService? reliability,
+  }) : _reliability = reliability ?? PlaybackReliabilityService(),
+       _resolvers = resolvers ??
            [
              JioSaavnAudioStreamResolver(dataSource: jioSaavn ?? JioSaavnDataSourceImpl()),
              YouTubeExplodeAudioStreamResolver(dataSource: datasource),
@@ -89,33 +89,14 @@ class StreamLoaderService {
 
   List<AudioStreamResolver> get resolvers => List.unmodifiable(_resolvers);
 
-  bool _isCircuitOpen(StreamSource source) {
-    final cooldownUntil = _circuitCooldownUntil[source];
-    if (cooldownUntil == null) return false;
-    if (DateTime.now().isAfter(cooldownUntil)) {
-      _circuitCooldownUntil.remove(source);
-      _consecutiveErrors[source] = 0;
-      return false;
-    }
-    return true;
-  }
+  bool _isCircuitOpen(StreamSource source) =>
+      _reliability.isSourceCircuitOpen(source);
 
-  void _recordSourceSuccess(StreamSource source) {
-    _consecutiveErrors[source] = 0;
-    _circuitCooldownUntil.remove(source);
-  }
+  void _recordSourceSuccess(StreamSource source) =>
+      _reliability.recordSourceSuccess(source);
 
-  void _recordSourceFailure(StreamSource source) {
-    final count = (_consecutiveErrors[source] ?? 0) + 1;
-    _consecutiveErrors[source] = count;
-    if (count >= _circuitErrorThreshold) {
-      _circuitCooldownUntil[source] =
-          DateTime.now().add(_circuitCooldownDuration);
-      debugPrint(
-        'StreamLoader: Circuit OPEN for ${source.name} for 60s ($count consecutive failures)',
-      );
-    }
-  }
+  void _recordSourceFailure(StreamSource source) =>
+      _reliability.recordSourceFailure(source);
 
   /// Load stream URL with cache check and parallel fetching
   Future<StreamInfo> loadStream(
@@ -425,7 +406,7 @@ class StreamLoaderService {
       final name = resolver.resolverName;
       final source = _mapResolverToSource(name);
       final isCircuitOpen = _isCircuitOpen(source);
-      final consecutiveErrors = _consecutiveErrors[source] ?? 0;
+      final consecutiveErrors = _reliability.getSourceConsecutiveErrors(source);
 
       final attempts = _recentAttempts.where((a) => a.source == source).toList();
       final successes = attempts.where((a) => a.isSuccess).length;
