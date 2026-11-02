@@ -8,6 +8,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.79] - 2026-11-02
+
+### Added
+
+- Geo-restriction error detection, user notification, and fallback
+- Multi-client API fallback chain (androidSdkless -> android -> ios -> mweb)
+- App-wide offline mode banner and automatic fallback to downloaded songs
+
+### Changed
+
+- Run instance health sync and probes as non-blocking background tasks
+- Consolidate playback and stream source circuit breaker into PlaybackReliabilityService
+
 ## [0.2.78] - 2026-11-01
 
 ### Added
@@ -1056,3 +1069,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.76]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.76-build112
 [0.2.77]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.77-build113
 [0.2.78]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.78-build114
+[0.2.79]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.79-build115
