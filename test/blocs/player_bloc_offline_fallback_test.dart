@@ -6,7 +6,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:prism_music/core/services/offline_mode_service.dart';
 import 'package:prism_music/core/services/settings_service.dart';
 import 'package:prism_music/domain/entities/entities.dart';
-import 'package:prism_music/presentation/blocs/player/player_bloc.dart';
 import 'package:prism_music/presentation/blocs/player/player_event.dart';
 import 'package:prism_music/presentation/blocs/player/player_state.dart';
 
@@ -174,3 +173,4 @@ void main() {
     });
   });
 }
+

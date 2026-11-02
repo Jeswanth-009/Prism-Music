@@ -98,6 +98,21 @@ class DownloadFailure extends Failure {
 }
 
 /// Unknown/Unexpected failures
+/// Geo-restriction failure
+class GeoRestrictionFailure extends Failure {
+  final String provider;
+
+  const GeoRestrictionFailure({
+    super.message = 'Audio stream is geo-restricted in your region.',
+    this.provider = 'JioSaavn',
+    super.code,
+  });
+
+  @override
+  List<Object?> get props => [message, provider, code];
+}
+
+/// Unknown/Unexpected failures
 class UnknownFailure extends Failure {
   const UnknownFailure({
     super.message = 'An unexpected error occurred.',

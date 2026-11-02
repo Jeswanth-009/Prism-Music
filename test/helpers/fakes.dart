@@ -804,7 +804,6 @@ class FakeStreamLoader implements StreamLoaderService {
 }
 
 class FakeDownloadService implements DownloadService {
-  @override
   final Set<String> downloadedIds;
   final List<Song> downloadedSongs;
 

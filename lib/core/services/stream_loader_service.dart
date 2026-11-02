@@ -6,6 +6,7 @@ import '../../data/datasources/remote/youtube/youtube_music_datasource.dart';
 import '../../data/datasources/remote/jiosaavn/jiosaavn_datasource.dart';
 import '../providers/audio_stream_resolver.dart';
 import '../providers/stream_resolvers.dart';
+import '../error/exceptions.dart';
 import 'instance_health_service.dart';
 import 'playback_reliability_service.dart';
 import 'stream_cache_service.dart';
@@ -61,6 +62,13 @@ class StreamLoaderService {
 
   final PlaybackReliabilityService _reliability;
   PlaybackReliabilityService get reliability => _reliability;
+
+  final StreamController<GeoRestrictionException> _geoRestrictionController =
+      StreamController<GeoRestrictionException>.broadcast();
+
+  /// Emits whenever an audio provider resolution fails due to regional geo-restrictions.
+  Stream<GeoRestrictionException> get onGeoRestrictionDetected =>
+      _geoRestrictionController.stream;
 
   // Set of videoIds invalidated while prefetching was in-flight
   final Set<String> _invalidatedVideoIds = {};
@@ -198,6 +206,10 @@ class StreamLoaderService {
             .resolveStream(song, preferredQuality: preferredQuality)
             .timeout(_streamFetchTimeout);
       } catch (e) {
+        if (e is GeoRestrictionException) {
+          debugPrint('StreamLoader: ${resolver.resolverName} hit geo-restriction: $e');
+          _geoRestrictionController.add(e);
+        }
         debugPrint('StreamLoader: ${resolver.resolverName} failed or timed out: $e');
       }
 
@@ -388,7 +400,9 @@ class StreamLoaderService {
       }
       return stream;
     } catch (e) {
-      stopwatch.stop();
+      if (e is GeoRestrictionException) {
+        _geoRestrictionController.add(e);
+      }
       _recordSourceFailure(source);
       debugPrint('StreamLoader: Candidate resolution for $resolverName failed: $e');
       return null;
@@ -458,5 +472,9 @@ class StreamLoaderService {
     }
 
     return summary;
+  }
+
+  void dispose() {
+    _geoRestrictionController.close();
   }
 }

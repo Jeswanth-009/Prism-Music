@@ -10,7 +10,10 @@ import '../widgets/player/mini_player.dart';
 import '../widgets/common/adaptive_layout.dart';
 import '../widgets/common/offline_banner.dart';
 import '../widgets/dialogs/prism_update_dialog.dart';
+import '../../core/di/injection.dart';
+import '../../core/error/exceptions.dart';
 import '../../core/services/app_update_service.dart';
+import '../../core/services/stream_loader_service.dart';
 import '../../core/services/instance_health_service.dart';
 import '../../core/services/offline_mode_service.dart';
 import '../widgets/prism/prism_sheet.dart';
@@ -56,6 +59,7 @@ class _HomePageState extends State<HomePage> {
   late final Set<int> _visitedTabs;
   Timer? _updateCheckTimer;
   StreamSubscription<void>? _offlineTransitionSub;
+  StreamSubscription<GeoRestrictionException>? _geoRestrictionSub;
 
   bool get _shouldCheckUpdates =>
       widget.enableUpdateCheck ?? (widget.tabBuilders == null);
@@ -68,9 +72,21 @@ class _HomePageState extends State<HomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_shouldCheckUpdates) {
         _checkUpdateOnLaunch();
+        InstanceHealthService().startBackgroundHealthProbes();
       }
-      InstanceHealthService().startBackgroundHealthProbes();
     });
+
+    if (getIt.isRegistered<StreamLoaderService>()) {
+      _geoRestrictionSub = getIt<StreamLoaderService>()
+          .onGeoRestrictionDetected
+          .listen((geoEx) {
+        if (!mounted) return;
+        showPrismToast(
+          context,
+          '${geoEx.provider} audio is geo-restricted in your region. Switched to alternative audio.',
+        );
+      });
+    }
 
     _offlineTransitionSub =
         OfflineModeService.instance.onSwitchedToOffline.listen((_) {
@@ -91,6 +107,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _offlineTransitionSub?.cancel();
+    _geoRestrictionSub?.cancel();
     _updateCheckTimer?.cancel();
     super.dispose();
   }

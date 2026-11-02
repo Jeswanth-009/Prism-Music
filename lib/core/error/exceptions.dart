@@ -96,3 +96,19 @@ class DownloadException implements Exception {
   @override
   String toString() => 'DownloadException: $message';
 }
+
+/// Thrown when audio playback or streaming fails due to regional licensing or geo-blocking.
+class GeoRestrictionException implements Exception {
+  final String message;
+  final String provider;
+  final int? statusCode;
+
+  const GeoRestrictionException({
+    this.message = 'Audio stream is geo-restricted in your region.',
+    this.provider = 'JioSaavn',
+    this.statusCode,
+  });
+
+  @override
+  String toString() => 'GeoRestrictionException: $provider - $message (HTTP $statusCode)';
+}

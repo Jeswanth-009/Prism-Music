@@ -9,6 +9,7 @@ import '../../../../domain/entities/artist.dart';
 import '../../../../domain/entities/album.dart';
 import '../../../../domain/entities/playlist.dart';
 import '../../../../domain/entities/stream_info.dart';
+import '../../../../core/error/exceptions.dart';
 import '../../../../core/matching/match_confidence_engine.dart';
 
 /// Data source for JioSaavn API operations
@@ -71,8 +72,19 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
           return data['data'] as Map<String, dynamic>?;
         }
       }
+      if (response.statusCode == 451 ||
+          (response.statusCode == 403 &&
+              response.body.toLowerCase().contains('geo'))) {
+        throw const GeoRestrictionException(
+          provider: 'JioSaavn',
+          statusCode: 403,
+          message: 'JioSaavn API is restricted in your region.',
+        );
+      }
       debugPrint('JioSaavn: Request failed with status ${response.statusCode}');
       return null;
+    } on GeoRestrictionException {
+      rethrow;
     } catch (e) {
       debugPrint('JioSaavn: Request error: $e');
       return null;
@@ -204,6 +216,16 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
 
       debugPrint('JioSaavnDataSource: Searching for ${song.title} - ${song.artist}');
       final response = await _client.get(Uri.parse(searchUrl)).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 451 ||
+          (response.statusCode == 403 &&
+              (response.body.toLowerCase().contains('geo') || response.body.toLowerCase().contains('region')))) {
+        throw const GeoRestrictionException(
+          provider: 'JioSaavn',
+          statusCode: 403,
+          message: 'JioSaavn API is restricted in your region.',
+        );
+      }
       
       if (response.statusCode == 200 && response.body.isNotEmpty) {
         dynamic data = response.body;
@@ -269,6 +291,7 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
             
             // Try to find a working CDN host
             String? finalUrl;
+            int geoBlockCount = 0;
             
             // Re-order CDNs to try the cached working one first
             final hostsToTry = _workingCdnHost != null 
@@ -288,8 +311,12 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
                   finalUrl = testUrl;
                   debugPrint('JioSaavnDataSource: Found working CDN: $host');
                   break; // Found a working CDN
+                } else if (headResponse.statusCode == 403 || headResponse.statusCode == 451) {
+                  geoBlockCount++;
                 }
-              } catch (e) {
+              } on GeoRestrictionException {
+      rethrow;
+    } catch (e) {
                 debugPrint('JioSaavnDataSource: CDN $host unreachable/timed out');
               }
             }
@@ -319,6 +346,14 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
             }
 
             if (finalUrl == null) {
+              if (geoBlockCount > 0 && geoBlockCount >= (hostsToTry.length / 2).ceil()) {
+                debugPrint('JioSaavnDataSource: Geo-restriction detected ($geoBlockCount CDNs returned 403/451)');
+                throw const GeoRestrictionException(
+                  provider: 'JioSaavn',
+                  statusCode: 403,
+                  message: 'JioSaavn CDN audio streams are restricted in your geographical region.',
+                );
+              }
               debugPrint('JioSaavnDataSource: All CDNs failed validation (Unreachable/Timeout)');
               return null; // Fallback to YouTube Explode
             }
@@ -347,6 +382,8 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
           }
         }
       }
+    } on GeoRestrictionException {
+      rethrow;
     } catch (e) {
       debugPrint('JioSaavnDataSource Error: $e');
     }
@@ -449,6 +486,8 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
         playCount: int.tryParse(data['playCount']?.toString() ?? ''),
         streamUrl: downloadUrl,
       );
+    } on GeoRestrictionException {
+      rethrow;
     } catch (e) {
       debugPrint('JioSaavn: Error parsing song: $e');
       return null;
@@ -466,6 +505,8 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
         thumbnails: _parseThumbnails(data['image']),
         subscriberCount: int.tryParse(data['followerCount']?.toString() ?? ''),
       );
+    } on GeoRestrictionException {
+      rethrow;
     } catch (e) {
       return null;
     }
@@ -489,6 +530,8 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
         year: int.tryParse(data['year']?.toString() ?? ''),
         trackCount: int.tryParse(data['songCount']?.toString() ?? ''),
       );
+    } on GeoRestrictionException {
+      rethrow;
     } catch (e) {
       return null;
     }
@@ -516,6 +559,8 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
         trackCount: songs.length,
         songs: songs,
       );
+    } on GeoRestrictionException {
+      rethrow;
     } catch (e) {
       return null;
     }
@@ -538,6 +583,8 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
         trackCount: int.tryParse(data['songCount']?.toString() ?? '') ?? songs.length,
         songs: songs,
       );
+    } on GeoRestrictionException {
+      rethrow;
     } catch (e) {
       return null;
     }

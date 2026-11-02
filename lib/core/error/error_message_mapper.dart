@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'exceptions.dart';
 import 'failures.dart';
 
 /// Maps technical exceptions, failures, and raw error strings into clean,
@@ -29,6 +30,12 @@ class ErrorMessageMapper {
     }
     if (error is AudioFailure) {
       return 'Unable to play this track. Audio stream could not be loaded.';
+    }
+    if (error is GeoRestrictionFailure) {
+      return '${error.provider} audio is geo-restricted in your region. Switched to alternative audio source.';
+    }
+    if (error is GeoRestrictionException) {
+      return '${error.provider} stream is geo-restricted in your region. Switched to alternative audio source.';
     }
     if (error is PermissionFailure) {
       return 'Permission required to perform this action.';
@@ -68,6 +75,16 @@ class ErrorMessageMapper {
         lower.contains('clientexception') ||
         lower.contains('handshakeexception')) {
       return 'Unable to connect to the internet. Please check your network connection.';
+    }
+
+    // Geo-restriction patterns
+    if (lower.contains('geo-restrict') ||
+        lower.contains('geoblock') ||
+        lower.contains('geo restricted') ||
+        lower.contains('not available in your region') ||
+        lower.contains('not available in your country') ||
+        lower.contains('451')) {
+      return 'Audio stream is geo-restricted in your region. Playing alternative stream.';
     }
 
     // HTTP status codes
