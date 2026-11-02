@@ -38,6 +38,31 @@ class YouTubeAudioSource extends StreamAudioSource {
   
   // YouTube stream URLs can expire, cache for 45 minutes (conservative)
   static const _cacheExpirationDuration = Duration(minutes: 45);
+
+  /// Client priority fallback chain (fastest pure audio -> standard -> cross-platform -> mobile web)
+  static final List<({String name, YoutubeApiClient client, Duration timeout})>
+      _candidateClients = [
+    (
+      name: 'androidSdkless',
+      client: YoutubeApiClient.androidSdkless,
+      timeout: Duration(milliseconds: 3500),
+    ),
+    (
+      name: 'android',
+      client: YoutubeApiClient.android,
+      timeout: Duration(seconds: 5),
+    ),
+    (
+      name: 'ios',
+      client: YoutubeApiClient.ios,
+      timeout: Duration(seconds: 6),
+    ),
+    (
+      name: 'mweb',
+      client: YoutubeApiClient.mweb,
+      timeout: Duration(seconds: 6),
+    ),
+  ];
   static const _maxRetries = 3;
 
   YouTubeAudioSource({
@@ -91,24 +116,30 @@ class YouTubeAudioSource extends StreamAudioSource {
       // getManifest uses package:http with no internal timeout; without this
       // bound a dead/unreachable endpoint hangs playback setup indefinitely
       // (the player stays in "loading" with no error to recover from).
-      StreamManifest manifest;
-      try {
-        manifest = await _ytExplode.videos.streamsClient.getManifest(
-          videoId,
-          ytClients: [
-            YoutubeApiClient.androidSdkless,
-          ],
-          requireWatchPage: false,
-        ).timeout(const Duration(milliseconds: 3500));
-      } catch (e) {
-        debugPrint('YouTubeAudioSource: Primary androidSdkless failed ($e), falling back...');
-        manifest = await _ytExplode.videos.streamsClient.getManifest(
-          videoId,
-          ytClients: [
-            YoutubeApiClient.android,
-          ],
-          requireWatchPage: false,
-        ).timeout(const Duration(seconds: 8));
+      StreamManifest? manifest;
+      Object? lastError;
+
+      for (final candidate in _candidateClients) {
+        try {
+          debugPrint('YouTubeAudioSource: Fetching manifest with ${candidate.name} client...');
+          manifest = await _ytExplode.videos.streamsClient.getManifest(
+            videoId,
+            ytClients: [candidate.client],
+            requireWatchPage: false,
+          ).timeout(candidate.timeout);
+
+          if (manifest.audioOnly.isNotEmpty) {
+            debugPrint('YouTubeAudioSource: Successfully extracted manifest using ${candidate.name}');
+            break;
+          }
+        } catch (e) {
+          lastError = e;
+          debugPrint('YouTubeAudioSource: Client ${candidate.name} failed ($e), falling back...');
+        }
+      }
+
+      if (manifest == null || manifest.audioOnly.isEmpty) {
+        throw lastError ?? Exception('No audio streams available for video: $videoId');
       }
 
       final supportedStreams = manifest.audioOnly.sortByBitrate();
@@ -280,24 +311,22 @@ class YouTubeAudioSource extends StreamAudioSource {
     try {
       debugPrint('YouTubeAudioSource.prewarmCache: Pre-warming cache for $videoId');
       
-      StreamManifest manifest;
-      try {
-        manifest = await _ytExplode.videos.streamsClient.getManifest(
-          videoId,
-          ytClients: [
-            YoutubeApiClient.androidSdkless,
-          ],
-          requireWatchPage: false,
-        ).timeout(const Duration(seconds: 8));
-      } catch (e) {
-        manifest = await _ytExplode.videos.streamsClient.getManifest(
-          videoId,
-          ytClients: [
-            YoutubeApiClient.android,
-          ],
-          requireWatchPage: false,
-        ).timeout(const Duration(seconds: 8));
+      StreamManifest? manifest;
+      for (final candidate in _candidateClients) {
+        try {
+          manifest = await _ytExplode.videos.streamsClient.getManifest(
+            videoId,
+            ytClients: [candidate.client],
+            requireWatchPage: false,
+          ).timeout(candidate.timeout);
+
+          if (manifest.audioOnly.isNotEmpty) break;
+        } catch (e) {
+          debugPrint('YouTubeAudioSource.prewarmCache: ${candidate.name} failed ($e), trying next...');
+        }
       }
+
+      if (manifest == null) return;
 
       final supportedStreams = manifest.audioOnly.sortByBitrate();
       if (supportedStreams.isEmpty) return;
