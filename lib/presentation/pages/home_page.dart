@@ -11,6 +11,7 @@ import '../widgets/common/adaptive_layout.dart';
 import '../widgets/common/offline_banner.dart';
 import '../widgets/dialogs/prism_update_dialog.dart';
 import '../../core/services/app_update_service.dart';
+import '../../core/services/instance_health_service.dart';
 import '../../core/services/offline_mode_service.dart';
 import '../widgets/prism/prism_sheet.dart';
 import 'charts_hub_page.dart';
@@ -64,11 +65,12 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _currentIndex = widget.initialIndex;
     _visitedTabs = {widget.initialIndex};
-    if (_shouldCheckUpdates) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_shouldCheckUpdates) {
         _checkUpdateOnLaunch();
-      });
-    }
+      }
+      InstanceHealthService().startBackgroundHealthProbes();
+    });
 
     _offlineTransitionSub =
         OfflineModeService.instance.onSwitchedToOffline.listen((_) {

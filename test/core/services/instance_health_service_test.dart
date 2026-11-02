@@ -1,5 +1,28 @@
+import 'dart:typed_data';
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_music/core/services/instance_health_service.dart';
+
+class _MockDioAdapter implements HttpClientAdapter {
+  ResponseBody Function(RequestOptions options)? handler;
+
+  _MockDioAdapter([this.handler]);
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    if (handler != null) {
+      return handler!(options);
+    }
+    return ResponseBody.fromString('{}', 200);
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
 
 void main() {
   group('InstanceHealthService', () {
@@ -99,6 +122,48 @@ void main() {
 
       service.addPipedProxyInstance('https://new-proxy.example.org');
       expect(service.pipedProxyPool.contains('https://new-proxy.example.org'), isTrue);
+    });
+
+    test('probeHost records success and latency on healthy response', () async {
+      const host = 'https://healthy.invidious.org';
+      final dio = Dio()..httpClientAdapter = _MockDioAdapter((options) {
+        return ResponseBody.fromString('', 200);
+      });
+
+      await service.probeHost(host, dio: dio);
+
+      final stats = service.getStats();
+      final latencies = stats['latencies'] as Map<String, int>;
+      final successCounts = stats['successCounts'] as Map<String, int>;
+
+      expect(latencies.containsKey(host), isTrue);
+      expect(successCounts[host], 1);
+      expect(service.isHostQuarantined(host), isFalse);
+    });
+
+    test('probeHost records failure and quarantines on consecutive 502s', () async {
+      const host = 'https://unhealthy.invidious.org';
+      final dio = Dio()..httpClientAdapter = _MockDioAdapter((options) {
+        return ResponseBody.fromString('', 502);
+      });
+
+      await service.probeHost(host, dio: dio);
+      expect(service.isHostQuarantined(host), isFalse);
+
+      await service.probeHost(host, dio: dio);
+      expect(service.isHostQuarantined(host), isTrue);
+    });
+
+    test('startBackgroundHealthProbes executes non-blocking and handles failures gracefully', () async {
+      final dio = Dio()..httpClientAdapter = _MockDioAdapter((options) {
+        return ResponseBody.fromString('[]', 200);
+      });
+
+      // Should not block or throw
+      service.startBackgroundHealthProbes(dio: dio);
+
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(service.isProbingInProgress, isFalse);
     });
   });
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
@@ -222,6 +223,84 @@ class InstanceHealthService {
   void resetQuarantines() {
     _quarantineUntil.clear();
     _consecutiveFailures.clear();
+  }
+
+  bool _isProbingInProgress = false;
+
+  /// Whether background health probes are currently executing.
+  bool get isProbingInProgress => _isProbingInProgress;
+
+  /// Probes an individual host's latency and records health status.
+  Future<void> probeHost(
+    String host, {
+    Dio? dio,
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    final client = dio ??
+        Dio(
+          BaseOptions(
+            connectTimeout: timeout,
+            receiveTimeout: timeout,
+            sendTimeout: timeout,
+          ),
+        );
+
+    final stopwatch = Stopwatch()..start();
+    try {
+      final response = await client
+          .head(host)
+          .timeout(timeout);
+      stopwatch.stop();
+      if (response.statusCode != null &&
+          response.statusCode! >= 200 &&
+          response.statusCode! < 400) {
+        recordSuccess(host, stopwatch.elapsed);
+      } else {
+        recordFailure(host, 'HTTP ${response.statusCode}');
+      }
+    } catch (e) {
+      stopwatch.stop();
+      recordFailure(host, e);
+    }
+  }
+
+  /// Probes all instances across Piped and Invidious pools without blocking.
+  Future<void> probeAllInstances({
+    Dio? dio,
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    if (_isProbingInProgress) return;
+    _isProbingInProgress = true;
+
+    try {
+      final allHosts = <String>{
+        ..._pipedApiInstances,
+        ..._pipedProxyInstances,
+        ..._invidiousInstances,
+      }.toList();
+
+      await Future.wait(
+        allHosts.map(
+          (host) => probeHost(host, dio: dio, timeout: timeout).catchError((_) {}),
+        ),
+      );
+
+      await syncInstancesFromRemote(dio: dio).catchError((_) {});
+    } finally {
+      _isProbingInProgress = false;
+    }
+  }
+
+  /// Launch non-blocking background health probes detached from caller.
+  void startBackgroundHealthProbes({
+    Dio? dio,
+    Duration timeout = const Duration(seconds: 3),
+  }) {
+    unawaited(
+      probeAllInstances(dio: dio, timeout: timeout).catchError((e) {
+        debugPrint('InstanceHealthService: Background probe non-fatal error: $e');
+      }),
+    );
   }
 
   /// Diagnostic stats for telemetry and settings
