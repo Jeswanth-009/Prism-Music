@@ -15,6 +15,7 @@ import '../../../core/services/offline_mode_service.dart';
 import '../../../core/services/permission_service.dart';
 import '../../../core/services/settings_service.dart';
 import '../../../core/services/widget_service.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import '../../../core/services/verified_recording_verifier.dart';
 import '../../../core/services/queue_persistence_service.dart';
 import '../../../core/di/injection.dart';
@@ -213,12 +214,32 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         artist: song.artist,
         isPlaying: isPlaying,
       ));
+
+      if (song.thumbnailUrl.isNotEmpty) {
+        unawaited(_fetchAndSyncWidgetArtwork(song, isPlaying));
+      }
     } else {
       unawaited(WidgetService.instance.updateWidget(
         title: 'Prism Music',
         artist: 'No song playing',
         isPlaying: false,
       ));
+    }
+  }
+
+  Future<void> _fetchAndSyncWidgetArtwork(Song song, bool isPlaying) async {
+    try {
+      final fileInfo = await DefaultCacheManager().getFileFromCache(song.thumbnailUrl);
+      if (fileInfo != null && await fileInfo.file.exists()) {
+        await WidgetService.instance.updateWidget(
+          title: song.title,
+          artist: song.artist,
+          isPlaying: isPlaying,
+          artworkPath: fileInfo.file.path,
+        );
+      }
+    } catch (_) {
+      // Best-effort artwork sync
     }
   }
 

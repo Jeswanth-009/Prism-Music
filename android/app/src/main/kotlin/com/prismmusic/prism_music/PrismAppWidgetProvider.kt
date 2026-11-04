@@ -6,48 +6,116 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.view.KeyEvent
 import android.widget.RemoteViews
+import java.io.File
 
 class PrismAppWidgetProvider : AppWidgetProvider() {
 
     companion object {
         const val ACTION_PLAY_PAUSE = "com.prismmusic.prism_music.ACTION_PLAY_PAUSE"
         const val ACTION_NEXT = "com.prismmusic.prism_music.ACTION_NEXT"
+        const val ACTION_PREVIOUS = "com.prismmusic.prism_music.ACTION_PREVIOUS"
 
         private var lastTitle: String = "Prism Music"
         private var lastArtist: String = "No song playing"
         private var lastIsPlaying: Boolean = false
+        private var lastArtworkBitmap: Bitmap? = null
 
         fun updateWidget(
             context: Context,
             title: String,
             artist: String,
-            isPlaying: Boolean
+            isPlaying: Boolean,
+            artworkPath: String? = null,
+            artworkBytes: ByteArray? = null
         ) {
             lastTitle = title.ifEmpty { "Prism Music" }
             lastArtist = artist.ifEmpty { "No song playing" }
             lastIsPlaying = isPlaying
+
+            if (artworkBytes != null && artworkBytes.isNotEmpty()) {
+                lastArtworkBitmap = decodeSampledBitmapFromByteArray(artworkBytes, 256, 256)
+            } else if (!artworkPath.isNullOrEmpty()) {
+                val file = File(artworkPath)
+                if (file.exists()) {
+                    lastArtworkBitmap = decodeSampledBitmapFromFile(file.absolutePath, 256, 256)
+                } else {
+                    lastArtworkBitmap = null
+                }
+            } else if (title.isEmpty() || title == "Prism Music") {
+                lastArtworkBitmap = null
+            }
 
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val thisWidget = ComponentName(context, PrismAppWidgetProvider::class.java)
             val allWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget)
 
             for (widgetId in allWidgetIds) {
-                val views = buildRemoteViews(context, lastTitle, lastArtist, lastIsPlaying)
+                val views = buildRemoteViews(context, lastTitle, lastArtist, lastIsPlaying, lastArtworkBitmap)
                 appWidgetManager.updateAppWidget(widgetId, views)
             }
+        }
+
+        private fun decodeSampledBitmapFromFile(path: String, reqWidth: Int, reqHeight: Int): Bitmap? {
+            return try {
+                val options = BitmapFactory.Options().apply {
+                    inJustDecodeBounds = true
+                }
+                BitmapFactory.decodeFile(path, options)
+                options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
+                options.inJustDecodeBounds = false
+                BitmapFactory.decodeFile(path, options)
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        private fun decodeSampledBitmapFromByteArray(data: ByteArray, reqWidth: Int, reqHeight: Int): Bitmap? {
+            return try {
+                val options = BitmapFactory.Options().apply {
+                    inJustDecodeBounds = true
+                }
+                BitmapFactory.decodeByteArray(data, 0, data.size, options)
+                options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
+                options.inJustDecodeBounds = false
+                BitmapFactory.decodeByteArray(data, 0, data.size, options)
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+            val (height: Int, width: Int) = options.outHeight to options.outWidth
+            var inSampleSize = 1
+            if (height > reqHeight || width > reqWidth) {
+                val halfHeight: Int = height / 2
+                val halfWidth: Int = width / 2
+                while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
+                    inSampleSize *= 2
+                }
+            }
+            return inSampleSize
         }
 
         private fun buildRemoteViews(
             context: Context,
             title: String,
             artist: String,
-            isPlaying: Boolean
+            isPlaying: Boolean,
+            artworkBitmap: Bitmap?
         ): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.prism_playback_widget)
             views.setTextViewText(R.id.widget_title, title)
             views.setTextViewText(R.id.widget_artist, artist)
+
+            if (artworkBitmap != null) {
+                views.setImageViewBitmap(R.id.widget_artwork, artworkBitmap)
+            } else {
+                views.setImageViewResource(R.id.widget_artwork, R.mipmap.ic_launcher)
+            }
 
             val playPauseIcon = if (isPlaying) {
                 android.R.drawable.ic_media_pause
@@ -67,6 +135,18 @@ class PrismAppWidgetProvider : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setOnClickPendingIntent(R.id.widget_container, pendingLaunch)
+
+            // Previous intent
+            val prevIntent = Intent(context, PrismAppWidgetProvider::class.java).apply {
+                action = ACTION_PREVIOUS
+            }
+            val pendingPrev = PendingIntent.getBroadcast(
+                context,
+                3,
+                prevIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.widget_btn_previous, pendingPrev)
 
             // Play/Pause intent
             val playPauseIntent = Intent(context, PrismAppWidgetProvider::class.java).apply {
@@ -102,7 +182,7 @@ class PrismAppWidgetProvider : AppWidgetProvider() {
         appWidgetIds: IntArray
     ) {
         for (widgetId in appWidgetIds) {
-            val views = buildRemoteViews(context, lastTitle, lastArtist, lastIsPlaying)
+            val views = buildRemoteViews(context, lastTitle, lastArtist, lastIsPlaying, lastArtworkBitmap)
             appWidgetManager.updateAppWidget(widgetId, views)
         }
     }
@@ -110,6 +190,9 @@ class PrismAppWidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         when (intent.action) {
+            ACTION_PREVIOUS -> {
+                sendMediaKeyEvent(context, KeyEvent.KEYCODE_MEDIA_PREVIOUS)
+            }
             ACTION_PLAY_PAUSE -> {
                 sendMediaKeyEvent(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
             }

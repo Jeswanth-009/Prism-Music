@@ -15,14 +15,23 @@ class WidgetService {
     required String title,
     required String artist,
     required bool isPlaying,
+    String? artworkPath,
+    Uint8List? artworkBytes,
   }) async {
     if (!Platform.isAndroid) return;
     try {
-      await _channel.invokeMethod('updateWidget', {
+      final Map<String, dynamic> payload = {
         'title': title,
         'artist': artist,
         'isPlaying': isPlaying,
-      });
+      };
+      if (artworkPath != null) {
+        payload['artworkPath'] = artworkPath;
+      }
+      if (artworkBytes != null) {
+        payload['artworkBytes'] = artworkBytes;
+      }
+      await _channel.invokeMethod('updateWidget', payload);
     } catch (e) {
       logDebug('WidgetService: updateWidget failed or not supported: $e');
     }

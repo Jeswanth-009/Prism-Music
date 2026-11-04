@@ -61,7 +61,9 @@ class MainActivity : AudioServiceActivity() {
                     val title = call.argument<String>("title") ?: "Prism Music"
                     val artist = call.argument<String>("artist") ?: ""
                     val isPlaying = call.argument<Boolean>("isPlaying") ?: false
-                    PrismAppWidgetProvider.updateWidget(this, title, artist, isPlaying)
+                    val artworkPath = call.argument<String>("artworkPath")
+                    val artworkBytes = call.argument<ByteArray>("artworkBytes")
+                    PrismAppWidgetProvider.updateWidget(this, title, artist, isPlaying, artworkPath, artworkBytes)
                     result.success(true)
                 } else {
                     result.notImplemented()
