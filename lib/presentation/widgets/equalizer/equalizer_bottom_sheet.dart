@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../../../core/services/equalizer_service.dart';
 import '../../../core/models/reverb_preset.dart';
+import '../../../domain/entities/song.dart';
 
 /// Equalizer bottom sheet with presets and manual controls.
 class EqualizerBottomSheet extends StatefulWidget {
   final EqualizerService equalizerService;
+  final Song? currentSong;
 
   const EqualizerBottomSheet({
     super.key,
     required this.equalizerService,
+    this.currentSong,
   });
 
   @override
@@ -28,6 +31,13 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
   late bool _bassBoostEnabled;
   late double _trebleLevel;
   late ReverbPreset _selectedReverb;
+  bool _hasSongCustomEq = false;
+
+  void _syncSongEqIfEnabled() {
+    if (_hasSongCustomEq && widget.currentSong != null) {
+      widget.equalizerService.saveCurrentForSong(widget.currentSong!.playableId);
+    }
+  }
 
   @override
   void initState() {
@@ -43,6 +53,8 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
     _bassBoostEnabled = widget.equalizerService.isBassBoostEnabled;
     _trebleLevel = widget.equalizerService.trebleLevel;
     _selectedReverb = widget.equalizerService.reverbPreset;
+    _hasSongCustomEq = widget.currentSong != null &&
+        widget.equalizerService.hasSongEqualizer(widget.currentSong!.playableId);
   }
 
   @override
@@ -176,15 +188,109 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
     );
   }
 
+  Future<void> _showSavePresetDialog(BuildContext context) async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Save Custom Preset'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Preset Name',
+            hintText: 'e.g., My Acoustic',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final text = controller.text.trim();
+              if (text.isNotEmpty) {
+                Navigator.of(dialogCtx).pop(text);
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+
+    if (name != null && name.isNotEmpty) {
+      await widget.equalizerService.saveCustomPreset(name);
+      _syncSongEqIfEnabled();
+      setState(() {
+        _selectedPreset = name;
+      });
+    }
+  }
+
   // ── Presets Tab ──────────────────────────────────────────────────────
 
   Widget _buildPresetsTab(ThemeData theme) {
-    final presets = EqualizerService.presets.keys.toList();
+    final allPresets = widget.equalizerService.allPresets;
+    final presetNames = allPresets.keys.toList();
 
     return ListView(
       shrinkWrap: true,
       padding: const EdgeInsets.all(16),
       children: [
+        if (widget.currentSong != null) ...[
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: SwitchListTile.adaptive(
+              title: Text(
+                'Remember EQ for this song',
+                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                widget.currentSong!.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+              secondary: Icon(Icons.music_note_rounded, color: theme.colorScheme.primary),
+              value: _hasSongCustomEq,
+              onChanged: (enabled) async {
+                setState(() => _hasSongCustomEq = enabled);
+                if (enabled) {
+                  await widget.equalizerService.saveCurrentForSong(widget.currentSong!.playableId);
+                } else {
+                  await widget.equalizerService.clearForSong(widget.currentSong!.playableId);
+                }
+              },
+            ),
+          ),
+        ],
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Presets (${presetNames.length})',
+                style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.bookmark_add_outlined, size: 18),
+                label: const Text('Save Preset'),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+                onPressed: () => _showSavePresetDialog(context),
+              ),
+            ],
+          ),
+        ),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -195,11 +301,11 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
           ),
-          itemCount: presets.length,
+          itemCount: presetNames.length,
           itemBuilder: (context, index) {
-            final presetName = presets[index];
+            final presetName = presetNames[index];
             final isSelected = _selectedPreset == presetName;
-            final preset = EqualizerService.presets[presetName]!;
+            final preset = allPresets[presetName]!;
 
             return Material(
               color: isSelected
@@ -217,9 +323,10 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
                     _selectedReverb = preset.reverb;
                   });
                   await widget.equalizerService.applyPreset(presetName);
+                  _syncSongEqIfEnabled();
                 },
                 child: Padding(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -249,6 +356,24 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          if (preset.isCustom)
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () async {
+                                await widget.equalizerService.deleteCustomPreset(presetName);
+                                setState(() {
+                                  _selectedPreset = widget.equalizerService.currentPreset;
+                                });
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 4),
+                                child: Icon(
+                                  Icons.delete_outline_rounded,
+                                  size: 18,
+                                  color: theme.colorScheme.error,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -301,6 +426,7 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
               setState(() => _bassBoostEnabled = value);
               await widget.equalizerService
                   .setBassBoost(_bassBoostLevel, value);
+              _syncSongEqIfEnabled();
             },
           ),
           child: _SliderRow(
@@ -312,6 +438,7 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
             onChangeEnd: _bassBoostEnabled
                 ? (value) async {
                     await widget.equalizerService.setBassBoost(value, true);
+                    _syncSongEqIfEnabled();
                   }
                 : null,
           ),
@@ -329,6 +456,7 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
             onChanged: (value) => setState(() => _trebleLevel = value),
             onChangeEnd: (value) async {
               await widget.equalizerService.setTreble(value);
+              _syncSongEqIfEnabled();
             },
           ),
         ),
@@ -353,6 +481,7 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
                     onSelected: (_) async {
                       setState(() => _selectedReverb = preset);
                       await widget.equalizerService.setReverb(preset);
+                      _syncSongEqIfEnabled();
                     },
                   );
                 }).toList(),

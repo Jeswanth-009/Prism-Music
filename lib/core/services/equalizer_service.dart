@@ -13,6 +13,7 @@ class EqualizerService {
   bool _bassBoostEnabled = false;
   ReverbPreset _reverbPreset = ReverbPreset.none;
   String _currentPresetName = 'Normal';
+  final Map<String, EqualizerPreset> _customPresets = {};
 
   // EQ presets with bass boost and reverb configurations
   static const Map<String, EqualizerPreset> presets = {
@@ -85,6 +86,11 @@ class EqualizerService {
         (r) => r.name == reverbName,
         orElse: () => ReverbPreset.none,
       );
+      final customSaved = s.customEqualizerPresets;
+      _customPresets.clear();
+      for (final entry in customSaved.entries) {
+        _customPresets[entry.key] = EqualizerPreset.fromMap(entry.value);
+      }
     } catch (_) {}
   }
 
@@ -173,9 +179,18 @@ class EqualizerService {
   /// Check if bass boost is enabled
   bool get isBassBoostEnabled => _bassBoostEnabled;
   
+  /// Combined presets (built-in + user custom)
+  Map<String, EqualizerPreset> get allPresets => {
+    ...presets,
+    ..._customPresets,
+  };
+
+  /// User-created presets only
+  Map<String, EqualizerPreset> get customPresets => Map.unmodifiable(_customPresets);
+
   /// Apply an equalizer preset
   Future<void> applyPreset(String presetName) async {
-    final preset = presets[presetName];
+    final preset = allPresets[presetName];
     if (preset == null) return;
 
     _currentPresetName = presetName;
@@ -240,6 +255,84 @@ class EqualizerService {
     }
   }
   
+  /// Save current EQ configuration as a named custom preset
+  Future<void> saveCustomPreset(String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+    final preset = EqualizerPreset(
+      name: trimmed,
+      bassBoost: _bassBoostLevel,
+      treble: _trebleLevel,
+      reverb: _reverbPreset,
+      isCustom: true,
+    );
+    _customPresets[trimmed] = preset;
+    _currentPresetName = trimmed;
+    await SettingsService.instance.saveCustomEqualizerPreset(trimmed, preset.toMap());
+    _persistSettings();
+  }
+
+  /// Delete a user custom preset
+  Future<void> deleteCustomPreset(String name) async {
+    _customPresets.remove(name);
+    await SettingsService.instance.deleteCustomEqualizerPreset(name);
+    if (_currentPresetName == name) {
+      await applyPreset('Normal');
+    }
+  }
+
+  /// Save current EQ curve for a specific song
+  Future<void> saveCurrentForSong(String songId) async {
+    if (songId.isEmpty) return;
+    final data = <String, dynamic>{
+      'preset': _currentPresetName,
+      'bassBoost': _bassBoostLevel,
+      'treble': _trebleLevel,
+      'reverb': _reverbPreset.name,
+    };
+    await SettingsService.instance.setSongEqualizer(songId, data);
+  }
+
+  /// Clear per-song EQ memory
+  Future<void> clearForSong(String songId) async {
+    if (songId.isEmpty) return;
+    await SettingsService.instance.setSongEqualizer(songId, null);
+  }
+
+  /// Check if a song has an individual EQ profile
+  bool hasSongEqualizer(String songId) {
+    if (songId.isEmpty) return false;
+    return SettingsService.instance.getSongEqualizer(songId) != null;
+  }
+
+  /// Recall and apply per-song EQ if saved; otherwise restore global active preset
+  Future<bool> applyPresetForSong(String songId) async {
+    if (songId.isEmpty) return false;
+    final customData = SettingsService.instance.getSongEqualizer(songId);
+    if (customData != null) {
+      final presetName = customData['preset'] as String? ?? 'Custom';
+      _currentPresetName = presetName;
+      _bassBoostLevel = (customData['bassBoost'] as num?)?.toDouble() ?? 0.5;
+      _trebleLevel = (customData['treble'] as num?)?.toDouble() ?? 0.5;
+      _bassBoostEnabled = _bassBoostLevel > 0.0;
+      final reverbName = customData['reverb'] as String?;
+      _reverbPreset = ReverbPreset.values.firstWhere(
+        (r) => r.name == reverbName,
+        orElse: () => ReverbPreset.none,
+      );
+      if (_isSupported) {
+        await _reapplyEffects();
+      }
+      return true;
+    } else {
+      _loadPersistedSettings();
+      if (_isSupported) {
+        await _reapplyEffects();
+      }
+      return false;
+    }
+  }
+
   /// Reset to normal
   Future<void> reset() async {
     await applyPreset('Normal');
@@ -265,12 +358,36 @@ class EqualizerPreset {
   final double bassBoost; // 0.0 - 1.0
   final double treble; // 0.0 - 1.0
   final ReverbPreset reverb;
+  final bool isCustom;
   
   const EqualizerPreset({
     required this.name,
     required this.bassBoost,
     required this.treble,
     required this.reverb,
+    this.isCustom = false,
   });
+
+  Map<String, dynamic> toMap() => {
+    'name': name,
+    'bassBoost': bassBoost,
+    'treble': treble,
+    'reverb': reverb.name,
+    'isCustom': isCustom,
+  };
+
+  factory EqualizerPreset.fromMap(Map<dynamic, dynamic> map) {
+    final reverbName = map['reverb'] as String?;
+    return EqualizerPreset(
+      name: map['name'] as String? ?? 'Custom',
+      bassBoost: (map['bassBoost'] as num?)?.toDouble() ?? 0.5,
+      treble: (map['treble'] as num?)?.toDouble() ?? 0.5,
+      reverb: ReverbPreset.values.firstWhere(
+        (r) => r.name == reverbName,
+        orElse: () => ReverbPreset.none,
+      ),
+      isCustom: map['isCustom'] as bool? ?? true,
+    );
+  }
 }
 

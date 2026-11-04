@@ -21,11 +21,14 @@ import 'provider_health_sheet.dart';
 /// Opens the equalizer modal sheet.
 void showPlayerEqualizerSheet(BuildContext context) {
   final audioPlayerService = getIt<AudioPlayerService>();
+  final currentSong = context.read<PlayerBloc>().state.currentSong;
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    builder: (_) =>
-        EqualizerBottomSheet(equalizerService: audioPlayerService.equalizer),
+    builder: (_) => EqualizerBottomSheet(
+      equalizerService: audioPlayerService.equalizer,
+      currentSong: currentSong,
+    ),
   );
 }
 

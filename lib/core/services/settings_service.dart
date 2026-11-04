@@ -119,6 +119,8 @@ class SettingsService {
   static const String _eqBassBoostLevelKey = 'eq_bass_boost_level';
   static const String _eqTrebleLevelKey = 'eq_treble_level';
   static const String _eqReverbKey = 'eq_reverb';
+  static const String _customEqPresetsKey = 'custom_eq_presets';
+  static const String _perSongEqKey = 'per_song_eq';
   static const String _spotifyClientIdKey = 'spotify_client_id';
   static const String _spotifyClientSecretKey = 'spotify_client_secret';
   static const String _restoreQueueOnLaunchKey = 'restore_queue_on_launch';
@@ -417,6 +419,64 @@ class SettingsService {
   /// Persist active equalizer reverb preset name
   Future<void> setEqualizerReverb(String reverb) async {
     await _settingsBox?.put(_eqReverbKey, reverb);
+  }
+
+  /// Get custom user-created equalizer presets
+  Map<String, Map<String, dynamic>> get customEqualizerPresets {
+    try {
+      final raw = _settingsBox?.get(_customEqPresetsKey);
+      if (raw is Map) {
+        return raw.map((k, v) => MapEntry(k.toString(), Map<String, dynamic>.from(v as Map)));
+      }
+      return {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Persist a custom user equalizer preset
+  Future<void> saveCustomEqualizerPreset(String name, Map<String, dynamic> data) async {
+    final current = Map<String, dynamic>.from(customEqualizerPresets);
+    current[name] = data;
+    await _settingsBox?.put(_customEqPresetsKey, current);
+  }
+
+  /// Delete a custom user equalizer preset
+  Future<void> deleteCustomEqualizerPreset(String name) async {
+    final current = Map<String, dynamic>.from(customEqualizerPresets);
+    current.remove(name);
+    await _settingsBox?.put(_customEqPresetsKey, current);
+  }
+
+  /// Get per-song EQ settings mapping songId -> preset / EQ data
+  Map<String, Map<String, dynamic>> get perSongEqualizerPresets {
+    try {
+      final raw = _settingsBox?.get(_perSongEqKey);
+      if (raw is Map) {
+        return raw.map((k, v) => MapEntry(k.toString(), Map<String, dynamic>.from(v as Map)));
+      }
+      return {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Get per-song EQ setting for a specific song
+  Map<String, dynamic>? getSongEqualizer(String songId) {
+    if (songId.isEmpty) return null;
+    return perSongEqualizerPresets[songId];
+  }
+
+  /// Save or remove per-song EQ setting
+  Future<void> setSongEqualizer(String songId, Map<String, dynamic>? data) async {
+    if (songId.isEmpty) return;
+    final current = Map<String, dynamic>.from(perSongEqualizerPresets);
+    if (data == null) {
+      current.remove(songId);
+    } else {
+      current[songId] = data;
+    }
+    await _settingsBox?.put(_perSongEqKey, current);
   }
 
   /// Enable faster startup by initially using medium quality streams

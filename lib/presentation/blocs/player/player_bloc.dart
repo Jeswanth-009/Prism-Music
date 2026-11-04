@@ -201,9 +201,13 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   @override
   void onChange(Change<PlayerState> change) {
     super.onChange(change);
-    if (change.currentState.currentSong?.playableId != change.nextState.currentSong?.playableId ||
-        change.currentState.isPlaying != change.nextState.isPlaying) {
+    final songChanged =
+        change.currentState.currentSong?.playableId != change.nextState.currentSong?.playableId;
+    if (songChanged || change.currentState.isPlaying != change.nextState.isPlaying) {
       _syncWidgetState(change.nextState.currentSong, change.nextState.isPlaying);
+    }
+    if (songChanged && change.nextState.currentSong != null) {
+      unawaited(_audioPlayer.equalizer.applyPresetForSong(change.nextState.currentSong!.playableId));
     }
   }
 
