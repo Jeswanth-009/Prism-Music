@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart' hide RepeatMode;
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:palette_generator/palette_generator.dart';
 
@@ -59,10 +60,30 @@ class _PlayerPageState extends State<PlayerPage> {
   @override
   void initState() {
     super.initState();
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     final currentSong = context.read<PlayerBloc>().state.currentSong;
     if (currentSong != null) {
       _extractDominantColor(currentSong);
     }
+  }
+
+  @override
+  void dispose() {
+    final view = WidgetsBinding.instance.platformDispatcher.views.firstOrNull;
+    final isTabletDevice = view != null &&
+        (view.physicalSize.shortestSide / (view.devicePixelRatio > 0 ? view.devicePixelRatio : 1)) >= 600.0;
+    if (!isTabletDevice) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+    }
+    super.dispose();
   }
 
   void _openArtistPage(String artistName) {

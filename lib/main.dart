@@ -89,11 +89,25 @@ void main() async {
       debugPrint('Backup restore skipped due to timeout or error: $e');
     }
 
-    // Set preferred orientations
-    await SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-    ]);
+    // Set preferred orientations: allow all orientations on tablets/large screens,
+    // while defaulting to portrait on compact phone devices.
+    final view = WidgetsBinding.instance.platformDispatcher.views.firstOrNull;
+    final isTabletDevice = view != null &&
+        (view.physicalSize.shortestSide / (view.devicePixelRatio > 0 ? view.devicePixelRatio : 1)) >= 600.0;
+
+    if (isTabletDevice) {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+    }
 
     runApp(const PrismMusicApp());
   } catch (e, stack) {
