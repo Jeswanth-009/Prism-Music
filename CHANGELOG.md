@@ -8,6 +8,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.80] - 2026-11-04
+
+### Added
+
+- Support apple music playlist import with isrc matching
+- Add custom user presets and per-song equalizer memory
+- Allow local manual editing and correction of mismatched lyrics
+- Add peer-to-peer playlist sharing via qr code and compressed links
+- Complete android home screen widget with artwork and controls
+- Allow landscape orientation for player page and tablet layouts
+
+### Changed
+
+- Update documentation and architecture overview in README
+
 ## [0.2.79] - 2026-11-02
 
 ### Added
@@ -1070,3 +1085,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.77]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.77-build113
 [0.2.78]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.78-build114
 [0.2.79]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.79-build115
+[0.2.80]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.80-build116
