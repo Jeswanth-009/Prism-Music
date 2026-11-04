@@ -256,6 +256,22 @@ class FakeMusicRepository implements MusicRepository {
   }
 
   @override
+  Future<void> saveCustomLyrics(
+    String songId,
+    String songTitle,
+    String artistName, {
+    String? plainLyrics,
+    String? syncedLrc,
+  }) async {}
+
+  @override
+  Future<void> clearCustomLyrics(
+    String songId,
+    String songTitle,
+    String artistName,
+  ) async {}
+
+  @override
   Future<Either<Failure, StreamInfo>> getStreamUrl(
     String songId, {
     bool forceRefresh = false,

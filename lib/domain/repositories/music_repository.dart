@@ -152,6 +152,22 @@ abstract class MusicRepository {
     bool forceRefresh = false,
   });
 
+  /// Save user-corrected or custom lyrics locally.
+  Future<void> saveCustomLyrics(
+    String songId,
+    String songTitle,
+    String artistName, {
+    String? plainLyrics,
+    String? syncedLrc,
+  });
+
+  /// Clear user-corrected lyrics for a song and restore provider lyrics.
+  Future<void> clearCustomLyrics(
+    String songId,
+    String songTitle,
+    String artistName,
+  );
+
   // ============ HELPER METHODS ============
 
   /// Convert a Spotify track to YouTube video ID

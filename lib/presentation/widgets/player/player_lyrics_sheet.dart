@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'lyrics_edit_sheet.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -84,6 +85,22 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
     );
   }
 
+  void _openLyricsEditor() {
+    LyricsEditSheet.show(
+      context,
+      song: widget.song,
+      currentLyrics: _lyrics,
+      onLyricsUpdated: (newLyrics) {
+        if (mounted) {
+          setState(() {
+            _lyrics = newLyrics;
+            _error = newLyrics == null ? 'Lyrics not found for this song' : null;
+          });
+        }
+      },
+    );
+  }
+
   String _formatLineTime(int ms) {
     final totalSeconds = (ms / 1000).floor();
     final minutes = totalSeconds ~/ 60;
@@ -135,11 +152,22 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
     }
 
     if (_error != null || _lyrics == null) {
-      return _LyricsMessage(
-        icon: Icons.lyrics_outlined,
-        message: _error ?? 'Lyrics not found for this song',
-        actionLabel: 'Retry',
-        onAction: () => _load(),
+      return Column(
+        children: [
+          Expanded(
+            child: _LyricsMessage(
+              icon: Icons.lyrics_outlined,
+              message: _error ?? 'Lyrics not found for this song',
+              actionLabel: 'Retry',
+              onAction: () => _load(),
+            ),
+          ),
+          _LyricsFooter(
+            onRefresh: () => _load(forceRefresh: true),
+            onEdit: _openLyricsEditor,
+            isUserEdited: false,
+          ),
+        ],
       );
     }
 
@@ -307,6 +335,8 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
               _syncToPosition(state.position);
             },
             onRefresh: () => _load(forceRefresh: true),
+            onEdit: _openLyricsEditor,
+            isUserEdited: _lyrics?.source == 'User Edited',
           ),
         ],
       );
@@ -337,6 +367,8 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
         ),
         _LyricsFooter(
           onRefresh: () => _load(forceRefresh: true),
+          onEdit: _openLyricsEditor,
+          isUserEdited: _lyrics?.source == 'User Edited',
         ),
       ],
     );
@@ -407,6 +439,8 @@ class _LyricsFooter extends StatelessWidget {
     this.onToggleFollow,
     this.onAdjustSync,
     this.onResetSync,
+    this.onEdit,
+    this.isUserEdited = false,
   });
 
   final VoidCallback onRefresh;
@@ -416,6 +450,8 @@ class _LyricsFooter extends StatelessWidget {
   final VoidCallback? onToggleFollow;
   final void Function(int deltaMs)? onAdjustSync;
   final VoidCallback? onResetSync;
+  final VoidCallback? onEdit;
+  final bool isUserEdited;
 
   void _showSyncModal(BuildContext context) {
     showModalBottomSheet<void>(
@@ -574,6 +610,32 @@ class _LyricsFooter extends StatelessWidget {
               ),
             ),
           ],
+          if (isUserEdited)
+            Container(
+              margin: const EdgeInsets.only(right: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'Custom',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+          IconButton(
+            tooltip: 'Edit / Correct Lyrics',
+            onPressed: onEdit,
+            icon: Icon(
+              Icons.edit_note_rounded,
+              size: 20,
+              color: isUserEdited ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
           IconButton(
             tooltip: 'Refresh lyrics',
             onPressed: onRefresh,

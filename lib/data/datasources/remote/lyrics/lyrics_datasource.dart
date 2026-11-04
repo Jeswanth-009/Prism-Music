@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import '../../../../core/utils/lyrics_matching.dart';
 import '../../../../domain/entities/entities.dart';
 import 'lyrics_local_cache.dart';
+import 'custom_lyrics_storage.dart';
 
 /// Data source for fetching lyrics from LRCLIB (free, no API key required).
 ///
@@ -69,6 +70,10 @@ class LyricsDataSourceImpl implements LyricsDataSource {
     bool forceRefresh = false,
   }) async {
     final songId = '${artist}_$title';
+
+    // 0. Always prioritize user-edited / locally corrected lyrics
+    final customLyrics = await CustomLyricsStorage.instance.getCustomLyrics(title, artist, songId);
+    if (customLyrics != null) return customLyrics;
 
     if (!forceRefresh) {
       final isKnownNotFound = await _cache.isMarkedNotFound(

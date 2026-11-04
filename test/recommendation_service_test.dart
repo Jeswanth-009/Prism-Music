@@ -9,6 +9,8 @@ import 'package:prism_music/domain/repositories/library_repository.dart';
 import 'package:prism_music/core/error/failures.dart';
 
 class MockMusicRepository implements MusicRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
   List<Song> mockSongs = [];
 
   @override

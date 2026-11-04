@@ -11,6 +11,7 @@ import '../../core/utils/cancellation_token.dart';
 import '../datasources/remote/youtube/youtube_music_datasource.dart';
 import '../datasources/remote/spotify/spotify_datasource.dart';
 import '../datasources/remote/lyrics/lyrics_datasource.dart';
+import '../datasources/remote/lyrics/custom_lyrics_storage.dart';
 import '../datasources/remote/jiosaavn/jiosaavn_datasource.dart';
 import '../datasources/local/local_datasource.dart';
 
@@ -1139,6 +1140,36 @@ class MusicRepositoryImpl implements MusicRepository {
     } catch (e) {
       return Left(UnknownFailure(message: e.toString()));
     }
+  }
+
+  @override
+  Future<void> saveCustomLyrics(
+    String songId,
+    String songTitle,
+    String artistName, {
+    String? plainLyrics,
+    String? syncedLrc,
+  }) async {
+    await CustomLyricsStorage.instance.saveCustomLyrics(
+      songId,
+      songTitle,
+      artistName,
+      plainLyrics: plainLyrics,
+      syncedLrc: syncedLrc,
+    );
+  }
+
+  @override
+  Future<void> clearCustomLyrics(
+    String songId,
+    String songTitle,
+    String artistName,
+  ) async {
+    await CustomLyricsStorage.instance.clearCustomLyrics(
+      songId,
+      songTitle,
+      artistName,
+    );
   }
 
   @override
