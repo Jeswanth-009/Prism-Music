@@ -207,7 +207,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       _syncWidgetState(change.nextState.currentSong, change.nextState.isPlaying);
     }
     if (songChanged && change.nextState.currentSong != null) {
-      unawaited(_audioPlayer.equalizer.applyPresetForSong(change.nextState.currentSong!.playableId));
+      try {
+        unawaited(_audioPlayer.equalizer.applyPresetForSong(change.nextState.currentSong!.playableId));
+      } catch (_) {}
     }
   }
 

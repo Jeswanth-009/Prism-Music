@@ -274,32 +274,45 @@ class _LibraryTabState extends State<LibraryTab>
     final cancelToken = ImportCancellationToken();
     _activeCancelToken = cancelToken;
 
-    bloc.add(
-      params.source == PlaylistImportSource.spotify
-          ? ImportSpotifyPlaylistEvent(
-              params.url,
-              cancelToken: cancelToken,
-              onDone: (error) {
-                if (!done.isCompleted) done.complete(error);
-              },
-              onResult: (result) {
-                if (mounted) {
-                  _showImportSummarySheet(result);
-                }
-              },
-            )
-          : ImportYouTubePlaylistEvent(
-              params.url,
-              onDone: (error) {
-                if (!done.isCompleted) done.complete(error);
-              },
-              onResult: (result) {
-                if (mounted) {
-                  _showImportSummarySheet(result);
-                }
-              },
-            ),
-    );
+    final LibraryEvent importEvent = switch (params.source) {
+      PlaylistImportSource.spotify => ImportSpotifyPlaylistEvent(
+          params.url,
+          cancelToken: cancelToken,
+          onDone: (error) {
+            if (!done.isCompleted) done.complete(error);
+          },
+          onResult: (result) {
+            if (mounted) {
+              _showImportSummarySheet(result);
+            }
+          },
+        ),
+      PlaylistImportSource.youtube => ImportYouTubePlaylistEvent(
+          params.url,
+          onDone: (error) {
+            if (!done.isCompleted) done.complete(error);
+          },
+          onResult: (result) {
+            if (mounted) {
+              _showImportSummarySheet(result);
+            }
+          },
+        ),
+      PlaylistImportSource.appleMusic => ImportAppleMusicPlaylistEvent(
+          params.url,
+          cancelToken: cancelToken,
+          onDone: (error) {
+            if (!done.isCompleted) done.complete(error);
+          },
+          onResult: (result) {
+            if (mounted) {
+              _showImportSummarySheet(result);
+            }
+          },
+        ),
+    };
+
+    bloc.add(importEvent);
 
     var dialogClosed = false;
     showDialog<void>(

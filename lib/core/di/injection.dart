@@ -8,6 +8,7 @@ import '../../data/repositories/music_repository_impl.dart';
 import '../../data/repositories/library_repository_impl.dart';
 import '../../data/datasources/remote/youtube/youtube_music_datasource.dart';
 import '../../data/datasources/remote/spotify/spotify_datasource.dart';
+import '../../data/datasources/remote/apple_music/apple_music_datasource.dart';
 import '../../data/datasources/remote/lyrics/lyrics_datasource.dart';
 import '../../data/datasources/remote/lyrics/fallback_lyrics_provider.dart';
 import '../../data/datasources/remote/jiosaavn/jiosaavn_datasource.dart';
@@ -112,6 +113,12 @@ Future<void> initializeDependencies() async {
     ),
   );
 
+  getIt.registerLazySingleton<AppleMusicDataSource>(
+    () => AppleMusicDataSourceImpl(
+      dio: getIt<Dio>(),
+    ),
+  );
+
   getIt.registerLazySingleton<LyricsDataSource>(
     () => LyricsDataSourceImpl(
       dio: getIt<Dio>(),
@@ -147,6 +154,7 @@ Future<void> initializeDependencies() async {
     () => MusicRepositoryImpl(
       youtubeMusicDataSource: getIt<YouTubeMusicDataSource>(),
       spotifyDataSource: getIt<SpotifyDataSource>(),
+      appleMusicDataSource: getIt<AppleMusicDataSource>(),
       lyricsDataSource: getIt<LyricsDataSource>(),
       localDataSource: getIt<LocalDataSource>(),
       jioSaavnDataSource: getIt<JioSaavnDataSource>(),

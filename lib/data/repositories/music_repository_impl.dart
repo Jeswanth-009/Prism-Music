@@ -10,6 +10,7 @@ import '../../core/matching/match_confidence_engine.dart';
 import '../../core/utils/cancellation_token.dart';
 import '../datasources/remote/youtube/youtube_music_datasource.dart';
 import '../datasources/remote/spotify/spotify_datasource.dart';
+import '../datasources/remote/apple_music/apple_music_datasource.dart';
 import '../datasources/remote/lyrics/lyrics_datasource.dart';
 import '../datasources/remote/lyrics/custom_lyrics_storage.dart';
 import '../datasources/remote/jiosaavn/jiosaavn_datasource.dart';
@@ -23,6 +24,7 @@ const int _maxImportedPlaylistTracks = 10000;
 class MusicRepositoryImpl implements MusicRepository {
   final YouTubeMusicDataSource _youtubeMusicDataSource;
   final SpotifyDataSource _spotifyDataSource;
+  final AppleMusicDataSource _appleMusicDataSource;
   final LyricsDataSource _lyricsDataSource;
   final LocalDataSource _localDataSource;
   final JioSaavnDataSource _jioSaavnDataSource;
@@ -31,12 +33,14 @@ class MusicRepositoryImpl implements MusicRepository {
   MusicRepositoryImpl({
     required YouTubeMusicDataSource youtubeMusicDataSource,
     required SpotifyDataSource spotifyDataSource,
+    AppleMusicDataSource? appleMusicDataSource,
     required LyricsDataSource lyricsDataSource,
     required LocalDataSource localDataSource,
     required JioSaavnDataSource jioSaavnDataSource,
     required YtMusicApiService ytMusicApiService,
   })  : _youtubeMusicDataSource = youtubeMusicDataSource,
         _spotifyDataSource = spotifyDataSource,
+        _appleMusicDataSource = appleMusicDataSource ?? AppleMusicDataSourceImpl(),
         _lyricsDataSource = lyricsDataSource,
         _localDataSource = localDataSource,
         _jioSaavnDataSource = jioSaavnDataSource,
@@ -1054,6 +1058,120 @@ class MusicRepositoryImpl implements MusicRepository {
           ? bestCandidate.thumbnails
           : target.thumbnails,
     );
+  }
+
+  @override
+  Future<Either<Failure, ImportPlaylistResult>> importAppleMusicPlaylist(
+    String playlistUrl, {
+    void Function(double progress, int current, int total)? onProgress,
+    ImportCancellationToken? cancelToken,
+  }) async {
+    try {
+      final details = await _appleMusicDataSource.getPlaylistDetails(
+        playlistUrl,
+        cancelToken: cancelToken,
+      );
+      if (details == null) {
+        return const Left(
+          ParsingFailure(
+            message:
+                'Could not read that Apple Music playlist. Make sure it is public and the link is correct.',
+          ),
+        );
+      }
+
+      final tracks = details.tracks.length > _maxImportedPlaylistTracks
+          ? details.tracks.sublist(0, _maxImportedPlaylistTracks)
+          : details.tracks;
+      final matched = List<Song?>.filled(tracks.length, null);
+      var nextIndex = 0;
+      var converted = 0;
+
+      Future<void> worker() async {
+        while (nextIndex < tracks.length) {
+          if (cancelToken?.isCancelled ?? false) break;
+          final index = nextIndex++;
+          final track = tracks[index];
+          final match = await _resolveTrackMatch(track);
+          if (match != null) {
+            matched[index] = match;
+          }
+          converted++;
+          onProgress?.call(converted / tracks.length, converted, tracks.length);
+        }
+      }
+
+      await Future.wait([
+        for (var i = 0; i < 5 && i < tracks.length; i++) worker(),
+      ]);
+
+      final matchedTracks = <Song>[];
+      final unmatchedTracks = <Song>[];
+      final previewItems = <ImportPreviewItem>[];
+
+      for (var i = 0; i < tracks.length; i++) {
+        final source = tracks[i];
+        final match = matched[i];
+        if (match != null) {
+          matchedTracks.add(match);
+          previewItems.add(
+            ImportPreviewItem.fromMatch(
+              sourceTrack: source,
+              matchedSong: match,
+              confidence: match.matchConfidence,
+            ),
+          );
+        } else {
+          unmatchedTracks.add(source);
+          previewItems.add(
+            ImportPreviewItem.fromMatch(
+              sourceTrack: source,
+              matchedSong: null,
+              confidence: 0.0,
+            ),
+          );
+        }
+      }
+
+      if (matchedTracks.isEmpty && !(cancelToken?.isCancelled ?? false)) {
+        return const Left(
+          ParsingFailure(
+            message:
+                'Tracks were read from Apple Music but none could be matched on YouTube. Try again later.',
+          ),
+        );
+      }
+
+      final playlist = Playlist(
+        id: 'apple_music_${details.id}',
+        name: details.name,
+        description: details.curator == null
+            ? 'Imported from Apple Music • ${matchedTracks.length}/${tracks.length} tracks matched'
+            : 'Imported from Apple Music • ${details.curator} (${matchedTracks.length}/${tracks.length} tracks matched)',
+        thumbnails: details.coverUrl == null
+            ? null
+            : Thumbnails.fromUrl(details.coverUrl!),
+        author: details.curator,
+        trackCount: matchedTracks.length,
+        songs: matchedTracks,
+        isUserCreated: true,
+        appleMusicPlaylistId: details.id,
+        createdAt: DateTime.now(),
+      );
+
+      final result = ImportPlaylistResult(
+        playlist: playlist,
+        matchedTracks: matchedTracks,
+        unmatchedTracks: unmatchedTracks,
+        previewItems: previewItems,
+        totalSourceTracks: tracks.length,
+        wasCancelled: cancelToken?.isCancelled ?? false,
+      );
+
+      return Right(result);
+    } catch (e) {
+      return Left(UnknownFailure(message: e.toString()));
+    }
   }
 
   @override

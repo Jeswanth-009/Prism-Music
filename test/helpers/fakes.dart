@@ -12,6 +12,7 @@ import 'package:prism_music/core/error/failures.dart';
 import 'package:prism_music/core/utils/cancellation_token.dart';
 import 'package:prism_music/core/services/audio_focus_orchestrator_service.dart';
 import 'package:prism_music/core/services/audio_player_service.dart';
+import 'package:prism_music/core/services/equalizer_service.dart';
 import 'package:prism_music/core/services/download_service.dart';
 import 'package:prism_music/core/services/media_resolver_service.dart';
 import 'package:prism_music/core/services/playback_reliability_service.dart';
@@ -196,6 +197,31 @@ class FakeMusicRepository implements MusicRepository {
 
   @override
   Future<Either<Failure, ImportPlaylistResult>> importSpotifyPlaylist(
+    String playlistUrl, {
+    void Function(double progress, int current, int total)? onProgress,
+    ImportCancellationToken? cancelToken,
+  }) async {
+    lastImportUrl = playlistUrl;
+    importProgressValues.addAll([0.0, 0.5, 1.0]);
+    onProgress?.call(0.0, 0, 10);
+    await Future<void>.delayed(Duration.zero);
+    onProgress?.call(0.5, 5, 10);
+    await Future<void>.delayed(Duration.zero);
+    onProgress?.call(1.0, 10, 10);
+    await Future<void>.delayed(Duration.zero);
+    if (importSpotifyResult != null) {
+      return importSpotifyResult!;
+    }
+    return importResult.map((p) => ImportPlaylistResult(
+          playlist: p,
+          matchedTracks: p.songs ?? const [],
+          unmatchedTracks: const [],
+          totalSourceTracks: p.songs?.length ?? 0,
+        ));
+  }
+
+  @override
+  Future<Either<Failure, ImportPlaylistResult>> importAppleMusicPlaylist(
     String playlistUrl, {
     void Function(double progress, int current, int total)? onProgress,
     ImportCancellationToken? cancelToken,
@@ -644,6 +670,9 @@ class FakeLocalDataSource implements LocalDataSource {
 // ---------------------------------------------------------------------------
 
 class FakeAudioPlayerService implements AudioPlayerService {
+  @override
+  late final EqualizerService equalizer = EqualizerService();
+
   final _posCtrl = StreamController<Duration>.broadcast();
   final _bufCtrl = StreamController<Duration>.broadcast();
   final _durCtrl = StreamController<Duration?>.broadcast();

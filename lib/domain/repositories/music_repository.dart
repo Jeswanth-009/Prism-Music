@@ -139,6 +139,17 @@ abstract class MusicRepository {
     ImportCancellationToken? cancelToken,
   });
 
+  /// Import an Apple Music playlist by URL
+  /// Converts Apple Music tracks to playable streams using ISRC search, clean metadata
+  /// matching, and MatchConfidenceEngine verification.
+  /// [onProgress] reports (progress 0.0–1.0, currentTrack, totalTracks).
+  /// [cancelToken] can be used to abort a long import cooperatively.
+  Future<Either<Failure, ImportPlaylistResult>> importAppleMusicPlaylist(
+    String playlistUrl, {
+    void Function(double progress, int current, int total)? onProgress,
+    ImportCancellationToken? cancelToken,
+  });
+
   /// Import a YouTube playlist by URL
   Future<Either<Failure, Playlist>> importYouTubePlaylist(String playlistUrl);
 

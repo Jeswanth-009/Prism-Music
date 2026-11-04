@@ -39,6 +39,9 @@ class Playlist extends Equatable {
   /// Spotify playlist ID (if imported)
   final String? spotifyPlaylistId;
   
+  /// Apple Music playlist ID (if imported)
+  final String? appleMusicPlaylistId;
+  
   /// Creation timestamp
   final DateTime? createdAt;
   
@@ -58,6 +61,7 @@ class Playlist extends Equatable {
     this.songs,
     this.youtubePlaylistId,
     this.spotifyPlaylistId,
+    this.appleMusicPlaylistId,
     this.createdAt,
     this.updatedAt,
   });
@@ -97,6 +101,7 @@ class Playlist extends Equatable {
     Object? songs = _sentinel,
     Object? youtubePlaylistId = _sentinel,
     Object? spotifyPlaylistId = _sentinel,
+    Object? appleMusicPlaylistId = _sentinel,
     Object? createdAt = _sentinel,
     Object? updatedAt = _sentinel,
   }) {
@@ -123,6 +128,9 @@ class Playlist extends Equatable {
       spotifyPlaylistId: identical(spotifyPlaylistId, _sentinel)
           ? this.spotifyPlaylistId
           : spotifyPlaylistId as String?,
+      appleMusicPlaylistId: identical(appleMusicPlaylistId, _sentinel)
+          ? this.appleMusicPlaylistId
+          : appleMusicPlaylistId as String?,
       createdAt: identical(createdAt, _sentinel)
           ? this.createdAt
           : createdAt as DateTime?,
@@ -146,6 +154,7 @@ class Playlist extends Equatable {
         songs,
         youtubePlaylistId,
         spotifyPlaylistId,
+        appleMusicPlaylistId,
         createdAt,
         updatedAt,
       ];

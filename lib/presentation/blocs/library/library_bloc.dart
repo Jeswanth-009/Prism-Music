@@ -25,6 +25,7 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     on<AddToPlaylistEvent>(_onAddToPlaylist);
     on<RemoveFromPlaylistEvent>(_onRemoveFromPlaylist);
     on<ImportSpotifyPlaylistEvent>(_onImportSpotifyPlaylist);
+    on<ImportAppleMusicPlaylistEvent>(_onImportAppleMusicPlaylist);
     on<ImportYouTubePlaylistEvent>(_onImportYouTubePlaylist);
     on<LoadHistoryEvent>(_onLoadHistory);
     on<ClearHistoryEvent>(_onClearHistory);
@@ -439,6 +440,76 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     );
   }
 
+  Future<void> _onImportAppleMusicPlaylist(
+    ImportAppleMusicPlaylistEvent event,
+    Emitter<LibraryState> emit,
+  ) async {
+    emit(state.copyWith(
+      status: LibraryStatus.importing,
+      importProgress: 0.0,
+      importCurrentTrack: 0,
+      errorMessage: null,
+    ));
+
+    final result = await _musicRepository.importAppleMusicPlaylist(
+      event.playlistUrl,
+      onProgress: (progress, current, total) {
+        emit(state.copyWith(
+          importProgress: progress,
+          importCurrentTrack: current,
+          importTotalTracks: total,
+        ));
+      },
+      cancelToken: event.cancelToken,
+    );
+
+    await result.fold(
+      (failure) async {
+        emit(state.copyWith(
+          status: LibraryStatus.error,
+          errorMessage: failure.message,
+          importProgress: null,
+          importCurrentTrack: null,
+          importTotalTracks: null,
+        ));
+        event.onDone?.call(failure.message);
+      },
+      (importResult) async {
+        final persistResult =
+            await _persistImportedPlaylist(importResult.playlist);
+        persistResult.fold(
+          (failure) {
+            emit(state.copyWith(
+              status: LibraryStatus.error,
+              errorMessage: failure.message,
+              importProgress: null,
+              importCurrentTrack: null,
+              importTotalTracks: null,
+            ));
+            event.onDone?.call(failure.message);
+          },
+          (savedPair) {
+            final (saved, isNew) = savedPair;
+            emit(state.copyWith(
+              status: LibraryStatus.success,
+              playlists: isNew
+                  ? <Playlist>[saved, ...state.playlists]
+                  : state.playlists
+                      .map((p) => p.id == saved.id ? saved : p)
+                      .toList(),
+              importProgress: null,
+              importCurrentTrack: null,
+              importTotalTracks: null,
+              lastImportResult: importResult,
+            ));
+            event.onDone?.call(null);
+            event.onResult?.call(importResult);
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _onImportYouTubePlaylist(
     ImportYouTubePlaylistEvent event,
     Emitter<LibraryState> emit,
@@ -508,6 +579,77 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
         state.playlists.where((p) => p.id == event.playlistId).firstOrNull;
     if (playlist == null) {
       event.onDone?.call('Playlist not found');
+      return;
+    }
+
+    if (playlist.appleMusicPlaylistId != null) {
+      emit(state.copyWith(
+        status: LibraryStatus.importing,
+        importProgress: 0.0,
+        importCurrentTrack: 0,
+        errorMessage: null,
+      ));
+
+      final appleUrl = 'https://music.apple.com/playlist/${playlist.appleMusicPlaylistId}';
+      final result = await _musicRepository.importAppleMusicPlaylist(
+        appleUrl,
+        onProgress: (progress, current, total) {
+          emit(state.copyWith(
+            importProgress: progress,
+            importCurrentTrack: current,
+            importTotalTracks: total,
+          ));
+        },
+      );
+
+      await result.fold(
+        (failure) async {
+          emit(state.copyWith(
+            status: LibraryStatus.error,
+            errorMessage: failure.message,
+            importProgress: null,
+            importCurrentTrack: null,
+            importTotalTracks: null,
+          ));
+          event.onDone?.call(failure.message);
+        },
+        (importResult) async {
+          final refreshedPlaylist = importResult.playlist.copyWith(
+            id: playlist.id,
+            name: playlist.name,
+          );
+          final persistResult =
+              await _persistImportedPlaylist(refreshedPlaylist);
+          persistResult.fold(
+            (failure) {
+              emit(state.copyWith(
+                status: LibraryStatus.error,
+                errorMessage: failure.message,
+                importProgress: null,
+                importCurrentTrack: null,
+                importTotalTracks: null,
+              ));
+              event.onDone?.call(failure.message);
+            },
+            (savedPair) {
+              final (saved, _) = savedPair;
+              final updated = state.playlists
+                  .map((p) => p.id == playlist.id ? saved : p)
+                  .toList();
+              emit(state.copyWith(
+                status: LibraryStatus.success,
+                playlists: updated,
+                importProgress: null,
+                importCurrentTrack: null,
+                importTotalTracks: null,
+                lastImportResult: importResult,
+              ));
+              event.onDone?.call(null);
+              event.onResult?.call(importResult);
+            },
+          );
+        },
+      );
       return;
     }
 
@@ -699,6 +841,7 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
         trackCount: songs.length,
         spotifyPlaylistId: playlist.spotifyPlaylistId ?? existing.spotifyPlaylistId,
         youtubePlaylistId: playlist.youtubePlaylistId ?? existing.youtubePlaylistId,
+        appleMusicPlaylistId: playlist.appleMusicPlaylistId ?? existing.appleMusicPlaylistId,
         updatedAt: DateTime.now(),
       );
       final result = await _libraryRepository.saveImportedPlaylist(updated);
@@ -727,7 +870,9 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
       (imported.spotifyPlaylistId != null &&
           existing.spotifyPlaylistId == imported.spotifyPlaylistId) ||
       (imported.youtubePlaylistId != null &&
-          existing.youtubePlaylistId == imported.youtubePlaylistId);
+          existing.youtubePlaylistId == imported.youtubePlaylistId) ||
+      (imported.appleMusicPlaylistId != null &&
+          existing.appleMusicPlaylistId == imported.appleMusicPlaylistId);
 
   Future<void> _onLoadHistory(
     LoadHistoryEvent event,

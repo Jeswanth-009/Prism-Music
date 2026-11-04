@@ -101,6 +101,24 @@ class ImportSpotifyPlaylistEvent extends LibraryEvent {
   List<Object?> get props => [playlistUrl];
 }
 
+/// Import an Apple Music playlist
+class ImportAppleMusicPlaylistEvent extends LibraryEvent {
+  final String playlistUrl;
+  final void Function(String? errorMessage)? onDone;
+  final void Function(ImportPlaylistResult result)? onResult;
+  final ImportCancellationToken? cancelToken;
+
+  const ImportAppleMusicPlaylistEvent(
+    this.playlistUrl, {
+    this.onDone,
+    this.onResult,
+    this.cancelToken,
+  });
+
+  @override
+  List<Object?> get props => [playlistUrl];
+}
+
 /// Cancel an ongoing playlist import
 class CancelImportEvent extends LibraryEvent {
   const CancelImportEvent();

@@ -37,9 +37,6 @@ class MockMusicRepository implements MusicRepository {
   Future<Either<Failure, List<Song>>> getRecommendations({int limit = 20}) async {
     return Right(mockSongs);
   }
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class MockLibraryRepository implements LibraryRepository {

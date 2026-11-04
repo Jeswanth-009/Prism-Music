@@ -42,3 +42,14 @@ bool isYouTubePlaylistHost(String host) {
   };
   return allowed.contains(host.toLowerCase());
 }
+
+/// Hosts that legitimately carry Apple Music playlist links the app imports.
+bool isAppleMusicPlaylistHost(String host) {
+  const allowed = {
+    'music.apple.com',
+    'itunes.apple.com',
+    'geo.music.apple.com',
+    'beta.music.apple.com',
+  };
+  return allowed.contains(host.toLowerCase());
+}

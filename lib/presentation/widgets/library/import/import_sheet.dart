@@ -4,7 +4,7 @@ import '../../../../core/utils/link_validation.dart';
 import 'p2p_playlist_import_sheet.dart';
 
 /// Playlist import sources.
-enum PlaylistImportSource { spotify, youtube }
+enum PlaylistImportSource { spotify, youtube, appleMusic }
 
 /// Source picker + URL entry for playlist import. Pops with the chosen
 /// source and url, or null when cancelled.
@@ -25,9 +25,13 @@ class _LibraryImportSheetState extends State<LibraryImportSheet> {
     super.dispose();
   }
 
-  String get _hint => _source == PlaylistImportSource.spotify
-      ? 'https://open.spotify.com/playlist/…'
-      : 'https://music.youtube.com/playlist?list=… or playlist ID (also mixes)';
+  String get _hint => switch (_source) {
+        PlaylistImportSource.spotify => 'https://open.spotify.com/playlist/…',
+        PlaylistImportSource.youtube =>
+          'https://music.youtube.com/playlist?list=… or playlist ID (also mixes)',
+        PlaylistImportSource.appleMusic =>
+          'https://music.apple.com/…/playlist/…',
+      };
 
   bool get _isValidUrl {
     final text = _urlController.text.trim();
@@ -42,6 +46,8 @@ class _LibraryImportSheetState extends State<LibraryImportSheet> {
                   isSpotifyShortLinkHost(uri.host))),
       PlaylistImportSource.youtube =>
         uri.isScheme('https') && isYouTubePlaylistHost(uri.host),
+      PlaylistImportSource.appleMusic =>
+        uri.isScheme('https') && isAppleMusicPlaylistHost(uri.host),
     };
   }
 
@@ -76,6 +82,11 @@ class _LibraryImportSheetState extends State<LibraryImportSheet> {
                   icon: Icon(Icons.play_circle_outline_rounded),
                   label: Text('YouTube'),
                 ),
+                ButtonSegment(
+                  value: PlaylistImportSource.appleMusic,
+                  icon: Icon(Icons.music_note_rounded),
+                  label: Text('Apple'),
+                ),
               ],
               selected: {_source},
               onSelectionChanged: (selection) =>
@@ -97,7 +108,7 @@ class _LibraryImportSheetState extends State<LibraryImportSheet> {
                 hintText: _hint,
                 border: const OutlineInputBorder(),
                 errorText: _urlController.text.isNotEmpty && !_isValidUrl
-                    ? 'That does not look like a ${_source.name} playlist link'
+                    ? 'That does not look like a ${_source == PlaylistImportSource.appleMusic ? "Apple Music" : _source.name} playlist link'
                     : null,
               ),
             ),

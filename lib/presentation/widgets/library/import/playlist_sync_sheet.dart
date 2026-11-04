@@ -80,8 +80,16 @@ class _PlaylistSyncSheetState extends State<PlaylistSyncSheet> {
           (failure) => _errorMessage = failure.message,
           (result) => upstream = result.songs ?? [],
         );
+      } else if (p.appleMusicPlaylistId != null) {
+        final url =
+            'https://music.apple.com/playlist/${p.appleMusicPlaylistId}';
+        final res = await _musicRepo.importAppleMusicPlaylist(url);
+        res.fold(
+          (failure) => _errorMessage = failure.message,
+          (result) => upstream = result.matchedTracks,
+        );
       } else {
-        _errorMessage = 'Playlist is not linked to Spotify or YouTube Music';
+        _errorMessage = 'Playlist is not linked to Spotify, YouTube Music, or Apple Music';
       }
 
       if (_errorMessage != null) {
@@ -146,6 +154,7 @@ class _PlaylistSyncSheetState extends State<PlaylistSyncSheet> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isSpotify = widget.playlist.spotifyPlaylistId != null;
+    final isApple = widget.playlist.appleMusicPlaylistId != null;
 
     final displayedSongs = _selectedFilter == 1
         ? _addedSongs
@@ -177,10 +186,12 @@ class _PlaylistSyncSheetState extends State<PlaylistSyncSheet> {
             child: Row(
               children: [
                 Icon(
-                  isSpotify ? Icons.graphic_eq_rounded : Icons.play_circle_fill,
+                  isSpotify
+                      ? Icons.graphic_eq_rounded
+                      : (isApple ? Icons.music_note_rounded : Icons.play_circle_fill),
                   color: isSpotify
                       ? const Color(0xFF1DB954)
-                      : const Color(0xFFFF0000),
+                      : (isApple ? const Color(0xFFFC3C44) : const Color(0xFFFF0000)),
                   size: 28,
                 ),
                 const SizedBox(width: 12),
@@ -199,7 +210,7 @@ class _PlaylistSyncSheetState extends State<PlaylistSyncSheet> {
                       Text(
                         isSpotify
                             ? 'Spotify Playlist'
-                            : 'YouTube Music Playlist',
+                            : (isApple ? 'Apple Music Playlist' : 'YouTube Music Playlist'),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
