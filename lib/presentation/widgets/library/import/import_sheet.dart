@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/utils/link_validation.dart';
+import 'p2p_playlist_import_sheet.dart';
 
 /// Playlist import sources.
 enum PlaylistImportSource { spotify, youtube }
@@ -118,6 +119,17 @@ class _LibraryImportSheetState extends State<LibraryImportSheet> {
                   label: const Text('Import'),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: TextButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  P2PPlaylistImportSheet.show(context);
+                },
+                icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                label: const Text('Import via P2P Link / QR Code'),
+              ),
             ),
           ],
         ),

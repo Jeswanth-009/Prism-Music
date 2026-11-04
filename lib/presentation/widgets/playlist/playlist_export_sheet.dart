@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/services/playlist_export_service.dart';
 import '../../../domain/entities/playlist.dart';
 import '../prism/prism_sheet.dart';
+import 'playlist_share_qr_dialog.dart';
 
 /// Interactive modal sheet to export or share a playlist.
 class PlaylistExportSheet extends StatefulWidget {
@@ -114,6 +115,15 @@ class _PlaylistExportSheetState extends State<PlaylistExportSheet> {
                 child: Center(child: CircularProgressIndicator()),
               )
             else ...[
+              PrismSheetAction(
+                icon: Icons.qr_code_2_rounded,
+                label: 'Share via QR / P2P Link',
+                subtitle: 'Zero-server peer-to-peer compressed link & scannable QR code',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  PlaylistShareQrDialog.show(context, widget.playlist);
+                },
+              ),
               PrismSheetAction(
                 icon: Icons.badge_outlined,
                 label: 'Share Playlist Card',
