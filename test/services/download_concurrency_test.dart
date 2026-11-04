@@ -131,7 +131,9 @@ void main() {
 
     // Complete the first download
     adapter.inflight['https://example.com/audio_s1.m4a']?.complete();
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    for (var i = 0; i < 10 && downloadService.getDownloadStatus('s4') != DownloadStatus.downloading; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+    }
 
     // s1 should complete, s4 should be promoted from queued to downloading
     expect(downloadService.getDownloadStatus('s1'), DownloadStatus.completed);
@@ -142,7 +144,9 @@ void main() {
     // Complete s2 and s3 to free remaining slots
     adapter.inflight['https://example.com/audio_s2.m4a']?.complete();
     adapter.inflight['https://example.com/audio_s3.m4a']?.complete();
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    for (var i = 0; i < 10 && downloadService.getDownloadStatus('s5') != DownloadStatus.downloading; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+    }
 
     // s5 should now be promoted to downloading
     expect(downloadService.getDownloadStatus('s5'), DownloadStatus.downloading);
@@ -150,7 +154,9 @@ void main() {
     // Complete s4 and s5
     adapter.inflight['https://example.com/audio_s4.m4a']?.complete();
     adapter.inflight['https://example.com/audio_s5.m4a']?.complete();
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    for (var i = 0; i < 10 && downloadService.getDownloadStatus('s5') != DownloadStatus.completed; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+    }
 
     expect(downloadService.getDownloadStatus('s4'), DownloadStatus.completed);
     expect(downloadService.getDownloadStatus('s5'), DownloadStatus.completed);
