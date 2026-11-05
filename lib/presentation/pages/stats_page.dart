@@ -1,9 +1,12 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/di/injection.dart';
+import '../../core/services/listening_activity_feed_service.dart';
 import '../../domain/entities/listening_stats.dart';
+import '../../domain/entities/song.dart';
 import '../../domain/repositories/library_repository.dart';
 import '../blocs/library/library.dart';
 import '../theme/prism_theme.dart';
@@ -12,8 +15,8 @@ import '../widgets/player/mini_player.dart';
 import '../widgets/prism/prism_states.dart';
 import '../widgets/stats/stats_export_sheet.dart';
 
-/// Full listening overview: headline numbers, a plays-per-day chart for the
-/// last two weeks, and the current top artists / songs / genres.
+/// Full listening overview: headline numbers, weekly recap feed, and annual
+/// "Your Year in Music" recap derived from play history.
 class StatsPage extends StatefulWidget {
   const StatsPage({super.key});
 
@@ -24,6 +27,8 @@ class StatsPage extends StatefulWidget {
 class _StatsPageState extends State<StatsPage> {
   List<HistoryEntry> _entries = const [];
   bool _loadingHistory = true;
+  int _selectedTab = 0; // 0: Overview, 1: Weekly Recap, 2: Year in Music
+  static const _feedService = ListeningActivityFeedService();
 
   @override
   void initState() {
@@ -45,7 +50,6 @@ class _StatsPageState extends State<StatsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Listening stats'),
@@ -81,66 +85,56 @@ class _StatsPageState extends State<StatsPage> {
             );
           }
 
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+          return Column(
             children: [
-              _HeadlineStats(stats: stats),
-              const SizedBox(height: 24),
-              if (!_loadingHistory) ...[
-                Text(
-                  'Last 14 days',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<int>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(
+                        value: 0,
+                        label: Text('Overview'),
+                      ),
+                      ButtonSegment(
+                        value: 1,
+                        label: Text('Weekly Recap'),
+                      ),
+                      ButtonSegment(
+                        value: 2,
+                        label: Text('Year in Music'),
+                      ),
+                    ],
+                    selected: {_selectedTab},
+                    onSelectionChanged: (set) =>
+                        setState(() => _selectedTab = set.first),
                   ),
                 ),
-                const SizedBox(height: 14),
-                _PlaysChart(entries: _entries),
-                const SizedBox(height: 24),
-              ],
-              Text(
-                'Top of your rotation',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+              ),
+              Expanded(
+                child: IndexedStack(
+                  index: _selectedTab,
+                  children: [
+                    _OverviewTab(
+                      stats: stats,
+                      entries: _entries,
+                      loadingHistory: _loadingHistory,
+                    ),
+                    _WeeklyRecapTab(
+                      entries: _entries,
+                      loadingHistory: _loadingHistory,
+                      feedService: _feedService,
+                    ),
+                    _YearInReviewTab(
+                      entries: _entries,
+                      loadingHistory: _loadingHistory,
+                      feedService: _feedService,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 10),
-              _TopRow(
-                icon: Icons.person_rounded,
-                label: 'Top artist',
-                title: stats.topArtist ?? '—',
-                meta: stats.topArtist == null
-                    ? null
-                    : '${stats.topArtistCount} plays',
-              ),
-              _TopRow(
-                icon: Icons.music_note_rounded,
-                label: 'Most played song',
-                title: stats.mostPlayedSong?.title ?? '—',
-                meta: stats.mostPlayedSong == null
-                    ? null
-                    : '${stats.mostPlayedCount} plays · '
-                        '${stats.mostPlayedSong!.artist}',
-              ),
-              if (stats.topGenre != null)
-                _TopRow(
-                  icon: Icons.category_rounded,
-                  label: 'Top genre',
-                  title: stats.topGenre!,
-                  meta: '${stats.topGenreCount} plays',
-                ),
-              const SizedBox(height: 16),
-              const _DataRetentionCard(),
-              if (stats.firstPlayed != null) ...[
-                const SizedBox(height: 18),
-                Text(
-                  'Listening since '
-                  '${_formatDate(stats.firstPlayed!)} · last play '
-                  '${_formatDate(stats.lastPlayed ?? stats.firstPlayed!)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
             ],
           );
         },
@@ -148,8 +142,519 @@ class _StatsPageState extends State<StatsPage> {
       bottomNavigationBar: const PrismPersistentMiniPlayer(),
     );
   }
+}
 
-  String _formatDate(DateTime date) => Formatters.formatDate(date);
+class _OverviewTab extends StatelessWidget {
+  const _OverviewTab({
+    required this.stats,
+    required this.entries,
+    required this.loadingHistory,
+  });
+
+  final ListeningStats stats;
+  final List<HistoryEntry> entries;
+  final bool loadingHistory;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+      children: [
+        _HeadlineStats(stats: stats),
+        const SizedBox(height: 24),
+        if (!loadingHistory) ...[
+          Text(
+            'Last 14 days',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _PlaysChart(entries: entries),
+          const SizedBox(height: 24),
+        ],
+        Text(
+          'Top of your rotation',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 10),
+        _TopRow(
+          icon: Icons.person_rounded,
+          label: 'Top artist',
+          title: stats.topArtist ?? '—',
+          meta: stats.topArtist == null
+              ? null
+              : '${stats.topArtistCount} plays',
+        ),
+        _TopRow(
+          icon: Icons.music_note_rounded,
+          label: 'Most played song',
+          title: stats.mostPlayedSong?.title ?? '—',
+          meta: stats.mostPlayedSong == null
+              ? null
+              : '${stats.mostPlayedCount} plays · '
+                  '${stats.mostPlayedSong!.artist}',
+        ),
+        if (stats.topGenre != null)
+          _TopRow(
+            icon: Icons.category_rounded,
+            label: 'Top genre',
+            title: stats.topGenre!,
+            meta: '${stats.topGenreCount} plays',
+          ),
+        const SizedBox(height: 16),
+        const _DataRetentionCard(),
+        if (stats.firstPlayed != null) ...[
+          const SizedBox(height: 18),
+          Text(
+            'Listening since '
+            '${Formatters.formatDate(stats.firstPlayed!)} · last play '
+            '${Formatters.formatDate(stats.lastPlayed ?? stats.firstPlayed!)}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _WeeklyRecapTab extends StatelessWidget {
+  const _WeeklyRecapTab({
+    required this.entries,
+    required this.loadingHistory,
+    required this.feedService,
+  });
+
+  final List<HistoryEntry> entries;
+  final bool loadingHistory;
+  final ListeningActivityFeedService feedService;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final recap = feedService.generateWeeklyRecap(entries);
+
+    if (loadingHistory) {
+      return const Center(child: CircularProgressIndicator.adaptive());
+    }
+
+    if (recap.isEmpty) {
+      return const PrismEmptyState(
+        icon: Icons.calendar_today_rounded,
+        message: 'No activity this week',
+        hint: 'Play some music this week to unlock your weekly recap.',
+      );
+    }
+
+    final hours = recap.totalListeningTime.inHours;
+    final mins = recap.totalListeningTime.inMinutes % 60;
+    final timeStr = hours > 0 ? '$hours hr $mins m' : '$mins mins';
+    final trendText = recap.trendPercentage > 0
+        ? '+${recap.trendPercentage.toStringAsFixed(0)}% vs last week'
+        : recap.trendPercentage < 0
+            ? '${recap.trendPercentage.toStringAsFixed(0)}% vs last week'
+            : 'Same as last week';
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                theme.colorScheme.primaryContainer.withValues(alpha: 0.6),
+                theme.colorScheme.surfaceContainer,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(PrismRadius.lg),
+            border: Border.all(color: context.prismSpec.hairline),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'WEEKLY RECAP',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      letterSpacing: 1.2,
+                      fontWeight: FontWeight.w700,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      trendText,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: recap.trendPercentage >= 0
+                            ? Colors.greenAccent.shade700
+                            : theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '${recap.totalPlays} plays · $timeStr',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${Formatters.formatDate(recap.startDate)} – ${Formatters.formatDate(recap.endDate)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'Top Songs This Week',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 10),
+        for (var i = 0; i < recap.topSongs.length; i++)
+          _RankedSongRow(
+            rank: i + 1,
+            song: recap.topSongs[i].key,
+            playCount: recap.topSongs[i].value,
+          ),
+        const SizedBox(height: 20),
+        Text(
+          'Top Artists This Week',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final artist in recap.topArtists)
+              Chip(
+                avatar: CircleAvatar(
+                  backgroundColor: theme.colorScheme.primary,
+                  child: Text(
+                    '${artist.value}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: theme.colorScheme.onPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                label: Text(artist.key),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _YearInReviewTab extends StatelessWidget {
+  const _YearInReviewTab({
+    required this.entries,
+    required this.loadingHistory,
+    required this.feedService,
+  });
+
+  final List<HistoryEntry> entries;
+  final bool loadingHistory;
+  final ListeningActivityFeedService feedService;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final review = feedService.generateYearInReview(entries);
+
+    if (loadingHistory) {
+      return const Center(child: CircularProgressIndicator.adaptive());
+    }
+
+    if (review.isEmpty) {
+      return const PrismEmptyState(
+        icon: Icons.auto_awesome_rounded,
+        message: 'No annual listening records',
+        hint: 'Keep listening throughout the year to build your Year in Music.',
+      );
+    }
+
+    final totalMins = review.totalListeningTime.inMinutes;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                theme.colorScheme.tertiaryContainer.withValues(alpha: 0.8),
+                theme.colorScheme.primaryContainer.withValues(alpha: 0.6),
+                theme.colorScheme.surfaceContainer,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(PrismRadius.lg),
+            border: Border.all(color: context.prismSpec.hairline),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'YOUR YEAR IN MUSIC',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      letterSpacing: 1.4,
+                      fontWeight: FontWeight.w800,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                  Text(
+                    '${review.year}',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.auto_awesome_rounded, size: 18, color: theme.colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      review.personalityBadge,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                review.personalityDescription,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            _StatTile(value: '$totalMins', label: 'Minutes listened'),
+            const SizedBox(width: 10),
+            _StatTile(value: '${review.uniqueSongs}', label: 'Unique tracks'),
+            const SizedBox(width: 10),
+            _StatTile(value: '${review.uniqueArtists}', label: 'Artists discovered'),
+          ],
+        ),
+        if (review.mostActiveMonth != null) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainer,
+              borderRadius: BorderRadius.circular(PrismRadius.md),
+              border: Border.all(color: context.prismSpec.hairline),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.trending_up_rounded, color: theme.colorScheme.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Your peak listening month was ${review.mostActiveMonth} with ${review.mostActiveMonthPlays} plays.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 24),
+        Text(
+          'Top Songs of ${review.year}',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 10),
+        for (var i = 0; i < review.topSongs.take(5).length; i++)
+          _RankedSongRow(
+            rank: i + 1,
+            song: review.topSongs[i].key,
+            playCount: review.topSongs[i].value,
+          ),
+        const SizedBox(height: 20),
+        Text(
+          'Top Artists of ${review.year}',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final artist in review.topArtists.take(8))
+              Chip(
+                avatar: CircleAvatar(
+                  backgroundColor: theme.colorScheme.primary,
+                  child: Text(
+                    '${artist.value}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: theme.colorScheme.onPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                label: Text(artist.key),
+              ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.share_rounded),
+            label: const Text('Share Your Year in Music'),
+            onPressed: () {
+              final topSong = review.topSongs.isNotEmpty ? review.topSongs.first.key.title : '—';
+              final topArtist = review.topArtists.isNotEmpty ? review.topArtists.first.key : '—';
+              final shareText = '''
+🎵 My Prism Year in Music (${review.year})
+• Personality: ${review.personalityBadge}
+• Listening Time: $totalMins minutes
+• Top Song: $topSong
+• Top Artist: $topArtist
+• Unique Tracks: ${review.uniqueSongs}
+Streamed on Prism Music.
+''';
+              Share.share(shareText, subject: 'My ${review.year} in Music');
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RankedSongRow extends StatelessWidget {
+  const _RankedSongRow({
+    required this.rank,
+    required this.song,
+    required this.playCount,
+  });
+
+  final int rank;
+  final Song song;
+  final int playCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(PrismRadius.md),
+          border: Border.all(color: context.prismSpec.hairline),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              child: Text(
+                '$rank',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: rank <= 3 ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    song.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    song.artist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '$playCount plays',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _DataRetentionCard extends StatelessWidget {
