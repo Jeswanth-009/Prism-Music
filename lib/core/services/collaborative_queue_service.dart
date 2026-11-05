@@ -46,7 +46,7 @@ class CollaborativeQueueService {
   String? get localIp => _localIp;
   int get port => _port;
   String get pin => _pin;
-  String get serverUrl => _localIp != null ? 'http://$_localIp:$_port' : 'http://localhost:$_port';
+  String get serverUrl => Uri(scheme: 'http', host: _localIp ?? 'localhost', port: _port).toString();
   List<PartyActivityEntry> get activityLog => List.unmodifiable(_activityLog);
   Stream<List<PartyActivityEntry>> get activityStream => _activityController.stream;
 
@@ -77,7 +77,7 @@ class CollaborativeQueueService {
         shared: true,
       );
 
-      logDebug('Party Mode server started at http://$_localIp:$_port (PIN: $_pin)');
+      logDebug('Party Mode server started at port $_port on host $_localIp (PIN: $_pin)');
 
       _server!.listen(
         _handleRequest,

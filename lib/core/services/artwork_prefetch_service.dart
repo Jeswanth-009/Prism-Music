@@ -11,7 +11,7 @@ import '../utils/logger.dart';
 /// when navigating, scrolling through queue, or viewing now playing.
 class ArtworkPrefetchService {
   ArtworkPrefetchService._({BaseCacheManager? cacheManager})
-      : _cacheManager = cacheManager ?? DefaultCacheManager();
+      : _customCacheManager = cacheManager;
 
   static ArtworkPrefetchService instance = ArtworkPrefetchService._();
 
@@ -20,8 +20,17 @@ class ArtworkPrefetchService {
     return ArtworkPrefetchService._(cacheManager: cacheManager);
   }
 
-  final BaseCacheManager _cacheManager;
+  final BaseCacheManager? _customCacheManager;
   final Set<String> _inFlightUrls = {};
+
+  BaseCacheManager? _getCacheManager() {
+    if (_customCacheManager != null) return _customCacheManager;
+    try {
+      return DefaultCacheManager();
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// Pre-caches artwork for upcoming tracks in the queue.
   ///
@@ -32,38 +41,47 @@ class ArtworkPrefetchService {
     int currentIndex, {
     int lookahead = 8,
   }) async {
-    if (queue.isEmpty || currentIndex < 0) return 0;
+    try {
+      if (queue.isEmpty || currentIndex < 0) return 0;
 
-    final targets = <String>{};
-    final startIndex = currentIndex;
-    final endIndex = (currentIndex + 1 + lookahead).clamp(0, queue.length);
+      final targets = <String>{};
+      final startIndex = currentIndex;
+      final endIndex = (currentIndex + 1 + lookahead).clamp(0, queue.length);
 
-    for (int i = startIndex; i < endIndex; i++) {
-      final song = queue[i];
-      final url = _resolveArtworkUrl(song);
-      if (url != null && url.isNotEmpty && !_inFlightUrls.contains(url)) {
-        targets.add(url);
+      for (int i = startIndex; i < endIndex; i++) {
+        final song = queue[i];
+        final url = _resolveArtworkUrl(song);
+        if (url != null && url.isNotEmpty && !_inFlightUrls.contains(url)) {
+          targets.add(url);
+        }
       }
+
+      if (targets.isEmpty) return 0;
+
+      int initiatedCount = 0;
+      for (final url in targets) {
+        _inFlightUrls.add(url);
+        initiatedCount++;
+        unawaited(_prefetchSingleUrl(url));
+      }
+
+      return initiatedCount;
+    } catch (e) {
+      logDebug('ArtworkPrefetchService: failed to prefetch queue: $e');
+      return 0;
     }
-
-    if (targets.isEmpty) return 0;
-
-    int initiatedCount = 0;
-    for (final url in targets) {
-      _inFlightUrls.add(url);
-      initiatedCount++;
-      unawaited(_prefetchSingleUrl(url));
-    }
-
-    return initiatedCount;
   }
 
   /// Prefetches artwork for a single song (e.g. when added to queue).
   Future<void> prefetchSongArtwork(Song song) async {
-    final url = _resolveArtworkUrl(song);
-    if (url != null && url.isNotEmpty && !_inFlightUrls.contains(url)) {
-      _inFlightUrls.add(url);
-      await _prefetchSingleUrl(url);
+    try {
+      final url = _resolveArtworkUrl(song);
+      if (url != null && url.isNotEmpty && !_inFlightUrls.contains(url)) {
+        _inFlightUrls.add(url);
+        await _prefetchSingleUrl(url);
+      }
+    } catch (e) {
+      logDebug('ArtworkPrefetchService: failed to prefetch single song artwork: $e');
     }
   }
 
@@ -80,11 +98,13 @@ class ArtworkPrefetchService {
 
   Future<void> _prefetchSingleUrl(String url) async {
     try {
-      final existing = await _cacheManager.getFileFromCache(url);
+      final cm = _getCacheManager();
+      if (cm == null) return;
+      final existing = await cm.getFileFromCache(url);
       if (existing != null && await existing.file.exists()) {
         return;
       }
-      await _cacheManager.downloadFile(url);
+      await cm.downloadFile(url);
     } catch (e) {
       logDebug('ArtworkPrefetchService: failed to prefetch $url: $e');
     } finally {

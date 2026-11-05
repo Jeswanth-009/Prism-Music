@@ -671,6 +671,9 @@ class FakeLocalDataSource implements LocalDataSource {
 
 class FakeAudioPlayerService implements AudioPlayerService {
   @override
+  Future<void> applySongNormalization(Song? song) async {}
+
+  @override
   late final EqualizerService equalizer = EqualizerService();
 
   final _posCtrl = StreamController<Duration>.broadcast();

@@ -55,6 +55,9 @@ class _FakeAudioPlayerService implements AudioPlayerService {
   bool get isQueueMode => _isQueueMode;
 
   @override
+  Future<void> applySongNormalization(Song? song) async {}
+
+  @override
   Future<void> pause() async {
     pauseCallCount++;
     _isPlaying = false;

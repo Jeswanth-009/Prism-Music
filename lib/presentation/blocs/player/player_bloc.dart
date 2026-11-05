@@ -53,6 +53,26 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       }
     });
   }
+
+  void _safePrefetchUpcomingArtwork(List<Song> queue, int currentIndex) {
+    try {
+      unawaited(
+        ArtworkPrefetchService.instance
+            .prefetchUpcomingQueue(queue, currentIndex)
+            .catchError((_) => 0),
+      );
+    } catch (_) {}
+  }
+
+  void _safePrefetchSongArtwork(Song song) {
+    try {
+      unawaited(
+        ArtworkPrefetchService.instance
+            .prefetchSongArtwork(song)
+            .catchError((_) {}),
+      );
+    } catch (_) {}
+  }
   int _prefetchLookahead = 1;
   double _crossfadeDurationSeconds = 0.0;
   int _lastNearEndPrefetchIndex = -1;
@@ -425,7 +445,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       return;
     }
 
-    ArtworkPrefetchService.instance.prefetchUpcomingQueue(queue, currentIndex);
+    _safePrefetchUpcomingArtwork(queue, currentIndex);
     final preferredQuality = quality ?? _startupQuality(state.audioQuality);
     // Prefetch only the single immediately next song with a slight delay to avoid rate limiting
     final nextSong = queue[currentIndex + 1];
@@ -803,8 +823,10 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         // Position in the queue changed → notification skip buttons may
         // have become usable/unusable.
         MediaSessionCoordinator.instance.notifyQueueChanged();
-        _audioPlayer.applySongNormalization(songToPlay);
-        ArtworkPrefetchService.instance.prefetchUpcomingQueue(state.queue, queueIndex);
+        try {
+          _audioPlayer.applySongNormalization(songToPlay);
+        } catch (_) {}
+        _safePrefetchUpcomingArtwork(state.queue, queueIndex);
 
         if (!shouldCrossfade) {
           unawaited(
@@ -1206,7 +1228,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     MediaSessionCoordinator.instance.notifyQueueChanged();
     _persistCurrentSession();
 
-    ArtworkPrefetchService.instance.prefetchSongArtwork(event.song);
+    _safePrefetchSongArtwork(event.song);
     final preferredQuality = _startupQuality(state.audioQuality);
     _streamLoader.prefetch(event.song, preferredQuality: preferredQuality);
     _prefetchAhead(updatedQueue, state.queueIndex, quality: preferredQuality);
@@ -1303,7 +1325,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     emit(state.copyWith(queue: updatedQueue, queueIndex: newIndex));
     MediaSessionCoordinator.instance.notifyQueueChanged();
     _persistCurrentSession();
-    ArtworkPrefetchService.instance.prefetchUpcomingQueue(updatedQueue, newIndex);
+    _safePrefetchUpcomingArtwork(updatedQueue, newIndex);
   }
 
   Future<void> _onClearQueue(

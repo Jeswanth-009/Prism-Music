@@ -93,6 +93,9 @@ class FakeAudioPlayerService implements AudioPlayerService {
   Future<void> stop() async {}
 
   @override
+  Future<void> applySongNormalization(Song? song) async {}
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
