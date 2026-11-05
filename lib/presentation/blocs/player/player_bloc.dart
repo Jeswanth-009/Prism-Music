@@ -17,6 +17,7 @@ import '../../../core/services/permission_service.dart';
 import '../../../core/services/settings_service.dart';
 import '../../../core/services/widget_service.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import '../../../core/services/artwork_prefetch_service.dart';
 import '../../../core/services/verified_recording_verifier.dart';
 import '../../../core/services/queue_persistence_service.dart';
 import '../../../core/di/injection.dart';
@@ -415,6 +416,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       return;
     }
 
+    ArtworkPrefetchService.instance.prefetchUpcomingQueue(queue, currentIndex);
     final preferredQuality = quality ?? _startupQuality(state.audioQuality);
     // Prefetch only the single immediately next song with a slight delay to avoid rate limiting
     final nextSong = queue[currentIndex + 1];
@@ -793,6 +795,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         // have become usable/unusable.
         MediaSessionCoordinator.instance.notifyQueueChanged();
         _audioPlayer.applySongNormalization(songToPlay);
+        ArtworkPrefetchService.instance.prefetchUpcomingQueue(state.queue, queueIndex);
 
         if (!shouldCrossfade) {
           unawaited(
@@ -1194,6 +1197,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     MediaSessionCoordinator.instance.notifyQueueChanged();
     _persistCurrentSession();
 
+    ArtworkPrefetchService.instance.prefetchSongArtwork(event.song);
     final preferredQuality = _startupQuality(state.audioQuality);
     _streamLoader.prefetch(event.song, preferredQuality: preferredQuality);
     _prefetchAhead(updatedQueue, state.queueIndex, quality: preferredQuality);
@@ -1290,6 +1294,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     emit(state.copyWith(queue: updatedQueue, queueIndex: newIndex));
     MediaSessionCoordinator.instance.notifyQueueChanged();
     _persistCurrentSession();
+    ArtworkPrefetchService.instance.prefetchUpcomingQueue(updatedQueue, newIndex);
   }
 
   Future<void> _onClearQueue(
