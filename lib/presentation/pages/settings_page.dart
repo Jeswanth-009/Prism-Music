@@ -609,6 +609,19 @@ class _SettingsPageState extends State<SettingsPage> {
           },
         ),
         SettingRow(
+          leading: const Icon(Icons.volume_up_rounded),
+          title: 'Audio Normalization',
+          subtitle: 'Consistent volume ()',
+          trailing: Switch.adaptive(
+            value: _settingsService.audioNormalizationEnabled,
+            onChanged: (value) async {
+              await _settingsService.setAudioNormalizationEnabled(value);
+              setState(() {});
+            },
+          ),
+          onTap: () => SettingsDialogs.showNormalizationDialog(context, () => setState(() {})),
+        ),
+        SettingRow(
           leading: const Icon(Icons.bolt_rounded),
           title: 'Fast Start',
           subtitle: 'Start streams at medium quality for quicker playback',

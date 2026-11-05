@@ -792,6 +792,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         // Position in the queue changed → notification skip buttons may
         // have become usable/unusable.
         MediaSessionCoordinator.instance.notifyQueueChanged();
+        _audioPlayer.applySongNormalization(songToPlay);
 
         if (!shouldCrossfade) {
           unawaited(

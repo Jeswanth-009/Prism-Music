@@ -174,6 +174,60 @@ class SettingsDialogs {
     );
   }
 
+  static void showNormalizationDialog(BuildContext context, VoidCallback onUpdated) {
+    final settings = SettingsService.instance;
+    final currentTarget = settings.audioNormalizationTarget;
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return SimpleDialog(
+          title: const Text('Audio Normalization Target'),
+          children: [
+            RadioListTile<String>(
+              value: 'quiet',
+              groupValue: currentTarget,
+              onChanged: (val) async {
+                if (val != null) {
+                  await settings.setAudioNormalizationTarget(val);
+                  onUpdated();
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                }
+              },
+              title: const Text('Quiet (-18 LUFS)'),
+              subtitle: const Text('Audiophile dynamic range / ReplayGain standard'),
+            ),
+            RadioListTile<String>(
+              value: 'balanced',
+              groupValue: currentTarget,
+              onChanged: (val) async {
+                if (val != null) {
+                  await settings.setAudioNormalizationTarget(val);
+                  onUpdated();
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                }
+              },
+              title: const Text('Balanced (-14 LUFS)'),
+              subtitle: const Text('Recommended for everyday listening (Spotify standard)'),
+            ),
+            RadioListTile<String>(
+              value: 'loud',
+              groupValue: currentTarget,
+              onChanged: (val) async {
+                if (val != null) {
+                  await settings.setAudioNormalizationTarget(val);
+                  onUpdated();
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                }
+              },
+              title: const Text('Loud (-11 LUFS)'),
+              subtitle: const Text('Best for noisy environments and small speakers'),
+            ),
+          ],
+        );
+      },
+    );
+  }
   static void showAudioQualityDialog(BuildContext context) {
     final currentQuality = SettingsService.instance.audioQuality;
 

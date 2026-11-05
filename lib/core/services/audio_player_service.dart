@@ -9,11 +9,14 @@ import '../../domain/entities/song.dart';
 import '../../domain/entities/stream_info.dart';
 import 'youtube_audio_source.dart';
 import 'equalizer_service.dart';
+import 'audio_normalization_service.dart';
 
 /// Audio player service using just_audio with direct YouTube streaming
 class AudioPlayerService {
   late AudioPlayer _player;
   late EqualizerService _equalizerService;
+  double _rawVolume = 1.0;
+  Song? _currentNormalizingSong;
 
   /// Concatenating audio source for queue management
   ConcatenatingAudioSource? _playlist;
@@ -493,10 +496,27 @@ class AudioPlayerService {
     }
   }
 
-  /// Set volume (0.0 to 1.0)
+  /// Set volume (0.0 to 1.0) with loudness normalization applied
   Future<void> setVolume(double volume) async {
     if (!_initialized) return;
-    await _player.setVolume(volume.clamp(0.0, 1.0));
+    _rawVolume = volume.clamp(0.0, 1.0);
+    await _applyNormalizedVolume();
+  }
+
+  /// Update the current song for loudness normalization
+  Future<void> applySongNormalization(Song? song) async {
+    _currentNormalizingSong = song;
+    await _applyNormalizedVolume();
+  }
+
+  Future<void> _applyNormalizedVolume() async {
+    if (!_initialized) return;
+    var scalar = 1.0;
+    if (_currentNormalizingSong != null) {
+      scalar = AudioNormalizationService.instance.computeGainFactor(_currentNormalizingSong!);
+    }
+    final effective = (_rawVolume * scalar).clamp(0.0, 1.0);
+    await _player.setVolume(effective);
   }
 
   /// Set playback speed

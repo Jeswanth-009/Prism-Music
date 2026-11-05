@@ -132,6 +132,9 @@ class SettingsService {
   static const String _reducedMotionModeKey = 'reduced_motion_mode';
   static const String _telemetryConsentKey = 'telemetry_consent';
   static const String _forceOfflineModeKey = 'force_offline_mode';
+  static const String _audioNormalizationEnabledKey = 'audio_normalization_enabled';
+  static const String _audioNormalizationTargetKey = 'audio_normalization_target';
+  static const String _audioNormalizationPreampDbKey = 'audio_normalization_preamp_db';
   static SettingsService? _instance;
   
   Box? _settingsBox;
@@ -446,6 +449,44 @@ class SettingsService {
     final current = Map<String, dynamic>.from(customEqualizerPresets);
     current.remove(name);
     await _settingsBox?.put(_customEqPresetsKey, current);
+  }
+  /// Whether loudness normalization / ReplayGain is enabled (default: true)
+  bool get audioNormalizationEnabled {
+    try {
+      return _settingsBox?.get(_audioNormalizationEnabledKey, defaultValue: true) ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<void> setAudioNormalizationEnabled(bool enabled) async {
+    await _settingsBox?.put(_audioNormalizationEnabledKey, enabled);
+  }
+
+  /// Target loudness: 'balanced' (-14 LUFS), 'quiet' (-18 LUFS), 'loud' (-11 LUFS)
+  String get audioNormalizationTarget {
+    try {
+      return _settingsBox?.get(_audioNormalizationTargetKey, defaultValue: 'balanced') ?? 'balanced';
+    } catch (_) {
+      return 'balanced';
+    }
+  }
+
+  Future<void> setAudioNormalizationTarget(String target) async {
+    await _settingsBox?.put(_audioNormalizationTargetKey, target);
+  }
+
+  /// Normalization pre-amp gain in dB (-12 dB to +12 dB, default: 0.0)
+  double get audioNormalizationPreampDb {
+    try {
+      return (_settingsBox?.get(_audioNormalizationPreampDbKey, defaultValue: 0.0) as num?)?.toDouble() ?? 0.0;
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  Future<void> setAudioNormalizationPreampDb(double db) async {
+    await _settingsBox?.put(_audioNormalizationPreampDbKey, db);
   }
 
   /// Get per-song EQ settings mapping songId -> preset / EQ data
