@@ -127,6 +127,7 @@ class SettingsService {
   static const String _excludeIncognitoQueueKey = 'exclude_incognito_queue';
   static const String _appLanguageKey = 'app_language';
   static const String _downloadWifiOnlyKey = 'download_wifi_only';
+  static const String _downloadAudioQualityKey = 'download_audio_quality';
   static const String _cellularDataSaverKey = 'cellular_data_saver';
   static const String _offlineArtworkPersistenceKey = 'offline_artwork_persistence';
   static const String _reducedMotionModeKey = 'reduced_motion_mode';
@@ -810,6 +811,20 @@ class SettingsService {
   /// Persist download Wi-Fi only setting.
   Future<void> setDownloadWifiOnly(bool value) async {
     await _settingsBox?.put(_downloadWifiOnlyKey, value);
+  }
+
+  /// Get download audio quality setting (default: 'high').
+  String get downloadAudioQuality {
+    try {
+      return _settingsBox?.get(_downloadAudioQualityKey, defaultValue: 'high') as String? ?? 'high';
+    } catch (_) {
+      return 'high';
+    }
+  }
+
+  /// Persist download audio quality setting ('low', 'medium', 'high', 'lossless').
+  Future<void> setDownloadAudioQuality(String quality) async {
+    await _settingsBox?.put(_downloadAudioQualityKey, quality);
   }
 
   /// Whether cellular data saver mode is enabled (default: false).

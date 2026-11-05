@@ -20,6 +20,21 @@ enum AudioQuality {
   final int bitrate;
   const AudioQuality(this.bitrate);
 
+  static AudioQuality fromString(String? value) {
+    switch (value?.toLowerCase()) {
+      case 'low':
+        return AudioQuality.low;
+      case 'medium':
+        return AudioQuality.medium;
+      case 'lossless':
+      case 'ultra':
+        return AudioQuality.lossless;
+      case 'high':
+      default:
+        return AudioQuality.high;
+    }
+  }
+
   String get displayName {
     switch (this) {
       case AudioQuality.low:

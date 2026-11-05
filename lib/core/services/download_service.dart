@@ -83,7 +83,7 @@ class DownloadService {
   final Dio _dio;
   final Map<String, CancelToken> _cancelTokens = {};
 
-  final List<({Song song, StreamInfo? resolvedStream, Completer<bool> completer})> _downloadQueue = [];
+  final List<({Song song, StreamInfo? resolvedStream, AudioQuality? quality, Completer<bool> completer})> _downloadQueue = [];
   final Set<String> _activeDownloadIds = {};
 
   Box? _downloadBox;
@@ -240,7 +240,11 @@ class DownloadService {
   }
 
   /// Download a song
-  Future<bool> downloadSong(Song song, {StreamInfo? resolvedStream}) async {
+  Future<bool> downloadSong(
+    Song song, {
+    StreamInfo? resolvedStream,
+    AudioQuality? quality,
+  }) async {
     if (isDownloaded(song.playableId)) {
       logDebug('Song already downloaded: ${song.title}');
       return true;
@@ -324,19 +328,28 @@ class DownloadService {
       _downloadQueue.add((
         song: song,
         resolvedStream: resolvedStream,
+        quality: quality,
         completer: completer,
       ));
       _notifyListeners(queuedInfo);
       return completer.future;
     }
 
-    return _executeDownload(song, resolvedStream: resolvedStream);
+    return _executeDownload(song, resolvedStream: resolvedStream, quality: quality);
   }
 
-  Future<bool> _executeDownload(Song song, {StreamInfo? resolvedStream}) async {
+  Future<bool> _executeDownload(
+    Song song, {
+    StreamInfo? resolvedStream,
+    AudioQuality? quality,
+  }) async {
     _activeDownloadIds.add(song.playableId);
     try {
-      return await _downloadSongInternal(song, resolvedStream: resolvedStream);
+      return await _downloadSongInternal(
+        song,
+        resolvedStream: resolvedStream,
+        quality: quality,
+      );
     } finally {
       _activeDownloadIds.remove(song.playableId);
       _processNextInQueue();
@@ -355,7 +368,11 @@ class DownloadService {
       return;
     }
 
-    _executeDownload(next.song, resolvedStream: next.resolvedStream).then((success) {
+    _executeDownload(
+      next.song,
+      resolvedStream: next.resolvedStream,
+      quality: next.quality,
+    ).then((success) {
       if (!next.completer.isCompleted) {
         next.completer.complete(success);
       }
@@ -366,7 +383,11 @@ class DownloadService {
     });
   }
 
-  Future<bool> _downloadSongInternal(Song song, {StreamInfo? resolvedStream}) async {
+  Future<bool> _downloadSongInternal(
+    Song song, {
+    StreamInfo? resolvedStream,
+    AudioQuality? quality,
+  }) async {
     // Create cancel token for this download
     final cancelToken = CancelToken();
     _cancelTokens[song.playableId] = cancelToken;
@@ -397,10 +418,12 @@ class DownloadService {
         streamUrl = song.streamUrl!;
       } else {
         try {
+          final effectiveQuality = quality ??
+              AudioQuality.fromString(SettingsService.instance.downloadAudioQuality);
           final streamInfo = await _streamLoaderService.loadStream(
             song,
             useCache: false, // Force fresh stream URL for downloading
-            preferredQuality: AudioQuality.high,
+            preferredQuality: effectiveQuality,
           );
           streamUrl = streamInfo.url;
           headers = streamInfo.headers;
@@ -523,6 +546,7 @@ class DownloadService {
         'contentType': contentType,
         'bitrate': resolvedStream?.bitrate ?? 0,
         'isrc': song.isrc,
+        'quality': (quality ?? AudioQuality.fromString(SettingsService.instance.downloadAudioQuality)).name,
         'downloadedAt': DateTime.now().toIso8601String(),
       });
 

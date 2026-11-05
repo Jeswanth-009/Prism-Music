@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../domain/entities/song.dart';
 import '../../core/di/injection.dart';
 import '../../core/services/lastfm_service.dart';
 import '../../core/services/local_backup_service.dart';
@@ -830,6 +831,18 @@ class _SettingsPageState extends State<SettingsPage> {
             value: _settingsService.offlineArtworkPersistence,
             onChanged: (val) async {
               await _settingsService.setOfflineArtworkPersistence(val);
+              if (mounted) setState(() {});
+            },
+          ),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.high_quality_rounded),
+          title: 'Download Audio Quality',
+          subtitle: AudioQuality.fromString(_settingsService.downloadAudioQuality).displayName,
+          trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+          onTap: () => SettingsDialogs.showDownloadQualityDialog(
+            context,
+            onChanged: () {
               if (mounted) setState(() {});
             },
           ),

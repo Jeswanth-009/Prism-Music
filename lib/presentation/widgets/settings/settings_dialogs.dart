@@ -262,6 +262,42 @@ class SettingsDialogs {
     );
   }
 
+  static void showDownloadQualityDialog(
+    BuildContext context, {
+    VoidCallback? onChanged,
+  }) {
+    final currentQuality = SettingsService.instance.downloadAudioQuality;
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return SimpleDialog(
+          title: const Text('Download Quality'),
+          children: [
+            for (final quality in AudioQuality.values)
+              RadioListTile<String>(
+                value: quality.name,
+                groupValue: currentQuality,
+                onChanged: (value) async {
+                  if (value == null) return;
+                  await SettingsService.instance.setDownloadAudioQuality(value);
+                  onChanged?.call();
+                  if (!dialogContext.mounted) return;
+                  Navigator.pop(dialogContext);
+                  showPrismToast(
+                    dialogContext,
+                    'Download quality set to ${quality.label}',
+                  );
+                },
+                title: Text(quality.label),
+                subtitle: Text(quality.subtitle),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
   /// Opens the track transition (fade out/in) slider pre-set to the saved duration.
   /// Resolves once the dialog is closed so callers can refresh their rows.
   static Future<void> showCrossfadeDialog(BuildContext context) =>
