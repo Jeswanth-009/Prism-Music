@@ -222,6 +222,36 @@ class RecommendationService {
       return null;
     }
   }
+  /// Generates a complete radio playlist seeded by [seedSong].
+  ///
+  /// The seed song is guaranteed at index 0, followed by similar tracks
+  /// deduplicated against the seed and each other.
+  Future<List<Song>> generateSongRadio(
+    Song seedSong, {
+    int count = 25,
+  }) async {
+    final radioList = <Song>[seedSong];
+    try {
+      final similar = await _getSimilarSongs(seedSong, count);
+      final seen = <String>{
+        seedSong.id,
+        '${seedSong.title.toLowerCase().trim()}|${seedSong.artist.toLowerCase().trim()}',
+      };
+
+      for (final s in similar) {
+        final key = '${s.title.toLowerCase().trim()}|${s.artist.toLowerCase().trim()}';
+        if (!seen.contains(s.id) && !seen.contains(key)) {
+          seen.add(s.id);
+          seen.add(key);
+          radioList.add(s);
+          if (radioList.length >= count) break;
+        }
+      }
+    } catch (e) {
+      logError('Error generating song radio for "${seedSong.title}": $e');
+    }
+    return radioList;
+  }
 
   // ──────────────────────────────────────────────────────────────────
   // Listening profile — rebuilds clean taste snapshot from history and favorites

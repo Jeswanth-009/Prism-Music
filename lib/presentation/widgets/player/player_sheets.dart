@@ -61,6 +61,15 @@ void showPlayerOptionsMenu(BuildContext context, Song song) {
             },
           ),
           PrismSheetAction(
+            icon: Icons.radio_rounded,
+            label: 'Start song radio',
+            onTap: () {
+              Navigator.pop(sheetContext);
+              context.read<PlayerBloc>().add(StartSongRadioEvent(song));
+              showPrismToast(context, 'Starting radio for "${song.title}"');
+            },
+          ),
+          PrismSheetAction(
             icon: Icons.playlist_add_rounded,
             label: 'Add to playlist',
             onTap: () {

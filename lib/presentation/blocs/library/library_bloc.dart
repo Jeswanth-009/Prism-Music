@@ -5,6 +5,8 @@ import '../../../domain/entities/entities.dart';
 import '../../../domain/repositories/repositories.dart';
 import 'library_event.dart';
 import 'library_state.dart';
+import '../../../core/di/injection.dart';
+import '../../../core/services/recommendation_service.dart';
 
 /// BLoC for managing user's local library
 class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
@@ -21,6 +23,7 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     on<LoadLibraryEvent>(_onLoadLibrary);
     on<ToggleLikeSongEvent>(_onToggleLikeSong);
     on<CreatePlaylistEvent>(_onCreatePlaylist);
+    on<CreateSongRadioPlaylistEvent>(_onCreateSongRadioPlaylist);
     on<DeletePlaylistEvent>(_onDeletePlaylist);
     on<AddToPlaylistEvent>(_onAddToPlaylist);
     on<RemoveFromPlaylistEvent>(_onRemoveFromPlaylist);
@@ -298,6 +301,49 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     }
   }
 
+  Future<void> _onCreateSongRadioPlaylist(
+    CreateSongRadioPlaylistEvent event,
+    Emitter<LibraryState> emit,
+  ) async {
+    final playlistName = '${event.seedSong.title} Radio';
+    final result = await _libraryRepository.createPlaylist(
+      playlistName,
+      description: 'Auto-generated radio from ${event.seedSong.artist}',
+    );
+
+    await result.fold(
+      (failure) async => emit(state.copyWith(
+        status: LibraryStatus.error,
+        errorMessage: failure.message,
+      )),
+      (playlist) async {
+        var songs = <Song>[event.seedSong];
+        try {
+          if (getIt.isRegistered<RecommendationService>()) {
+            final recService = getIt<RecommendationService>();
+            final generated = await recService.generateSongRadio(
+              event.seedSong,
+              count: 25,
+            );
+            if (generated.isNotEmpty) {
+              songs = generated;
+            }
+          }
+        } catch (_) {
+          // Best effort
+        }
+
+        for (final song in songs) {
+          await _libraryRepository.addSongToPlaylist(playlist.id, song);
+        }
+
+        final updatedPlaylist = playlist.copyWith(songs: songs);
+        final updatedPlaylists = [updatedPlaylist, ...state.playlists];
+        emit(state.copyWith(playlists: updatedPlaylists));
+        event.onCreated?.call(playlistName);
+      },
+    );
+  }
   Future<void> _onCreatePlaylist(
     CreatePlaylistEvent event,
     Emitter<LibraryState> emit,

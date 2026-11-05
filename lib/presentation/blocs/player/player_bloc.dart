@@ -150,6 +150,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
     // Register event handlers
     on<PlaySongEvent>(_onPlaySong);
+    on<StartSongRadioEvent>(_onStartSongRadio);
     on<DownloadSongEvent>(_onDownloadSong);
     on<ResumeEvent>(_onResume);
     on<PauseEvent>(_onPause);
@@ -451,6 +452,34 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   static const Duration _resolveTimeout = Duration(seconds: 45);
   static const Duration _setSourceTimeout = Duration(seconds: 45);
 
+  Future<void> _onStartSongRadio(
+    StartSongRadioEvent event,
+    Emitter<PlayerState> emit,
+  ) async {
+    _log('Starting Song Radio for: ${event.seedSong.title}');
+    var radioQueue = <Song>[event.seedSong];
+
+    if (_recommendationService != null) {
+      try {
+        final generated = await _recommendationService!.generateSongRadio(
+          event.seedSong,
+          count: 25,
+        );
+        if (generated.isNotEmpty) {
+          radioQueue = generated;
+        }
+      } catch (e) {
+        _log('Failed to generate radio queue: $e');
+      }
+    }
+
+    add(PlaySongEvent(
+      song: event.seedSong,
+      queue: radioQueue,
+      queueIndex: 0,
+      userInitiated: true,
+    ));
+  }
   Future<void> _onPlaySong(
     PlaySongEvent event,
     Emitter<PlayerState> emit,

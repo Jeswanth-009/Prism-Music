@@ -130,6 +130,31 @@ class _SongActionsSheet extends StatelessWidget {
                 },
               ),
               PrismSheetAction(
+                icon: Icons.radio_rounded,
+                label: 'Start song radio',
+                onTap: () {
+                  Navigator.pop(context);
+                  context
+                      .read<PlayerBloc>()
+                      .add(StartSongRadioEvent(song));
+                  showPrismToast(context, 'Starting radio for "${song.title}"');
+                },
+              ),
+              PrismSheetAction(
+                icon: Icons.playlist_add_rounded,
+                label: 'Save as radio playlist',
+                onTap: () {
+                  Navigator.pop(context);
+                  context.read<LibraryBloc>().add(
+                        CreateSongRadioPlaylistEvent(
+                          song,
+                          onCreated: (name) =>
+                              showPrismToast(context, 'Created playlist "$name"'),
+                        ),
+                      );
+                },
+              ),
+              PrismSheetAction(
                 icon: Icons.playlist_add_rounded,
                 label: 'Add to playlist',
                 onTap: () {

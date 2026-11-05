@@ -39,6 +39,16 @@ class CreatePlaylistEvent extends LibraryEvent {
   List<Object?> get props => [name, description];
 }
 
+/// Auto-generate and save a playlist based on a seed song's radio recommendations
+class CreateSongRadioPlaylistEvent extends LibraryEvent {
+  final Song seedSong;
+  final void Function(String playlistName)? onCreated;
+
+  const CreateSongRadioPlaylistEvent(this.seedSong, {this.onCreated});
+
+  @override
+  List<Object?> get props => [seedSong];
+}
 /// Delete a playlist
 class DeletePlaylistEvent extends LibraryEvent {
   final String playlistId;

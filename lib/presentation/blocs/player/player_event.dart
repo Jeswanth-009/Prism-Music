@@ -37,6 +37,16 @@ class PlaySongEvent extends PlayerEvent {
   List<Object?> get props => [song, queue, queueIndex, userInitiated, preferredResolver, initialPosition];
 }
 
+/// Starts radio mode seeded from [seedSong], fetching similar tracks
+/// and replacing the current queue with the generated radio queue.
+class StartSongRadioEvent extends PlayerEvent {
+  final Song seedSong;
+
+  const StartSongRadioEvent(this.seedSong);
+
+  @override
+  List<Object?> get props => [seedSong];
+}
 /// Play/Resume current song
 class ResumeEvent extends PlayerEvent {
   const ResumeEvent();
