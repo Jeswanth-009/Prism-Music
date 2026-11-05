@@ -8,6 +8,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.81] - 2026-11-05
+
+### Added
+
+- Bedtime mode with gradual volume fade for sleep timer
+- Configurable download audio quality selection
+- Loudness normalization and replaygain support
+- Local network collaborative queue party mode with web controller
+- Auto-generate song radio playlist from recommendation service
+- Listening activity feed with weekly recap and year in review
+
+### Fixed
+
+- Safe artwork prefetch, audio normalization handling, and cleartext URI policy compliance
+
+### Changed
+
+- Aggressive queue artwork prefetching and caching
+
 ## [0.2.80] - 2026-11-04
 
 ### Added
@@ -1086,3 +1105,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.78]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.78-build114
 [0.2.79]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.79-build115
 [0.2.80]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.80-build116
+[0.2.81]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.81-build117
