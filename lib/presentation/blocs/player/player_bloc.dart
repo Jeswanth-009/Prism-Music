@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/services/audio_player_service.dart';
 import '../../../core/services/media_session_coordinator.dart';
+import '../../../core/services/collaborative_queue_service.dart';
 import '../../../core/services/recommendation_service.dart';
 import '../../../core/services/audio_focus_orchestrator_service.dart';
 import '../../../core/services/media_resolver_service.dart';
@@ -146,6 +147,17 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       },
       hasNext: () => !isClosed && state.canSkipNext,
       hasPrevious: () => !isClosed && state.canSkipPrevious,
+    );
+
+    CollaborativeQueueService.instance.configure(
+      musicRepository: _musicRepository,
+      onSongQueued: (song, guestName) {
+        if (!isClosed) {
+          add(AddToQueueEvent(song: song));
+        }
+      },
+      nowPlayingProvider: () => state.currentSong,
+      queueProvider: () => state.queue,
     );
 
     // Register event handlers

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart' hide RepeatMode;
+import 'party_mode_sheet.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../blocs/player/player_bloc.dart';
@@ -61,12 +62,22 @@ class PlayerQueueSheet extends StatelessWidget {
                         ),
                       ],
                     ),
-                    TextButton(
-                      onPressed: () {
-                        context.read<PlayerBloc>().add(const ClearQueueEvent());
-                        Navigator.pop(context);
-                      },
-                      child: const Text('Clear'),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.celebration_rounded, size: 20),
+                          tooltip: 'Party Mode',
+                          onPressed: () => PartyModeSheet.show(context),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            context.read<PlayerBloc>().add(const ClearQueueEvent());
+                            Navigator.pop(context);
+                          },
+                          child: const Text('Clear'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
