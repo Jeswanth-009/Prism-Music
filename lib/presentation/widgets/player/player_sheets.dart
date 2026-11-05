@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/services/audio_player_service.dart';
 import '../../../core/services/media_resolver_service.dart';
+import '../../../core/services/settings_service.dart';
 import '../../../domain/entities/song.dart';
 import '../../../domain/entities/stream_info.dart';
 import '../../blocs/library/library_bloc.dart';
@@ -171,55 +172,72 @@ void showPlayerSleepTimerSheet(BuildContext context, PlayerState state) {
     ),
   ];
 
+  bool bedtimeMode = SettingsService.instance.sleepTimerBedtimeMode;
+
   showPrismSheet(
     context: context,
-    builder: (sheetContext) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Sleep timer',
-                style: Theme.of(
-                  sheetContext,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (context, setSheetState) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Sleep timer',
+                  style: Theme.of(
+                    sheetContext,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                ),
               ),
             ),
-          ),
-          for (final option in options)
-            ListTile(
-              leading: const Icon(Icons.bedtime_rounded),
-              title: Text(option.label),
-              trailing: (option.endOfTrack && state.sleepTimerEndOfTrack) ||
-                      (!option.endOfTrack &&
-                          option.duration == null &&
-                          !state.sleepTimerEndOfTrack &&
-                          state.sleepTimerEnd == null)
-                  ? Icon(
-                      Icons.check_rounded,
-                      color: Theme.of(sheetContext).colorScheme.primary,
-                    )
-                  : null,
-              onTap: () {
-                Navigator.pop(sheetContext);
-                context.read<PlayerBloc>().add(
-                      SetSleepTimerEvent(
-                        option.duration,
-                        endOfTrack: option.endOfTrack,
-                      ),
-                    );
-                if (option.duration != null || option.endOfTrack) {
-                  showPrismToast(context, 'Sleep timer set: ${option.label}');
-                } else {
-                  showPrismToast(context, 'Sleep timer cancelled');
-                }
+            SwitchListTile.adaptive(
+              secondary: const Icon(Icons.nightlight_round),
+              title: const Text('Bedtime mode'),
+              subtitle: const Text('Gradually fade out volume before timer ends'),
+              value: bedtimeMode,
+              onChanged: (val) async {
+                setSheetState(() => bedtimeMode = val);
+                await SettingsService.instance.setSleepTimerBedtimeMode(val);
               },
             ),
-          const SizedBox(height: 6),
-        ],
+            const Divider(height: 1, indent: 16, endIndent: 16),
+            for (final option in options)
+              ListTile(
+                leading: const Icon(Icons.bedtime_rounded),
+                title: Text(option.label),
+                trailing: (option.endOfTrack && state.sleepTimerEndOfTrack) ||
+                        (!option.endOfTrack &&
+                            option.duration == null &&
+                            !state.sleepTimerEndOfTrack &&
+                            state.sleepTimerEnd == null)
+                    ? Icon(
+                        Icons.check_rounded,
+                        color: Theme.of(sheetContext).colorScheme.primary,
+                      )
+                    : null,
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  context.read<PlayerBloc>().add(
+                        SetSleepTimerEvent(
+                          option.duration,
+                          endOfTrack: option.endOfTrack,
+                          bedtimeMode: bedtimeMode,
+                        ),
+                      );
+                  if (option.duration != null || option.endOfTrack) {
+                    final suffix = bedtimeMode ? ' with bedtime fade' : '';
+                    showPrismToast(context, 'Sleep timer set: ${option.label}$suffix');
+                  } else {
+                    showPrismToast(context, 'Sleep timer cancelled');
+                  }
+                },
+              ),
+            const SizedBox(height: 6),
+          ],
+        ),
       ),
     ),
   );

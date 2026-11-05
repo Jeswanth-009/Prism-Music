@@ -194,11 +194,16 @@ class SetAudioQualityEvent extends PlayerEvent {
 class SetSleepTimerEvent extends PlayerEvent {
   final Duration? duration;
   final bool endOfTrack;
+  final bool bedtimeMode;
 
-  const SetSleepTimerEvent(this.duration, {this.endOfTrack = false});
+  const SetSleepTimerEvent(
+    this.duration, {
+    this.endOfTrack = false,
+    this.bedtimeMode = false,
+  });
 
   @override
-  List<Object?> get props => [duration, endOfTrack];
+  List<Object?> get props => [duration, endOfTrack, bedtimeMode];
 }
 
 /// Stop playback completely

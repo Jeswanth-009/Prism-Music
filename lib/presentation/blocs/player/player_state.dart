@@ -61,6 +61,9 @@ class PlayerState extends Equatable {
   /// Whether the sleep timer is waiting for track completion
   final bool sleepTimerEndOfTrack;
 
+  /// Whether bedtime mode (gradual volume fade-out) is active for the current sleep timer
+  final bool sleepTimerBedtimeMode;
+
   /// Original queue (before shuffle)
   final List<Song> originalQueue;
 
@@ -92,6 +95,7 @@ class PlayerState extends Equatable {
     this.queue = const [],
     this.sleepTimerEnd,
     this.sleepTimerEndOfTrack = false,
+    this.sleepTimerBedtimeMode = false,
     this.originalQueue = const [],
     this.queueIndex = 0,
     this.errorMessage,
@@ -217,6 +221,7 @@ class PlayerState extends Equatable {
     String? errorMessage,
     DateTime? sleepTimerEnd,
     bool? sleepTimerEndOfTrack,
+    bool? sleepTimerBedtimeMode,
     bool clearSleepTimer = false,
     bool? autoPlay,
     bool? isRestoredSession,
@@ -242,6 +247,8 @@ class PlayerState extends Equatable {
           clearSleepTimer ? sleepTimerEnd : (sleepTimerEnd ?? this.sleepTimerEnd),
       sleepTimerEndOfTrack: sleepTimerEndOfTrack ??
           (clearSleepTimer ? false : this.sleepTimerEndOfTrack),
+      sleepTimerBedtimeMode: sleepTimerBedtimeMode ??
+          (clearSleepTimer ? false : this.sleepTimerBedtimeMode),
       autoPlay: autoPlay ?? this.autoPlay,
       isRestoredSession: isRestoredSession ?? this.isRestoredSession,
     );
@@ -264,6 +271,7 @@ class PlayerState extends Equatable {
         queue,
         sleepTimerEnd,
         sleepTimerEndOfTrack,
+        sleepTimerBedtimeMode,
         originalQueue,
         queueIndex,
         errorMessage,

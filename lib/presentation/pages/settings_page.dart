@@ -635,6 +635,20 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ),
         SettingRow(
+          leading: const Icon(Icons.nightlight_round),
+          title: 'Bedtime Mode (Sleep Timer)',
+          subtitle: _settingsService.sleepTimerBedtimeMode
+              ? 'Gradually fades volume to zero as sleep timer expires'
+              : 'Stops audio abruptly when sleep timer ends',
+          trailing: Switch.adaptive(
+            value: _settingsService.sleepTimerBedtimeMode,
+            onChanged: (val) async {
+              await _settingsService.setSleepTimerBedtimeMode(val);
+              if (mounted) setState(() {});
+            },
+          ),
+        ),
+        SettingRow(
           leading: const Icon(Icons.cloud_download_outlined),
           title: 'Prefetch Lookahead',
           subtitle: 'Prefetch the next $_prefetchLookahead track(s)',

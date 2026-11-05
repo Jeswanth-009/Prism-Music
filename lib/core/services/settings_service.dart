@@ -128,6 +128,7 @@ class SettingsService {
   static const String _appLanguageKey = 'app_language';
   static const String _downloadWifiOnlyKey = 'download_wifi_only';
   static const String _downloadAudioQualityKey = 'download_audio_quality';
+  static const String _sleepTimerBedtimeModeKey = 'sleep_timer_bedtime_mode';
   static const String _cellularDataSaverKey = 'cellular_data_saver';
   static const String _offlineArtworkPersistenceKey = 'offline_artwork_persistence';
   static const String _reducedMotionModeKey = 'reduced_motion_mode';
@@ -825,6 +826,20 @@ class SettingsService {
   /// Persist download audio quality setting ('low', 'medium', 'high', 'lossless').
   Future<void> setDownloadAudioQuality(String quality) async {
     await _settingsBox?.put(_downloadAudioQualityKey, quality);
+  }
+
+  /// Whether bedtime mode (gradual volume fade-out) is enabled for sleep timer (default: true).
+  bool get sleepTimerBedtimeMode {
+    try {
+      return _settingsBox?.get(_sleepTimerBedtimeModeKey, defaultValue: true) as bool? ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// Persist sleep timer bedtime mode setting.
+  Future<void> setSleepTimerBedtimeMode(bool value) async {
+    await _settingsBox?.put(_sleepTimerBedtimeModeKey, value);
   }
 
   /// Whether cellular data saver mode is enabled (default: false).

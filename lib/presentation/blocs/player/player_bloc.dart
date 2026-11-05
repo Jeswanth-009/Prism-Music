@@ -44,6 +44,15 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   final DownloadService _downloadService;
   final SettingsService _settingsService = SettingsService.instance;
   bool _fastStartEnabled = true;
+  double _preSleepTimerVolume = 1.0;
+
+  void _safeCancelSleepTimer() {
+    cancelSleepTimer(onRestoreVolume: () {
+      if (state.sleepTimerBedtimeMode) {
+        _audioPlayer.setVolume(_preSleepTimerVolume);
+      }
+    });
+  }
   int _prefetchLookahead = 1;
   double _crossfadeDurationSeconds = 0.0;
   int _lastNearEndPrefetchIndex = -1;
@@ -1335,12 +1344,13 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     SetSleepTimerEvent event,
     Emitter<PlayerState> emit,
   ) async {
-    cancelSleepTimer();
+    _safeCancelSleepTimer();
 
     if (event.endOfTrack) {
       emit(
         state.copyWith(
           sleepTimerEndOfTrack: true,
+          sleepTimerBedtimeMode: event.bedtimeMode,
           clearSleepTimer: true,
         ),
       );
@@ -1349,28 +1359,55 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
     final duration = event.duration;
     if (duration == null || duration <= Duration.zero) {
-      emit(state.copyWith(clearSleepTimer: true, sleepTimerEndOfTrack: false));
+      emit(state.copyWith(
+        clearSleepTimer: true,
+        sleepTimerEndOfTrack: false,
+        sleepTimerBedtimeMode: false,
+      ));
       return;
+    }
+
+    final isBedtime = event.bedtimeMode || _settingsService.sleepTimerBedtimeMode;
+    if (isBedtime) {
+      _preSleepTimerVolume = _audioPlayer.volume;
     }
 
     emit(
       state.copyWith(
         sleepTimerEnd: DateTime.now().add(duration),
         sleepTimerEndOfTrack: false,
+        sleepTimerBedtimeMode: isBedtime,
       ),
     );
-    startSleepTimer(duration, onElapsed: () {
-      // Two events: pause playback first, then surface the cleared timer.
-      add(const PauseEvent());
-      add(const _SleepTimerClearedEvent());
-    });
+    startSleepTimer(
+      duration,
+      bedtimeMode: isBedtime,
+      onVolumeFade: (factor) {
+        final target = (_preSleepTimerVolume * factor).clamp(0.0, 1.0);
+        _audioPlayer.setVolume(target);
+      },
+      onRestoreVolume: () {
+        if (isBedtime) {
+          _audioPlayer.setVolume(_preSleepTimerVolume);
+        }
+      },
+      onElapsed: () {
+        // Two events: pause playback first, then surface the cleared timer.
+        add(const PauseEvent());
+        add(const _SleepTimerClearedEvent());
+      },
+    );
   }
 
   void _onSleepTimerCleared(
     _SleepTimerClearedEvent event,
     Emitter<PlayerState> emit,
   ) {
-    emit(state.copyWith(clearSleepTimer: true, sleepTimerEndOfTrack: false));
+    emit(state.copyWith(
+      clearSleepTimer: true,
+      sleepTimerEndOfTrack: false,
+      sleepTimerBedtimeMode: false,
+    ));
   }
 
   Future<void> _onStop(StopEvent event, Emitter<PlayerState> emit) async {
