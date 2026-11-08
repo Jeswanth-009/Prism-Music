@@ -13,6 +13,8 @@ import '../player_controls_section.dart';
 import '../player_lyrics_sheet.dart';
 import '../player_queue_sheet.dart';
 import '../player_slider_widget.dart';
+import '../song_video_toggle.dart';
+import '../music_video_player.dart';
 
 /// Classic framed player layout with retro 5-button transport controls.
 class ClassicPlayerLayout extends StatelessWidget {
@@ -57,36 +59,82 @@ class ClassicPlayerLayout extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const SizedBox(height: 12),
-                          // Classic framed album artwork
-                          AspectRatio(
-                            aspectRatio: 1,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.15),
-                                  width: 1,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.4),
-                                    blurRadius: 18,
-                                    offset: const Offset(0, 10),
-                                  ),
-                                ],
+                          if (state.hasVideoAvailable || state.isVideoMode) ...[
+                            const SizedBox(height: 8),
+                            SongVideoToggle(
+                              isVideoMode: state.isVideoMode,
+                              isVideoAvailable: state.hasVideoAvailable,
+                              onToggle: (enableVideo) {
+                                context
+                                    .read<PlayerBloc>()
+                                    .add(ToggleVideoModeEvent(enableVideo));
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                          ] else
+                            const SizedBox(height: 12),
+                          // Classic framed album artwork or Music Video player
+                          if (state.isVideoMode && state.videoStreamInfo != null)
+                            AspectRatio(
+                              aspectRatio: 16 / 9,
+                              child: MusicVideoPlayer(
+                                videoUrl: state.videoStreamInfo!.url,
+                                initialPosition: state.position,
+                                isPlaying: state.isPlaying,
+                                onExitVideo: () {
+                                  context
+                                      .read<PlayerBloc>()
+                                      .add(const ToggleVideoModeEvent(false));
+                                },
+                                onTogglePlayPause: () {
+                                  context
+                                      .read<PlayerBloc>()
+                                      .add(const TogglePlayPauseEvent());
+                                },
                               ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(11),
-                                child: PrismArtwork(
-                                  url: song.thumbnailUrl,
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  borderRadius: 0,
+                            )
+                          else if (state.isVideoMode && state.isVideoBuffering)
+                            AspectRatio(
+                              aspectRatio: 16 / 9,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                              ),
+                            )
+                          else
+                            AspectRatio(
+                              aspectRatio: 1,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.15),
+                                    width: 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.4),
+                                      blurRadius: 18,
+                                      offset: const Offset(0, 10),
+                                    ),
+                                  ],
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(11),
+                                  child: PrismArtwork(
+                                    url: song.thumbnailUrl,
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    borderRadius: 0,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
                           const SizedBox(height: 24),
                           // Track info with inline like button
                           Row(

@@ -320,6 +320,24 @@ class ClearPersistedQueueEvent extends PlayerEvent {
   const ClearPersistedQueueEvent();
 }
 
+/// Toggle video playback mode (streaming YouTube video instead of audio-only)
+class ToggleVideoModeEvent extends PlayerEvent {
+  final bool? enable;
+  const ToggleVideoModeEvent([this.enable]);
+
+  @override
+  List<Object?> get props => [enable];
+}
+
+/// Internal event: update video buffering state
+class SetVideoBufferingEvent extends PlayerEvent {
+  final bool isBuffering;
+  const SetVideoBufferingEvent(this.isBuffering);
+
+  @override
+  List<Object?> get props => [isBuffering];
+}
+
 /// Repeat mode options
 enum RepeatMode {
   off,

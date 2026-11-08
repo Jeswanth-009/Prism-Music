@@ -79,6 +79,15 @@ class PlayerState extends Equatable {
   /// Whether current queue was restored from a previous session safely paused
   final bool isRestoredSession;
 
+  /// Whether music video mode is active
+  final bool isVideoMode;
+
+  /// Video stream info (URL, codec, resolution) when video mode is active
+  final StreamInfo? videoStreamInfo;
+
+  /// Whether the video player is currently buffering
+  final bool isVideoBuffering;
+
   const PlayerState({
     this.status = PlayerStatus.initial,
     this.currentSong,
@@ -101,6 +110,9 @@ class PlayerState extends Equatable {
     this.errorMessage,
     this.autoPlay = true,
     this.isRestoredSession = false,
+    this.isVideoMode = false,
+    this.videoStreamInfo,
+    this.isVideoBuffering = false,
   });
 
   /// Whether the player is currently playing
@@ -128,6 +140,16 @@ class PlayerState extends Equatable {
       hasPrevious ||
       position.inSeconds > 3 ||
       (repeatMode == RepeatMode.all && queue.isNotEmpty);
+
+  /// Whether video playback is available for current track
+  bool get hasVideoAvailable {
+    final song = currentSong;
+    if (song == null) return false;
+    if (song.youtubeId != null && song.youtubeId!.isNotEmpty) return true;
+    if (song.source == MusicSource.youtube && song.id.isNotEmpty) return true;
+    if (currentStreamInfo?.streamProvenance?.contains('youtube') == true) return true;
+    return false;
+  }
 
   /// Progress as percentage (0.0 to 1.0)
   double get progress {
@@ -225,6 +247,10 @@ class PlayerState extends Equatable {
     bool clearSleepTimer = false,
     bool? autoPlay,
     bool? isRestoredSession,
+    bool? isVideoMode,
+    StreamInfo? videoStreamInfo,
+    bool clearVideoStreamInfo = false,
+    bool? isVideoBuffering,
   }) {
     return PlayerState(
       status: status ?? this.status,
@@ -251,6 +277,9 @@ class PlayerState extends Equatable {
           (clearSleepTimer ? false : this.sleepTimerBedtimeMode),
       autoPlay: autoPlay ?? this.autoPlay,
       isRestoredSession: isRestoredSession ?? this.isRestoredSession,
+      isVideoMode: isVideoMode ?? this.isVideoMode,
+      videoStreamInfo: clearVideoStreamInfo ? null : (videoStreamInfo ?? this.videoStreamInfo),
+      isVideoBuffering: isVideoBuffering ?? this.isVideoBuffering,
     );
   }
 
@@ -277,5 +306,8 @@ class PlayerState extends Equatable {
         errorMessage,
         autoPlay,
         isRestoredSession,
+        isVideoMode,
+        videoStreamInfo,
+        isVideoBuffering,
       ];
 }

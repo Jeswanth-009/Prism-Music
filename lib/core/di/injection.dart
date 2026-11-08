@@ -33,6 +33,7 @@ import '../services/spotify_auth_service.dart';
 import '../services/storage_service.dart';
 import '../services/smart_playlist_service.dart';
 import '../services/app_update_service.dart';
+import '../services/music_video_service.dart';
 
 /// Global service locator instance
 final GetIt getIt = GetIt.instance;
@@ -132,6 +133,10 @@ Future<void> initializeDependencies() async {
 
   getIt.registerLazySingleton<YtMusicApiService>(
     () => YtMusicApiService(),
+  );
+
+  getIt.registerLazySingleton<MusicVideoService>(
+    () => MusicVideoService(),
   );
   
   // Local Data Source

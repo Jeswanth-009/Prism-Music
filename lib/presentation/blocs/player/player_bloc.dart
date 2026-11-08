@@ -20,6 +20,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import '../../../core/services/artwork_prefetch_service.dart';
 import '../../../core/services/verified_recording_verifier.dart';
 import '../../../core/services/queue_persistence_service.dart';
+import '../../../core/services/music_video_service.dart';
 import '../../../core/di/injection.dart';
 import '../../../domain/entities/entities.dart';
 import '../../../domain/repositories/repositories.dart';
@@ -229,6 +230,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     on<SwitchStreamSourceEvent>(_onSwitchStreamSource);
     on<RestoreQueueEvent>(_onRestoreQueue);
     on<ClearPersistedQueueEvent>(_onClearPersistedQueue);
+    on<ToggleVideoModeEvent>(_onToggleVideoMode);
+    on<SetVideoBufferingEvent>(_onSetVideoBuffering);
 
     // Initialize audio player stream listeners
     _initAudioPlayerStreams();
@@ -636,6 +639,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         queue: initialQueue,
         originalQueue: List<Song>.from(initialQueue),
         queueIndex: initialQueueIndex,
+        clearVideoStreamInfo: true,
       ),
     );
     _lastNearEndPrefetchIndex = -1; // reset for new track
@@ -2203,6 +2207,64 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   ) {
     unawaited(QueuePersistenceService.instance.clearSession());
     emit(state.copyWith(isRestoredSession: false));
+  }
+
+  Future<void> _onToggleVideoMode(
+    ToggleVideoModeEvent event,
+    Emitter<PlayerState> emit,
+  ) async {
+    final nextMode = event.enable ?? !state.isVideoMode;
+    if (nextMode == state.isVideoMode) return;
+
+    if (nextMode) {
+      if (!state.hasVideoAvailable) {
+        emit(state.copyWith(isVideoMode: false));
+        return;
+      }
+
+      emit(
+        state.copyWith(
+          isVideoMode: true,
+          isVideoBuffering: state.videoStreamInfo == null,
+        ),
+      );
+
+      if (state.videoStreamInfo == null && state.currentSong != null) {
+        try {
+          final videoService = getIt.isRegistered<MusicVideoService>()
+              ? getIt<MusicVideoService>()
+              : MusicVideoService();
+          final videoId = state.currentSong!.youtubeId ??
+              (state.currentSong!.source == MusicSource.youtube
+                  ? state.currentSong!.id
+                  : null);
+          if (videoId != null && videoId.isNotEmpty) {
+            final videoStream = await videoService.getVideoStream(videoId);
+            if (videoStream != null && !isClosed) {
+              emit(
+                state.copyWith(
+                  videoStreamInfo: videoStream,
+                  isVideoBuffering: false,
+                ),
+              );
+              return;
+            }
+          }
+        } catch (_) {}
+        if (!isClosed) {
+          emit(state.copyWith(isVideoBuffering: false));
+        }
+      }
+    } else {
+      emit(state.copyWith(isVideoMode: false, isVideoBuffering: false));
+    }
+  }
+
+  void _onSetVideoBuffering(
+    SetVideoBufferingEvent event,
+    Emitter<PlayerState> emit,
+  ) {
+    emit(state.copyWith(isVideoBuffering: event.isBuffering));
   }
 
   void _persistCurrentSession({Duration? customPosition}) {
