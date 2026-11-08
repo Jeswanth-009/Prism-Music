@@ -17,6 +17,8 @@ import '../../core/services/settings_service.dart';
 import '../../core/services/storage_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/queue_persistence_service.dart';
+import '../../core/services/user_profile_service.dart';
+import '../widgets/profile/profile_switcher_sheet.dart';
 import '../../core/localization/prism_localizations.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/services/app_update_service.dart';
@@ -358,6 +360,25 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
         if (_isInitialized) ...[
+          SettingRow(
+            leading: CircleAvatar(
+              radius: 14,
+              backgroundColor: Color(UserProfileService.instance.getActiveProfile().avatarColorValue),
+              child: Text(
+                UserProfileService.instance.getActiveProfile().avatarEmoji,
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+            title: 'Active Profile',
+            subtitle: '${UserProfileService.instance.getActiveProfile().name}${UserProfileService.instance.getActiveProfile().isKidsMode ? ' · Kids Mode' : ''}',
+            trailing: OutlinedButton(
+              onPressed: () async {
+                await ProfileSwitcherSheet.show(context);
+                _forceRebuild();
+              },
+              child: const Text('Switch'),
+            ),
+          ),
           if (_lastFmService.hasValidCredentials) ...[
             if (_lastFmService.isAuthenticated) ...[
               SettingRow(

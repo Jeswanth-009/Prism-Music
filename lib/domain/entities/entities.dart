@@ -6,3 +6,4 @@ export 'stream_info.dart';
 export 'listening_stats.dart';
 export 'import_playlist_result.dart';
 export 'import_preview_item.dart';
+export 'user_profile.dart';

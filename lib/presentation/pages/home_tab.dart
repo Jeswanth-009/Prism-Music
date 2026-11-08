@@ -24,6 +24,9 @@ import 'chart_page.dart';
 import 'charts_hub_page.dart';
 import 'curated_playlist_page.dart';
 import 'genre_browse_page.dart';
+import '../../core/services/user_profile_service.dart';
+import '../../domain/entities/user_profile.dart';
+import '../widgets/profile/profile_switcher_sheet.dart';
 import 'recently_played_page.dart';
 import 'settings_page.dart';
 import '../widgets/home/home_sections_sheet.dart';
@@ -540,6 +543,32 @@ class _TopBar extends StatelessWidget {
         onPressed: onSettings,
         tooltip: 'Settings',
         icon: const Icon(Icons.settings_outlined, size: 22),
+      ),
+      GestureDetector(
+        onTap: () => ProfileSwitcherSheet.show(context),
+        child: StreamBuilder<UserProfile>(
+          stream: UserProfileService.instance.activeProfileStream,
+          initialData: UserProfileService.instance.getActiveProfile(),
+          builder: (context, snapshot) {
+            final profile = snapshot.data ?? UserProfileService.instance.getActiveProfile();
+            return Tooltip(
+              message: 'Profile: ${profile.name}',
+              child: Container(
+                width: 32,
+                height: 32,
+                margin: const EdgeInsets.only(left: 4),
+                decoration: BoxDecoration(
+                  color: Color(profile.avatarColorValue),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white24, width: 1.5),
+                ),
+                child: Center(
+                  child: Text(profile.avatarEmoji, style: const TextStyle(fontSize: 14)),
+                ),
+              ),
+            );
+          },
+        ),
       ),
     ],
   );

@@ -4,11 +4,15 @@ import 'dart:math';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../../../core/error/error.dart';
 import '../../../../core/services/local_backup_service.dart';
+import '../../../../core/services/user_profile_service.dart';
 import '../../../../core/utils/path_safety.dart';
 import '../../../../domain/entities/entities.dart';
 
 /// Data source for local storage operations
 abstract class LocalDataSource {
+  /// Set active user profile scope for local data isolation
+  void setScopeProfile(String? profileId);
+
   // ============ LIKED SONGS ============
   
   /// Get all liked songs
@@ -167,6 +171,33 @@ class LocalDataSourceImpl implements LocalDataSource {
 
   LocalDataSourceImpl() {
     _ensureSchemaVersion();
+    _scopedProfileId = UserProfileService.instance.getActiveProfile().id;
+    UserProfileService.instance.activeProfileStream.listen((profile) {
+      setScopeProfile(profile.id);
+    });
+  }
+
+  String? _scopedProfileId;
+
+  @override
+  void setScopeProfile(String? profileId) {
+    if (_scopedProfileId != profileId) {
+      _scopedProfileId = profileId;
+      _historyBox = null;
+      _likedBox = null;
+      _searchHistoryBox = null;
+      _playlistsBox = null;
+      _favoriteArtistsBox = null;
+    }
+  }
+
+  String _scopeBoxName(String baseName) {
+    if (_scopedProfileId == null ||
+        _scopedProfileId == 'default' ||
+        _scopedProfileId!.isEmpty) {
+      return baseName;
+    }
+    return '${baseName}_$_scopedProfileId';
   }
 
   Future<void> _ensureSchemaVersion() async {
@@ -194,19 +225,19 @@ class LocalDataSourceImpl implements LocalDataSource {
 
   Future<Box> _getHistoryBox() async {
     if (_historyBox != null && _historyBox!.isOpen) return _historyBox!;
-    _historyBox = await Hive.openBox(_historyBoxName);
+    _historyBox = await Hive.openBox(_scopeBoxName(_historyBoxName));
     return _historyBox!;
   }
 
   Future<Box> _getLikedBox() async {
     if (_likedBox != null && _likedBox!.isOpen) return _likedBox!;
-    _likedBox = await Hive.openBox(_likedBoxName);
+    _likedBox = await Hive.openBox(_scopeBoxName(_likedBoxName));
     return _likedBox!;
   }
 
   Future<Box> _getSearchHistoryBox() async {
     if (_searchHistoryBox != null && _searchHistoryBox!.isOpen) return _searchHistoryBox!;
-    _searchHistoryBox = await Hive.openBox(_searchHistoryBoxName);
+    _searchHistoryBox = await Hive.openBox(_scopeBoxName(_searchHistoryBoxName));
     return _searchHistoryBox!;
   }
 
@@ -218,7 +249,7 @@ class LocalDataSourceImpl implements LocalDataSource {
 
   Future<Box> _getPlaylistsBox() async {
     if (_playlistsBox != null && _playlistsBox!.isOpen) return _playlistsBox!;
-    _playlistsBox = await Hive.openBox(_playlistsBoxName);
+    _playlistsBox = await Hive.openBox(_scopeBoxName(_playlistsBoxName));
     return _playlistsBox!;
   }
 
@@ -230,7 +261,7 @@ class LocalDataSourceImpl implements LocalDataSource {
 
   Future<Box> _getFavoriteArtistsBox() async {
     if (_favoriteArtistsBox != null && _favoriteArtistsBox!.isOpen) return _favoriteArtistsBox!;
-    _favoriteArtistsBox = await Hive.openBox(_favoriteArtistsBoxName);
+    _favoriteArtistsBox = await Hive.openBox(_scopeBoxName(_favoriteArtistsBoxName));
     return _favoriteArtistsBox!;
   }
 
