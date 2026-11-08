@@ -8,6 +8,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.82] - 2026-11-08
+
+### Added
+
+- Add podcast discovery, RSS feed parsing, and episode streaming
+- Add local user profiles for multi-user shared devices
+- Add genre and mood browsing page with curated playlists
+- Add visual crossfade transition indicator in player UI
+- Add music video streaming with video player toggle and stream resolution
+
+### Changed
+
+- Provision gradle 8.14 via setup-gradle and add wrapper prefetch retry loop
+- Use binary gradle wrapper distribution and add retry to osv-scanner download
+- Increase gradle http socket and connection timeout to prevent artifact download read timeouts
+
 ## [0.2.81] - 2026-11-05
 
 ### Added
@@ -1106,3 +1122,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.79]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.79-build115
 [0.2.80]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.80-build116
 [0.2.81]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.81-build117
+[0.2.82]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.82-build118
