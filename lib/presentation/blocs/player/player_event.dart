@@ -338,6 +338,15 @@ class SetVideoBufferingEvent extends PlayerEvent {
   List<Object?> get props => [isBuffering];
 }
 
+/// Internal event: crossfade state changed
+class CrossfadeStateChangedEvent extends PlayerEvent {
+  final bool isCrossfading;
+  const CrossfadeStateChangedEvent(this.isCrossfading);
+
+  @override
+  List<Object?> get props => [isCrossfading];
+}
+
 /// Repeat mode options
 enum RepeatMode {
   off,

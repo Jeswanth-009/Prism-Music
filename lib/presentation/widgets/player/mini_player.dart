@@ -6,6 +6,7 @@ import '../../blocs/player/player.dart';
 import '../../pages/player_page.dart';
 import '../../theme/prism_theme.dart';
 import '../prism/prism_artwork.dart';
+import 'crossfade_visualizer_badge.dart';
 
 /// Persistent compact player above the navigation pill. Tap opens the
 /// full player.
@@ -132,7 +133,13 @@ class MiniPlayer extends StatelessWidget {
                                                 ),
                                           ),
                                         ),
-                                        if (state.currentStreamInfo != null) ...[
+                                        if (state.isCrossfading) ...[
+                                          const SizedBox(width: 4),
+                                          const CrossfadeVisualizerBadge(
+                                            isCrossfading: true,
+                                            compact: true,
+                                          ),
+                                        ] else if (state.currentStreamInfo != null) ...[
                                           const SizedBox(width: 4),
                                           Text(
                                             '· ${state.streamProvenanceLabel}',

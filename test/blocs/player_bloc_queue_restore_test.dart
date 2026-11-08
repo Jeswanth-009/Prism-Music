@@ -34,6 +34,7 @@ class _FakeAudioPlayerService implements AudioPlayerService {
   final _compCtrl = StreamController<bool>.broadcast();
   final _errCtrl = StreamController<String>.broadcast();
   final _idxCtrl = StreamController<int?>.broadcast();
+  final _crossfadeCtrl = StreamController<bool>.broadcast();
 
   bool isPlaying = false;
   int playCalls = 0;
@@ -55,9 +56,13 @@ class _FakeAudioPlayerService implements AudioPlayerService {
   Stream<String> get errorStream => _errCtrl.stream;
   @override
   Stream<int?> get currentIndexStream => _idxCtrl.stream;
+  @override
+  Stream<bool> get isCrossfadingStream => _crossfadeCtrl.stream;
 
   @override
   bool get playing => isPlaying;
+  @override
+  bool get isCrossfading => false;
 
   @override
   Future<void> play() async {

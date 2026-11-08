@@ -15,6 +15,7 @@ import '../player_queue_sheet.dart';
 import '../player_slider_widget.dart';
 import '../song_video_toggle.dart';
 import '../music_video_player.dart';
+import '../crossfade_visualizer_badge.dart';
 
 /// Classic framed player layout with retro 5-button transport controls.
 class ClassicPlayerLayout extends StatelessWidget {
@@ -143,6 +144,12 @@ class ClassicPlayerLayout extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    if (state.isCrossfading) ...[
+                                      CrossfadeVisualizerBadge(
+                                        isCrossfading: state.isCrossfading,
+                                      ),
+                                      const SizedBox(height: 6),
+                                    ],
                                     Text(
                                       song.title,
                                       maxLines: 1,

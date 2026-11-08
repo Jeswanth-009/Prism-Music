@@ -33,6 +33,8 @@ class AudioPlayerService {
   final _completedController = StreamController<bool>.broadcast();
   final _errorController = StreamController<String>.broadcast();
   final _currentIndexController = StreamController<int?>.broadcast();
+  final _crossfadingController = StreamController<bool>.broadcast();
+  bool _isCrossfading = false;
 
   // Streams
   Stream<Duration> get positionStream => _positionController.stream;
@@ -44,6 +46,7 @@ class AudioPlayerService {
   Stream<bool> get completedStream => _completedController.stream;
   Stream<String> get errorStream => _errorController.stream;
   Stream<int?> get currentIndexStream => _currentIndexController.stream;
+  Stream<bool> get isCrossfadingStream => _crossfadingController.stream;
 
   // Current values
   Duration get position => _initialized ? _player.position : Duration.zero;
@@ -52,6 +55,7 @@ class AudioPlayerService {
   Duration? get duration => _initialized ? _player.duration : null;
   bool get playing => _initialized ? _player.playing : false;
   double get volume => _initialized ? _player.volume : 1.0;
+  bool get isCrossfading => _isCrossfading;
   bool get buffering => _initialized
       ? (_player.processingState == ProcessingState.buffering ||
             _player.processingState == ProcessingState.loading)
@@ -547,6 +551,10 @@ class AudioPlayerService {
     // Split fade duration equally between fade out and fade in
     final halfFadeMs = totalFadeMs ~/ 2;
     final steps = math.max(1, math.min(16, halfFadeMs ~/ 50));
+    _isCrossfading = true;
+    if (!_crossfadingController.isClosed) {
+      _crossfadingController.add(true);
+    }
     final stepDuration = Duration(
       milliseconds: steps == 0 ? 0 : halfFadeMs ~/ steps,
     );
@@ -596,6 +604,11 @@ class AudioPlayerService {
     } catch (_) {
       await _player.setVolume(initialVolume);
       rethrow;
+    } finally {
+      _isCrossfading = false;
+      if (!_crossfadingController.isClosed) {
+        _crossfadingController.add(false);
+      }
     }
   }
 
@@ -933,6 +946,7 @@ class AudioPlayerService {
     _completedController.close();
     _errorController.close();
     _currentIndexController.close();
+    _crossfadingController.close();
     _playlist = null;
   }
 

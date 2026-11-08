@@ -99,6 +99,7 @@ class LandscapePlayerLayout extends StatelessWidget {
                             streamInfo: state.currentStreamInfo,
                             onArtistTap: onArtistTap,
                             onProvenanceTap: onProvenanceTap,
+                            isCrossfading: state.isCrossfading,
                           ),
                           const SizedBox(height: 12),
                           PlayerSliderWidget(state: state),

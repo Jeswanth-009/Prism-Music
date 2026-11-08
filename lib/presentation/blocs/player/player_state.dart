@@ -88,6 +88,9 @@ class PlayerState extends Equatable {
   /// Whether the video player is currently buffering
   final bool isVideoBuffering;
 
+  /// Whether a track crossfade transition is actively occurring
+  final bool isCrossfading;
+
   const PlayerState({
     this.status = PlayerStatus.initial,
     this.currentSong,
@@ -113,6 +116,7 @@ class PlayerState extends Equatable {
     this.isVideoMode = false,
     this.videoStreamInfo,
     this.isVideoBuffering = false,
+    this.isCrossfading = false,
   });
 
   /// Whether the player is currently playing
@@ -251,6 +255,7 @@ class PlayerState extends Equatable {
     StreamInfo? videoStreamInfo,
     bool clearVideoStreamInfo = false,
     bool? isVideoBuffering,
+    bool? isCrossfading,
   }) {
     return PlayerState(
       status: status ?? this.status,
@@ -280,6 +285,7 @@ class PlayerState extends Equatable {
       isVideoMode: isVideoMode ?? this.isVideoMode,
       videoStreamInfo: clearVideoStreamInfo ? null : (videoStreamInfo ?? this.videoStreamInfo),
       isVideoBuffering: isVideoBuffering ?? this.isVideoBuffering,
+      isCrossfading: isCrossfading ?? this.isCrossfading,
     );
   }
 
@@ -309,5 +315,6 @@ class PlayerState extends Equatable {
         isVideoMode,
         videoStreamInfo,
         isVideoBuffering,
+        isCrossfading,
       ];
 }

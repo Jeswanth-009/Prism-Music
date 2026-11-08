@@ -93,6 +93,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   StreamSubscription<String>? _errorSubscription;
   StreamSubscription<bool>? _completedSubscription;
   StreamSubscription<int?>? _indexSubscription;
+  StreamSubscription<bool>? _crossfadeSubscription;
   AppLifecycleState _lastLifecycleState = AppLifecycleState.resumed;
   int _consecutiveFailureSkips = 0;
   final Set<String> _attemptedFreshResolutions = {};
@@ -232,6 +233,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     on<ClearPersistedQueueEvent>(_onClearPersistedQueue);
     on<ToggleVideoModeEvent>(_onToggleVideoMode);
     on<SetVideoBufferingEvent>(_onSetVideoBuffering);
+    on<CrossfadeStateChangedEvent>((event, emit) {
+      emit(state.copyWith(isCrossfading: event.isCrossfading));
+    });
 
     // Initialize audio player stream listeners
     _initAudioPlayerStreams();
@@ -333,6 +337,10 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     // Listen to index changes from the audio player (handles background auto-advance)
     _indexSubscription = _audioPlayer.currentIndexStream.listen((index) {
       add(_IndexChangedEvent(index));
+    });
+
+    _crossfadeSubscription = _audioPlayer.isCrossfadingStream.listen((isCrossfading) {
+      if (!isClosed) add(CrossfadeStateChangedEvent(isCrossfading));
     });
 
     // Lifecycle observation is registered once in the constructor. Registering
@@ -2293,6 +2301,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     await _completedSubscription?.cancel();
     await _errorSubscription?.cancel();
     await _indexSubscription?.cancel();
+    await _crossfadeSubscription?.cancel();
     await super.close();
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../domain/entities/song.dart';
 import '../../../domain/entities/stream_info.dart';
 import '../../theme/prism_theme.dart';
+import 'crossfade_visualizer_badge.dart';
 
 /// Song title, clickable artist text, and truthful audio provenance badge.
 class PlayerMetadataRow extends StatelessWidget {
@@ -13,12 +14,14 @@ class PlayerMetadataRow extends StatelessWidget {
     this.streamInfo,
     required this.onArtistTap,
     this.onProvenanceTap,
+    this.isCrossfading = false,
   });
 
   final Song song;
   final StreamInfo? streamInfo;
   final void Function(String) onArtistTap;
   final VoidCallback? onProvenanceTap;
+  final bool isCrossfading;
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +30,10 @@ class PlayerMetadataRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Column(
         children: [
+          if (isCrossfading) ...[
+            CrossfadeVisualizerBadge(isCrossfading: isCrossfading),
+            const SizedBox(height: 8),
+          ],
           Text(
             song.title,
             style: theme.textTheme.headlineMedium?.copyWith(
