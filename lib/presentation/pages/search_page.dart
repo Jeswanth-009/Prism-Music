@@ -19,6 +19,7 @@ import '../widgets/prism/prism_states.dart';
 import 'album_page.dart';
 import 'artist_page.dart';
 import 'remote_playlist_page.dart';
+import 'genre_browse_page.dart';
 
 /// Search: filter chips, full-bleed results, genre/vibe discovery.
 class SearchPage extends StatefulWidget {
@@ -255,8 +256,15 @@ class _SearchPageState extends State<SearchPage> {
     return [
       SliverToBoxAdapter(
         child: PrismSectionHeader(
-            title: 'Browse genres',
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 10)),
+          title: 'Browse genres',
+          actionLabel: 'See all',
+          onAction: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const GenreBrowsePage(),
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 10),
+        ),
       ),
       SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: 20),

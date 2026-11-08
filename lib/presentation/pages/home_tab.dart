@@ -23,6 +23,7 @@ import 'album_page.dart';
 import 'chart_page.dart';
 import 'charts_hub_page.dart';
 import 'curated_playlist_page.dart';
+import 'genre_browse_page.dart';
 import 'recently_played_page.dart';
 import 'settings_page.dart';
 import '../widgets/home/home_sections_sheet.dart';
@@ -397,6 +398,12 @@ class _HomeTabState extends State<HomeTab>
                 _sliverSection(
                   title: 'Made for your mood',
                   subtitle: 'Start a mix and keep it moving',
+                  actionLabel: 'Browse all',
+                  onAction: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const GenreBrowsePage(),
+                    ),
+                  ),
                   child: SizedBox(
                     height: 116,
                     child: ListView.separated(
