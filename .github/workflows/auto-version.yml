@@ -45,6 +45,8 @@ jobs:
     name: Bump Version → Build APK → Publish Release
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      GRADLE_OPTS: "-Dorg.gradle.internal.http.connectionTimeout=180000 -Dorg.gradle.internal.http.socketTimeout=180000 -Dsun.net.client.defaultConnectTimeout=180000 -Dsun.net.client.defaultReadTimeout=180000"
 
     # ── Loop guard ───────────────────────────────────────────────
     # Skip if the commit that triggered this run was already made by
@@ -257,6 +259,11 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14"
+
       - name: Set up Flutter (3.38.4 stable)
         uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff # v2.18.0
         with:
@@ -301,6 +308,16 @@ jobs:
             echo "SIGNING_FLAG=-PdebugSigning=true" >> "$GITHUB_ENV"
             echo "::warning::No release signing secrets found. Building with debug-signing for CI artifact inspection; public GitHub release publication will be skipped (fail-closed)."
           fi
+
+      - name: Pre-fetch Gradle wrapper
+        if: steps.next_version.outputs.should_release == 'true'
+        run: |
+          for i in 1 2 3 4 5; do
+            (cd android && ./gradlew --version) && break || {
+              echo "Gradle wrapper init attempt $i failed, retrying in 5s..."
+              sleep 5
+            }
+          done
 
       # ── 8. Build release APK ──────────────────────────────────────
       # Pass BOTH --build-name and --build-number so Flutter writes the
