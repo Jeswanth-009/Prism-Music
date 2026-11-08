@@ -26,6 +26,7 @@ import '../widgets/prism/prism_section_header.dart';
 import '../widgets/prism/prism_sheet.dart';
 import 'settings_page.dart';
 import 'stats_page.dart';
+import 'podcasts_page.dart';
 
 // Re-export for backward compatibility with existing tests
 export '../widgets/library/import/import_progress_dialog.dart'
@@ -164,6 +165,58 @@ class _LibraryTabState extends State<LibraryTab>
                           .read<LibraryBloc>()
                           .add(const CancelImportEvent());
                     },
+                  ),
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+              sliver: SliverToBoxAdapter(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const PodcastsPage(),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainerHigh.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: PrismColors.accentDark.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.podcasts_rounded, color: PrismColors.accentDark, size: 22),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Podcasts & Shows',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                              ),
+                              Text(
+                                'Explore shows, subscribe & stream episodes',
+                                style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right_rounded, color: Colors.white54),
+                      ],
+                    ),
                   ),
                 ),
               ),
