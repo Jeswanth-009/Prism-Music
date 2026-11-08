@@ -82,6 +82,6 @@ jobs:
 
       - name: Install and run OSV-Scanner
         run: |
-          curl -fsSL https://github.com/google/osv-scanner/releases/download/v1.9.2/osv-scanner_linux_amd64 -o /usr/local/bin/osv-scanner
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 3 https://github.com/google/osv-scanner/releases/download/v1.9.2/osv-scanner_linux_amd64 -o /usr/local/bin/osv-scanner
           chmod +x /usr/local/bin/osv-scanner
           osv-scanner --lockfile=pubspec.lock
