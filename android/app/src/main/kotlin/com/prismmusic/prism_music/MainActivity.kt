@@ -1,5 +1,6 @@
 package com.prismmusic.prism_music
 
+import android.content.Intent
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.PresetReverb
@@ -9,13 +10,32 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : AudioServiceActivity() {
     private val CHANNEL = "com.prismmusic/audio_effects"
+    private val DEEP_LINK_CHANNEL = "com.prismmusic/deep_link"
     private var bassBoost: BassBoost? = null
     private var reverbPreset: PresetReverb? = null
     private var equalizer: Equalizer? = null
     private var audioSessionId: Int = 0
 
+    private var initialDeepLink: String? = null
+    private var deepLinkChannel: MethodChannel? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        deepLinkChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, DEEP_LINK_CHANNEL)
+        deepLinkChannel?.setMethodCallHandler { call, result ->
+            if (call.method == "getInitialLink") {
+                val link = initialDeepLink ?: extractLinkFromIntent(intent)
+                initialDeepLink = null
+                result.success(link)
+            } else {
+                result.notImplemented()
+            }
+        }
+
+        if (initialDeepLink == null) {
+            initialDeepLink = extractLinkFromIntent(intent)
+        }
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
@@ -173,6 +193,26 @@ class MainActivity : AudioServiceActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val link = extractLinkFromIntent(intent)
+        if (link != null) {
+            deepLinkChannel?.invokeMethod("onDeepLink", link)
+        }
+    }
+
+    private fun extractLinkFromIntent(intent: Intent?): String? {
+        if (intent == null) return null
+        if (intent.action == Intent.ACTION_VIEW) {
+            return intent.dataString
+        }
+        if (intent.action == Intent.ACTION_SEND && intent.type == "text/plain") {
+            return intent.getStringExtra(Intent.EXTRA_TEXT)
+        }
+        return null
     }
 
     override fun onDestroy() {

@@ -74,6 +74,32 @@ abstract final class MediaShareHelper {
     return null;
   }
 
+  /// Builds a direct prism:// scheme URI for launching [song] inside Prism Music.
+  static String buildPrismSongUri(Song song) {
+    final id = song.youtubeId ?? song.id;
+    final params = <String, String>{'id': id};
+    if (song.title.isNotEmpty) params['title'] = song.title;
+    if (song.artist.isNotEmpty) params['artist'] = song.artist;
+    if (song.album != null && song.album!.trim().isNotEmpty) {
+      params['album'] = song.album!.trim();
+    }
+    final artwork = song.thumbnails.best;
+    if (artwork != null && artwork.isNotEmpty) {
+      params['artwork'] = artwork;
+    }
+    return Uri(scheme: 'prism', host: 'song', queryParameters: params).toString();
+  }
+
+  /// Builds a direct prism:// scheme URI for launching [playlist] inside Prism Music.
+  static String buildPrismPlaylistUri(Playlist playlist) {
+    final id = playlist.youtubePlaylistId ?? playlist.id;
+    final params = <String, String>{'id': id};
+    if (playlist.name.isNotEmpty) {
+      params['name'] = playlist.name;
+    }
+    return Uri(scheme: 'prism', host: 'playlist', queryParameters: params).toString();
+  }
+
   /// Formats a clean, reliable share text for a song.
   /// If the URL is verified, includes the URL.
   /// If not, generates a rich metadata card (title, artist, album, duration)

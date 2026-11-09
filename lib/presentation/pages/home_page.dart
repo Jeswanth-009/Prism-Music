@@ -16,6 +16,7 @@ import '../../core/services/app_update_service.dart';
 import '../../core/services/stream_loader_service.dart';
 import '../../core/services/instance_health_service.dart';
 import '../../core/services/offline_mode_service.dart';
+import '../../core/services/deep_link_service.dart';
 import '../widgets/prism/prism_sheet.dart';
 import 'charts_hub_page.dart';
 import 'home_tab.dart';
@@ -61,6 +62,7 @@ class _HomePageState extends State<HomePage> {
   Timer? _updateCheckTimer;
   StreamSubscription<void>? _offlineTransitionSub;
   StreamSubscription<GeoRestrictionException>? _geoRestrictionSub;
+  StreamSubscription<ParsedDeepLink>? _deepLinkSub;
 
   bool get _shouldCheckUpdates =>
       widget.enableUpdateCheck ?? (widget.tabBuilders == null);
@@ -103,10 +105,30 @@ class _HomePageState extends State<HomePage> {
         );
       }
     });
+
+    if (getIt.isRegistered<DeepLinkService>()) {
+      final deepLinkService = getIt<DeepLinkService>();
+      deepLinkService.initialize();
+      _deepLinkSub = deepLinkService.linkStream.listen((parsed) {
+        if (!mounted) return;
+        if (parsed.type == DeepLinkType.song) {
+          showPrismToast(
+            context,
+            'Playing shared song${parsed.title != null ? ': ${parsed.title}' : ''}',
+          );
+        } else if (parsed.type == DeepLinkType.playlist) {
+          showPrismToast(
+            context,
+            'Opening shared playlist${parsed.title != null ? ': ${parsed.title}' : ''}',
+          );
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
+    _deepLinkSub?.cancel();
     _offlineTransitionSub?.cancel();
     _geoRestrictionSub?.cancel();
     _updateCheckTimer?.cancel();

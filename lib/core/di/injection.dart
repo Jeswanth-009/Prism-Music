@@ -34,6 +34,7 @@ import '../services/storage_service.dart';
 import '../services/smart_playlist_service.dart';
 import '../services/app_update_service.dart';
 import '../services/music_video_service.dart';
+import '../services/deep_link_service.dart';
 
 /// Global service locator instance
 final GetIt getIt = GetIt.instance;
@@ -264,6 +265,14 @@ getIt.registerLazySingleton<LibraryRepository>(
       recommendationService: getIt<RecommendationService>(),
       playbackBloc: getIt<PlaybackBloc>(),
       queueBloc: getIt<QueueBloc>(),
+    ),
+  );
+
+  // Deep Link Service
+  getIt.registerLazySingleton<DeepLinkService>(
+    () => DeepLinkService(
+      playerBloc: getIt<PlayerBloc>(),
+      dataSource: getIt<YouTubeMusicDataSource>(),
     ),
   );
   
