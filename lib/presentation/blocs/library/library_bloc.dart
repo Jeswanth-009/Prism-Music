@@ -7,18 +7,23 @@ import 'library_event.dart';
 import 'library_state.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/services/recommendation_service.dart';
+import '../../../core/services/download_service.dart';
+import '../../../core/services/settings_service.dart';
 
 /// BLoC for managing user's local library
 class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
   final LibraryRepository _libraryRepository;
   final MusicRepository _musicRepository;
+  final DownloadService? _downloadService;
   static const int _libraryHistoryLimit = 500;
 
   LibraryBloc({
     required LibraryRepository libraryRepository,
     required MusicRepository musicRepository,
+    DownloadService? downloadService,
   })  : _libraryRepository = libraryRepository,
         _musicRepository = musicRepository,
+        _downloadService = downloadService,
         super(const LibraryState()) {
     on<LoadLibraryEvent>(_onLoadLibrary);
     on<ToggleLikeSongEvent>(_onToggleLikeSong);
@@ -226,7 +231,15 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
             errorMessage: failure.message,
           ));
         },
-        (_) {},
+        (_) {
+          if (SettingsService.instance.autoDownloadLikedSongs) {
+            final ds = _downloadService ??
+                (getIt.isRegistered<DownloadService>()
+                    ? getIt<DownloadService>()
+                    : null);
+            ds?.downloadSong(event.song, priority: DownloadPriority.low);
+          }
+        },
       );
     }
   }

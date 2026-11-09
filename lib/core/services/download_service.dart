@@ -27,8 +27,38 @@ enum DownloadStatus {
   notDownloaded,
   queued,
   downloading,
+  paused,
   completed,
   failed,
+}
+
+/// Download priority levels for queue ordering
+enum DownloadPriority {
+  low(0),
+  normal(1),
+  high(2);
+
+  final int value;
+  const DownloadPriority(this.value);
+}
+
+/// An entry in the download queue tracking metadata, status, and priority
+class QueuedDownload {
+  final Song song;
+  final StreamInfo? resolvedStream;
+  final AudioQuality? quality;
+  final Completer<bool> completer;
+  DownloadPriority priority;
+  final DateTime enqueuedAt;
+
+  QueuedDownload({
+    required this.song,
+    this.resolvedStream,
+    this.quality,
+    required this.completer,
+    this.priority = DownloadPriority.normal,
+    DateTime? enqueuedAt,
+  }) : enqueuedAt = enqueuedAt ?? DateTime.now();
 }
 
 class DownloadInfo {
@@ -83,7 +113,7 @@ class DownloadService {
   final Dio _dio;
   final Map<String, CancelToken> _cancelTokens = {};
 
-  final List<({Song song, StreamInfo? resolvedStream, AudioQuality? quality, Completer<bool> completer})> _downloadQueue = [];
+  final List<QueuedDownload> _downloadQueue = [];
   final Set<String> _activeDownloadIds = {};
 
   Box? _downloadBox;
@@ -91,6 +121,39 @@ class DownloadService {
   final List<Function(DownloadInfo)> _listeners = [];
 
   DownloadService(this._streamLoaderService, {Dio? dio}) : _dio = dio ?? Dio();
+
+  /// Sort queue by priority descending (high > normal > low), then FIFO
+  void _sortQueue() {
+    _downloadQueue.sort((a, b) {
+      final pComp = b.priority.value.compareTo(a.priority.value);
+      if (pComp != 0) return pComp;
+      return a.enqueuedAt.compareTo(b.enqueuedAt);
+    });
+  }
+
+  /// Bump priority of a queued song (e.g. user taps "Download Now" on a queued song)
+  bool bumpPriority(String songId, [DownloadPriority priority = DownloadPriority.high]) {
+    final idx = _downloadQueue.indexWhere((q) => q.song.playableId == songId);
+    if (idx != -1) {
+      _downloadQueue[idx].priority = priority;
+      _sortQueue();
+      return true;
+    }
+    return false;
+  }
+
+  /// Unmodifiable view of current download queue
+  List<QueuedDownload> get queuedDownloads => List.unmodifiable(_downloadQueue);
+
+  /// Check whether total downloaded storage + estimated download size fits in quota
+  Future<bool> checkStorageQuotaAllowed({int estimatedBytes = 8 * 1024 * 1024}) async {
+    final quotaMB = SettingsService.instance.downloadStorageQuotaMB;
+    if (quotaMB <= 0) return true; // 0 = unlimited
+
+    final currentTotalBytes = await getTotalDownloadSize();
+    final quotaBytes = quotaMB * 1024 * 1024;
+    return (currentTotalBytes + estimatedBytes) <= quotaBytes;
+  }
 
   Future<void> initialize() async {
     try {
@@ -239,11 +302,12 @@ class DownloadService {
     return info?['localPath'] as String?;
   }
 
-  /// Download a song
+  /// Download a song with optional priority
   Future<bool> downloadSong(
     Song song, {
     StreamInfo? resolvedStream,
     AudioQuality? quality,
+    DownloadPriority priority = DownloadPriority.normal,
   }) async {
     if (isDownloaded(song.playableId)) {
       logDebug('Song already downloaded: ${song.title}');
@@ -313,8 +377,27 @@ class DownloadService {
       }
     }
 
+    // Storage quota check
+    final quotaAllowed = await checkStorageQuotaAllowed();
+    if (!quotaAllowed) {
+      final quotaMB = SettingsService.instance.downloadStorageQuotaMB;
+      logDebug('Download skipped: Storage quota ($quotaMB MB) reached');
+      final blockedInfo = DownloadInfo(
+        songId: song.playableId,
+        status: DownloadStatus.failed,
+        progress: 0.0,
+        error: 'Storage quota reached ($quotaMB MB). Adjust quota in Settings.',
+        songTitle: song.title,
+        artist: song.artist,
+        thumbnailUrl: song.thumbnailUrl,
+      );
+      _downloadProgress[song.playableId] = blockedInfo;
+      _notifyListeners(blockedInfo);
+      return false;
+    }
+
     if (_activeDownloadIds.length >= _maxConcurrentDownloads) {
-      logDebug('Max concurrent downloads reached (3). Queueing: ${song.title}');
+      logDebug('Max concurrent downloads reached ($_maxConcurrentDownloads). Queueing: ${song.title} (priority: ${priority.name})');
       final completer = Completer<bool>();
       final queuedInfo = DownloadInfo(
         songId: song.playableId,
@@ -325,12 +408,16 @@ class DownloadService {
         thumbnailUrl: song.thumbnailUrl,
       );
       _downloadProgress[song.playableId] = queuedInfo;
-      _downloadQueue.add((
-        song: song,
-        resolvedStream: resolvedStream,
-        quality: quality,
-        completer: completer,
-      ));
+      _downloadQueue.add(
+        QueuedDownload(
+          song: song,
+          resolvedStream: resolvedStream,
+          quality: quality,
+          completer: completer,
+          priority: priority,
+        ),
+      );
+      _sortQueue();
       _notifyListeners(queuedInfo);
       return completer.future;
     }
@@ -360,6 +447,7 @@ class DownloadService {
     if (_downloadQueue.isEmpty) return;
     if (_activeDownloadIds.length >= _maxConcurrentDownloads) return;
 
+    _sortQueue();
     final next = _downloadQueue.removeAt(0);
     // If was cancelled while queued, advance to next
     if (!_downloadProgress.containsKey(next.song.playableId) ||

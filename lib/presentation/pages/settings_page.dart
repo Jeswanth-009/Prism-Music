@@ -225,6 +225,38 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) setState(() {});
   }
 
+  void _showStorageQuotaDialog(BuildContext context) {
+    final options = [
+      (0, 'Unlimited'),
+      (1024, '1 GB'),
+      (2048, '2 GB'),
+      (5120, '5 GB'),
+      (10240, '10 GB'),
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Download Storage Quota'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: options.map((opt) {
+            final isSelected = _settingsService.downloadStorageQuotaMB == opt.$1;
+            return ListTile(
+              title: Text(opt.$2),
+              trailing: isSelected ? const Icon(Icons.check_rounded) : null,
+              onTap: () async {
+                await _settingsService.setDownloadStorageQuotaMB(opt.$1);
+                if (mounted) setState(() {});
+                if (ctx.mounted) Navigator.of(ctx).pop();
+              },
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -891,6 +923,29 @@ class _SettingsPageState extends State<SettingsPage> {
             context,
             _settingsService,
           ),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.favorite_outline_rounded),
+          title: 'Auto-Download Liked Songs',
+          subtitle: _settingsService.autoDownloadLikedSongs
+              ? 'Automatically download songs when you like them'
+              : 'Do not automatically download liked songs',
+          trailing: Switch.adaptive(
+            value: _settingsService.autoDownloadLikedSongs,
+            onChanged: (val) async {
+              await _settingsService.setAutoDownloadLikedSongs(val);
+              if (mounted) setState(() {});
+            },
+          ),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.pie_chart_outline_rounded),
+          title: 'Download Storage Quota',
+          subtitle: _settingsService.downloadStorageQuotaMB == 0
+              ? 'Unlimited'
+              : '${_settingsService.downloadStorageQuotaMB >= 1024 ? (_settingsService.downloadStorageQuotaMB / 1024).toStringAsFixed(0) : _settingsService.downloadStorageQuotaMB} ${_settingsService.downloadStorageQuotaMB >= 1024 ? 'GB' : 'MB'} max',
+          trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+          onTap: () => _showStorageQuotaDialog(context),
         ),
         SettingRow(
           leading: const Icon(Icons.download_rounded),

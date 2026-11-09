@@ -128,6 +128,8 @@ class SettingsService {
   static const String _appLanguageKey = 'app_language';
   static const String _downloadWifiOnlyKey = 'download_wifi_only';
   static const String _downloadAudioQualityKey = 'download_audio_quality';
+  static const String _autoDownloadLikedSongsKey = 'auto_download_liked_songs';
+  static const String _downloadStorageQuotaMBKey = 'download_storage_quota_mb';
   static const String _sleepTimerBedtimeModeKey = 'sleep_timer_bedtime_mode';
   static const String _cellularDataSaverKey = 'cellular_data_saver';
   static const String _offlineArtworkPersistenceKey = 'offline_artwork_persistence';
@@ -826,6 +828,34 @@ class SettingsService {
   /// Persist download audio quality setting ('low', 'medium', 'high', 'lossless').
   Future<void> setDownloadAudioQuality(String quality) async {
     await _settingsBox?.put(_downloadAudioQualityKey, quality);
+  }
+
+  /// Whether to automatically download liked songs in background (default: false).
+  bool get autoDownloadLikedSongs {
+    try {
+      return _settingsBox?.get(_autoDownloadLikedSongsKey, defaultValue: false) as bool? ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Persist auto-download liked songs setting.
+  Future<void> setAutoDownloadLikedSongs(bool value) async {
+    await _settingsBox?.put(_autoDownloadLikedSongsKey, value);
+  }
+
+  /// Download storage quota in Megabytes (0 means unlimited, default: 0).
+  int get downloadStorageQuotaMB {
+    try {
+      return _settingsBox?.get(_downloadStorageQuotaMBKey, defaultValue: 0) as int? ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Persist download storage quota in Megabytes.
+  Future<void> setDownloadStorageQuotaMB(int quotaMB) async {
+    await _settingsBox?.put(_downloadStorageQuotaMBKey, quotaMB);
   }
 
   /// Whether bedtime mode (gradual volume fade-out) is enabled for sleep timer (default: true).
