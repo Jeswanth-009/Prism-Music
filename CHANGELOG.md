@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.84] - 2026-11-09
+
+### Changed
+
+- Optimize tab lifecycle in IndexedStack and eliminate excessive PlayerPage rebuilds
+
 ## [0.2.83] - 2026-11-09
 
 ### Added
@@ -1130,3 +1136,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.81]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.81-build117
 [0.2.82]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.82-build118
 [0.2.83]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.83-build119
+[0.2.84]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.84-build120
