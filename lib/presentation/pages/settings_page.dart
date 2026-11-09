@@ -18,6 +18,7 @@ import '../../core/services/storage_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/queue_persistence_service.dart';
 import '../../core/services/user_profile_service.dart';
+import '../../core/services/crash_reporting_service.dart';
 import '../widgets/profile/profile_switcher_sheet.dart';
 import '../../core/localization/prism_localizations.dart';
 import '../../core/utils/formatters.dart';
@@ -254,6 +255,133 @@ class _SettingsPageState extends State<SettingsPage> {
           }).toList(),
         ),
       ),
+    );
+  }
+
+  void _showCrashLogsSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final reports = CrashReportingService.instance.getReports();
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.7,
+          maxChildSize: 0.9,
+          minChildSize: 0.4,
+          builder: (sheetCtx, scrollController) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.bug_report_outlined),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Local Diagnostic Logs',
+                        style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        tooltip: 'Copy all logs',
+                        icon: const Icon(Icons.copy_rounded, size: 20),
+                        onPressed: () {
+                          Clipboard.setData(
+                            ClipboardData(
+                              text: CrashReportingService.instance.exportReportsAsText(),
+                            ),
+                          );
+                          showPrismToast(ctx, 'Diagnostic logs copied');
+                        },
+                      ),
+                      IconButton(
+                        tooltip: 'Clear logs',
+                        icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                        onPressed: () async {
+                          await CrashReportingService.instance.clearReports();
+                          if (ctx.mounted) {
+                            Navigator.of(ctx).pop();
+                            showPrismToast(ctx, 'Crash logs cleared');
+                          }
+                          if (mounted) setState(() {});
+                        },
+                      ),
+                    ],
+                  ),
+                  const Divider(),
+                  Expanded(
+                    child: reports.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'No diagnostic crash logs recorded.\nYour app is running smoothly.',
+                              textAlign: TextAlign.center,
+                            ),
+                          )
+                        : ListView.separated(
+                            controller: scrollController,
+                            itemCount: reports.length,
+                            separatorBuilder: (_, __) => const Divider(),
+                            itemBuilder: (_, idx) {
+                              final r = reports[idx];
+                              return ListTile(
+                                dense: true,
+                                title: Text(
+                                  r.error,
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                subtitle: Text(
+                                  '${r.timestamp.toLocal().toString().split('.').first} · ${r.osPlatform}\n${r.stackTrace}',
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                onTap: () {
+                                  showDialog(
+                                    context: ctx,
+                                    builder: (dCtx) => AlertDialog(
+                                      title: Text(r.error),
+                                      content: SingleChildScrollView(
+                                        child: Text(r.stackTrace),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () {
+                                            Clipboard.setData(
+                                              ClipboardData(
+                                                text: '${r.error}\n\n${r.stackTrace}',
+                                              ),
+                                            );
+                                            Navigator.of(dCtx).pop();
+                                            showPrismToast(ctx, 'Copied to clipboard');
+                                          },
+                                          child: const Text('Copy'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () => Navigator.of(dCtx).pop(),
+                                          child: const Text('Close'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1066,6 +1194,27 @@ class _SettingsPageState extends State<SettingsPage> {
           title: 'Portable Backup & Restore',
           subtitle: 'Export, inspect, merge or restore library backups',
           onTap: () => showPortableBackupSheet(context, onBackupChanged: _refreshBackupInfo),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.bug_report_outlined),
+          title: 'Anonymous Crash Reporting',
+          subtitle: _settingsService.crashReportingEnabled
+              ? 'Sends anonymized, PII-scrubbed crash diagnostics'
+              : 'Disabled — crash diagnostics are kept on-device only',
+          trailing: Switch.adaptive(
+            value: _settingsService.crashReportingEnabled,
+            onChanged: (value) async {
+              await _settingsService.setCrashReportingEnabled(value);
+              if (mounted) setState(() {});
+            },
+          ),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.article_outlined),
+          title: 'Diagnostic & Crash Logs',
+          subtitle: 'View, copy or clear local crash reports (${CrashReportingService.instance.getReports().length} logged)',
+          trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+          onTap: () => _showCrashLogsSheet(context),
         ),
         SettingRow(
           leading: Icon(

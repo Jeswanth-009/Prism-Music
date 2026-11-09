@@ -11,6 +11,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/localization/prism_localizations.dart';
 
 import 'core/di/injection.dart';
+import 'core/services/crash_reporting_service.dart';
 import 'core/services/audio_player_service.dart';
 import 'core/services/media_session_coordinator.dart';
 import 'core/services/local_backup_service.dart';
@@ -28,6 +29,20 @@ void main() async {
 
   // Enforce bundled offline typography: prevent GoogleFonts from downloading over the network
   GoogleFonts.config.allowRuntimeFetching = false;
+
+  // Global uncaught crash & error reporting (privacy-first on-device logs & optional Sentry)
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    CrashReportingService.instance.recordError(
+      details.exception,
+      details.stack ?? StackTrace.empty,
+      context: details.context?.toString(),
+    );
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    CrashReportingService.instance.recordError(error, stack);
+    return true;
+  };
 
   // Global logging setup: active only in debug mode to prevent leaking
   // search queries, stream URLs, or internal state in release logcat.
@@ -51,6 +66,7 @@ void main() async {
   try {
     // Initialize Hive FIRST, before any services that depend on it
     await Hive.initFlutter();
+    await CrashReportingService.instance.initialize();
 
     // 1. Initialize dependencies so we can access AudioPlayerService
     await initializeDependencies().timeout(const Duration(seconds: 8));

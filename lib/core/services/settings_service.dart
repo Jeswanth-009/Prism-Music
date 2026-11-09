@@ -135,6 +135,8 @@ class SettingsService {
   static const String _offlineArtworkPersistenceKey = 'offline_artwork_persistence';
   static const String _reducedMotionModeKey = 'reduced_motion_mode';
   static const String _telemetryConsentKey = 'telemetry_consent';
+  static const String _crashReportingEnabledKey = 'crash_reporting_enabled';
+  static const String _sentryDsnKey = 'sentry_dsn';
   static const String _forceOfflineModeKey = 'force_offline_mode';
   static const String _audioNormalizationEnabledKey = 'audio_normalization_enabled';
   static const String _audioNormalizationTargetKey = 'audio_normalization_target';
@@ -856,6 +858,38 @@ class SettingsService {
   /// Persist download storage quota in Megabytes.
   Future<void> setDownloadStorageQuotaMB(int quotaMB) async {
     await _settingsBox?.put(_downloadStorageQuotaMBKey, quotaMB);
+  }
+
+  /// Whether privacy-first crash reporting is enabled (opt-in, default: false).
+  bool get crashReportingEnabled {
+    try {
+      return _settingsBox?.get(_crashReportingEnabledKey, defaultValue: false) as bool? ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Persist crash reporting opt-in toggle.
+  Future<void> setCrashReportingEnabled(bool value) async {
+    await _settingsBox?.put(_crashReportingEnabledKey, value);
+  }
+
+  /// Optional Sentry DSN endpoint for self-hosted or cloud crash reporting.
+  String? get sentryDsn {
+    try {
+      return _settingsBox?.get(_sentryDsnKey) as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Persist custom Sentry DSN.
+  Future<void> setSentryDsn(String? dsn) async {
+    if (dsn == null || dsn.trim().isEmpty) {
+      await _settingsBox?.delete(_sentryDsnKey);
+    } else {
+      await _settingsBox?.put(_sentryDsnKey, dsn.trim());
+    }
   }
 
   /// Whether bedtime mode (gradual volume fade-out) is enabled for sleep timer (default: true).
