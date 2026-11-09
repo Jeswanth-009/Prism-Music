@@ -102,7 +102,7 @@ class LandscapePlayerLayout extends StatelessWidget {
                             isCrossfading: state.isCrossfading,
                           ),
                           const SizedBox(height: 12),
-                          PlayerSliderWidget(state: state),
+                          const PlayerSliderWidget(),
                           const SizedBox(height: 8),
                           PlayerControlsSection(state: state),
                           const SizedBox(height: 4),

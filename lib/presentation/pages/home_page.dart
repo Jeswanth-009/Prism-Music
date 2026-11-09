@@ -57,6 +57,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   late int _currentIndex;
   late final Set<int> _visitedTabs;
+  final Map<int, Widget> _cachedTabWidgets = {};
   Timer? _updateCheckTimer;
   StreamSubscription<void>? _offlineTransitionSub;
   StreamSubscription<GeoRestrictionException>? _geoRestrictionSub;
@@ -166,7 +167,13 @@ class _HomePageState extends State<HomePage> {
           children: [
             for (var i = 0; i < builders.length; i++)
               _visitedTabs.contains(i)
-                  ? builders[i](context)
+                  ? TickerMode(
+                      enabled: _currentIndex == i,
+                      child: _cachedTabWidgets.putIfAbsent(
+                        i,
+                        () => builders[i](context),
+                      ),
+                    )
                   : const SizedBox.shrink(),
           ],
         ),

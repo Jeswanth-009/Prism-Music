@@ -197,7 +197,7 @@ class _VinylPlayerLayoutState extends State<VinylPlayerLayout>
                 ),
         ),
         // Vinyl Scrubber
-        PlayerSliderWidget(state: widget.state),
+        const PlayerSliderWidget(),
         const SizedBox(height: 12),
         // Transport Controls
         ClassicTransportControls(state: widget.state),

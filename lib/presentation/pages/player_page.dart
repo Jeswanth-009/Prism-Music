@@ -137,6 +137,16 @@ class _PlayerPageState extends State<PlayerPage> {
           _extractDominantColor(state.currentSong!);
         }
       },
+      buildWhen: (prev, curr) {
+        return prev.currentSong?.playableId != curr.currentSong?.playableId ||
+            prev.status != curr.status ||
+            prev.isVideoMode != curr.isVideoMode ||
+            prev.errorMessage != curr.errorMessage ||
+            prev.hasVideoAvailable != curr.hasVideoAvailable ||
+            prev.audioQuality != curr.audioQuality ||
+            prev.repeatMode != curr.repeatMode ||
+            prev.isShuffleEnabled != curr.isShuffleEnabled;
+      },
       builder: (context, state) {
         final song = state.currentSong;
         if (song == null) {
@@ -156,7 +166,9 @@ class _PlayerPageState extends State<PlayerPage> {
           extendBodyBehindAppBar: true,
           body: Stack(
             children: [
-              PlayerAmbientBackground(dominantColor: _dominantColor),
+              RepaintBoundary(
+                child: PlayerAmbientBackground(dominantColor: _dominantColor),
+              ),
               SafeArea(
                 child: Column(
                   children: [
@@ -235,9 +247,11 @@ class _PlayerPageState extends State<PlayerPage> {
                                     child: Column(
                                       children: [
                                         const SizedBox(height: 12),
-                                        PlayerArtworkSection(
-                                          song: song,
-                                          dominantColor: _dominantColor,
+                                        RepaintBoundary(
+                                          child: PlayerArtworkSection(
+                                            song: song,
+                                            dominantColor: _dominantColor,
+                                          ),
                                         ),
                                         const SizedBox(height: 28),
                                         PlayerMetadataRow(
@@ -258,7 +272,7 @@ class _PlayerPageState extends State<PlayerPage> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      PlayerSliderWidget(state: state),
+                      const PlayerSliderWidget(),
                       const SizedBox(height: 12),
                       PlayerControlsSection(state: state),
                       const SizedBox(height: 8),

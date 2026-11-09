@@ -215,7 +215,7 @@ class ClassicPlayerLayout extends StatelessWidget {
                 ),
         ),
         // Classic Scrubber
-        PlayerSliderWidget(state: state),
+        const PlayerSliderWidget(),
         const SizedBox(height: 12),
         // Classic 5-button transport bar
         ClassicTransportControls(state: state),
