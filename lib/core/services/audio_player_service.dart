@@ -806,11 +806,11 @@ class AudioPlayerService {
         children: sources,
       );
 
-      logDebug('AudioPlayerService: Setting ConcatenatingAudioSource with ${sources.length} items...');
+      logDebug('AudioPlayerService: Setting ConcatenatingAudioSource with ${sources.length} items (gapless preloading active)...');
       await _player.setAudioSource(
         _playlist!,
         initialIndex: startIndex,
-        preload: false, // Lazy load for better performance
+        preload: true, // Enable next-track preloading for seamless gapless playback
       );
 
       logDebug('AudioPlayerService: ✓ Queue loaded successfully, duration: ${_player.duration}');
@@ -903,6 +903,12 @@ class AudioPlayerService {
     if (_player.hasPrevious) {
       await _player.seekToPrevious();
     }
+  }
+
+  /// Seek to a specific song index in the queue
+  Future<void> seekToIndex(int index, {Duration? position}) async {
+    if (!_initialized) return;
+    await _player.seek(position ?? Duration.zero, index: index);
   }
 
   /// Get current index in queue

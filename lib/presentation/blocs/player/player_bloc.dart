@@ -756,20 +756,29 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
                     allowYouTubeFallbackOnDirectFailure: isYouTubeSong,
                   )
                   .timeout(_setSourceTimeout)
-            : await _audioPlayer
-                  .setUrl(
-                    resolvedSource.uri,
-                    headers: resolvedSource.headers,
-                    videoId: resolvedSource.videoId,
-                    quality: _mapAudioQuality(state.audioQuality),
-                    title: songToPlay.title,
-                    artist: songToPlay.artist,
-                    album: songToPlay.album,
-                    artworkUrl: notificationArtwork,
-                    mediaDuration: songToPlay.duration,
-                    allowYouTubeFallbackOnDirectFailure: isYouTubeSong,
+            : (initialQueue.length > 1)
+                ? await _loadAudioQueueSafe(
+                    initialQueue,
+                    queueIndex,
+                    songToPlay,
+                    resolvedSource,
+                    notificationArtwork,
+                    isYouTubeSong,
                   )
-                  .timeout(_setSourceTimeout);
+                : await _audioPlayer
+                      .setUrl(
+                        resolvedSource.uri,
+                        headers: resolvedSource.headers,
+                        videoId: resolvedSource.videoId,
+                        quality: _mapAudioQuality(state.audioQuality),
+                        title: songToPlay.title,
+                        artist: songToPlay.artist,
+                        album: songToPlay.album,
+                        artworkUrl: notificationArtwork,
+                        mediaDuration: songToPlay.duration,
+                        allowYouTubeFallbackOnDirectFailure: isYouTubeSong,
+                      )
+                      .timeout(_setSourceTimeout);
         if (generation != _playbackGeneration) return; // user moved on
         setSourceStopwatch.stop();
 
@@ -1008,6 +1017,13 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       emit(state.copyWith(clearSleepTimer: true, sleepTimerEndOfTrack: false));
     }
 
+    if (_audioPlayer.isQueueMode && _audioPlayer.hasNext) {
+      _reliability.resetCircuitBreaker();
+      _lastNearEndPrefetchIndex = -1;
+      await _audioPlayer.skipToNext();
+      return;
+    }
+
     if (state.hasNext) {
       // A manual skip is explicit user intent: clear any open circuit and
       // per-song retry budgets so the target song always gets a real attempt.
@@ -1068,6 +1084,13 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     if (state.sleepTimerEndOfTrack) {
       cancelSleepTimer();
       emit(state.copyWith(clearSleepTimer: true, sleepTimerEndOfTrack: false));
+    }
+
+    if (_audioPlayer.isQueueMode && _audioPlayer.hasPrevious) {
+      _reliability.resetCircuitBreaker();
+      _lastNearEndPrefetchIndex = -1;
+      await _audioPlayer.skipToPrevious();
+      return;
     }
 
     if (state.hasPrevious) {
@@ -2084,12 +2107,63 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
     // Update now playing and prefetch ahead.
     resetScrobbleState();
+    updateNowPlaying(newSong);
+    _safePrefetchUpcomingArtwork(state.queue, newIndex);
+    _prefetchAhead(state.queue, newIndex);
+    MediaSessionCoordinator.instance.notifyQueueChanged();
     // Add to history in background.
     _libraryRepository.addToHistory(newSong);
     _recommendationService?.recordPlay(newSong);
 
     // Check if we need more recommendations.
     _checkAndAddRecommendations();
+  }
+
+  Future<Duration?> _loadAudioQueueSafe(
+    List<Song> queue,
+    int index,
+    Song songToPlay,
+    ResolvedMediaSource resolvedSource,
+    String? notificationArtwork,
+    bool isYouTubeSong,
+  ) async {
+    try {
+      final songsPayload = queue.map((s) {
+        final isCurrent = s.playableId == songToPlay.playableId;
+        return <String, dynamic>{
+          'videoId': s.playableId,
+          'url': isCurrent ? resolvedSource.uri : (s.streamUrl ?? ''),
+          'headers': isCurrent ? resolvedSource.headers : null,
+          'quality': _mapAudioQuality(state.audioQuality),
+          'title': s.title,
+          'artist': s.artist,
+          'artUri': s.thumbnails.medium ?? s.thumbnailUrl,
+          'album': s.album,
+        };
+      }).toList();
+
+      final dur = await _audioPlayer
+          .loadQueue(songsPayload, initialIndex: index)
+          .timeout(_setSourceTimeout);
+      if (dur != null) return dur;
+    } catch (e) {
+      _log('PlayerBloc: loadQueue failed ($e), falling back to single setUrl');
+    }
+
+    return await _audioPlayer
+        .setUrl(
+          resolvedSource.uri,
+          headers: resolvedSource.headers,
+          videoId: resolvedSource.videoId,
+          quality: _mapAudioQuality(state.audioQuality),
+          title: songToPlay.title,
+          artist: songToPlay.artist,
+          album: songToPlay.album,
+          artworkUrl: notificationArtwork,
+          mediaDuration: songToPlay.duration,
+          allowYouTubeFallbackOnDirectFailure: isYouTubeSong,
+        )
+        .timeout(_setSourceTimeout);
   }
 
   String _mapAudioQuality(AudioQuality quality) {

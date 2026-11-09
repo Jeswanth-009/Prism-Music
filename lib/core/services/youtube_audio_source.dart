@@ -299,17 +299,25 @@ class YouTubeAudioSource extends StreamAudioSource {
     _lastRequestPosition = null;
   }
 
+  /// Check if stream info is cached and valid for a video ID
+  static bool isStreamCached(String videoId, {String quality = 'high'}) {
+    final cacheKey = '${videoId}_$quality';
+    final cached = _globalCache[cacheKey];
+    return cached != null && !cached.isExpired;
+  }
+
   /// Pre-warm the global cache for a video ID (call from prefetch logic)
   static Future<void> prewarmCache(String videoId, {String quality = 'high'}) async {
+    final cacheKey = '${videoId}_$quality';
     // Check if already cached
-    final cached = _globalCache[videoId];
+    final cached = _globalCache[cacheKey];
     if (cached != null && !cached.isExpired) {
-      debugPrint('YouTubeAudioSource.prewarmCache: Already cached for $videoId');
+      debugPrint('YouTubeAudioSource.prewarmCache: Already cached for $cacheKey');
       return;
     }
     
     try {
-      debugPrint('YouTubeAudioSource.prewarmCache: Pre-warming cache for $videoId');
+      debugPrint('YouTubeAudioSource.prewarmCache: Pre-warming cache for $cacheKey');
       
       StreamManifest? manifest;
       for (final candidate in _candidateClients) {
@@ -344,8 +352,8 @@ class YouTubeAudioSource extends StreamAudioSource {
             _globalCache.remove(oldestKey);
           }
         }
-        _globalCache[videoId] = _CachedStream(audioStream);
-        debugPrint('YouTubeAudioSource.prewarmCache: Cached stream for $videoId');
+        _globalCache[cacheKey] = _CachedStream(audioStream);
+        debugPrint('YouTubeAudioSource.prewarmCache: Cached stream for $cacheKey');
       }
     } catch (e) {
       debugPrint('YouTubeAudioSource.prewarmCache: Failed for $videoId: $e');
