@@ -293,8 +293,8 @@
     {
       key: "charts",
       src: "assets/framed-charts.png",
-      title: "Verified Charts Hub",
-      desc: "Global YouTube Top Music, TikTok Trends, and country chip filtering with one-tap Play All queueing."
+      title: "Verified Charts & Moods",
+      desc: "Global YouTube Top Music, TikTok Trends, country chip filtering with one-tap Play All queueing, plus a genre and mood browsing hub with curated playlists."
     },
     {
       key: "stats",
@@ -463,24 +463,105 @@
   if (simFailoverBtn && simLog) {
     simFailoverBtn.addEventListener("click", () => {
       simFailoverBtn.disabled = true;
-      simLog.textContent = "[1/3] Resolving 320 kbps stream from JioSaavn...";
+      simLog.textContent = "[1/4] Resolving 320 kbps stream from JioSaavn...";
       if (stepJio) stepJio.className = "pipe-step active";
       if (stepYt) stepYt.className = "pipe-step";
       if (stepPipe) stepPipe.className = "pipe-step";
 
       setTimeout(() => {
         if (stepJio) stepJio.className = "pipe-step failed";
-        simLog.textContent = "[2/3] JioSaavn catalog miss. Circuit breaker failing over to YouTube Explode...";
+        simLog.textContent = "[2/4] Catalog miss. Circuit breaker probing multi-client API chain: android → ios → mweb...";
         if (stepYt) stepYt.className = "pipe-step active";
 
         setTimeout(() => {
-          simLog.textContent = "[3/3] YouTube Explode resolved 160 kbps OPUS via StreamAudioSource proxy in 120ms. Playback uninterrupted!";
-          if (stepYt) stepYt.className = "pipe-step active";
+          simLog.textContent = "[3/4] android client geo-blocked. Rotating to ios client — 160 kbps OPUS resolved via proxy in 120ms.";
+        }, 1100);
+
+        setTimeout(() => {
+          simLog.textContent = "[4/4] Playback uninterrupted! Geo-restriction bypassed, stream cached for instant resume.";
           simFailoverBtn.disabled = false;
-        }, 1200);
+        }, 2200);
       }, 1000);
     });
   }
+
+  /* ── 7b. Interactive Deep Link Router (v0.2.85 feature demo) ── */
+  const deepLinkInput = document.getElementById("deepLinkInput");
+  const deepLinkBtn = document.getElementById("deepLinkBtn");
+  const dlStep1 = document.getElementById("dlStep1");
+  const dlStep2 = document.getElementById("dlStep2");
+  const dlStep3 = document.getElementById("dlStep3");
+  const dlChips = document.querySelectorAll(".dl-chip");
+
+  const DL_ROUTES = [
+    { test: /^prism:\/\/song\//i, resolve: "Song ID extracted · matched in catalog", play: "Now Playing · routed to player" },
+    { test: /music\.youtube\.com\/watch\?v=|youtu\.be\//i, resolve: "YouTube Music video ID resolved", play: "Queueing song + infinite radio" },
+    { test: /music\.youtube\.com\/playlist\?list=/i, resolve: "Playlist ID detected · fetching tracks", play: "Playlist imported to library" },
+    { test: /music\.youtube\.com\/search\?q=/i, resolve: "Search query extracted", play: "Opening search results" }
+  ];
+
+  let dlTimer = null;
+
+  function resetDlSteps() {
+    [dlStep1, dlStep2, dlStep3].forEach(s => {
+      if (s) s.classList.remove("active", "done", "unknown");
+    });
+  }
+
+  function routeDeepLink(raw) {
+    const url = (raw || "").trim();
+    resetDlSteps();
+    if (deepLinkBtn) deepLinkBtn.disabled = true;
+    clearTimeout(dlTimer);
+
+    if (dlStep1) {
+      const val = dlStep1.querySelector(".dl-step-val");
+      if (val) val.textContent = url.length > 30 ? url.slice(0, 30) + "…" : (url || "Empty link");
+      dlStep1.classList.add("active");
+    }
+
+    dlTimer = setTimeout(() => {
+      if (!url) {
+        if (dlStep2) { const v = dlStep2.querySelector(".dl-step-val"); if (v) v.textContent = "Nothing to parse"; dlStep2.classList.add("unknown"); }
+        if (dlStep3) { const v = dlStep3.querySelector(".dl-step-val"); if (v) v.textContent = "Try an example link ↑"; dlStep3.classList.add("unknown"); }
+        if (deepLinkBtn) deepLinkBtn.disabled = false;
+        return;
+      }
+      const match = DL_ROUTES.find(r => r.test.test(url));
+      if (dlStep1) { dlStep1.classList.remove("active"); dlStep1.classList.add("done"); }
+      if (match) {
+        if (dlStep2) { const v = dlStep2.querySelector(".dl-step-val"); if (v) v.textContent = match.resolve; dlStep2.classList.add("active"); }
+        dlTimer = setTimeout(() => {
+          if (dlStep2) { dlStep2.classList.remove("active"); dlStep2.classList.add("done"); }
+          if (dlStep3) { const v = dlStep3.querySelector(".dl-step-val"); if (v) v.textContent = match.play; dlStep3.classList.add("done"); }
+          if (deepLinkBtn) deepLinkBtn.disabled = false;
+        }, 900);
+      } else {
+        if (dlStep2) { const v = dlStep2.querySelector(".dl-step-val"); if (v) v.textContent = "Unknown link format"; dlStep2.classList.add("unknown"); }
+        if (dlStep3) { const v = dlStep3.querySelector(".dl-step-val"); if (v) v.textContent = "Falling back to in-app search"; dlStep3.classList.add("unknown"); }
+        if (deepLinkBtn) deepLinkBtn.disabled = false;
+      }
+    }, 700);
+  }
+
+  if (deepLinkBtn && deepLinkInput) {
+    deepLinkBtn.addEventListener("click", () => routeDeepLink(deepLinkInput.value));
+    deepLinkInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        routeDeepLink(deepLinkInput.value);
+      }
+    });
+  }
+
+  dlChips.forEach(chip => {
+    chip.addEventListener("click", () => {
+      dlChips.forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      if (deepLinkInput) deepLinkInput.value = chip.getAttribute("data-url") || "";
+      routeDeepLink(deepLinkInput.value);
+    });
+  });
 
   /* ── 8. Live GitHub Releases API & Changelog Integration ─────── */
   const mRelease = document.getElementById("mRelease");
@@ -581,7 +662,7 @@
       updateDownloadLinks(apkAsset.browser_download_url, release.tag_name);
     }
 
-    const tag = release.tag_name || "alpha-v0.2.77";
+    const tag = release.tag_name || "alpha-v0.2.85";
     const parsed = parseTag(tag);
     const version = parsed ? `v${parsed[0]}.${parsed[1]}.${parsed[2]}` : tag;
     const build = parsed && parsed[3] ? ` · build ${parsed[3]}` : "";
@@ -610,9 +691,9 @@
 
     // Multi-artifact resolution for device/emulator choices
     const assets = release.assets || [];
-    const arm64Apk = assets.find(a => /arm64|app-release/i.test(a.name) && !/x86|emulator/i.test(a.name));
+    const arm64Apk = assets.find(a => /android\.apk$/i.test(a.name) && !/x86|emulator|armv7/i.test(a.name)) ||
+                      assets.find(a => /arm64|app-release/i.test(a.name) && !/x86|emulator/i.test(a.name));
     const x86Apk = assets.find(a => /x86_64|emulator/i.test(a.name));
-    const armv7Apk = assets.find(a => /armeabi-v7a|armv7/i.test(a.name));
     const aabAsset = assets.find(a => /\.aab$/i.test(a.name));
 
     const btnDlArm64 = document.getElementById("btnDlArm64");
@@ -631,15 +712,6 @@
       btnDlX86.href = x86Apk.browser_download_url;
       if (sizeX86 && x86Apk.size) sizeX86.textContent = `${(x86Apk.size / (1024 * 1024)).toFixed(1)} MB`;
       if (tagX86) tagX86.textContent = version;
-    }
-
-    const btnDlArmv7 = document.getElementById("btnDlArmv7");
-    const sizeArmv7 = document.getElementById("sizeArmv7");
-    const tagArmv7 = document.getElementById("tagArmv7");
-    if (armv7Apk && btnDlArmv7) {
-      btnDlArmv7.href = armv7Apk.browser_download_url;
-      if (sizeArmv7 && armv7Apk.size) sizeArmv7.textContent = `${(armv7Apk.size / (1024 * 1024)).toFixed(1)} MB`;
-      if (tagArmv7) tagArmv7.textContent = version;
     }
 
     const btnDlAab = document.getElementById("btnDlAab");
@@ -726,7 +798,7 @@
   function renderFeed(releases) {
     if (!feedList) return;
     feedList.innerHTML = "";
-    releases.slice(0, 5).forEach(r => {
+    releases.slice(0, 6).forEach(r => {
       const parsed = parseTag(r.tag_name);
       const li = document.createElement("li");
 

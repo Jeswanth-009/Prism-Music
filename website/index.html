@@ -4,13 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Prism Music — All your music. One app. No account.</title>
-  <meta name="description" content="Prism Music is a free, privacy-first, open-source music streaming app for Android. Stream from YouTube Music and JioSaavn with line-synced lyrics, native equalizer, infinite radio recommendations, and offline downloads." />
+  <meta name="description" content="Prism Music is a free, privacy-first, open-source music streaming app for Android. Stream songs, podcasts, and music videos from YouTube Music and JioSaavn with line-synced lyrics, gapless playback, native equalizer, deep links, and offline downloads." />
   <meta name="theme-color" content="#07090e" media="(prefers-color-scheme: dark)" />
   <meta name="theme-color" content="#f8f7f4" media="(prefers-color-scheme: light)" />
   <link rel="canonical" href="https://jeswanth-009.github.io/Prism-Music/" />
 
   <meta property="og:title" content="Prism Music — All your music. One app. No account." />
-  <meta property="og:description" content="Free, open-source music streaming for Android. Line-synced lyrics, lossless audio, smart radio recommendations, and native equalizer." />
+  <meta property="og:description" content="Free, open-source music streaming for Android. Line-synced lyrics, podcasts, music videos, gapless playback, deep links, smart radio recommendations, and a native equalizer." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://jeswanth-009.github.io/Prism-Music/" />
   <meta property="og:site_name" content="Prism Music" />
@@ -19,7 +19,7 @@
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Prism Music — All your music. One app. No account." />
-  <meta name="twitter:description" content="Free, open-source music streaming for Android. No account required." />
+  <meta name="twitter:description" content="Free, open-source music streaming for Android. Songs, podcasts, and music videos. No account required." />
   <meta name="twitter:image" content="assets/og-card.png" />
 
   <link rel="icon" type="image/png" href="assets/logo-dark.png" />
@@ -40,6 +40,44 @@
     "license": "https://opensource.org/licenses/MIT",
     "url": "https://jeswanth-009.github.io/Prism-Music/",
     "author": { "@type": "Organization", "name": "Prism Music Contributors" }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Is Prism Music truly free? Is there any subscription or catch?",
+        "acceptedAnswer": { "@type": "Answer", "text": "It is 100% free and open source under the MIT License. There are no subscriptions, in-app purchases, advertisements, or tracking SDKs." }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I open music links from other apps in Prism Music?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Prism Music handles prism:// deep links and YouTube Music song, playlist, and search URLs natively, routing you straight to the right song or playlist with automatic playback. You can also share any music link into Prism from other apps." }
+      },
+      {
+        "@type": "Question",
+        "name": "Does Prism Music support podcasts and music videos?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. The built-in podcast hub discovers shows, parses RSS feeds, and streams episodes like music. Songs with an available video stream show a one-tap video toggle with selectable stream resolution." }
+      },
+      {
+        "@type": "Question",
+        "name": "Where are my downloads and playlists saved?",
+        "acceptedAnswer": { "@type": "Answer", "text": "All downloaded songs, playlists, and listening statistics are stored locally on your device in app-private storage. You can also export portable JSON backups from the Settings menu at any time." }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I import my playlists from Spotify, YouTube, or Apple Music?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Paste a public playlist URL into Library → Import and Prism Music resolves the tracks automatically, with ISRC matching for Apple Music and exponential backoff for rate limits." }
+      },
+      {
+        "@type": "Question",
+        "name": "What happens when a crash occurs — is anything sent home?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Crash diagnostics are written to a local log file on your device first, and nothing leaves your phone unless you explicitly opt in by configuring a Sentry DSN in Settings. There is no bundled analytics SDK and no default telemetry." }
+      }
+    ]
   }
   </script>
 </head>
@@ -87,7 +125,7 @@
   <noscript>
     <div class="noscript-banner">
       <div class="container noscript-container">
-        <strong>JavaScript is disabled:</strong> Interactive audio synthesizer, equalizer presets, and live GitHub feed are paused.
+        <strong>JavaScript is disabled:</strong> Interactive audio synthesizer, equalizer presets, deep-link router, and live GitHub feed are paused.
         You can still download the latest APK directly from <a href="https://github.com/Jeswanth-009/Prism-Music/releases/latest">GitHub Releases</a>.
       </div>
     </div>
@@ -126,8 +164,8 @@
         <p class="eyebrow eyebrow-pill mono">Free &amp; Open Source · Android 7.0+</p>
         <h1>All your music.<br /><span class="grad-text">One app. No account.</span></h1>
         <p class="hero-sub">
-          Stream millions of songs from YouTube Music &amp; JioSaavn with line-synced lyrics,
-          infinite radio recommendations, native equalizer, and offline downloads.
+          Stream millions of songs, podcasts, and music videos from YouTube Music &amp; JioSaavn with
+          line-synced lyrics, gapless playback, deep links, a native equalizer, and offline downloads.
           No sign-up. No ads. No telemetry.
         </p>
         <div class="hero-cta">
@@ -142,12 +180,16 @@
         <div class="hero-meta">
           <p class="hero-version mono">
             <span class="version-dot" aria-hidden="true"></span>
-            <span class="mono-dim">release</span> <strong id="versionLabel">alpha-v0.2.77</strong> <span class="mono-dim" id="buildLabel"></span>
+            <span class="mono-dim">release</span> <strong id="versionLabel">alpha-v0.2.85</strong> <span class="mono-dim" id="buildLabel"></span>
           </p>
           <div class="hero-chips mono" id="heroChips" hidden>
             <a class="chip" href="https://github.com/Jeswanth-009/Prism-Music/stargazers" target="_blank" rel="noopener">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3-5.8 3 1.1-6.5L2.6 9.4l6.5-.9L12 2.6z"/></svg>
               <span id="starsVal">—</span> stars
+            </a>
+            <a class="chip chip-new" href="#features">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M13 2 4.5 13.5H11L9.5 22 19 10h-6.5L13 2z"/></svg>
+              New: Deep Links &amp; Podcasts
             </a>
           </div>
         </div>
@@ -204,8 +246,8 @@
   <!-- ── Ticker ─────────────────────────────────────────────────── -->
   <div class="ticker" aria-hidden="true">
     <div class="ticker-track mono">
-      <span>Zero Accounts</span><i>◆</i><span>Dual-Tier Lyrics</span><i>◆</i><span>3-Worker Concurrency Pool</span><i>◆</i><span>320 kbps JioSaavn &amp; OPUS</span><i>◆</i><span>Adaptive Tablet Layout</span><i>◆</i><span>Native Equalizer</span><i>◆</i><span>Infinite Radio</span><i>◆</i><span>Hardware Keystore</span><i>◆</i><span>Offline Inter Fonts</span><i>◆</i><span>Local-First Data</span><i>◆</i>
-      <span>Zero Accounts</span><i>◆</i><span>Dual-Tier Lyrics</span><i>◆</i><span>3-Worker Concurrency Pool</span><i>◆</i><span>320 kbps JioSaavn &amp; OPUS</span><i>◆</i><span>Adaptive Tablet Layout</span><i>◆</i><span>Native Equalizer</span><i>◆</i><span>Infinite Radio</span><i>◆</i><span>Hardware Keystore</span><i>◆</i><span>Offline Inter Fonts</span><i>◆</i><span>Local-First Data</span><i>◆</i>
+      <span>Zero Accounts</span><i>◆</i><span>Deep Links &amp; QR Sharing</span><i>◆</i><span>Podcasts &amp; Music Videos</span><i>◆</i><span>Gapless Playback</span><i>◆</i><span>Party Mode</span><i>◆</i><span>Android Auto &amp; Home Widget</span><i>◆</i><span>Bedtime Fade</span><i>◆</i><span>ReplayGain Normalization</span><i>◆</i><span>Adaptive Tablet Layout</span><i>◆</i><span>Local-First Data</span><i>◆</i>
+      <span>Zero Accounts</span><i>◆</i><span>Deep Links &amp; QR Sharing</span><i>◆</i><span>Podcasts &amp; Music Videos</span><i>◆</i><span>Gapless Playback</span><i>◆</i><span>Party Mode</span><i>◆</i><span>Android Auto &amp; Home Widget</span><i>◆</i><span>Bedtime Fade</span><i>◆</i><span>ReplayGain Normalization</span><i>◆</i><span>Adaptive Tablet Layout</span><i>◆</i><span>Local-First Data</span><i>◆</i>
     </div>
   </div>
 
@@ -222,7 +264,7 @@
         <article class="tile tile-lyrics">
           <div class="tile-head">
             <h3>Line-Synced Lyrics &amp; Dual Fallback</h3>
-            <p>Word-for-word synced lyrics powered by LRCLIB with an automated secondary fallback provider, offline lyrics caching, and tap-to-seek sync. Tap any line below to test seek:</p>
+            <p>Word-for-word synced lyrics powered by LRCLIB with an automated secondary fallback provider, offline caching, tap-to-seek sync, and manual editing to fix mismatched lines. Tap any line below to test seek:</p>
           </div>
           <div class="lyrics-interactive-box">
             <div class="lyric-item active" data-time="0">The light bends through the prism</div>
@@ -236,7 +278,7 @@
         <article class="tile tile-eq">
           <div class="tile-head">
             <h3>Native Equalizer</h3>
-            <p>Hardware-accelerated sound shaping with bass boost. Select a preset or drag the frequency bands:</p>
+            <p>Hardware-accelerated sound shaping with custom presets, per-song EQ memory, and loudness normalization via ReplayGain. Select a preset or drag the frequency bands:</p>
           </div>
           <div class="eq-interactive-box">
             <div class="eq-presets-row mono">
@@ -275,7 +317,7 @@
         <article class="tile tile-queue">
           <div class="tile-head">
             <h3>Infinite Radio from Search</h3>
-            <p>Pick any song from 350ms debounced search. Prism seeds playback with that track and automatically spins an endless station of recommended songs.</p>
+            <p>Pick any song from 350ms debounced search. Prism seeds playback with that track and automatically spins an endless radio station of style-matched recommendations — or launches one-tap Song Radio from anywhere.</p>
           </div>
           <div class="queue-demo-box">
             <div class="q-card">
@@ -305,11 +347,11 @@
           </div>
         </article>
 
-        <!-- 3-Worker Concurrency Pool & Offline Downloads Simulation -->
+        <!-- Smart Download Manager with Priority Queue & Storage Quota -->
         <article class="tile tile-dl">
           <div class="tile-head">
-            <h3>3-Worker Concurrency Pool &amp; Downloads</h3>
-            <p>Managed background download queue (max 3 concurrent streams) preventing network saturation, with atomic .tmp verification and container integrity checks.</p>
+            <h3>Smart Download Manager</h3>
+            <p>Priority-based download queue with a 3-worker concurrency pool, auto-downloading of your liked songs, storage quota awareness, and atomic .tmp verification before a file goes offline-ready.</p>
           </div>
           <div class="dl-interactive-stage">
             <div class="dl-progress-ring">
@@ -323,11 +365,39 @@
           </div>
         </article>
 
+        <!-- NEW: Interactive Deep Link Router (v0.2.85) -->
+        <article class="tile tile-deeplink">
+          <span class="tile-badge-new mono">New in 0.2.85</span>
+          <div class="tile-head">
+            <h3>Deep Links &amp; Universal Sharing</h3>
+            <p>Open any <code>prism://</code> or YouTube Music link and Prism routes it instantly to the right song, playlist, or search — or share music into Prism from any app. Try the router below:</p>
+          </div>
+          <div class="deeplink-demo-box">
+            <div class="dl-chips mono" role="group" aria-label="Example deep links">
+              <button class="dl-chip active" data-url="prism://song/5Y2UqL9aFQn.98271" type="button">prism://song/…</button>
+              <button class="dl-chip" data-url="https://music.youtube.com/watch?v=dQw4w9WgXcQ" type="button">music.youtube.com/watch?v=…</button>
+              <button class="dl-chip" data-url="https://music.youtube.com/playlist?list=PLFgquLnL59alCl_2TQvOiD5Vgm1hCaGSI" type="button">/playlist?list=…</button>
+              <button class="dl-chip" data-url="https://music.youtube.com/search?q=interstellar" type="button">/search?q=…</button>
+            </div>
+            <div class="dl-url-row">
+              <input class="dl-url-input mono" id="deepLinkInput" type="text" spellcheck="false" autocomplete="off" value="prism://song/5Y2UqL9aFQn.98271" aria-label="Deep link URL to route" />
+              <button class="dl-btn-action mono" id="deepLinkBtn" type="button">Route Link →</button>
+            </div>
+            <div class="dl-parse-flow" id="deepLinkFlow" aria-live="polite">
+              <div class="dl-parse-step" id="dlStep1"><span class="dl-step-key mono">1 · Parse</span><b class="dl-step-val">Waiting for link…</b></div>
+              <span class="dl-parse-arrow" aria-hidden="true">→</span>
+              <div class="dl-parse-step" id="dlStep2"><span class="dl-step-key mono">2 · Resolve</span><b class="dl-step-val">—</b></div>
+              <span class="dl-parse-arrow" aria-hidden="true">→</span>
+              <div class="dl-parse-step" id="dlStep3"><span class="dl-step-key mono">3 · Play</span><b class="dl-step-val">—</b></div>
+            </div>
+          </div>
+        </article>
+
         <!-- 14-Day Listening Analytics -->
         <article class="tile tile-stats">
           <div class="tile-head">
-            <h3>14-Day Listening Analytics &amp; Privacy</h3>
-            <p>Tracks your plays, unique artists, and daily history completely on your device in Hive. Cleared history preserves lifetime stats.</p>
+            <h3>Listening Analytics, Recaps &amp; Privacy</h3>
+            <p>Tracks your plays, unique artists, and daily history completely on your device in Hive — with a listening activity feed, weekly recap, and Year in Review. Cleared history preserves lifetime stats.</p>
           </div>
           <div class="stats-chart-wrap" aria-label="14-day play history chart">
             <div class="stats-bar-col"><div class="stats-bar" style="height:45%" data-val="18"></div><span class="stats-label mono">1</span></div>
@@ -351,7 +421,7 @@
         <article class="tile tile-mini">
           <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.6-9.5-9A5.5 5.5 0 0 1 12 6.1 5.5 5.5 0 0 1 21.5 12C19 16.4 12 21 12 21Z"/></svg></div>
           <h3>Local-First Hive DB</h3>
-          <p>Likes, playlists, and listening history stay strictly inside Hive on your phone with instant JSON export.</p>
+          <p>Likes, playlists, history, and local user profiles for shared devices stay strictly inside Hive on your phone with instant JSON export.</p>
         </article>
 
         <article class="tile tile-mini">
@@ -361,27 +431,27 @@
         </article>
 
         <article class="tile tile-mini">
-          <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
-          <h3>Adaptive Tablet Layout</h3>
-          <p>Fluid two-column responsive player layout for tablets, foldables, and landscape screens.</p>
+          <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="11" r="2"/><path d="M8.5 14.5a5 5 0 1 1 7 0"/><path d="M5.6 17.4a9 9 0 1 1 12.8 0"/></svg></div>
+          <h3>Podcasts &amp; Music Videos</h3>
+          <p>Browse podcast shows, stream episodes via RSS, and toggle full music video playback with stream resolution control.</p>
         </article>
 
         <article class="tile tile-mini">
-          <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></div>
-          <h3>Staggered Animations</h3>
-          <p>Tactile list animations with full respect for system <code>prefers-reduced-motion</code> accessibility.</p>
+          <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+          <h3>Party Mode &amp; Bedtime Fade</h3>
+          <p>Host a collaborative queue over your local network with a web controller, and drift off with bedtime-mode volume fading.</p>
+        </article>
+
+        <article class="tile tile-mini">
+          <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 11l1.5-4h9L18 11"/><rect x="4" y="11" width="16" height="5" rx="1.5"/><circle cx="8" cy="19" r="1.5"/><circle cx="16" cy="19" r="1.5"/></svg></div>
+          <h3>Android Auto &amp; Home Widget</h3>
+          <p>Drive with full Android Auto browse-tree playback, and control music from the artwork-rich home screen widget.</p>
         </article>
 
         <article class="tile tile-mini">
           <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg></div>
           <h3>Universal Playlist Import</h3>
-          <p>Import Spotify &amp; YouTube playlists with fuzzy matching, exponential backoff, and 429 retries.</p>
-        </article>
-
-        <article class="tile tile-mini">
-          <div class="mini-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
-          <h3>Sleep Timer &amp; Crossfade</h3>
-          <p>0–10 second crossfade and end-of-track sleep timers for uninterrupted evenings.</p>
+          <p>Import Spotify, YouTube, and Apple Music playlists with ISRC matching, plus QR-code playlist sharing between devices.</p>
         </article>
 
       </div>
@@ -413,7 +483,7 @@
               <span class="sc-key mono">02</span>
             </div>
             <h3>Now Playing &amp; Synced Lyrics</h3>
-            <p>Live OPUS/AAC streaming rate badge, line-synced karaoke lyrics with tap-to-seek, and dynamic album palette tinting.</p>
+            <p>Live OPUS/AAC streaming rate badge, line-synced karaoke lyrics with tap-to-seek, gapless queue preloading, and dynamic album palette tinting.</p>
           </button>
 
           <button class="sc-card" data-screen="search" type="button" role="tab" aria-selected="false" aria-haspopup="dialog">
@@ -430,8 +500,8 @@
               <span class="sc-badge mono">Billboard &amp; YouTube</span>
               <span class="sc-key mono">04</span>
             </div>
-            <h3>Verified Charts Hub</h3>
-            <p>Global YouTube Top Music, TikTok Trends, and country chip filtering with one-tap &quot;Play All&quot; queueing.</p>
+            <h3>Verified Charts &amp; Moods</h3>
+            <p>Global YouTube Top Music, TikTok Trends, country chip filtering with one-tap &quot;Play All&quot; queueing, plus a genre &amp; mood browsing hub with curated playlists.</p>
           </button>
 
           <button class="sc-card" data-screen="stats" type="button" role="tab" aria-selected="false" aria-haspopup="dialog">
@@ -448,7 +518,7 @@
         <div class="showcase-stage-wrap">
           <div class="showcase-aura" id="showcaseAura" data-glow="home"></div>
           <div class="showcase-device-shell" id="showcaseDeviceShell" tabindex="0" role="button" aria-label="Click to expand high-res screenshot" aria-haspopup="dialog">
-            <img class="showcase-img" id="showcaseImg" src="assets/framed-home.png" alt="Prism Music Home Screen" width="680" height="1452" />
+            <img class="showcase-img" id="showcaseImg" src="assets/framed-home.png" alt="Prism Music Home Screen" width="680" height="1452" loading="lazy" decoding="async" />
             <div class="showcase-zoom-hint mono">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
               Click to expand
@@ -464,20 +534,20 @@
     <div class="container">
       <p class="eyebrow mono">// 03 — Audio Reliability</p>
       <h2 class="section-title">How playback stays alive</h2>
-      <p class="section-sub">Prism Music utilizes a four-tier automated fallback cascade. If any individual provider experiences downtime, playback automatically falls through in milliseconds.</p>
+      <p class="section-sub">Prism Music layers a multi-client API fallback chain on top of a four-tier stream-source cascade. Provider downtime, rate limits, and geo-restrictions are detected and routed around automatically — in milliseconds, without interrupting your music.</p>
 
       <div class="pipeline-card">
         <div class="pipeline-flow">
           <div class="pipe-step active" id="stepJio">1. JioSaavn (320 kbps)</div>
           <span class="pipe-arrow-icon">→</span>
-          <div class="pipe-step" id="stepYt">2. YouTube Explode (Proxy)</div>
+          <div class="pipe-step" id="stepYt">2. YouTube Multi-Client API</div>
           <span class="pipe-arrow-icon">→</span>
           <div class="pipe-step" id="stepPipe">3. Piped Mirrors</div>
           <span class="pipe-arrow-icon">→</span>
           <div class="pipe-step">4. Invidious Mirrors</div>
         </div>
         <div class="pipeline-sim-actions">
-          <div class="sim-log-text" id="simLog">[Ready] Circuit breaker active. Multi-source resolver standing by.</div>
+          <div class="sim-log-text" id="simLog">[Ready] PlaybackReliabilityService active. Multi-client resolver standing by.</div>
           <button class="btn btn-ghost btn-sm mono" id="simFailoverBtn" type="button">Simulate Network Failover</button>
         </div>
       </div>
@@ -672,6 +742,69 @@
               </td>
             </tr>
             <tr>
+              <td>Podcasts &amp; Music Videos</td>
+              <td class="col-highlight">
+                <span class="cell-pill good">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>
+                  Built-In · Ad-Free
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Podcasts Only
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  With Ads
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td>Gapless Playback</td>
+              <td class="col-highlight">
+                <span class="cell-pill good">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>
+                  Yes · Queue Preloading
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill good">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>
+                  Yes
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Premium Only
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td>Party Queue &amp; Deep Links</td>
+              <td class="col-highlight">
+                <span class="cell-pill good">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>
+                  Local-Network Party + prism:// Links
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Jam Is Premium-Only
+                </span>
+              </td>
+              <td>
+                <span class="cell-pill bad">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  Not Available
+                </span>
+              </td>
+            </tr>
+            <tr>
               <td>Source Code &amp; Privacy</td>
               <td class="col-highlight">
                 <span class="cell-pill good">
@@ -712,7 +845,7 @@
         <button class="arch-pill active" data-arch="all" type="button" role="tab" aria-selected="true">All Artifacts</button>
         <button class="arch-pill" data-arch="arm64" type="button" role="tab" aria-selected="false">Phone &amp; Tablet (ARM64)</button>
         <button class="arch-pill" data-arch="x86_64" type="button" role="tab" aria-selected="false">Emulator &amp; PC (x86_64)</button>
-        <button class="arch-pill" data-arch="armv7" type="button" role="tab" aria-selected="false">Legacy 32-bit (ARMv7)</button>
+        <button class="arch-pill" data-arch="source" type="button" role="tab" aria-selected="false">Build from Source</button>
       </div>
 
       <!-- Verified Artifact Cards Grid -->
@@ -726,7 +859,7 @@
           <h3 class="art-title">Modern Android Phones</h3>
           <p class="art-desc">Optimal 64-bit build for Android 7.0+. Highest battery efficiency and performance on Google Pixel, Samsung Galaxy, OnePlus, Xiaomi, and modern devices.</p>
           <div class="art-meta mono">
-            <span class="art-size" id="sizeArm64">~48 MB</span>
+            <span class="art-size" id="sizeArm64">~44 MB</span>
             <span class="art-tag" id="tagArm64">Latest Release</span>
           </div>
           <a class="btn btn-primary btn-block" id="btnDlArm64" data-download-link href="https://github.com/Jeswanth-009/Prism-Music/releases/latest">
@@ -767,7 +900,7 @@
           <h3 class="art-title">Android Emulator &amp; PC</h3>
           <p class="art-desc">Native Intel/AMD 64-bit APK. Designed specifically for Android Studio Virtual Devices (AVD), ChromeOS, WSA, Genymotion, and Linux Waydroid.</p>
           <div class="art-meta mono">
-            <span class="art-size" id="sizeX86">~49 MB</span>
+            <span class="art-size" id="sizeX86">~26 MB</span>
             <span class="art-tag" id="tagX86">AVD Ready</span>
           </div>
           <a class="btn btn-ghost btn-block" id="btnDlX86" href="https://github.com/Jeswanth-009/Prism-Music/releases">
@@ -799,37 +932,37 @@
           </details>
         </div>
 
-        <!-- Card 3: ARMv7 32-bit Legacy -->
-        <div class="artifact-card" data-arch-item="armv7">
+        <!-- Card 3: Build from Source -->
+        <div class="artifact-card" data-arch-item="source">
           <div class="art-badge-row">
-            <span class="art-badge leg mono">Legacy Support</span>
-            <span class="art-arch mono">ARMv7 (32-bit)</span>
+            <span class="art-badge leg mono">For Developers</span>
+            <span class="art-arch mono">Flutter Source</span>
           </div>
-          <h3 class="art-title">Older 32-bit Hardware</h3>
-          <p class="art-desc">Compiled with 32-bit ARM instructions for legacy Android devices, budget TV boxes, and older ARM Cortex-A7/A9 processors.</p>
+          <h3 class="art-title">Build from Source</h3>
+          <p class="art-desc">Fully auditable MIT-licensed source. Build your own APK with the Flutter SDK — no trackers, no obfuscation, exactly what the CI pipeline builds for every release.</p>
           <div class="art-meta mono">
-            <span class="art-size" id="sizeArmv7">~46 MB</span>
-            <span class="art-tag" id="tagArmv7">Android 5.0+</span>
+            <span class="art-size" id="sizeSource">Flutter 3.x</span>
+            <span class="art-tag" id="tagSource">Android 7.0+</span>
           </div>
-          <a class="btn btn-ghost btn-block" id="btnDlArmv7" href="https://github.com/Jeswanth-009/Prism-Music/releases">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg>
-            Download ARMv7 APK
+          <a class="btn btn-ghost btn-block" id="btnDlSource" href="https://github.com/Jeswanth-009/Prism-Music/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>
+            Build Guide on GitHub
           </a>
           <details class="art-verify-drawer">
-            <summary class="mono">Verify SHA-256 &amp; Integrity ↓</summary>
+            <summary class="mono">Build Commands ↓</summary>
             <div class="art-verify-box mono">
               <div class="verify-field">
-                <span class="v-label">SHA-256 Hash:</span>
+                <span class="v-label">Clone the repository:</span>
                 <div class="v-copy-row">
-                  <code class="v-hash" id="hashArmv7">Available in release assets</code>
-                  <button class="v-copy-btn" data-copy-target="hashArmv7" type="button" title="Copy Hash">Copy</button>
+                  <code class="v-cmd" id="cmdClone">git clone https://github.com/Jeswanth-009/Prism-Music.git</code>
+                  <button class="v-copy-btn" data-copy-target="cmdClone" type="button" title="Copy Command">Copy</button>
                 </div>
               </div>
               <div class="verify-field">
-                <span class="v-label">Linux / macOS / Termux:</span>
+                <span class="v-label">Build a release APK:</span>
                 <div class="v-copy-row">
-                  <code class="v-cmd" id="cmdArmv7">sha256sum prism-music-armeabi-v7a-release.apk</code>
-                  <button class="v-copy-btn" data-copy-target="cmdArmv7" type="button" title="Copy Command">Copy</button>
+                  <code class="v-cmd" id="cmdBuild">flutter build apk --release</code>
+                  <button class="v-copy-btn" data-copy-target="cmdBuild" type="button" title="Copy Command">Copy</button>
                 </div>
               </div>
             </div>
@@ -845,7 +978,7 @@
           <h3 class="art-title">Universal App Bundle</h3>
           <p class="art-desc">Contains all CPU architectures and resource splits in a single signed package for audit and bundletool sideloading.</p>
           <div class="art-meta mono">
-            <span class="art-size" id="sizeAab">~62 MB</span>
+            <span class="art-size" id="sizeAab">~50 MB</span>
             <span class="art-tag" id="tagAab">Universal</span>
           </div>
           <a class="btn btn-ghost btn-block" id="btnDlAab" href="https://github.com/Jeswanth-009/Prism-Music/releases">
@@ -920,34 +1053,34 @@
           <h3>Latest releases &amp; notes</h3>
           <ol class="feed" id="feedList">
             <li>
-              <span class="f-ver mono">v0.2.77</span>
-              <span class="f-msg">Exponential backoff and rate-limit retry to playlist import pagination</span>
-              <span class="f-date mono">Oct 31</span>
+              <span class="f-ver mono">v0.2.85</span>
+              <span class="f-msg">Deep linking for prism and YouTube Music URLs with automatic song routing</span>
+              <span class="f-date mono">Nov 9</span>
             </li>
             <li>
-              <span class="f-ver mono">v0.2.76</span>
-              <span class="f-msg">Secondary fallback lyrics provider with offline cache support</span>
-              <span class="f-date mono">Oct 31</span>
+              <span class="f-ver mono">v0.2.84</span>
+              <span class="f-msg">Optimized tab lifecycle in IndexedStack and eliminated excessive PlayerPage rebuilds</span>
+              <span class="f-date mono">Nov 9</span>
             </li>
             <li>
-              <span class="f-ver mono">v0.2.75</span>
-              <span class="f-msg">Staggered list animations, page transitions, and reduced-motion skeleton shimmer</span>
-              <span class="f-date mono">Oct 31</span>
+              <span class="f-ver mono">v0.2.83</span>
+              <span class="f-msg">Gapless playback and preloading for YouTube queue sources</span>
+              <span class="f-date mono">Nov 9</span>
             </li>
             <li>
-              <span class="f-ver mono">v0.2.74</span>
-              <span class="f-msg">Adaptive tablet and landscape player split-screen layout</span>
-              <span class="f-date mono">Oct 31</span>
+              <span class="f-ver mono">v0.2.82</span>
+              <span class="f-msg">Podcast discovery, RSS feed parsing, and episode streaming</span>
+              <span class="f-date mono">Nov 8</span>
             </li>
             <li>
-              <span class="f-ver mono">v0.2.73</span>
-              <span class="f-msg">Complete Inter typography and offline TextTheme weights</span>
-              <span class="f-date mono">Oct 31</span>
+              <span class="f-ver mono">v0.2.81</span>
+              <span class="f-msg">Bedtime mode, loudness normalization, party mode, and listening recaps</span>
+              <span class="f-date mono">Nov 5</span>
             </li>
             <li>
-              <span class="f-ver mono">v0.2.72</span>
-              <span class="f-msg">Queued download concurrency pool with max 3 active streams</span>
-              <span class="f-date mono">Oct 31</span>
+              <span class="f-ver mono">v0.2.80</span>
+              <span class="f-msg">Apple Music import, QR playlist sharing, Android home widget, and tablet layouts</span>
+              <span class="f-date mono">Nov 4</span>
             </li>
           </ol>
           <a class="feed-more" href="https://github.com/Jeswanth-009/Prism-Music/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Full changelog →</a>
@@ -999,6 +1132,22 @@
         <details class="faq">
           <summary><span class="mono faq-num">07</span> Why is download concurrency capped at 3 tracks?</summary>
           <p>Prism Music uses an intelligent worker pool that caps concurrent active downloads at 3 songs while queueing any remaining requests. This prevents mobile network saturation, avoids socket exhaustion, and guarantees smooth background audio playback while downloading.</p>
+        </details>
+        <details class="faq">
+          <summary><span class="mono faq-num">08</span> Can I open music links from other apps in Prism?</summary>
+          <p>Yes. Prism Music handles <code>prism://</code> deep links and YouTube Music song, playlist, and search URLs natively — tapping a link routes you straight to the right song or playlist with automatic playback. You can also use your system's share sheet to send any music link into Prism from any app.</p>
+        </details>
+        <details class="faq">
+          <summary><span class="mono faq-num">09</span> Does Prism Music support podcasts and music videos?</summary>
+          <p>Yes. The built-in podcast hub discovers shows, parses RSS feeds, and streams episodes like music. On the player, songs with an available video stream show a one-tap video toggle with selectable stream resolution.</p>
+        </details>
+        <details class="faq">
+          <summary><span class="mono faq-num">10</span> How do Party Mode and local user profiles work?</summary>
+          <p>Party Mode hosts a collaborative playback queue on your local network — anyone on the same Wi-Fi can add songs and control playback from a browser, no account needed. Local user profiles let a shared device keep separate likes, playlists, and history per person, all stored on-device.</p>
+        </details>
+        <details class="faq">
+          <summary><span class="mono faq-num">11</span> What happens when a crash occurs — is anything sent home?</summary>
+          <p>Crash diagnostics are written to a local log file on your device first, and nothing leaves your phone unless you explicitly opt in by configuring a Sentry DSN in Settings. There is no bundled analytics SDK and no default telemetry.</p>
         </details>
       </div>
     </div>

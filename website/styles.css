@@ -483,6 +483,16 @@ img { max-width: 100%; display: block; }
   border-color: var(--accent);
   background: var(--accent-container);
 }
+.chip-new {
+  color: var(--prism-orange);
+  border-color: rgba(251, 138, 90, 0.4);
+  background: rgba(251, 138, 90, 0.08);
+}
+.chip-new:hover {
+  color: var(--prism-orange);
+  border-color: var(--prism-orange);
+  background: rgba(251, 138, 90, 0.16);
+}
 
 /* ── Hero Live Interactive Player Showcase ──────────────────── */
 .hero-player-stage {
@@ -1030,6 +1040,139 @@ img { max-width: 100%; display: block; }
 .stats-label {
   font-size: 0.75rem;
   color: var(--dim);
+}
+
+/* Tile 6: Interactive Deep Link Router (v0.2.85) */
+.tile-deeplink {
+  grid-column: span 12;
+}
+.tile-badge-new {
+  position: absolute;
+  top: 24px;
+  right: 28px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  color: var(--prism-orange);
+  background: rgba(251, 138, 90, 0.12);
+  border: 1px solid rgba(251, 138, 90, 0.35);
+  animation: newBadgePulse 2.6s ease-in-out infinite;
+}
+@keyframes newBadgePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 138, 90, 0.35); }
+  50% { box-shadow: 0 0 14px 2px rgba(251, 138, 90, 0.22); }
+}
+.deeplink-demo-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: auto;
+}
+.dl-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.dl-chip {
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--card-solid);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-family: var(--mono);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.dl-chip:hover {
+  color: var(--text);
+  border-color: var(--border-glow);
+}
+.dl-chip.active {
+  background: var(--accent-container);
+  color: var(--accent-strong);
+  border-color: var(--border-glow);
+  font-weight: 700;
+}
+.dl-url-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.dl-url-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 11px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.82rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.dl-url-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-container);
+}
+.dl-parse-flow {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.dl-parse-step {
+  flex: 1;
+  min-width: 170px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dl-step-key {
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.dl-step-val {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.dl-parse-step.active {
+  border-color: var(--accent);
+  background: var(--accent-container);
+  transform: translateY(-2px);
+}
+.dl-parse-step.active .dl-step-val { color: var(--accent-strong); }
+.dl-parse-step.done {
+  border-color: rgba(163, 217, 119, 0.5);
+}
+.dl-parse-step.done .dl-step-val { color: var(--text); }
+.dl-parse-step.done .dl-step-key::after {
+  content: " ✓";
+  color: var(--prism-lime);
+}
+.dl-parse-step.unknown {
+  border-color: rgba(251, 138, 90, 0.45);
+}
+.dl-parse-step.unknown .dl-step-val { color: var(--prism-orange); }
+.dl-parse-arrow {
+  align-self: center;
+  color: var(--dim);
+  font-size: 1.1rem;
 }
 
 /* Bento Mini Features (3 cols each) */
@@ -2000,7 +2143,7 @@ img { max-width: 100%; display: block; }
   .lb-prev { left: 12px; }
   .lb-next { right: 12px; }
   .lb-stage img { max-height: 65vh; max-width: 92vw; }
-  .tile-lyrics, .tile-eq, .tile-queue, .tile-dl, .tile-stats {
+  .tile-lyrics, .tile-eq, .tile-queue, .tile-dl, .tile-stats, .tile-deeplink {
     grid-column: span 12;
   }
   .tile-mini {
@@ -2150,6 +2293,7 @@ img { max-width: 100%; display: block; }
   .tile-queue,
   .tile-dl,
   .tile-stats,
+  .tile-deeplink,
   .tile-mini {
     width: 100% !important;
     max-width: 100% !important;
@@ -2162,7 +2306,13 @@ img { max-width: 100%; display: block; }
     transform: none !important;
   }
   .tile-head h3 {
-    font-size: 1.25rem;
+    font-size: 1.2rem;
+  }
+  .tile-badge-new {
+    position: static;
+    align-self: flex-start;
+    margin-bottom: 14px;
+    animation: none;
   }
   .tile-head p {
     font-size: 0.88rem;
