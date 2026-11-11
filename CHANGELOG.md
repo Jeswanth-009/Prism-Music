@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.87] - 2026-11-11
+
+### Changed
+
+- Upgrade pointycastle to ^4.0.0 and add 3DES decryption test
+
 ## [0.2.86] - 2026-11-11
 
 ### Changed
@@ -1152,3 +1158,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.84]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.84-build120
 [0.2.85]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.85-build121
 [0.2.86]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.86-build122
+[0.2.87]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.87-build123
