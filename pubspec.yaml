@@ -82,8 +82,6 @@ dependencies:
   json_annotation: ^4.9.0
   freezed_annotation: ^3.1.0
   audio_session: ^0.2.4
-  darttubefix: ^1.0.1
-  encrypt: ^5.0.3
   flutter_secure_storage: ^11.2.0
 
 dev_dependencies:
