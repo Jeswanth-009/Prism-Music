@@ -43,7 +43,7 @@ dependencies:
   crypto: ^3.0.5
   html: ^0.15.4
   xml: ^6.6.1
-  pointycastle: ^3.9.1
+  pointycastle: ^4.0.0
   
   # Last.fm Integration
   lastfm: ^0.0.6

@@ -1,4 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:prism_music/data/datasources/remote/jiosaavn/jiosaavn_datasource.dart';
 import 'package:prism_music/domain/entities/entities.dart';
 
@@ -210,6 +214,61 @@ void main() {
 
       final score = JioSaavnDataSourceImpl.scoreCandidate(target, candidate);
       expect(score, greaterThanOrEqualTo(0.80));
+    });
+  });
+
+  group('JioSaavnDataSourceImpl.getStreamUrl (3DES decryption)', () {
+    // Ciphertext for 'https://aac.saavncdn.com/123/test_track_96.mp4'
+    // encrypted with 3DES-ECB key '38346591' * 3 and PKCS#5/PKCS#7 padding.
+    const encryptedMediaUrl =
+        'ID2ieOjCrwfgWvL5sXl4B1ImC5QfbsDybI4qOHxaPPPR5DQmqZ2zzPFZKh9h83D9';
+
+    test('decrypts 3DES encrypted_media_url and upgrades to 320kbps', () async {
+      final mockClient = MockClient((request) async {
+        if (request.method == 'GET' && request.url.host == 'www.jiosaavn.com') {
+          return http.Response.bytes(
+            utf8.encode(jsonEncode({
+              'results': [
+                {
+                  'id': 'jio-dec-1',
+                  'title': 'Shape of You',
+                  'more_info': {
+                    'primary_artists': 'Ed Sheeran',
+                    'duration': '233',
+                    'encrypted_media_url': encryptedMediaUrl,
+                  },
+                },
+              ],
+            })),
+            200,
+          );
+        }
+        if (request.method == 'HEAD' && request.url.host == 'aac.saavncdn.com') {
+          return http.Response('', 200);
+        }
+        return http.Response('', 404);
+      });
+
+      final datasource = JioSaavnDataSourceImpl(client: mockClient);
+      final song = Song(
+        id: 'yt-7',
+        title: 'Shape of You',
+        artist: 'Ed Sheeran',
+        album: 'Divide',
+        duration: const Duration(seconds: 233),
+        thumbnails: const Thumbnails(),
+      );
+
+      final streamInfo = await datasource.getStreamUrl(
+        song,
+        preferredQuality: AudioQuality.high,
+      );
+
+      expect(streamInfo, isNotNull);
+      expect(streamInfo!.url, 'https://aac.saavncdn.com/123/test_track_320.mp4');
+      expect(streamInfo.bitrate, 320);
+      expect(streamInfo.quality, AudioQuality.high);
+      expect(streamInfo.streamProvenance, 'jiosaavn_matched');
     });
   });
 }
