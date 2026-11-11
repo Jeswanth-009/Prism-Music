@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.89] - 2026-11-11
+
+### Fixed
+
+- Tighten dart_ytmusic_api constraint and wire Piped/Invidious fallbacks
+
 ## [0.2.88] - 2026-11-11
 
 ### Changed
@@ -1166,3 +1172,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.86]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.86-build122
 [0.2.87]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.87-build123
 [0.2.88]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.88-build124
+[0.2.89]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.89-build125
