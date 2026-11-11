@@ -1,5 +1,5 @@
 import 'package:audio_service/audio_service.dart';
-import 'package:dartz/dartz.dart';
+import 'package:fpdart/fpdart.dart' show Right;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mocktail/mocktail.dart';

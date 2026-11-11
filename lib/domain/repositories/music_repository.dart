@@ -1,4 +1,4 @@
-import 'package:dartz/dartz.dart';
+import 'package:fpdart/fpdart.dart' show Either;
 import '../../core/error/failures.dart';
 import '../../core/utils/cancellation_token.dart';
 import '../entities/entities.dart';

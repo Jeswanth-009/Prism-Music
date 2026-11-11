@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dartz/dartz.dart';
+import 'package:fpdart/fpdart.dart' show Left, Right;
 import 'package:mocktail/mocktail.dart';
 import 'package:prism_music/core/error/failures.dart';
 import 'package:prism_music/core/services/recommendation_service.dart';

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dartz/dartz.dart';
+import 'package:fpdart/fpdart.dart' show Either, Right;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:prism_music/core/services/recommendation_service.dart';
 import 'package:prism_music/core/services/settings_service.dart';

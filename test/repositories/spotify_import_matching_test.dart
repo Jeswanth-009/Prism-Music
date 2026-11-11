@@ -125,7 +125,7 @@ void main() {
       final resultEither = await repository.importSpotifyPlaylist('https://open.spotify.com/playlist/pl_isrc');
       expect(resultEither.isRight(), isTrue);
 
-      final result = resultEither.getOrElse(() => throw Exception());
+      final result = resultEither.getOrElse((_) => throw Exception());
       expect(result.matchedCount, 1);
       expect(result.unmatchedCount, 0);
       expect(result.matchPercent, 100);
@@ -167,7 +167,7 @@ void main() {
       final resultEither = await repository.importSpotifyPlaylist('https://open.spotify.com/playlist/pl_meta');
       expect(resultEither.isRight(), isTrue);
 
-      final result = resultEither.getOrElse(() => throw Exception());
+      final result = resultEither.getOrElse((_) => throw Exception());
       expect(result.matchedCount, 1);
       expect(result.unmatchedCount, 0);
 
@@ -212,7 +212,7 @@ void main() {
       final resultEither = await repository.importSpotifyPlaylist('https://open.spotify.com/playlist/pl_indie');
       expect(resultEither.isRight(), isTrue);
 
-      final result = resultEither.getOrElse(() => throw Exception());
+      final result = resultEither.getOrElse((_) => throw Exception());
       expect(result.matchedCount, 1);
       expect(result.unmatchedCount, 0);
 
@@ -272,7 +272,7 @@ void main() {
       final resultEither = await repository.importSpotifyPlaylist('https://open.spotify.com/playlist/pl_unmatched');
       expect(resultEither.isRight(), isTrue);
 
-      final result = resultEither.getOrElse(() => throw Exception());
+      final result = resultEither.getOrElse((_) => throw Exception());
       expect(result.matchedCount, 1);
       expect(result.unmatchedCount, 1);
       expect(result.matchPercent, 50);
@@ -327,7 +327,7 @@ void main() {
       );
 
       expect(resultEither.isRight(), isTrue);
-      final result = resultEither.getOrElse(() => throw Exception());
+      final result = resultEither.getOrElse((_) => throw Exception());
 
       expect(result.wasCancelled, isTrue);
       expect(progressCalls, greaterThanOrEqualTo(3));

@@ -1,4 +1,4 @@
-import 'package:dartz/dartz.dart';
+import 'package:fpdart/fpdart.dart' show Either, Left, Right;
 import '../../core/error/error.dart';
 import '../../core/services/download_service.dart';
 import '../../domain/entities/entities.dart';

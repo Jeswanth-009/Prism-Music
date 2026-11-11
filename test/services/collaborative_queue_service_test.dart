@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dartz/dartz.dart';
+import 'package:fpdart/fpdart.dart' show Right;
 import 'package:http/http.dart' as http;
 import 'package:mocktail/mocktail.dart';
 import 'package:prism_music/core/services/collaborative_queue_service.dart';

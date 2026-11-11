@@ -1,4 +1,4 @@
-import 'package:dartz/dartz.dart';
+import 'package:fpdart/fpdart.dart' show Either, Left, Right;
 import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 import '../../core/error/error.dart';
@@ -382,7 +382,7 @@ class MusicRepositoryImpl implements MusicRepository {
                   await getPlaylistDetails(album.youtubePlaylistId!);
               if (playlistResult.isRight()) {
                 final p = playlistResult.getOrElse(
-                    () => throw StateError('unreachable'));
+                    (_) => throw StateError('unreachable'));
                 return Right(album.copyWith(
                   songs: p.songs,
                   trackCount: p.trackCount,

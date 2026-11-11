@@ -12,7 +12,7 @@ import 'package:prism_music/presentation/blocs/player/player_bloc.dart';
 import 'package:prism_music/presentation/blocs/player/player_event.dart';
 import 'package:prism_music/presentation/blocs/player/player_state.dart';
 
-import 'package:dartz/dartz.dart';
+import 'package:fpdart/fpdart.dart' show Either, Right;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:prism_music/core/error/failures.dart';
 

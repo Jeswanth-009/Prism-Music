@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:dartz/dartz.dart';
+import 'package:fpdart/fpdart.dart' show Either, Right;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:prism_music/core/error/failures.dart';

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dartz/dartz.dart';
+import 'package:fpdart/fpdart.dart' show Right;
 import 'package:prism_music/domain/entities/entities.dart';
 import 'package:prism_music/presentation/blocs/library/library_bloc.dart';
 import 'package:prism_music/presentation/blocs/library/library_event.dart';

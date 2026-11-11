@@ -1,4 +1,4 @@
-import 'package:dartz/dartz.dart';
+import 'package:fpdart/fpdart.dart' show Right;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_music/core/di/injection.dart';
 import 'package:prism_music/core/mappers/ytmusic_api_mappers.dart';

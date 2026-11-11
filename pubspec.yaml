@@ -76,7 +76,7 @@ dependencies:
   path: ^1.9.0
   
   # Functional Programming
-  dartz: ^0.10.1
+  fpdart: ^1.2.0
   
   # JSON Serialization
   json_annotation: ^4.9.0

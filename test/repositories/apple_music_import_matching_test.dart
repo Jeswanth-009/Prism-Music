@@ -124,7 +124,7 @@ void main() {
       );
 
       expect(resultEither.isRight(), isTrue);
-      final result = resultEither.getOrElse(() => throw Exception());
+      final result = resultEither.getOrElse((_) => throw Exception());
 
       expect(result.playlist.appleMusicPlaylistId, 'pl.f4d1060b525243e6a05420188a71bf1b');
       expect(result.matchedTracks.length, 1);

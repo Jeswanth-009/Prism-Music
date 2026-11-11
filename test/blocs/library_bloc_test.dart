@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:dartz/dartz.dart';
+import 'package:fpdart/fpdart.dart' show Left, Right;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_music/core/error/failures.dart';
 import 'package:prism_music/domain/entities/entities.dart';
