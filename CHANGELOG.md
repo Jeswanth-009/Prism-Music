@@ -8,6 +8,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.86] - 2026-11-11
+
+### Changed
+
+- Remove unused darttubefix and encrypt packages
+- Sync landing page with v0.2.85 features and interactive deep-link demo
+
 ## [0.2.85] - 2026-11-09
 
 ### Added
@@ -1144,3 +1151,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.83]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.83-build119
 [0.2.84]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.84-build120
 [0.2.85]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.85-build121
+[0.2.86]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.86-build122
