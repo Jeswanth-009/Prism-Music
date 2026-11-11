@@ -9,6 +9,8 @@ import '../../domain/repositories/music_repository.dart';
 import '../../core/matching/match_confidence_engine.dart';
 import '../../core/utils/cancellation_token.dart';
 import '../datasources/remote/youtube/youtube_music_datasource.dart';
+import '../datasources/remote/youtube/piped_datasource.dart';
+import '../datasources/remote/youtube/invidious_datasource.dart';
 import '../datasources/remote/spotify/spotify_datasource.dart';
 import '../datasources/remote/apple_music/apple_music_datasource.dart';
 import '../datasources/remote/lyrics/lyrics_datasource.dart';
@@ -29,6 +31,8 @@ class MusicRepositoryImpl implements MusicRepository {
   final LocalDataSource _localDataSource;
   final JioSaavnDataSource _jioSaavnDataSource;
   final YtMusicApiService _ytMusicApiService;
+  final PipedDataSource _pipedDataSource;
+  final InvidiousDataSource _invidiousDataSource;
 
   MusicRepositoryImpl({
     required YouTubeMusicDataSource youtubeMusicDataSource,
@@ -38,13 +42,17 @@ class MusicRepositoryImpl implements MusicRepository {
     required LocalDataSource localDataSource,
     required JioSaavnDataSource jioSaavnDataSource,
     required YtMusicApiService ytMusicApiService,
+    PipedDataSource? pipedDataSource,
+    InvidiousDataSource? invidiousDataSource,
   })  : _youtubeMusicDataSource = youtubeMusicDataSource,
         _spotifyDataSource = spotifyDataSource,
         _appleMusicDataSource = appleMusicDataSource ?? AppleMusicDataSourceImpl(),
         _lyricsDataSource = lyricsDataSource,
         _localDataSource = localDataSource,
         _jioSaavnDataSource = jioSaavnDataSource,
-        _ytMusicApiService = ytMusicApiService;
+        _ytMusicApiService = ytMusicApiService,
+        _pipedDataSource = pipedDataSource ?? PipedDataSource(),
+        _invidiousDataSource = invidiousDataSource ?? InvidiousDataSource();
 
   @override
   Future<Either<Failure, List<Song>>> searchSongs(
@@ -233,12 +241,35 @@ class MusicRepositoryImpl implements MusicRepository {
         forceRefresh: forceRefresh,
       );
       return Right(streamInfo);
-    } on StreamNotFoundException {
+    } on StreamNotFoundException catch (e) {
+      final fallback = await _resolveStreamViaMirrors(videoId);
+      if (fallback != null) return Right(fallback);
+      debugPrint('MusicRepositoryImpl: StreamNotFound ($e)');
       return const Left(StreamNotFoundFailure());
-    } on NetworkException {
+    } on NetworkException catch (e) {
+      final fallback = await _resolveStreamViaMirrors(videoId);
+      if (fallback != null) return Right(fallback);
+      debugPrint('MusicRepositoryImpl: NetworkException ($e)');
       return const Left(NetworkFailure());
     } catch (e) {
+      final fallback = await _resolveStreamViaMirrors(videoId);
+      if (fallback != null) return Right(fallback);
       return Left(AudioFailure(message: e.toString()));
+    }
+  }
+
+  Future<StreamInfo?> _resolveStreamViaMirrors(String videoId) async {
+    try {
+      final pipedStream = await _pipedDataSource.getStreamUrl(videoId);
+      if (pipedStream != null) return pipedStream;
+    } catch (e) {
+      debugPrint('MusicRepositoryImpl: Piped stream fallback failed: $e');
+    }
+    try {
+      return await _invidiousDataSource.getStreamUrl(videoId);
+    } catch (e) {
+      debugPrint('MusicRepositoryImpl: Invidious stream fallback failed: $e');
+      return null;
     }
   }
 
@@ -731,15 +762,27 @@ class MusicRepositoryImpl implements MusicRepository {
           ? 'trending music india $currentYear'
           : 'top hits $region $currentYear';
 
-      final items = await _ytMusicApiService.searchSongs(query);
-      
-      final songs = items
-          .map((item) => songFromYtMusicApi(item))
-          // Filter out invalid IDs and weird 0-second live streams
-          .where((song) => song.playableId.isNotEmpty && song.duration.inSeconds > 30)
-          .take(limit)
-          .toList();
-          
+      List<Song> songs = const [];
+      try {
+        final items = await _ytMusicApiService.searchSongs(query);
+        songs = items
+            .map((item) => songFromYtMusicApi(item))
+            // Filter out invalid IDs and weird 0-second live streams
+            .where((song) => song.playableId.isNotEmpty && song.duration.inSeconds > 30)
+            .take(limit)
+            .toList();
+      } catch (e) {
+        Logger.root.warning('MusicRepository.getTrending: ytMusicApi failed ($e), trying fallback');
+      }
+
+      if (songs.isEmpty) {
+        final fallback = await _youtubeMusicDataSource.searchSongs(query, limit: limit);
+        songs = fallback
+            .where((song) => song.playableId.isNotEmpty && song.duration.inSeconds > 30)
+            .take(limit)
+            .toList();
+      }
+
       if (songs.isNotEmpty) {
         return Right(songs);
       }

@@ -1,16 +1,21 @@
 import 'package:flutter/foundation.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt;
 
+import '../../data/datasources/remote/youtube/piped_datasource.dart';
 import '../../domain/entities/song.dart';
 import '../../domain/entities/stream_info.dart';
 
 /// Service responsible for resolving and managing music video streams from YouTube.
 class MusicVideoService {
   final yt.YoutubeExplode _youtube;
+  final PipedDataSource _piped;
   final Map<String, StreamInfo> _cache = {};
 
-  MusicVideoService({yt.YoutubeExplode? youtube})
-      : _youtube = youtube ?? yt.YoutubeExplode();
+  MusicVideoService({
+    yt.YoutubeExplode? youtube,
+    PipedDataSource? piped,
+  })  : _youtube = youtube ?? yt.YoutubeExplode(),
+        _piped = piped ?? PipedDataSource();
 
   /// Check whether a song can potentially stream a music video
   bool isVideoAvailable(Song? song) {
@@ -101,10 +106,55 @@ class MusicVideoService {
         return streamInfo;
       }
     } catch (e) {
-      debugPrint('MusicVideoService: Failed to resolve video stream for $videoId: $e');
+      debugPrint('MusicVideoService: Failed to resolve video stream via YoutubeExplode for $videoId: $e');
     }
 
-    return null;
+    return _getVideoStreamFromPiped(videoId, preferredQuality: preferredQuality);
+  }
+
+  Future<StreamInfo?> _getVideoStreamFromPiped(
+    String videoId, {
+    required String preferredQuality,
+  }) async {
+    try {
+      final details = await _piped.getVideoDetails(videoId);
+      final rawStreams = details?['videoStreams'] as List?;
+      if (rawStreams == null || rawStreams.isEmpty) return null;
+
+      final candidates = rawStreams
+          .whereType<Map<String, dynamic>>()
+          .where((s) => (s['url']?.toString() ?? '').isNotEmpty)
+          .toList();
+      if (candidates.isEmpty) return null;
+
+      final muxed = candidates.where((s) => s['videoOnly'] == false).toList();
+      final pool = muxed.isNotEmpty ? muxed : candidates;
+      final selected = pool.firstWhere(
+        (s) => (s['quality']?.toString() ?? '').contains(preferredQuality),
+        orElse: () => pool.first,
+      );
+
+      final directUrl = selected['url'].toString();
+      final bitrate = (selected['bitrate'] as num?)?.toInt() ?? 0;
+      final codec = (selected['codec'] ?? selected['mimeType'] ?? 'h264').toString();
+      final format = (selected['format'] ?? 'mp4').toString().toLowerCase();
+
+      final streamInfo = StreamInfo(
+        url: directUrl,
+        codec: codec,
+        bitrate: bitrate > 0 ? bitrate ~/ 1000 : 1000,
+        container: format == 'webm' ? 'webm' : 'mp4',
+        quality: muxed.isNotEmpty ? AudioQuality.high : AudioQuality.medium,
+        expiresAt: DateTime.now().add(const Duration(hours: 4)),
+        isAudioOnly: false,
+        streamProvenance: muxed.isNotEmpty ? 'piped_video' : 'piped_video_only',
+      );
+      _cache[videoId] = streamInfo;
+      return streamInfo;
+    } catch (e) {
+      debugPrint('MusicVideoService: Piped video fallback failed for $videoId: $e');
+      return null;
+    }
   }
 
   Future<yt.StreamManifest> _fetchManifest(String videoId) async {

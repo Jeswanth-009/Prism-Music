@@ -5,6 +5,7 @@ import '../../../../domain/entities/playlist.dart';
 import '../../../../domain/entities/stream_info.dart' as domain;
 import '../../../../core/services/stream_cache_service.dart';
 import 'invidious_datasource.dart';
+import 'piped_datasource.dart';
 
 /// Data source for YouTube Music API operations
 abstract class YouTubeMusicDataSource {
@@ -38,14 +39,17 @@ abstract class YouTubeMusicDataSource {
 class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
   final yt.YoutubeExplode _youtube;
   final InvidiousDataSource _invidious;
+  final PipedDataSource _piped;
   final StreamCacheService? _cache;
 
   YouTubeMusicDataSourceImpl({
     yt.YoutubeExplode? youtube,
     InvidiousDataSource? invidious,
+    PipedDataSource? piped,
     StreamCacheService? cache,
   })  : _youtube = youtube ?? yt.YoutubeExplode(),
         _invidious = invidious ?? InvidiousDataSource(),
+        _piped = piped ?? PipedDataSource(),
         _cache = cache;
 
   // Lightweight rate limiting + caching to keep fetches snappy without hitting limits
@@ -357,17 +361,12 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
             'YouTubeDataSource: Got ${videos.length} from Mix playlist',
           );
           // Skip the first entry (usually the source song itself)
-          return videos
-              .skip(1)
-              .map((v) => _videoToSong(v))
-              .where(
-                (s) =>
-                    s.duration.inSeconds >= 60 &&
-                    s.duration.inSeconds <= 600 &&
-                    !_isLikelyNonMusic(s),
-              )
-              .take(limit)
-              .toList();
+          final related = _filterRelatedSongs(
+            videos.skip(1).map(_videoToSong),
+            videoId,
+            limit,
+          );
+          if (related.isNotEmpty) return related;
         }
       } catch (_) {
         debugPrint(
@@ -375,44 +374,106 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
         );
       }
 
-      // Fallback: search by author + title
-      final video = await _youtube.videos.get(videoId);
-      final query = '${video.author} ${video.title.split('-').first.trim()}';
-      return await _searchSongsByQuery(query, limit: limit);
+      // Fallback 1: search by author + title (also cascades into Piped search)
+      try {
+        final video = await _youtube.videos.get(videoId);
+        final query = '${video.author} ${video.title.split('-').first.trim()}';
+        final bySearch = await _searchSongsByQuery(query, limit: limit);
+        final filtered = bySearch.where((s) => s.playableId != videoId).toList();
+        if (filtered.isNotEmpty) return filtered;
+      } catch (e) {
+        debugPrint('YouTubeDataSource: Related search fallback failed: $e');
+      }
+
+      // Fallback 2: Invidious Mix endpoint (/api/v1/mixes/RDMM...)
+      try {
+        final mix = await _invidious.getPlaylistDetails(mixPlaylistId);
+        if (mix != null && mix.songs.isNotEmpty) {
+          final fromInvidious = _filterRelatedSongs(mix.songs, videoId, limit);
+          if (fromInvidious.isNotEmpty) return fromInvidious;
+        }
+      } catch (e) {
+        debugPrint('YouTubeDataSource: Invidious mix fallback failed: $e');
+      }
+
+      // Fallback 3: Piped /streams relatedStreams
+      final details = await _piped.getVideoDetails(videoId);
+      final relatedRaw = details?['relatedStreams'] as List?;
+      if (relatedRaw != null && relatedRaw.isNotEmpty) {
+        final pipedSongs = relatedRaw
+            .whereType<Map<String, dynamic>>()
+            .map(_pipedItemToSong)
+            .whereType<Song>();
+        return _filterRelatedSongs(pipedSongs, videoId, limit);
+      }
+
+      return [];
     } catch (e) {
       debugPrint('YouTubeDataSource: getRelatedSongs error: $e');
       return [];
     }
   }
 
+  List<Song> _filterRelatedSongs(
+    Iterable<Song> candidates,
+    String sourceVideoId,
+    int limit,
+  ) {
+    return candidates
+        .where(
+          (s) =>
+              s.playableId != sourceVideoId &&
+              s.duration.inSeconds >= 60 &&
+              s.duration.inSeconds <= 600 &&
+              !_isLikelyNonMusic(s),
+        )
+        .take(limit)
+        .toList();
+  }
+
+  List<Song> _dedupMusicSongs(Iterable<Song> candidates, int limit) {
+    final songs = <Song>[];
+    final seen = <String>{};
+
+    for (final song in candidates) {
+      if (songs.length >= limit) break;
+      final trackKey = '${song.title.toLowerCase()}|${song.artist.toLowerCase()}';
+      if (!seen.add(trackKey)) continue;
+      if (song.duration.inSeconds < 45 || song.duration.inSeconds > 720) {
+        continue;
+      }
+      if (_isLikelyNonMusic(song)) continue;
+      songs.add(song);
+    }
+
+    return songs;
+  }
+
   Future<List<Song>> _searchSongsByQuery(String query, {int limit = 20}) async {
     try {
       final results = await _retrySearch(() => _youtube.search.search(query));
-      final songs = <Song>[];
-      final seen = <String>{};
-
-      for (final result in results) {
-        if (songs.length >= limit) break;
-        if (result is! yt.SearchVideo) continue;
-
-        final song = _videoToSong(result);
-        final trackKey =
-            '${song.title.toLowerCase()}|${song.artist.toLowerCase()}';
-        if (!seen.add(trackKey)) continue;
-
-        if (song.duration.inSeconds < 45 || song.duration.inSeconds > 720) {
-          continue;
-        }
-        if (_isLikelyNonMusic(song)) continue;
-
-        songs.add(song);
-      }
-
-      return songs;
+      final songs = _dedupMusicSongs(
+        results.whereType<yt.SearchVideo>().map(_videoToSong),
+        limit,
+      );
+      if (songs.isNotEmpty) return songs;
+      debugPrint(
+        'YouTubeDataSource: YoutubeExplode search returned 0 songs for "$query", trying Piped',
+      );
     } catch (e) {
       debugPrint(
-        'YouTubeDataSource: _searchSongsByQuery failed for "$query": $e',
+        'YouTubeDataSource: _searchSongsByQuery failed for "$query": $e — trying Piped fallback',
       );
+    }
+
+    try {
+      final pipedItems = await _piped.search(query, filter: 'music_songs');
+      return _dedupMusicSongs(
+        pipedItems.map(_pipedItemToSong).whereType<Song>(),
+        limit,
+      );
+    } catch (e) {
+      debugPrint('YouTubeDataSource: Piped search fallback failed for "$query": $e');
       return [];
     }
   }
@@ -424,8 +485,31 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
 
   @override
   Future<Song> getSongDetails(String videoId) async {
-    final video = await _youtube.videos.get(videoId);
-    return _videoToSong(video);
+    try {
+      final video = await _youtube.videos.get(videoId);
+      return _videoToSong(video);
+    } catch (primaryError) {
+      debugPrint(
+        'YouTubeDataSource: getSongDetails failed for $videoId ($primaryError), trying Piped fallback',
+      );
+      final details = await _piped.getVideoDetails(videoId);
+      if (details != null) {
+        final rawTitle = (details['title'] ?? '').toString().trim();
+        if (rawTitle.isNotEmpty) {
+          final seconds = (details['duration'] as num?)?.toInt();
+          return _buildYouTubeSong(
+            videoId: videoId,
+            rawTitle: rawTitle,
+            channelName: (details['uploader'] ?? 'YouTube').toString(),
+            duration: seconds != null && seconds > 0
+                ? Duration(seconds: seconds)
+                : const Duration(minutes: 3),
+            thumbnailUrl: details['thumbnailUrl']?.toString(),
+          );
+        }
+      }
+      rethrow;
+    }
   }
 
   @override
@@ -585,53 +669,56 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
   }
 
   // Helper methods
-  Song _videoToSong(dynamic video) {
-    String videoId;
-    String title;
-    String channelName;
-    String? thumbnailUrl;
-    Duration? duration;
-
-    try {
-      // 1. Safe extraction using dynamic property access (Duck Typing)
-      // This bypasses strict class checks (yt.Video, yt.SearchVideo, yt.PlaylistVideo)
-      // and just looks for the data we need, making it immune to package version changes.
-      
-      videoId = video.id.value.toString();
-      title = video.title.toString();
-      channelName = video.author.toString();
-      
-      // Safely extract thumbnail
-      try {
-        if (video.thumbnails != null && video.thumbnails.isNotEmpty) {
-          // Check if it has maxResUrl property first
-          try {
-            thumbnailUrl = video.thumbnails.maxResUrl.toString();
-          } catch (_) {
-            // Fallback to the first available URL
-            thumbnailUrl = video.thumbnails.first.url.toString();
-          }
-        }
-      } catch (e) {
-        thumbnailUrl = null;
-      }
-      
-      // Safely extract duration (Handles both String and Duration types)
-      final rawDuration = video.duration;
-      if (rawDuration is Duration) {
-        duration = rawDuration;
-      } else if (rawDuration is String) {
-        duration = _parseDuration(rawDuration);
-      } else {
-        duration = const Duration(minutes: 3);
-      }
-      
-    } catch (e) {
-      throw Exception('Unsupported video structure: ${video.runtimeType} - $e');
+  String? _extractVideoId(String? rawUrlOrId) {
+    if (rawUrlOrId == null || rawUrlOrId.isEmpty) return null;
+    if (!rawUrlOrId.contains('/') && !rawUrlOrId.contains('?')) {
+      return rawUrlOrId;
     }
+    final uri = Uri.tryParse(rawUrlOrId);
+    final v = uri?.queryParameters['v'];
+    if (v != null && v.isNotEmpty) return v;
+    if (uri != null && uri.pathSegments.isNotEmpty) {
+      final last = uri.pathSegments.last;
+      if (last.isNotEmpty && last != 'watch') return last;
+    }
+    return null;
+  }
 
+  Song? _pipedItemToSong(Map<String, dynamic> item) {
+    final videoId = _extractVideoId(
+      item['url']?.toString() ?? item['videoId']?.toString(),
+    );
+    final rawTitle = (item['title'] ?? '').toString().trim();
+    if (videoId == null || videoId.isEmpty || rawTitle.isEmpty) return null;
+
+    final channelName =
+        (item['uploaderName'] ?? item['uploader'] ?? 'YouTube').toString();
+    final seconds = (item['duration'] as num?)?.toInt();
+    // Skip livestreams (-1) or empty durations when filtering Piped tracks.
+    final duration = seconds != null && seconds > 0
+        ? Duration(seconds: seconds)
+        : Duration.zero;
+    final thumbnailUrl =
+        item['thumbnail']?.toString() ?? item['thumbnailUrl']?.toString();
+
+    return _buildYouTubeSong(
+      videoId: videoId,
+      rawTitle: rawTitle,
+      channelName: channelName,
+      duration: duration,
+      thumbnailUrl: thumbnailUrl,
+    );
+  }
+
+  Song _buildYouTubeSong({
+    required String videoId,
+    required String rawTitle,
+    required String channelName,
+    Duration? duration,
+    String? thumbnailUrl,
+  }) {
     // ── Clean title ──
-    String cleanTitle = title
+    final cleanTitle = rawTitle
         .replaceAll(
           RegExp(
             r'[\[\(]\s*(?:official\s*(?:music\s*)?(?:video|audio|lyric(?:s)?\s*(?:video)?|visuali[sz]er|mv)|'
@@ -669,13 +756,66 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
       title: songName,
       artist: artist,
       duration: duration ?? const Duration(minutes: 3),
-      thumbnails: thumbnailUrl != null
+      thumbnails: thumbnailUrl != null && thumbnailUrl.isNotEmpty
           ? Thumbnails.fromUrl(thumbnailUrl)
           : Thumbnails.empty(),
       // Mark the source so MediaResolver's YouTube stream heuristics and
       // lyrics matching treat these songs correctly.
       source: MusicSource.youtube,
       youtubeId: videoId,
+    );
+  }
+
+  Song _videoToSong(dynamic video) {
+    String videoId;
+    String title;
+    String channelName;
+    String? thumbnailUrl;
+    Duration? duration;
+
+    try {
+      // 1. Safe extraction using dynamic property access (Duck Typing)
+      // This bypasses strict class checks (yt.Video, yt.SearchVideo, yt.PlaylistVideo)
+      // and just looks for the data we need, making it immune to package version changes.
+
+      videoId = video.id.value.toString();
+      title = video.title.toString();
+      channelName = video.author.toString();
+
+      // Safely extract thumbnail
+      try {
+        if (video.thumbnails != null && video.thumbnails.isNotEmpty) {
+          // Check if it has maxResUrl property first
+          try {
+            thumbnailUrl = video.thumbnails.maxResUrl.toString();
+          } catch (_) {
+            // Fallback to the first available URL
+            thumbnailUrl = video.thumbnails.first.url.toString();
+          }
+        }
+      } catch (e) {
+        thumbnailUrl = null;
+      }
+
+      // Safely extract duration (Handles both String and Duration types)
+      final rawDuration = video.duration;
+      if (rawDuration is Duration) {
+        duration = rawDuration;
+      } else if (rawDuration is String) {
+        duration = _parseDuration(rawDuration);
+      } else {
+        duration = const Duration(minutes: 3);
+      }
+    } catch (e) {
+      throw Exception('Unsupported video structure: ${video.runtimeType} - $e');
+    }
+
+    return _buildYouTubeSong(
+      videoId: videoId,
+      rawTitle: title,
+      channelName: channelName,
+      duration: duration,
+      thumbnailUrl: thumbnailUrl,
     );
   }
 
