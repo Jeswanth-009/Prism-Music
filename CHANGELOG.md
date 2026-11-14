@@ -8,6 +8,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.91] - 2026-11-14
+
+### Added
+
+- Add Chromecast and DLNA audio casting to wireless speakers
+
+### Fixed
+
+- Address cleartext policy violations and visualizer animation ticker in tests
+
 ## [0.2.90] - 2026-11-14
 
 ### Added
@@ -1180,3 +1190,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.88]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.88-build124
 [0.2.89]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.89-build125
 [0.2.90]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.90-build126
+[0.2.91]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.91-build127
