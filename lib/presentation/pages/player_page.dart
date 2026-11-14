@@ -7,12 +7,14 @@ import 'package:palette_generator/palette_generator.dart';
 import '../../core/error/error_message_mapper.dart';
 import '../../core/services/settings_service.dart';
 import '../../core/services/visualizer_service.dart';
+import '../../core/services/cast_service.dart';
 import '../../domain/entities/song.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
 import '../blocs/player/player_state.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/common/adaptive_layout.dart';
+import '../widgets/dialogs/cast_device_picker_dialog.dart';
 import '../widgets/player/audio_visualizer_widget.dart';
 import '../widgets/player/layouts/classic_player_layout.dart';
 import '../widgets/player/layouts/landscape_player_layout.dart';
@@ -349,6 +351,20 @@ class _PlayerPageState extends State<PlayerPage> {
                   ? Icons.graphic_eq_outlined
                   : Icons.graphic_eq_rounded,
               color: VisualizerService.instance.style != VisualizerStyle.off
+                  ? (_dominantColor ?? theme.colorScheme.primary)
+                  : null,
+            ),
+          ),
+          IconButton(
+            onPressed: () => showCastDevicePickerDialog(context),
+            tooltip: CastService.instance.isCasting
+                ? 'Casting to ${CastService.instance.currentDevice?.name}'
+                : 'Cast audio to speaker',
+            icon: Icon(
+              CastService.instance.isCasting
+                  ? Icons.cast_connected_rounded
+                  : Icons.cast_rounded,
+              color: CastService.instance.isCasting
                   ? (_dominantColor ?? theme.colorScheme.primary)
                   : null,
             ),
