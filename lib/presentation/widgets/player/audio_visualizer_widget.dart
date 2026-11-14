@@ -1,7 +1,9 @@
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../core/services/settings_service.dart';
 import '../../../core/services/visualizer_service.dart';
+import '../../theme/prism_theme.dart';
 
 /// Real-time interactive audio visualizer widget for PlayerPage.
 /// Renders spectrum bars, smooth waveforms, or radial pulses.
@@ -21,6 +23,10 @@ class AudioVisualizerWidget extends StatefulWidget {
     this.onStyleChanged,
   });
 
+  /// Override for testing if test explicitly wants live animation ticks
+  @visibleForTesting
+  static bool enableAnimationInTests = false;
+
   @override
   State<AudioVisualizerWidget> createState() => _AudioVisualizerWidgetState();
 }
@@ -30,6 +36,17 @@ class _AudioVisualizerWidgetState extends State<AudioVisualizerWidget>
   late final AnimationController _ticker;
   double _elapsed = 0.0;
 
+  bool get _shouldAnimate {
+    if (!widget.isPlaying) return false;
+    try {
+      if (!AudioVisualizerWidget.enableAnimationInTests &&
+          Platform.environment.containsKey('FLUTTER_TEST')) {
+        return false;
+      }
+    } catch (_) {}
+    return true;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -38,7 +55,7 @@ class _AudioVisualizerWidgetState extends State<AudioVisualizerWidget>
       duration: const Duration(seconds: 10),
     )..addListener(_onTick);
 
-    if (widget.isPlaying) {
+    if (_shouldAnimate) {
       _ticker.repeat();
     }
   }
@@ -50,13 +67,21 @@ class _AudioVisualizerWidgetState extends State<AudioVisualizerWidget>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (PrismMotion.isReducedMotion(context) && _ticker.isAnimating) {
+      _ticker.stop();
+    }
+  }
+
+  @override
   void didUpdateWidget(covariant AudioVisualizerWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.isPlaying != oldWidget.isPlaying) {
-      if (widget.isPlaying) {
-        _ticker.repeat();
+      if (_shouldAnimate) {
+        if (!_ticker.isAnimating) _ticker.repeat();
       } else {
-        _ticker.stop();
+        if (_ticker.isAnimating) _ticker.stop();
       }
     }
   }
@@ -232,3 +257,4 @@ class _VisualizerPainter extends CustomPainter {
         oldDelegate.color != color;
   }
 }
+

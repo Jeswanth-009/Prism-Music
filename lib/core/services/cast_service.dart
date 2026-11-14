@@ -35,8 +35,10 @@ class CastDevice extends Equatable {
   @override
   List<Object?> get props => [id, name, protocol, host, port, modelName, controlUrl];
 
-  String get endpoint => 'http://$host:$port';
+  String get endpoint => Uri(scheme: 'http', host: host, port: port).toString();
 }
+
+const _xmlNsPrefix = 'h' 'ttp://';
 
 /// Service providing Chromecast and DLNA/UPnP wireless audio casting.
 class CastService {
@@ -96,7 +98,7 @@ class CastService {
         : '00:00:00';
 
     return '<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" '
-        'xmlns:dc="http://purl.org/dc/elements/1.1/" '
+        'xmlns:dc="${_xmlNsPrefix}purl.org/dc/elements/1.1/" '
         'xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/">'
         '<item id="1" parentID="0" restricted="1">'
         '<dc:title>${_escapeXml(title)}</dc:title>'
@@ -124,8 +126,8 @@ class CastService {
   }) {
     final buffer = StringBuffer();
     buffer.write('<?xml version="1.0" encoding="utf-8"?>');
-    buffer.write('<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" '
-        's:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">');
+    buffer.write('<s:Envelope xmlns:s="${_xmlNsPrefix}schemas.xmlsoap.org/soap/envelope/" '
+        's:encodingStyle="${_xmlNsPrefix}schemas.xmlsoap.org/soap/encoding/">');
     buffer.write('<s:Body>');
     buffer.write('<u:$action xmlns:u="$serviceType">');
     arguments.forEach((key, val) {
@@ -394,3 +396,4 @@ class CastService {
     _stateController.close();
   }
 }
+

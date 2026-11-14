@@ -61,7 +61,9 @@ void main() {
         },
       );
 
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+      for (var i = 0; i < 20 && !elapsed; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 25));
+      }
 
       expect(elapsed, isTrue);
       expect(restored, isTrue);
