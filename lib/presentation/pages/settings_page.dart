@@ -402,6 +402,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   const SizedBox(height: 16),
                   _buildAppExperienceSection(),
                   _buildAudioPlaybackSection(),
+                  _buildConnectedDevicesSection(),
                   _buildDataStorageSection(),
                   _buildBackupPrivacySection(),
                   _buildAboutSection(),
@@ -978,6 +979,28 @@ class _SettingsPageState extends State<SettingsPage> {
               },
             ),
           ),
+      ],
+    );
+  }
+
+  Widget _buildConnectedDevicesSection() {
+    return SettingSectionCard(
+      title: 'Connected Devices',
+      subtitle: 'Smartwatch controls and companion integration',
+      icon: Icons.watch_rounded,
+      children: [
+        SettingRow(
+          leading: const Icon(Icons.watch_rounded),
+          title: 'Wear OS Companion',
+          subtitle: 'Sync playback controls and track metadata to smartwatch',
+          trailing: Switch.adaptive(
+            value: _settingsService.isWearOsCompanionEnabled,
+            onChanged: (val) async {
+              await _settingsService.setWearOsCompanionEnabled(val);
+              setState(() {});
+            },
+          ),
+        ),
       ],
     );
   }

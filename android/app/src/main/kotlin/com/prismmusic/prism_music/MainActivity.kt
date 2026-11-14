@@ -4,6 +4,7 @@ import android.content.Intent
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.PresetReverb
+import com.prismmusic.prism_music.wear.WearOsBridge
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -18,6 +19,7 @@ class MainActivity : AudioServiceActivity() {
 
     private var initialDeepLink: String? = null
     private var deepLinkChannel: MethodChannel? = null
+    private var wearOsBridge: WearOsBridge? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -89,6 +91,8 @@ class MainActivity : AudioServiceActivity() {
                     result.notImplemented()
                 }
             }
+
+        wearOsBridge = WearOsBridge(this, flutterEngine.dartExecutor.binaryMessenger)
     }
 
     private fun setBassBoost(level: Double, enabled: Boolean) {
@@ -217,6 +221,7 @@ class MainActivity : AudioServiceActivity() {
 
     override fun onDestroy() {
         releaseEffects()
+        wearOsBridge?.unregisterReceiver()
         super.onDestroy()
     }
 }

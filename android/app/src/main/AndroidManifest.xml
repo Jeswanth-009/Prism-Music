@@ -119,6 +119,11 @@
         <meta-data
             android:name="com.google.android.gms.car.application"
             android:resource="@xml/automotive_app_desc" />
+
+        <!-- Wear OS companion app descriptor -->
+        <meta-data
+            android:name="com.google.android.wearable.standalone"
+            android:value="false" />
             
         <!-- Audio Service for background playback -->
         <service 

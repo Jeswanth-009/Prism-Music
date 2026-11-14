@@ -7,6 +7,7 @@ import '../../domain/repositories/library_repository.dart';
 import '../di/injection.dart';
 import 'download_service.dart';
 import 'media_session_coordinator.dart';
+import 'wear_os_service.dart';
 
 /// audio_service handler producing the system media notification.
 ///
@@ -136,6 +137,22 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
         queueIndex: event.currentIndex,
       ),
     );
+
+    final currentItem = mediaItem.value;
+    if (currentItem != null) {
+      WearOsService.instance.updatePlaybackState(
+        song: Song(
+          id: currentItem.id,
+          title: currentItem.title,
+          artist: currentItem.artist ?? '',
+          thumbnails: Thumbnails(high: currentItem.artUri?.toString()),
+          duration: currentItem.duration ?? Duration.zero,
+        ),
+        isPlaying: playing,
+        position: player.position,
+        duration: currentItem.duration ?? Duration.zero,
+      );
+    }
   }
 
   /// Re-render the notification's controls after queue enablement changed.

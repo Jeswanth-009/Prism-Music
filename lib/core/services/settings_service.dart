@@ -141,6 +141,7 @@ class SettingsService {
   static const String _audioNormalizationEnabledKey = 'audio_normalization_enabled';
   static const String _audioNormalizationTargetKey = 'audio_normalization_target';
   static const String _audioNormalizationPreampDbKey = 'audio_normalization_preamp_db';
+  static const String _wearOsCompanionKey = 'wear_os_companion_enabled';
   static SettingsService? _instance;
   
   Box? _settingsBox;
@@ -974,6 +975,20 @@ class SettingsService {
   /// Persist manual offline mode setting.
   Future<void> setForceOfflineMode(bool value) async {
     await _settingsBox?.put(_forceOfflineModeKey, value);
+  }
+
+  /// Whether Wear OS companion bridge is enabled (default: true).
+  bool get isWearOsCompanionEnabled {
+    try {
+      return _settingsBox?.get(_wearOsCompanionKey, defaultValue: true) as bool? ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// Persist Wear OS companion enabled setting.
+  Future<void> setWearOsCompanionEnabled(bool value) async {
+    await _settingsBox?.put(_wearOsCompanionKey, value);
   }
 }
 

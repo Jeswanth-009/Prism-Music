@@ -17,6 +17,7 @@ import 'core/services/media_session_coordinator.dart';
 import 'core/services/local_backup_service.dart';
 import 'core/services/prism_audio_handler.dart';
 import 'core/services/settings_service.dart';
+import 'core/services/wear_os_service.dart';
 import 'presentation/blocs/player/player.dart';
 import 'presentation/blocs/search/search.dart';
 import 'presentation/blocs/library/library.dart';
@@ -97,6 +98,7 @@ void main() async {
       ),
     ).timeout(const Duration(seconds: 8));
     MediaSessionCoordinator.instance.attachHandler(audioHandler);
+    WearOsService.instance.initialize(playerService: audioPlayerService);
 
     // Restore user library from the on-device backup (survives uninstall).
     try {

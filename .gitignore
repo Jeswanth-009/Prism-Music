@@ -60,3 +60,6 @@ test_hive*/
 .zcode/
 .zcodeignore
 
+# Promo media artifacts
+promo_media/
+
