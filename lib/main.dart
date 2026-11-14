@@ -18,6 +18,9 @@ import 'core/services/local_backup_service.dart';
 import 'core/services/prism_audio_handler.dart';
 import 'core/services/settings_service.dart';
 import 'core/services/wear_os_service.dart';
+import 'core/services/desktop_window_service.dart';
+import 'core/services/desktop_shortcuts_service.dart';
+import 'domain/repositories/library_repository.dart';
 import 'presentation/blocs/player/player.dart';
 import 'presentation/blocs/search/search.dart';
 import 'presentation/blocs/library/library.dart';
@@ -81,23 +84,27 @@ void main() async {
 
     // 3. Initialize AudioService with our custom handler, passing the existing player.
     final audioHandler = PrismAudioHandler(audioPlayerService.player);
-    await AudioService.init(
-      builder: () => audioHandler,
-      config: const AudioServiceConfig(
-        androidNotificationChannelId:
-            'com.prismmusic.app.channel.audio.playback.v2',
-        androidNotificationChannelName: 'Prism Music',
-        androidNotificationChannelDescription:
-            'Now-playing controls and media session for Prism Music',
-        notificationColor: Color(0xFF8B7BFF),
-        androidNotificationIcon: 'drawable/ic_notification',
-        androidNotificationOngoing: false,
-        androidStopForegroundOnPause: false,
-        artDownscaleWidth: 512,
-        artDownscaleHeight: 512,
-      ),
-    ).timeout(const Duration(seconds: 8));
-    MediaSessionCoordinator.instance.attachHandler(audioHandler);
+    try {
+      await AudioService.init(
+        builder: () => audioHandler,
+        config: const AudioServiceConfig(
+          androidNotificationChannelId:
+              'com.prismmusic.app.channel.audio.playback.v2',
+          androidNotificationChannelName: 'Prism Music',
+          androidNotificationChannelDescription:
+              'Now-playing controls and media session for Prism Music',
+          notificationColor: Color(0xFF8B7BFF),
+          androidNotificationIcon: 'drawable/ic_notification',
+          androidNotificationOngoing: false,
+          androidStopForegroundOnPause: false,
+          artDownscaleWidth: 512,
+          artDownscaleHeight: 512,
+        ),
+      ).timeout(const Duration(seconds: 8));
+      MediaSessionCoordinator.instance.attachHandler(audioHandler);
+    } catch (e) {
+      debugPrint('AudioService init bypassed or unhandled on this platform: $e');
+    }
     WearOsService.instance.initialize(playerService: audioPlayerService);
 
     // Restore user library from the on-device backup (survives uninstall).
@@ -242,28 +249,49 @@ class PrismMusicApp extends StatelessWidget {
           create: (_) => getIt<LibraryBloc>()..add(const LoadLibraryEvent()),
         ),
       ],
-      child: BlocBuilder<ThemeBloc, ThemeState>(
-        builder: (context, themeState) {
-          final currentLang = SettingsService.instance.appLanguage;
-          return MaterialApp(
-            title: 'Prism Music',
-            debugShowCheckedModeBanner: false,
-            locale: Locale(currentLang),
-            supportedLocales: PrismLocalizations.supportedLocales,
-            localizationsDelegates: const [
-              PrismLocalizations.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            theme: themeState.lightTheme,
-            darkTheme: themeState.darkTheme,
-            themeMode: themeState.themeMode,
-            home: SettingsService.instance.onboardingComplete
-                ? const HomePage()
-                : const OnboardingPage(),
+      child: BlocListener<PlayerBloc, PlayerState>(
+        listenWhen: (prev, curr) =>
+            prev.currentSong != curr.currentSong || prev.status != curr.status,
+        listener: (context, state) {
+          DesktopWindowService.instance.updateWindowTitle(
+            song: state.currentSong,
+            isPlaying: state.status == PlayerStatus.playing,
           );
         },
+        child: BlocBuilder<ThemeBloc, ThemeState>(
+          builder: (context, themeState) {
+            final currentLang = SettingsService.instance.appLanguage;
+            return MaterialApp(
+              title: 'Prism Music',
+              debugShowCheckedModeBanner: false,
+              locale: Locale(currentLang),
+              supportedLocales: PrismLocalizations.supportedLocales,
+              localizationsDelegates: const [
+                PrismLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              theme: themeState.lightTheme,
+              darkTheme: themeState.darkTheme,
+              themeMode: themeState.themeMode,
+              builder: (context, child) {
+                return DesktopShortcutsWrapper(
+                  service: DesktopShortcutsService(
+                    playerService: getIt<AudioPlayerService>(),
+                    libraryRepository: getIt.isRegistered<LibraryRepository>()
+                        ? getIt<LibraryRepository>()
+                        : null,
+                  ),
+                  child: child ?? const SizedBox.shrink(),
+                );
+              },
+              home: SettingsService.instance.onboardingComplete
+                  ? const HomePage()
+                  : const OnboardingPage(),
+            );
+          },
+        ),
       ),
     );
   }

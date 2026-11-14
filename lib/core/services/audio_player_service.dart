@@ -10,6 +10,7 @@ import '../../domain/entities/stream_info.dart';
 import 'youtube_audio_source.dart';
 import 'equalizer_service.dart';
 import 'audio_normalization_service.dart';
+import 'desktop_audio_support.dart';
 
 /// Audio player service using just_audio with direct YouTube streaming
 class AudioPlayerService {
@@ -76,14 +77,8 @@ class AudioPlayerService {
 
   void _init() {
     _player = AudioPlayer(
-      audioLoadConfiguration: AudioLoadConfiguration(
-        androidLoadControl: AndroidLoadControl(
-          minBufferDuration: const Duration(seconds: 30),
-          maxBufferDuration: const Duration(seconds: 120),
-          bufferForPlaybackDuration: const Duration(seconds: 2),
-          bufferForPlaybackAfterRebufferDuration: const Duration(seconds: 3),
-        ),
-      ),
+      audioLoadConfiguration:
+          DesktopAudioSupport.instance.getPlatformAudioLoadConfiguration(),
       // AudioFocusOrchestratorService handles interruptions and focus exclusively
       handleInterruptions: false,
     );
