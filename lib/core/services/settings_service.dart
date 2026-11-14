@@ -81,6 +81,25 @@ extension PlayerUiStyleX on PlayerUiStyle {
   }
 }
 
+/// Visualization modes available for the audio visualizer
+enum VisualizerStyle { bars, wave, pulse, off }
+
+extension VisualizerStyleX on VisualizerStyle {
+  String get label => switch (this) {
+        VisualizerStyle.bars => 'Spectrum Bars',
+        VisualizerStyle.wave => 'Waveform',
+        VisualizerStyle.pulse => 'Radial Pulse',
+        VisualizerStyle.off => 'Off',
+      };
+
+  static VisualizerStyle fromValue(String? value) {
+    return VisualizerStyle.values.firstWhere(
+      (style) => style.name == value,
+      orElse: () => VisualizerStyle.bars,
+    );
+  }
+}
+
 /// Identifiers for customizable sections on the Home feed
 enum HomeSectionId {
   hero('Quick Play & Greeting', 'Quick play hero banner at top'),
@@ -142,6 +161,7 @@ class SettingsService {
   static const String _audioNormalizationTargetKey = 'audio_normalization_target';
   static const String _audioNormalizationPreampDbKey = 'audio_normalization_preamp_db';
   static const String _wearOsCompanionKey = 'wear_os_companion_enabled';
+  static const String _visualizerStyleKey = 'visualizer_style';
   static SettingsService? _instance;
   
   Box? _settingsBox;
@@ -989,6 +1009,21 @@ class SettingsService {
   /// Persist Wear OS companion enabled setting.
   Future<void> setWearOsCompanionEnabled(bool value) async {
     await _settingsBox?.put(_wearOsCompanionKey, value);
+  }
+
+  /// Active visualizer style on PlayerPage (default: bars)
+  VisualizerStyle get visualizerStyle {
+    try {
+      final value = _settingsBox?.get(_visualizerStyleKey) as String?;
+      return VisualizerStyleX.fromValue(value);
+    } catch (_) {
+      return VisualizerStyle.bars;
+    }
+  }
+
+  /// Persist visualizer style setting.
+  Future<void> setVisualizerStyle(VisualizerStyle style) async {
+    await _settingsBox?.put(_visualizerStyleKey, style.name);
   }
 }
 

@@ -6,12 +6,14 @@ import 'package:palette_generator/palette_generator.dart';
 
 import '../../core/error/error_message_mapper.dart';
 import '../../core/services/settings_service.dart';
+import '../../core/services/visualizer_service.dart';
 import '../../domain/entities/song.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
 import '../blocs/player/player_state.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/common/adaptive_layout.dart';
+import '../widgets/player/audio_visualizer_widget.dart';
 import '../widgets/player/layouts/classic_player_layout.dart';
 import '../widgets/player/layouts/landscape_player_layout.dart';
 import '../widgets/player/layouts/vinyl_player_layout.dart';
@@ -271,7 +273,15 @@ class _PlayerPageState extends State<PlayerPage> {
                                 ),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                        child: AudioVisualizerWidget(
+                          isPlaying: state.status == PlayerStatus.playing,
+                          dominantColor: _dominantColor,
+                          height: 32,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
                       const PlayerSliderWidget(),
                       const SizedBox(height: 12),
                       PlayerControlsSection(state: state),
@@ -328,6 +338,21 @@ class _PlayerPageState extends State<PlayerPage> {
             ],
           ),
           const Spacer(),
+          IconButton(
+            onPressed: () async {
+              await VisualizerService.instance.cycleStyle();
+              if (context.mounted) setState(() {});
+            },
+            tooltip: 'Visualizer: ${VisualizerService.instance.style.label}',
+            icon: Icon(
+              VisualizerService.instance.style == VisualizerStyle.off
+                  ? Icons.graphic_eq_outlined
+                  : Icons.graphic_eq_rounded,
+              color: VisualizerService.instance.style != VisualizerStyle.off
+                  ? (_dominantColor ?? theme.colorScheme.primary)
+                  : null,
+            ),
+          ),
           IconButton(
             onPressed: () => showPlayerEqualizerSheet(context),
             tooltip: 'Equalizer',
