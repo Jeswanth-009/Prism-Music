@@ -14,6 +14,7 @@ import '../../core/services/local_backup_service.dart';
 import '../../core/services/permission_service.dart';
 import '../../core/services/recommendation_service.dart';
 import '../../core/services/settings_service.dart';
+import '../../core/services/settings_backup_service.dart';
 import '../../core/services/storage_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/queue_persistence_service.dart';
@@ -139,6 +140,120 @@ class _SettingsPageState extends State<SettingsPage> {
         showPrismToast(context, 'Export failed: $e');
       }
     }
+  }
+
+  Future<void> _exportSettings() async {
+    final jsonStr = SettingsBackupService.instance.exportSettingsToJson();
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Export App Settings'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Your current settings and preferences have been packaged into portable JSON:'),
+              const SizedBox(height: 12),
+              Container(
+                height: 140,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SingleChildScrollView(
+                  child: SelectableText(
+                    jsonStr,
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: jsonStr));
+              if (ctx.mounted && mounted) {
+                Navigator.of(ctx).pop();
+                showPrismToast(context, 'Settings JSON copied to clipboard');
+              }
+            },
+            icon: const Icon(Icons.copy_rounded, size: 18),
+            label: const Text('Copy JSON'),
+          ),
+          FilledButton.icon(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await Share.share(
+                jsonStr,
+                subject: 'Prism Music Settings Backup',
+              );
+            },
+            icon: const Icon(Icons.share_rounded, size: 18),
+            label: const Text('Share'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _importSettings() async {
+    final textController = TextEditingController();
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Import App Settings'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Paste your settings backup JSON below to restore preferences across devices:'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: textController,
+                maxLines: 6,
+                decoration: InputDecoration(
+                  hintText: 'Paste settings JSON here',
+                  border: const OutlineInputBorder(),
+                  filled: true,
+                  fillColor: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                ),
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final raw = textController.text.trim();
+              if (raw.isEmpty) return;
+              final result = await SettingsBackupService.instance.importSettingsFromJson(raw);
+              if (ctx.mounted && mounted) {
+                Navigator.of(ctx).pop();
+                if (result.isSuccess) {
+                  showPrismToast(context, 'Restored ${result.restoredCount} settings successfully!');
+                  setState(() {});
+                } else {
+                  showPrismToast(context, 'Import failed: ${result.error}');
+                }
+              }
+            },
+            child: const Text('Restore Settings'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _confirmAndDeleteBackup() {
@@ -1217,6 +1332,18 @@ class _SettingsPageState extends State<SettingsPage> {
           title: 'Portable Backup & Restore',
           subtitle: 'Export, inspect, merge or restore library backups',
           onTap: () => showPortableBackupSheet(context, onBackupChanged: _refreshBackupInfo),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.tune_rounded),
+          title: 'Export app settings',
+          subtitle: 'Backup app preferences and configurations to JSON',
+          onTap: _exportSettings,
+        ),
+        SettingRow(
+          leading: const Icon(Icons.settings_suggest_rounded),
+          title: 'Import app settings',
+          subtitle: 'Restore settings and preferences from JSON',
+          onTap: _importSettings,
         ),
         SettingRow(
           leading: const Icon(Icons.bug_report_outlined),
