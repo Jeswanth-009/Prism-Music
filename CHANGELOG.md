@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.90] - 2026-11-14
+
+### Added
+
+- Add Wear OS companion bridge and smartwatch playback controls
+
 ## [0.2.89] - 2026-11-11
 
 ### Fixed
@@ -1173,3 +1179,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.87]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.87-build123
 [0.2.88]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.88-build124
 [0.2.89]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.89-build125
+[0.2.90]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.90-build126
