@@ -46,10 +46,14 @@ void main() {
       bool restored = false;
       bool elapsed = false;
 
+      // The fade only starts after 60% of the timer has elapsed and then ticks
+      // every 50ms, so a very short timer can lose every tick when the test
+      // isolate is starved by the rest of the suite. One second leaves eight
+      // reliable ticks without slowing the suite noticeably.
       consumer.startSleepTimer(
-        const Duration(milliseconds: 150),
+        const Duration(seconds: 1),
         bedtimeMode: true,
-        fadeDuration: const Duration(milliseconds: 120),
+        fadeDuration: const Duration(milliseconds: 400),
         onVolumeFade: (factor) {
           fadeFactors.add(factor);
         },
@@ -61,8 +65,8 @@ void main() {
         },
       );
 
-      for (var i = 0; i < 20 && !elapsed; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 25));
+      for (var i = 0; i < 40 && !elapsed; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
       }
 
       expect(elapsed, isTrue);
