@@ -5,18 +5,14 @@ name: Windows Desktop Build
 # auto-version.yml; release-alpha.yml only re-builds APKs, so this is the only
 # place the Windows app is produced.
 #
+# Main-branch pushes are covered by the `windows` job in auto-version.yml,
+# which attaches the zip to the published release; this workflow gives
+# pull requests the same compile signal without building twice per push.
+#
 # Triggers:
-#   • Push to main (skips documentation- and website-only changes)
 #   • Pull requests (permission-safe: read-only, no publishing)
 #   • Manual dispatch
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - "website/**"
   pull_request:
   workflow_dispatch:
 

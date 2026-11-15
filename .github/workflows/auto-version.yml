@@ -45,6 +45,12 @@ jobs:
     name: Bump Version → Build APK → Publish Release
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # Consumed by the `windows` job so the desktop build ships with the release.
+    outputs:
+      should_release: ${{ steps.next_version.outputs.should_release }}
+      next_version: ${{ steps.next_version.outputs.next_version }}
+      next_build: ${{ steps.next_version.outputs.next_build }}
+      next_tag: ${{ steps.next_version.outputs.next_tag }}
     env:
       GRADLE_OPTS: "-Dorg.gradle.internal.http.connectionTimeout=180000 -Dorg.gradle.internal.http.socketTimeout=180000 -Dsun.net.client.defaultConnectTimeout=180000 -Dsun.net.client.defaultReadTimeout=180000"
 
@@ -555,6 +561,11 @@ jobs:
             echo "labelled \`android-emulator-x86_64.apk\` is only for PC Android emulators."
             echo "Each release has a strictly increasing \`versionCode\`, so Android will"
             echo "always accept the upgrade without a conflict."
+            echo ""
+            echo "### Windows (64-bit)"
+            echo "Download \`prism-music-${{ steps.next_version.outputs.next_tag }}-windows-x64.zip\`,"
+            echo "extract it and run \`prism_music.exe\`. The zip is built by a separate"
+            echo "Windows job, so it appears on the release a few minutes after the Android assets."
           } > release_body.md
           echo "--- release body ---"
           cat release_body.md
@@ -585,3 +596,108 @@ jobs:
         if: steps.next_version.outputs.should_release == 'true' && env.SIGNED_BUILD != 'true'
         run: |
           echo "::warning::Release artifacts were built with debug signing and uploaded as workflow artifacts, but will NOT be published as a GitHub release because production signing secrets are missing."
+
+  # ───────────────────────────────────────────────────────────────
+  # Windows desktop build
+  # ───────────────────────────────────────────────────────────────
+  # The release job runs on ubuntu and can only produce Android assets, so the
+  # Windows target is compiled here and attached to the release the job above
+  # just published. Runs after the release so the tag and release both exist.
+  windows:
+    name: Build Windows desktop app → attach to release
+    needs: release
+    if: needs.release.outputs.should_release == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Flutter (3.38.4 stable)
+        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff # v2.18.0
+        with:
+          flutter-version: "3.38.4"
+          channel: stable
+          cache: true
+
+      - name: Enable the Windows desktop target
+        run: flutter config --enable-windows-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Windows release
+        env:
+          VERSION: ${{ needs.release.outputs.next_version }}
+          BUILD_NUMBER: ${{ needs.release.outputs.next_build }}
+        run: |
+          flutter build windows --release \
+            --build-name "$VERSION" \
+            --build-number "$BUILD_NUMBER"
+
+      - name: Verify Windows build output
+        run: |
+          APP_DIR="build/windows/x64/runner/Release"
+          EXE="$APP_DIR/prism_music.exe"
+          AOT="$APP_DIR/data/app.so"
+          ASSETS="$APP_DIR/data/flutter_assets/AssetManifest.bin"
+
+          for f in "$EXE" "$AOT" "$ASSETS"; do
+            if [[ ! -f "$f" ]]; then
+              echo "ERROR: expected build output is missing: $f"
+              ls -R "$APP_DIR" || true
+              exit 1
+            fi
+          done
+
+          AOT_SIZE=$(stat -c%s "$AOT")
+          echo "AOT library size: $AOT_SIZE bytes"
+          if [[ "$AOT_SIZE" -lt 5000000 ]]; then
+            echo "ERROR: AOT library is suspiciously small ($AOT_SIZE bytes)"
+            exit 1
+          fi
+
+      - name: Package release folder as a zip
+        env:
+          TAG: ${{ needs.release.outputs.next_tag }}
+        run: |
+          ZIP="prism-music-${TAG}-windows-x64.zip"
+          powershell -NoProfile -Command "Compress-Archive \
+            -Path 'build/windows/x64/runner/Release/*' \
+            -DestinationPath '${ZIP}' -Force"
+          if [[ ! -f "$ZIP" ]]; then
+            echo "ERROR: zip archive was not created"
+            exit 1
+          fi
+          sha256sum "$ZIP" > "${ZIP}.sha256"
+          cat "${ZIP}.sha256"
+          echo "ZIP_NAME=$ZIP" >> "$GITHUB_ENV"
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: prism-music-${{ needs.release.outputs.next_tag }}-windows-x64
+          path: |
+            ${{ env.ZIP_NAME }}
+            ${{ env.ZIP_NAME }}.sha256
+          if-no-files-found: error
+
+      # The release is published by softprops/action-gh-release above; adding
+      # the desktop asset afterwards keeps both jobs independent.
+      - name: Attach Windows build to the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release.outputs.next_tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ZIP_NAME" "${ZIP_NAME}.sha256" --clobber
+            echo "Uploaded $ZIP_NAME to release $TAG"
+          else
+            echo "::warning::Release $TAG was not published (unsigned build?); the Windows build stays available as a workflow artifact only."
+          fi
