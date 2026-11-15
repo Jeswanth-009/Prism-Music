@@ -31,6 +31,36 @@ void main() {
       expect(DateGrouping.formatRelativeTime(now.subtract(const Duration(hours: 3))), '3h ago');
     });
 
+    test('keeps pre-midnight plays in Today when only minutes have elapsed', () {
+      final now = DateTime(2026, 11, 15, 0, 5);
+      final played = DateTime(2026, 11, 14, 23, 45);
+
+      expect(DateGrouping.formatRelativeTime(played, now: now), '20m ago');
+      expect(DateGrouping.getPeriodLabel(played, now: now), DateGrouping.today);
+    });
+
+    test('reports hours elapsed across midnight instead of Yesterday', () {
+      final now = DateTime(2026, 11, 15, 1, 45);
+      final played = DateTime(2026, 11, 14, 23, 45);
+
+      expect(DateGrouping.formatRelativeTime(played, now: now), '2h ago');
+      expect(DateGrouping.getPeriodLabel(played, now: now), DateGrouping.today);
+    });
+
+    test('still reports Yesterday once a full day has elapsed', () {
+      final now = DateTime(2026, 11, 15, 0, 30);
+      final played = DateTime(2026, 11, 13, 22, 30); // 26 hours earlier
+
+      expect(
+        DateGrouping.formatRelativeTime(played, now: now),
+        startsWith('Yesterday,'),
+      );
+      expect(
+        DateGrouping.getPeriodLabel(played, now: now),
+        DateGrouping.yesterday,
+      );
+    });
+
     test('groups items into ordered periods', () {
       final now = DateTime.now();
       final items = [
