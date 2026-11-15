@@ -1,0 +1,136 @@
+name: Windows Desktop Build
+
+# Compiles the Windows desktop target in windows/ and publishes a ready-to-run
+# x64 folder as a workflow artifact. Android is handled by ci.yml and
+# auto-version.yml; release-alpha.yml only re-builds APKs, so this is the only
+# place the Windows app is produced.
+#
+# Triggers:
+#   • Push to main (skips documentation- and website-only changes)
+#   • Pull requests (permission-safe: read-only, no publishing)
+#   • Manual dispatch
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "website/**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Windows release (x64)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      # ── 2. Toolchain ─────────────────────────────────────────────
+      # windows-latest ships Visual Studio 2022 with the "Desktop development
+      # with C++" workload and CMake, which is everything flutter build
+      # windows needs. The Flutter version is pinned to the same release the
+      # other workflows use.
+      - name: Set up Flutter (3.38.4 stable)
+        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff # v2.18.0
+        with:
+          flutter-version: "3.38.4"
+          channel: stable
+          cache: true
+
+      - name: Enable the Windows desktop target
+        run: flutter config --enable-windows-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # ── 3. Version ───────────────────────────────────────────────
+      - name: Read app version
+        id: app_version
+        run: |
+          VERSION_LINE="$(grep '^version:' pubspec.yaml | awk '{print $2}')"
+          if [[ -z "$VERSION_LINE" ]]; then
+            echo "ERROR: Could not parse version from pubspec.yaml"
+            exit 1
+          fi
+          BUILD_NAME="${VERSION_LINE%%+*}"
+          BUILD_NUMBER="${VERSION_LINE##*+}"
+          echo "build_name=$BUILD_NAME"     >> "$GITHUB_OUTPUT"
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "Version: $BUILD_NAME+$BUILD_NUMBER"
+
+      # ── 4. Build ─────────────────────────────────────────────────
+      # Pass --build-name/--build-number so the bundled version metadata matches
+      # pubspec.yaml instead of Flutter's 1.0.0+1 default.
+      - name: Build Windows release
+        run: |
+          flutter build windows --release \
+            --build-name "${{ steps.app_version.outputs.build_name }}" \
+            --build-number "${{ steps.app_version.outputs.build_number }}"
+
+      # ── 5. Verify the bundle before anyone downloads it ──────────
+      - name: Verify Windows build output
+        run: |
+          APP_DIR="build/windows/x64/runner/Release"
+          EXE="$APP_DIR/prism_music.exe"
+          AOT="$APP_DIR/data/app.so"
+          ASSETS="$APP_DIR/data/flutter_assets/AssetManifest.bin"
+
+          for f in "$EXE" "$AOT" "$ASSETS"; do
+            if [[ ! -f "$f" ]]; then
+              echo "ERROR: expected build output is missing: $f"
+              ls -R "$APP_DIR" || true
+              exit 1
+            fi
+          done
+
+          AOT_SIZE=$(stat -c%s "$AOT")
+          echo "AOT library size: $AOT_SIZE bytes"
+          if [[ "$AOT_SIZE" -lt 5000000 ]]; then
+            echo "ERROR: AOT library is suspiciously small ($AOT_SIZE bytes)"
+            exit 1
+          fi
+
+      # ── 6. Package ───────────────────────────────────────────────
+      - name: Package release folder as a zip
+        env:
+          BUILD_NAME: ${{ steps.app_version.outputs.build_name }}
+          BUILD_NUMBER: ${{ steps.app_version.outputs.build_number }}
+        run: |
+          ZIP="prism-music-${BUILD_NAME}+${BUILD_NUMBER}-windows-x64.zip"
+          powershell -NoProfile -Command "Compress-Archive \
+            -Path 'build/windows/x64/runner/Release/*' \
+            -DestinationPath '${ZIP}' -Force"
+          if [[ ! -f "$ZIP" ]]; then
+            echo "ERROR: zip archive was not created"
+            exit 1
+          fi
+          sha256sum "$ZIP" > "${ZIP}.sha256"
+          cat "${ZIP}.sha256"
+          echo "ZIP_NAME=$ZIP" >> "$GITHUB_ENV"
+
+      # ── 7. Publish as a workflow artifact ────────────────────────
+      - name: Upload Windows build
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: prism-music-windows-x64
+          path: |
+            ${{ env.ZIP_NAME }}
+            ${{ env.ZIP_NAME }}.sha256
+          if-no-files-found: error
+          retention-days: 30
