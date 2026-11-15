@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.93] - 2026-11-15
+
+### Changed
+
+- Build and package the Windows desktop app
+
 ## [0.2.92] - 2026-11-15
 
 ### Fixed
@@ -1198,3 +1204,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.90]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.90-build126
 [0.2.91]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.91-build127
 [0.2.92]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.92-build128
+[0.2.93]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.93-build129
