@@ -329,6 +329,16 @@ class ToggleVideoModeEvent extends PlayerEvent {
   List<Object?> get props => [enable];
 }
 
+/// Internal event: the video surface reported its playback position so audio
+/// can be resumed at the same point when video mode ends.
+class VideoPositionChangedEvent extends PlayerEvent {
+  final Duration position;
+  const VideoPositionChangedEvent(this.position);
+
+  @override
+  List<Object?> get props => [position];
+}
+
 /// Internal event: update video buffering state
 class SetVideoBufferingEvent extends PlayerEvent {
   final bool isBuffering;

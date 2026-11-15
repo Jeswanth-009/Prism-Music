@@ -77,6 +77,12 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   int _prefetchLookahead = 1;
   double _crossfadeDurationSeconds = 0.0;
   int _lastNearEndPrefetchIndex = -1;
+
+  /// Last known video position, used to resync audio when video mode ends.
+  Duration? _videoPosition;
+
+  /// Whether audio should resume after video mode ends.
+  bool _resumeAudioAfterVideo = false;
   RecommendationService? _recommendationService;
   int _recommendationGeneration = 0;
   final PlaybackBloc? _playbackBloc;
@@ -232,6 +238,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     on<RestoreQueueEvent>(_onRestoreQueue);
     on<ClearPersistedQueueEvent>(_onClearPersistedQueue);
     on<ToggleVideoModeEvent>(_onToggleVideoMode);
+    on<VideoPositionChangedEvent>(_onVideoPositionChanged);
     on<SetVideoBufferingEvent>(_onSetVideoBuffering);
     on<CrossfadeStateChangedEvent>((event, emit) {
       emit(state.copyWith(isCrossfading: event.isCrossfading));
@@ -1004,6 +1011,18 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     TogglePlayPauseEvent event,
     Emitter<PlayerState> emit,
   ) async {
+    // In video mode the video surface owns playback and its widget already
+    // toggled itself. Forwarding here would resume the paused audio track and
+    // bring back the double-audio echo.
+    if (state.isVideoMode) {
+      emit(
+        state.copyWith(
+          status: state.isPlaying ? PlayerStatus.paused : PlayerStatus.playing,
+        ),
+      );
+      return;
+    }
+
     if (state.isPlaying) {
       add(const PauseEvent());
     } else {
@@ -1011,7 +1030,18 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     }
   }
 
+  /// Track changes end video mode: the audio engine owns the next track, so
+  /// keeping the video surface alive would play both engines at once.
+  void _releaseVideoModeForTrackChange(Emitter<PlayerState> emit) {
+    if (!state.isVideoMode) return;
+    _videoPosition = null;
+    _resumeAudioAfterVideo = false;
+    emit(state.copyWith(isVideoMode: false, isVideoBuffering: false));
+  }
+
   Future<void> _onNext(NextEvent event, Emitter<PlayerState> emit) async {
+    _releaseVideoModeForTrackChange(emit);
+
     if (state.sleepTimerEndOfTrack) {
       cancelSleepTimer();
       emit(state.copyWith(clearSleepTimer: true, sleepTimerEndOfTrack: false));
@@ -1081,6 +1111,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     PreviousEvent event,
     Emitter<PlayerState> emit,
   ) async {
+    _releaseVideoModeForTrackChange(emit);
+
     if (state.sleepTimerEndOfTrack) {
       cancelSleepTimer();
       emit(state.copyWith(clearSleepTimer: true, sleepTimerEndOfTrack: false));
@@ -1540,6 +1572,10 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     // Terminal errors must not be silently erased by stream noise (e.g. the
     // player reporting "not playing" right after we stopped it).
     if (state.status == PlayerStatus.error) return;
+
+    // While video mode is active the video surface is the playback source; the
+    // paused audio engine must not overwrite the shown play/pause state.
+    if (state.isVideoMode) return;
     emit(
       state.copyWith(
         status: event.isPlaying ? PlayerStatus.playing : PlayerStatus.paused,
@@ -2304,10 +2340,22 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         return;
       }
 
+      // The video stream carries its own muxed audio, so the just_audio engine
+      // must stop before the video starts. Remember whether it was playing and
+      // where, so exiting video mode can hand playback back seamlessly.
+      final wasPlaying = state.isPlaying || _audioPlayer.playing;
+      final startPosition = _audioPlayer.position;
+      _resumeAudioAfterVideo = wasPlaying;
+      _videoPosition = startPosition;
+      await _audioPlayer.pause();
+
       emit(
         state.copyWith(
           isVideoMode: true,
           isVideoBuffering: state.videoStreamInfo == null,
+          status:
+              wasPlaying ? PlayerStatus.playing : PlayerStatus.paused,
+          position: startPosition,
         ),
       );
 
@@ -2339,6 +2387,36 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       }
     } else {
       emit(state.copyWith(isVideoMode: false, isVideoBuffering: false));
+
+      // Hand playback back to the audio engine at the video's position, and
+      // only resume if audio was playing when video mode took over.
+      final resumePosition = _videoPosition;
+      final shouldResume = _resumeAudioAfterVideo;
+      _videoPosition = null;
+      _resumeAudioAfterVideo = false;
+
+      if (resumePosition != null && resumePosition > Duration.zero) {
+        try {
+          await _audioPlayer.seek(resumePosition);
+        } catch (_) {}
+      }
+
+      if (shouldResume) {
+        await _audioPlayer.play();
+        if (!isClosed) {
+          emit(state.copyWith(status: PlayerStatus.playing));
+        }
+      }
+    }
+  }
+
+  void _onVideoPositionChanged(
+    VideoPositionChangedEvent event,
+    Emitter<PlayerState> emit,
+  ) {
+    _videoPosition = event.position;
+    if (!isClosed) {
+      emit(state.copyWith(position: event.position));
     }
   }
 

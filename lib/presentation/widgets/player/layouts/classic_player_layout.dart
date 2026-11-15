@@ -92,6 +92,11 @@ class ClassicPlayerLayout extends StatelessWidget {
                                       .read<PlayerBloc>()
                                       .add(const TogglePlayPauseEvent());
                                 },
+                                onPositionChanged: (position) {
+                                  context.read<PlayerBloc>().add(
+                                        VideoPositionChangedEvent(position),
+                                      );
+                                },
                               ),
                             )
                           else if (state.isVideoMode && state.isVideoBuffering)
