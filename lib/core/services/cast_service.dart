@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:xml/xml.dart' as xml;
 import '../../domain/entities/song.dart';
 
 /// Supported wireless casting protocols
@@ -20,7 +21,13 @@ class CastDevice extends Equatable {
   final String host;
   final int port;
   final String? modelName;
+
+  /// AVTransport control endpoint, resolved from the device description.
   final String? controlUrl;
+
+  /// RenderingControl control endpoint (volume), resolved from the device
+  /// description. Devices use wildly different paths, so it cannot be assumed.
+  final String? renderingControlUrl;
 
   const CastDevice({
     required this.id,
@@ -30,10 +37,20 @@ class CastDevice extends Equatable {
     required this.port,
     this.modelName,
     this.controlUrl,
+    this.renderingControlUrl,
   });
 
   @override
-  List<Object?> get props => [id, name, protocol, host, port, modelName, controlUrl];
+  List<Object?> get props => [
+        id,
+        name,
+        protocol,
+        host,
+        port,
+        modelName,
+        controlUrl,
+        renderingControlUrl,
+      ];
 
   String get endpoint => Uri(scheme: 'http', host: host, port: port).toString();
 }
@@ -195,21 +212,127 @@ class CastService {
       }
     }
 
-    if (location != null) {
-      final uri = Uri.tryParse(location);
-      if (uri != null) {
-        final id = usn ?? '${uri.host}:${uri.port}';
-        final device = CastDevice(
-          id: id,
-          name: 'DLNA Speaker (${uri.host})',
-          protocol: CastProtocol.dlna,
-          host: uri.host,
-          port: uri.port,
-          controlUrl: '/upnp/control/AVTransport',
-        );
-        addDeviceForTesting(device);
+    final uri = location == null ? null : Uri.tryParse(location);
+    if (uri == null) return;
+
+    // Control paths are device-specific and only discoverable from the UPnP
+    // description document linked by the SSDP Location header. Resolve it in
+    // the background so discovery never blocks on a slow speaker.
+    unawaited(_registerDlnaDevice(uri, usn));
+  }
+
+  Future<void> _registerDlnaDevice(Uri location, String? usn) async {
+    final id = usn ?? '${location.host}:${location.port}';
+    var name = 'DLNA Speaker (${location.host})';
+    String? avTransportUrl;
+    String? renderingControlUrl;
+
+    try {
+      final res = await _httpClient
+          .get(location)
+          .timeout(const Duration(seconds: 3));
+      if (res.statusCode == 200) {
+        final description = parseDeviceDescription(res.body, location);
+        avTransportUrl = description.avTransportUrl;
+        renderingControlUrl = description.renderingControlUrl;
+        final friendlyName = description.friendlyName;
+        if (friendlyName != null && friendlyName.isNotEmpty) {
+          name = friendlyName;
+        }
+      }
+    } catch (e) {
+      debugPrint('CastService: cannot read description $location: $e');
+    }
+
+    final origin = Uri(scheme: 'http', host: location.host, port: location.port);
+    addDeviceForTesting(
+      CastDevice(
+        id: id,
+        name: name,
+        protocol: CastProtocol.dlna,
+        host: location.host,
+        port: location.port,
+        controlUrl: avTransportUrl ??
+            origin.resolve('/upnp/control/AVTransport').toString(),
+        renderingControlUrl: renderingControlUrl ??
+            origin.resolve('/upnp/control/RenderingControl').toString(),
+      ),
+    );
+  }
+
+  /// Extracts the friendly name and the AVTransport / RenderingControl control
+  /// endpoints from a UPnP device description document.
+  ///
+  /// Control URLs in descriptors are often relative and rarely match the
+  /// commonly assumed `/upnp/control/AVTransport`, so they are resolved against
+  /// [descriptionUrl] (the document's own address).
+  @visibleForTesting
+  static ({String? friendlyName, String? avTransportUrl, String? renderingControlUrl})
+      parseDeviceDescription(String descriptionXml, Uri descriptionUrl) {
+    String? friendlyName;
+    String? avTransportUrl;
+    String? renderingControlUrl;
+
+    String? controlUrlFor(xml.XmlElement service, String serviceType) {
+      String? type;
+      String? control;
+      for (final child in service.childElements) {
+        switch (child.name.local) {
+          case 'serviceType':
+            type = child.innerText.trim();
+          case 'controlURL':
+            control = child.innerText.trim();
+        }
+      }
+      if (type != serviceType || control == null || control.isEmpty) {
+        return null;
+      }
+      return descriptionUrl.resolve(control).toString();
+    }
+
+    try {
+      final document = xml.XmlDocument.parse(descriptionXml);
+      for (final element in document.descendants.whereType<xml.XmlElement>()) {
+        if (element.name.local == 'friendlyName' && friendlyName == null) {
+          friendlyName = element.innerText.trim();
+        } else if (element.name.local == 'service') {
+          avTransportUrl ??= controlUrlFor(
+            element,
+            'urn:schemas-upnp-org:service:AVTransport:1',
+          );
+          renderingControlUrl ??= controlUrlFor(
+            element,
+            'urn:schemas-upnp-org:service:RenderingControl:1',
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('CastService: invalid description from $descriptionUrl: $e');
+    }
+
+    return (
+      friendlyName: friendlyName,
+      avTransportUrl: avTransportUrl,
+      renderingControlUrl: renderingControlUrl,
+    );
+  }
+
+  /// Resolves a device-provided control URL, falling back to the historical
+  /// hardcoded path only when the device never advertised one.
+  static Uri _controlUri(
+    CastDevice device,
+    String? controlUrl,
+    String fallbackPath,
+  ) {
+    if (controlUrl != null && controlUrl.isNotEmpty) {
+      final parsed = Uri.tryParse(controlUrl);
+      if (parsed != null) {
+        return parsed.hasScheme
+            ? parsed
+            : Uri.parse(device.endpoint).resolve(controlUrl);
       }
     }
+    return Uri.parse(device.endpoint).resolve(fallbackPath);
   }
 
   /// Stops discovery scan
@@ -259,8 +382,11 @@ class CastService {
 
   Future<bool> _castDlnaTrack(Song song, String streamUrl) async {
     final device = _currentDevice!;
-    final controlPath = device.controlUrl ?? '/upnp/control/AVTransport';
-    final targetUri = Uri.parse('${device.endpoint}$controlPath');
+    final targetUri = _controlUri(
+      device,
+      device.controlUrl,
+      '/upnp/control/AVTransport',
+    );
 
     final metadata = buildDidlMetadata(
       title: song.title,
@@ -335,7 +461,11 @@ class CastService {
     final volPercent = (volume.clamp(0.0, 1.0) * 100).toInt().toString();
 
     final device = _currentDevice!;
-    final targetUri = Uri.parse('${device.endpoint}/upnp/control/RenderingControl');
+    final targetUri = _controlUri(
+      device,
+      device.renderingControlUrl,
+      '/upnp/control/RenderingControl',
+    );
     final body = buildSoapEnvelope(
       action: 'SetVolume',
       serviceType: 'urn:schemas-upnp-org:service:RenderingControl:1',
@@ -364,8 +494,11 @@ class CastService {
   Future<bool> _sendAvTransportAction(String action, Map<String, String> extraArgs) async {
     if (_currentDevice == null) return false;
     final device = _currentDevice!;
-    final controlPath = device.controlUrl ?? '/upnp/control/AVTransport';
-    final targetUri = Uri.parse('${device.endpoint}$controlPath');
+    final targetUri = _controlUri(
+      device,
+      device.controlUrl,
+      '/upnp/control/AVTransport',
+    );
 
     final args = {'InstanceID': '0', ...extraArgs};
     final body = buildSoapEnvelope(

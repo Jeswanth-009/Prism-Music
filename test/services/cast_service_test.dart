@@ -37,6 +37,68 @@ void main() {
       expect(soap, contains('</u:Play>'));
     });
 
+    test('parses dynamic control URLs from a UPnP device description', () {
+      const description = '''<?xml version="1.0"?>
+<root xmlns="urn:schemas-upnp-org:device-1-0">
+  <device>
+    <deviceType>urn:schemas-upnp-org:device:MediaRenderer:1</deviceType>
+    <friendlyName>Kitchen Speaker</friendlyName>
+    <serviceList>
+      <service>
+        <serviceType>urn:schemas-upnp-org:service:AVTransport:1</serviceType>
+        <controlURL>/AVTransport/control</controlURL>
+      </service>
+      <service>
+        <serviceType>urn:schemas-upnp-org:service:RenderingControl:1</serviceType>
+        <controlURL>upnp/control/rendctrl1</controlURL>
+      </service>
+    </serviceList>
+  </device>
+</root>''';
+
+      final parsed = CastService.parseDeviceDescription(
+        description,
+        Uri.parse('http://192.168.1.50:1400/desc.xml'),
+      );
+
+      expect(parsed.friendlyName, 'Kitchen Speaker');
+      expect(
+        parsed.avTransportUrl,
+        'http://192.168.1.50:1400/AVTransport/control',
+      );
+      expect(
+        parsed.renderingControlUrl,
+        'http://192.168.1.50:1400/upnp/control/rendctrl1',
+      );
+    });
+
+    test('setVolume posts to the descriptor-provided RenderingControl path',
+        () async {
+      Uri? posted;
+      final mockClient = MockClient((request) async {
+        posted = request.url;
+        return http.Response('<s:Envelope></s:Envelope>', 200);
+      });
+
+      final service = CastService.createForTesting(client: mockClient);
+      const device = CastDevice(
+        id: 'dev_sonos',
+        name: 'Sonos One',
+        protocol: CastProtocol.dlna,
+        host: '192.168.1.70',
+        port: 1400,
+        controlUrl: 'http://192.168.1.70:1400/MediaRenderer/AVTransport/Control',
+        renderingControlUrl:
+            'http://192.168.1.70:1400/MediaRenderer/RenderingControl/Control',
+      );
+
+      await service.connect(device);
+      final ok = await service.setVolume(0.5);
+
+      expect(ok, isTrue);
+      expect(posted?.path, '/MediaRenderer/RenderingControl/Control');
+    });
+
     test('connects and disconnects from device correctly', () async {
       final service = CastService.createForTesting();
 
