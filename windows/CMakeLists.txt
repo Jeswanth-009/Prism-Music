@@ -43,6 +43,12 @@ function(APPLY_STANDARD_SETTINGS TARGET)
   target_compile_options(${TARGET} PRIVATE /EHsc)
   target_compile_definitions(${TARGET} PRIVATE "_HAS_EXCEPTIONS=0")
   target_compile_definitions(${TARGET} PRIVATE "$<$<CONFIG:Debug>:_DEBUG>")
+  # permission_handler_windows (pulled in as a plugin target, hence this
+  # shared function) still includes <experimental/coroutine>. MSVC 14.4x and
+  # newer turn that include into hard error STL1011, so silence the
+  # deprecation for the whole bundle until the plugin drops the header.
+  target_compile_definitions(${TARGET} PRIVATE
+    "_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS")
 endfunction()
 
 # Flutter library and tool build rules.
