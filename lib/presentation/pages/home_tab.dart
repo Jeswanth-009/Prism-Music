@@ -30,6 +30,9 @@ import '../widgets/profile/profile_switcher_sheet.dart';
 import 'recently_played_page.dart';
 import 'settings_page.dart';
 import '../widgets/home/home_sections_sheet.dart';
+import '../widgets/home/home_mood_filter_bar.dart';
+import '../widgets/home/home_pinned_playlists_rail.dart';
+import '../widgets/home/home_smart_rules_rail.dart';
 
 /// Artwork-led Home surface: calm chrome, artwork carries the colour.
 class HomeTab extends StatefulWidget {
@@ -42,6 +45,7 @@ class HomeTab extends StatefulWidget {
 class _HomeTabState extends State<HomeTab>
     with AutomaticKeepAliveClientMixin {
   final _settings = SettingsService.instance;
+  HomeMoodFilter _activeMood = HomeMoodFilter.all;
   List<Song> _songs = const [];
   List<Song> _recommended = const [];
   List<Album> _newAlbums = const [];
@@ -166,290 +170,469 @@ class _HomeTabState extends State<HomeTab>
                 ),
               ),
             ),
-            if (_settings.isHomeSectionEnabled(HomeSectionId.hero))
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                sliver: SliverToBoxAdapter(
-                  child: BlocBuilder<LibraryBloc, LibraryState>(
-                  builder: (context, library) {
-                    final fromHistory = library.recentlyPlayed.isNotEmpty;
-                    final song = fromHistory
-                        ? library.recentlyPlayed.first
-                        : (_songs.isEmpty ? null : _songs.first);
-                    return _Entrance(
-                      child: _Hero(
-                        greeting: _greeting,
-                        song: song,
-                        isLoading: _loading,
-                        onPlay: song == null
-                            ? null
-                            : () {
-                                if (fromHistory) {
-                                  _play(song,
-                                      queue: library.recentlyPlayed, index: 0);
-                                } else {
-                                  _play(song, queue: _songs, index: 0);
-                                }
-                              },
-                        onShuffle: (fromHistory
-                                    ? library.recentlyPlayed
-                                    : _songs)
-                                .isEmpty
-                            ? null
-                            : () {
-                                final source = fromHistory
-                                    ? library.recentlyPlayed
-                                    : _songs;
-                                final shuffled = [...source]..shuffle();
-                                _play(shuffled.first,
-                                    queue: shuffled, index: 0);
-                              },
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            if (_loading) ...[
-              const SliverToBoxAdapter(
-                child: PrismSectionHeader(title: 'Recommended for you'),
-              ),
-              const SliverToBoxAdapter(child: PrismRailSkeleton()),
-              const SliverToBoxAdapter(
-                child: PrismSectionHeader(title: 'Trending now'),
-              ),
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: PrismListSkeleton(count: 4),
-                ),
-              ),
-              const SliverPadding(padding: EdgeInsets.only(bottom: 140)),
-            ] else if (_error != null)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: PrismErrorState(message: _error, onRetry: _load),
-              )
-            else ...[
-              if (_settings.isHomeSectionEnabled(HomeSectionId.jumpBackIn))
-                BlocBuilder<LibraryBloc, LibraryState>(
-                  builder: (context, library) {
-                    final heroSong = library.recentlyPlayed.isNotEmpty
-                        ? library.recentlyPlayed.first
-                        : (_songs.isEmpty ? null : _songs.first);
-                    // Exclude hero song so we never duplicate covers above the fold
-                    final continueSongs = library.recentlyPlayed
-                        .where((s) => s.id != heroSong?.id)
-                        .take(10)
-                        .toList();
-                    if (continueSongs.isEmpty) {
-                      return const SliverToBoxAdapter(
-                        child: SizedBox.shrink(),
-                      );
-                    }
-                    return _sliverSection(
-                      title: 'Jump back in',
-                      subtitle: 'Continue listening from your recent tracks',
-                      child: SizedBox(
-                        height: 190,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          scrollDirection: Axis.horizontal,
-                          itemCount: continueSongs.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(width: 14),
-                          itemBuilder: (_, index) {
-                            final song = continueSongs[index];
-                            return PrismMediaCard(
-                              url: song.thumbnailUrl,
-                              title: song.title,
-                              subtitle: song.artist,
-                              onTap: () => _play(song,
-                                  index: index + 1, queue: library.recentlyPlayed),
-                            );
-                          },
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              // Recommended for you — omitted entirely when the service
-              // has nothing to offer.
-              if (_settings.isHomeSectionEnabled(HomeSectionId.recommended)) ...[
-                if (_loadingRecs) ...[
-                  const SliverToBoxAdapter(
-                    child: PrismSectionHeader(title: 'Recommended for you'),
-                  ),
-                  const SliverToBoxAdapter(child: PrismRailSkeleton()),
-                ] else if (_recommended.length >= 3)
-                  _sliverSection(
-                    title: 'Recommended for you',
-                    subtitle: _recommendationSubtitle,
-                    child: SizedBox(
-                      height: 194,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _recommended.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 14),
-                        itemBuilder: (_, index) {
-                          final song = _recommended[index];
-                          return PrismMediaCard(
-                            url: song.thumbnailUrl,
-                            title: song.title,
-                            subtitle: song.artist,
-                            onTap: () => _play(
-                              song,
-                              index: index,
-                              queue: _recommended,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-              ],
-              if (_settings.isHomeSectionEnabled(HomeSectionId.newAlbums) &&
-                  _newAlbums.isNotEmpty)
-                _sliverSection(
-                  title: 'From your artists',
-                  subtitle: 'Albums to dig into from your rotation',
-                  child: SizedBox(
-                    height: 194,
-                    child: ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _newAlbums.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 14),
-                      itemBuilder: (_, index) {
-                        final album = _newAlbums[index];
-                        return PrismMediaCard(
-                          url: album.thumbnails.high ??
-                              album.thumbnails.medium ??
-                              '',
-                          title: album.title,
-                          subtitle: album.artist,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => AlbumPage(album: album),
+            BlocBuilder<LibraryBloc, LibraryState>(
+              builder: (context, library) {
+                if (_loading) {
+                  return SliverMainAxisGroup(
+                    slivers: [
+                      if (_settings.isHomeSectionEnabled(HomeSectionId.moodChips))
+                        SliverPadding(
+                          padding: const EdgeInsets.only(top: 12, bottom: 4),
+                          sliver: SliverToBoxAdapter(
+                            child: HomeMoodFilterBar(
+                              selected: _activeMood,
+                              onSelect: (m) => setState(() => _activeMood = m),
                             ),
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              if (_settings.isHomeSectionEnabled(HomeSectionId.trending))
-                BlocBuilder<LibraryBloc, LibraryState>(
-                  builder: (context, library) {
-                    final fromHistory = library.recentlyPlayed.isNotEmpty;
-                    final startIndex = fromHistory ? 0 : 1;
-                    final displayTrending = _songs.skip(startIndex).take(8).toList();
-                    return _sliverSection(
-                      title: 'Trending now',
-                      subtitle:
-                          '${_settings.selectedCountry.flag} ${_settings.selectedCountry.name}',
-                      actionLabel: 'Refresh',
-                      onAction: _load,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Column(
-                          children: [
-                            for (var i = 0; i < displayTrending.length; i++)
-                              PrismSongTile(
-                                song: displayTrending[i],
-                                index: startIndex + i,
-                                numbered: true,
-                                onTap: () => _play(displayTrending[i], index: startIndex + i),
+                        ),
+                      if (_settings.isHomeSectionEnabled(HomeSectionId.hero))
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                          sliver: SliverToBoxAdapter(
+                            child: _Entrance(
+                              child: _Hero(
+                                greeting: _greeting,
+                                song: null,
+                                isLoading: true,
+                                onPlay: null,
+                                onShuffle: null,
                               ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              if (_settings.isHomeSectionEnabled(HomeSectionId.charts))
-                _sliverSection(
-                  title: 'Top charts',
-                  subtitle: 'What everyone is playing',
-                  actionLabel: 'See all',
-                  onAction: _openCharts,
-                  child: SizedBox(
-                    height: 132,
-                    child: ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      scrollDirection: Axis.horizontal,
-                      itemCount: ChartService.getAvailableCharts(
-                        _settings.countryCode,
-                        _settings.selectedCountry.name,
-                      ).length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
-                      itemBuilder: (context, index) {
-                        final chart = ChartService.getAvailableCharts(
-                          _settings.countryCode,
-                          _settings.selectedCountry.name,
-                        )[index];
-                        return _ChartTile(
-                          chart: chart,
-                          onTap: () => _pushChart(chart),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              if (_settings.isHomeSectionEnabled(HomeSectionId.curatedMoods))
-                _sliverSection(
-                  title: 'Made for your mood',
-                  subtitle: 'Start a mix and keep it moving',
-                  actionLabel: 'Browse all',
-                  onAction: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const GenreBrowsePage(),
-                    ),
-                  ),
-                  child: SizedBox(
-                    height: 116,
-                    child: ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      scrollDirection: Axis.horizontal,
-                      itemCount: CuratedPlaylists.all.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
-                      itemBuilder: (context, index) {
-                        final playlist = CuratedPlaylists.all[index];
-                        return _MixTile(
-                          playlist: playlist,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  CuratedPlaylistPage(playlist: playlist),
                             ),
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              if (_settings.isHomeSectionEnabled(HomeSectionId.historyPrompt))
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-                  sliver: SliverToBoxAdapter(
-                    child: BlocBuilder<LibraryBloc, LibraryState>(
-                      builder: (context, state) => _HistoryPrompt(
-                        hasHistory: state.recentlyPlayed.isNotEmpty,
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const RecentlyPlayedPage(),
-                          ),
+                        ),
+                      const SliverToBoxAdapter(
+                        child: PrismSectionHeader(title: 'Recommended for you'),
+                      ),
+                      const SliverToBoxAdapter(child: PrismRailSkeleton()),
+                      const SliverToBoxAdapter(
+                        child: PrismSectionHeader(title: 'Trending now'),
+                      ),
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 20),
+                          child: PrismListSkeleton(count: 4),
                         ),
                       ),
-                    ),
-                  ),
-                ),
-            ],
+                      const SliverPadding(padding: EdgeInsets.only(bottom: 140)),
+                    ],
+                  );
+                }
+
+                if (_error != null) {
+                  return SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: PrismErrorState(message: _error, onRetry: _load),
+                  );
+                }
+
+                final sectionSlivers = <Widget>[];
+                for (final sectionId in _settings.homeSectionsOrder) {
+                  if (!_settings.isHomeSectionEnabled(sectionId)) continue;
+                  final sliver = _buildSectionSliver(sectionId, library);
+                  if (sliver != null) {
+                    sectionSlivers.add(sliver);
+                  }
+                }
+
+                return SliverMainAxisGroup(
+                  slivers: [
+                    ...sectionSlivers,
+                    const SliverPadding(padding: EdgeInsets.only(bottom: 140)),
+                  ],
+                );
+              },
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Widget? _buildSectionSliver(HomeSectionId sectionId, LibraryState library) {
+    switch (sectionId) {
+      case HomeSectionId.moodChips:
+        return SliverPadding(
+          padding: const EdgeInsets.only(top: 12, bottom: 4),
+          sliver: SliverToBoxAdapter(
+            child: HomeMoodFilterBar(
+              selected: _activeMood,
+              onSelect: (mood) => setState(() => _activeMood = mood),
+            ),
+          ),
+        );
+
+      case HomeSectionId.hero:
+        final fromHistory = library.recentlyPlayed.isNotEmpty;
+        final song = fromHistory
+            ? library.recentlyPlayed.first
+            : (_songs.isEmpty ? null : _songs.first);
+        return SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          sliver: SliverToBoxAdapter(
+            child: _Entrance(
+              child: _Hero(
+                greeting: _greeting,
+                song: song,
+                isLoading: false,
+                onPlay: song == null
+                    ? null
+                    : () {
+                        if (fromHistory) {
+                          _play(song, queue: library.recentlyPlayed, index: 0);
+                        } else {
+                          _play(song, queue: _songs, index: 0);
+                        }
+                      },
+                onShuffle: (fromHistory ? library.recentlyPlayed : _songs).isEmpty
+                    ? null
+                    : () {
+                        final source = fromHistory
+                            ? library.recentlyPlayed
+                            : _songs;
+                        final shuffled = [...source]..shuffle();
+                        _play(shuffled.first, queue: shuffled, index: 0);
+                      },
+              ),
+            ),
+          ),
+        );
+
+      case HomeSectionId.pinnedPlaylists:
+        final pinnedPlaylists = library.playlists.where(
+          (p) => _settings.pinnedPlaylistIds.contains(p.id),
+        ).toList();
+        if (pinnedPlaylists.isEmpty) {
+          return null;
+        }
+        return SliverToBoxAdapter(
+          child: HomePinnedPlaylistsRail(
+            pinnedIds: _settings.pinnedPlaylistIds,
+          ),
+        );
+
+      case HomeSectionId.jumpBackIn:
+        final heroSong = library.recentlyPlayed.isNotEmpty
+            ? library.recentlyPlayed.first
+            : (_songs.isEmpty ? null : _songs.first);
+        final continueSongs = library.recentlyPlayed
+            .where((s) => s.id != heroSong?.id)
+            .take(10)
+            .toList();
+        if (continueSongs.isEmpty) {
+          return null;
+        }
+        return _sliverSection(
+          title: 'Jump back in',
+          subtitle: 'Continue listening from your recent tracks',
+          child: SizedBox(
+            height: 190,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              scrollDirection: Axis.horizontal,
+              itemCount: continueSongs.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 14),
+              itemBuilder: (_, index) {
+                final song = continueSongs[index];
+                return PrismMediaCard(
+                  url: song.thumbnailUrl,
+                  title: song.title,
+                  subtitle: song.artist,
+                  onTap: () => _play(song,
+                      index: index + 1, queue: library.recentlyPlayed),
+                );
+              },
+            ),
+          ),
+        );
+
+      case HomeSectionId.recommended:
+        if (_loadingRecs) {
+          return const SliverMainAxisGroup(
+            slivers: [
+              SliverToBoxAdapter(
+                child: PrismSectionHeader(title: 'Recommended for you'),
+              ),
+              SliverToBoxAdapter(child: PrismRailSkeleton()),
+            ],
+          );
+        }
+        final displayRecs = _filteredRecommended();
+        if (displayRecs.isEmpty) return null;
+        return _sliverSection(
+          title: 'Recommended for you',
+          subtitle: _activeMood != HomeMoodFilter.all
+              ? '${_activeMood.label} picks · $_recommendationSubtitle'
+              : _recommendationSubtitle,
+          child: SizedBox(
+            height: 194,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              scrollDirection: Axis.horizontal,
+              itemCount: displayRecs.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 14),
+              itemBuilder: (_, index) {
+                final song = displayRecs[index];
+                return PrismMediaCard(
+                  url: song.thumbnailUrl,
+                  title: song.title,
+                  subtitle: song.artist,
+                  onTap: () => _play(
+                    song,
+                    index: index,
+                    queue: displayRecs,
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+
+      case HomeSectionId.newAlbums:
+        if (_newAlbums.isEmpty) return null;
+        return _sliverSection(
+          title: 'From your artists',
+          subtitle: 'Albums to dig into from your rotation',
+          child: SizedBox(
+            height: 194,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              scrollDirection: Axis.horizontal,
+              itemCount: _newAlbums.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 14),
+              itemBuilder: (_, index) {
+                final album = _newAlbums[index];
+                return PrismMediaCard(
+                  url: album.thumbnails.high ??
+                      album.thumbnails.medium ??
+                      '',
+                  title: album.title,
+                  subtitle: album.artist,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => AlbumPage(album: album),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+
+      case HomeSectionId.trending:
+        final fromHistory = library.recentlyPlayed.isNotEmpty;
+        final startIndex = fromHistory ? 0 : 1;
+        final displayTrending = _songs.skip(startIndex).take(8).toList();
+        if (displayTrending.isEmpty) return null;
+        return _sliverSection(
+          title: 'Trending now',
+          subtitle: 'Trending in ${_settings.selectedCountry.name}',
+          actionLabel: 'Refresh',
+          onAction: _load,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Column(
+              children: [
+                for (var i = 0; i < displayTrending.length; i++)
+                  PrismSongTile(
+                    song: displayTrending[i],
+                    index: startIndex + i,
+                    numbered: true,
+                    onTap: () => _play(displayTrending[i], index: startIndex + i),
+                  ),
+              ],
+            ),
+          ),
+        );
+
+      case HomeSectionId.charts:
+        final charts = ChartService.getAvailableCharts(
+          _settings.countryCode,
+          _settings.selectedCountry.name,
+        );
+        return _sliverSection(
+          title: 'Top charts',
+          subtitle: 'What everyone is playing',
+          actionLabel: 'See all',
+          onAction: _openCharts,
+          child: SizedBox(
+            height: 132,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              scrollDirection: Axis.horizontal,
+              itemCount: charts.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final chart = charts[index];
+                return _ChartTile(
+                  chart: chart,
+                  onTap: () => _pushChart(chart),
+                );
+              },
+            ),
+          ),
+        );
+
+      case HomeSectionId.likedThisMonth:
+        return const SliverToBoxAdapter(
+          child: HomeLikedThisMonthRail(),
+        );
+
+      case HomeSectionId.unplayedDownloads:
+        return const SliverToBoxAdapter(
+          child: HomeUnplayedDownloadsRail(),
+        );
+
+      case HomeSectionId.curatedMoods:
+        final curated = _filteredCuratedPlaylists();
+        if (curated.isEmpty) return null;
+        return _sliverSection(
+          title: 'Made for your mood',
+          subtitle: _activeMood != HomeMoodFilter.all
+              ? '${_activeMood.label} mixes'
+              : 'Start a mix and keep it moving',
+          actionLabel: 'Browse all',
+          onAction: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const GenreBrowsePage(),
+            ),
+          ),
+          child: SizedBox(
+            height: 116,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              scrollDirection: Axis.horizontal,
+              itemCount: curated.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final playlist = curated[index];
+                return _MixTile(
+                  playlist: playlist,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          CuratedPlaylistPage(playlist: playlist),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+
+      case HomeSectionId.historyPrompt:
+        return SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+          sliver: SliverToBoxAdapter(
+            child: _HistoryPrompt(
+              hasHistory: library.recentlyPlayed.isNotEmpty,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const RecentlyPlayedPage(),
+                ),
+              ),
+            ),
+          ),
+        );
+    }
+  }
+
+  List<CuratedPlaylist> _filteredCuratedPlaylists() {
+    if (_activeMood == HomeMoodFilter.all) {
+      return CuratedPlaylists.all;
+    }
+    final term = _activeMood.name.toLowerCase();
+    final matches = CuratedPlaylists.all.where((p) {
+      final name = p.name.toLowerCase();
+      final cat = p.category.toLowerCase();
+      final tag = p.seasonalTag?.toLowerCase() ?? '';
+      if (term == 'focus') {
+        return name.contains('focus') ||
+            name.contains('study') ||
+            name.contains('lo-fi') ||
+            tag.contains('lofi') ||
+            tag.contains('lo-fi');
+      }
+      if (term == 'chill') {
+        return name.contains('chill') ||
+            name.contains('coffee') ||
+            name.contains('relax') ||
+            tag.contains('autumn');
+      }
+      if (term == 'workout') {
+        return name.contains('workout') ||
+            name.contains('dance') ||
+            name.contains('party') ||
+            name.contains('hitlist');
+      }
+      if (term == 'energy') {
+        return name.contains('energy') ||
+            name.contains('hit') ||
+            name.contains('trending') ||
+            name.contains('hotlist');
+      }
+      if (term == 'relax') {
+        return name.contains('relax') ||
+            name.contains('ragas') ||
+            name.contains('calm') ||
+            name.contains('lo-fi');
+      }
+      if (term == 'commute') {
+        return name.contains('drive') ||
+            name.contains('commute') ||
+            name.contains('synthwave');
+      }
+      return name.contains(term) || cat.contains(term);
+    }).toList();
+    return matches.isNotEmpty ? matches : CuratedPlaylists.all;
+  }
+
+  List<Song> _filteredRecommended() {
+    if (_activeMood == HomeMoodFilter.all) {
+      return _recommended;
+    }
+    final term = _activeMood.name.toLowerCase();
+    final filtered = _recommended.where((song) {
+      final title = song.title.toLowerCase();
+      final artist = song.artist.toLowerCase();
+      final album = song.album?.toLowerCase() ?? '';
+      if (term == 'focus') {
+        return title.contains('focus') ||
+            title.contains('chill') ||
+            title.contains('lofi') ||
+            artist.contains('lo-fi');
+      }
+      if (term == 'chill') {
+        return title.contains('chill') ||
+            title.contains('slow') ||
+            title.contains('acoustic') ||
+            album.contains('chill');
+      }
+      if (term == 'workout') {
+        return title.contains('workout') ||
+            title.contains('beat') ||
+            title.contains('remix') ||
+            title.contains('dance');
+      }
+      if (term == 'energy') {
+        return title.contains('remix') ||
+            title.contains('party') ||
+            title.contains('bass') ||
+            title.contains('club');
+      }
+      if (term == 'relax') {
+        return title.contains('relax') ||
+            title.contains('sleep') ||
+            title.contains('piano') ||
+            title.contains('calm');
+      }
+      if (term == 'commute') {
+        return title.contains('drive') ||
+            title.contains('road') ||
+            title.contains('trip');
+      }
+      return false;
+    }).toList();
+    return filtered.isNotEmpty ? filtered : _recommended;
   }
 
   void _pushChart(ChartDefinition chart) {
@@ -612,6 +795,22 @@ class _Hero extends StatelessWidget {
   final VoidCallback? onPlay;
   final VoidCallback? onShuffle;
 
+  static String _authenticBadge(Song song) {
+    switch (song.source) {
+      case MusicSource.local:
+        return 'Offline';
+      case MusicSource.jiosaavn:
+        return 'JioSaavn · 320 kbps AAC';
+      case MusicSource.youtube:
+      case MusicSource.youtubeMusic:
+        return 'YouTube · 160 kbps Opus';
+      case MusicSource.spotify:
+        return 'Spotify · Matched';
+      case MusicSource.unknown:
+        return 'Verified Audio';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -664,21 +863,45 @@ class _Hero extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      greeting.toUpperCase(),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.1,
-                        fontSize: 9.5,
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          greeting.toUpperCase(),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.1,
+                            fontSize: 9.5,
+                          ),
+                        ),
                       ),
-                    ),
+                      if (song != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Colors.white24, width: 0.5),
+                          ),
+                          child: Text(
+                            _authenticBadge(song!),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 9.0,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const Spacer(),
                   Text(

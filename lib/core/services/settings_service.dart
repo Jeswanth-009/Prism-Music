@@ -103,11 +103,15 @@ extension VisualizerStyleX on VisualizerStyle {
 /// Identifiers for customizable sections on the Home feed
 enum HomeSectionId {
   hero('Quick Play & Greeting', 'Quick play hero banner at top'),
+  moodChips('Quick Mood Filter', 'Instant in-feed genre and energy filter bar'),
+  pinnedPlaylists('Pinned Playlists', 'Favorite playlists pinned to Home'),
   jumpBackIn('Jump Back In', 'Continue from recently played tracks'),
   recommended('Recommended For You', 'Personalized algorithm picks'),
   newAlbums('From Your Artists', 'Fresh album releases from artists you play'),
   trending('Trending Now', 'Top trending tracks for your region'),
   charts('Top Charts', 'Billboard and regional charts'),
+  likedThisMonth('Liked This Month', 'Songs added to your likes in the last 30 days'),
+  unplayedDownloads('Unplayed Downloads', 'Downloaded offline songs you have not played yet'),
   curatedMoods('Made For Your Mood', 'Hand-picked mood and genre mixes'),
   historyPrompt('Listening History', 'Bottom shortcut to recent listening history');
 
@@ -120,6 +124,8 @@ enum HomeSectionId {
 class SettingsService {
   static const String _boxName = 'app_settings';
   static const String _homeSectionsConfigKey = 'home_sections_config';
+  static const String _homeSectionsOrderKey = 'home_sections_order';
+  static const String _pinnedPlaylistIdsKey = 'pinned_playlist_ids';
   static const String _playerUiStyleKey = 'player_ui_style';
   static const String _fastStartKey = 'fast_start_enabled';
   static const String _prefetchLookaheadKey = 'prefetch_lookahead';
@@ -775,10 +781,65 @@ class SettingsService {
     await _settingsBox?.put(_homeSectionsConfigKey, current);
   }
 
-  /// Reset all home sections to default (all enabled).
+  /// List of section IDs in user-configured display order.
+  List<HomeSectionId> get homeSectionsOrder {
+    try {
+      final raw = _settingsBox?.get(_homeSectionsOrderKey);
+      if (raw is List) {
+        final saved = raw.cast<String>();
+        final ordered = <HomeSectionId>[];
+        for (final name in saved) {
+          final match = HomeSectionId.values.where((s) => s.name == name).firstOrNull;
+          if (match != null) ordered.add(match);
+        }
+        for (final val in HomeSectionId.values) {
+          if (!ordered.contains(val)) ordered.add(val);
+        }
+        return ordered;
+      }
+      return HomeSectionId.values.toList();
+    } catch (_) {
+      return HomeSectionId.values.toList();
+    }
+  }
+
+  /// Update the display order of home sections.
+  Future<void> setHomeSectionsOrder(List<HomeSectionId> newOrder) async {
+    final list = newOrder.map((s) => s.name).toList();
+    await _settingsBox?.put(_homeSectionsOrderKey, list);
+  }
+
+  /// Pinned playlist IDs
+  List<String> get pinnedPlaylistIds {
+    try {
+      final raw = _settingsBox?.get(_pinnedPlaylistIdsKey);
+      if (raw is List) return raw.cast<String>();
+      return const [];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  bool isPlaylistPinned(String playlistId) => pinnedPlaylistIds.contains(playlistId);
+
+  Future<void> togglePinPlaylist(String playlistId) async {
+    final current = List<String>.from(pinnedPlaylistIds);
+    if (current.contains(playlistId)) {
+      current.remove(playlistId);
+    } else {
+      current.add(playlistId);
+    }
+    await _settingsBox?.put(_pinnedPlaylistIdsKey, current);
+  }
+
+  /// Reset all home sections to default (all enabled and natural order).
   Future<void> resetHomeSections() async {
     await _settingsBox?.put(
       _homeSectionsConfigKey,
+      HomeSectionId.values.map((s) => s.name).toList(),
+    );
+    await _settingsBox?.put(
+      _homeSectionsOrderKey,
       HomeSectionId.values.map((s) => s.name).toList(),
     );
   }

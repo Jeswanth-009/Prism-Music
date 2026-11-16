@@ -21,6 +21,10 @@ void main() {
       expect(settings.isHomeSectionEnabled(HomeSectionId.hero), isTrue);
       expect(settings.isHomeSectionEnabled(HomeSectionId.charts), isTrue);
       expect(settings.isHomeSectionEnabled(HomeSectionId.trending), isTrue);
+      expect(settings.isHomeSectionEnabled(HomeSectionId.moodChips), isTrue);
+      expect(settings.isHomeSectionEnabled(HomeSectionId.pinnedPlaylists), isTrue);
+      expect(settings.isHomeSectionEnabled(HomeSectionId.likedThisMonth), isTrue);
+      expect(settings.isHomeSectionEnabled(HomeSectionId.unplayedDownloads), isTrue);
 
       await settings.setHomeSectionEnabled(HomeSectionId.charts, false);
       expect(settings.isHomeSectionEnabled(HomeSectionId.charts), isFalse);
@@ -29,19 +33,37 @@ void main() {
       await settings.resetHomeSections();
       expect(settings.isHomeSectionEnabled(HomeSectionId.charts), isTrue);
     });
+
+    test('reorders home sections and toggles pinned playlists', () async {
+      final settings = SettingsService.instance;
+      await settings.resetHomeSections();
+
+      final originalOrder = settings.homeSectionsOrder;
+      expect(originalOrder.first, HomeSectionId.hero);
+
+      final newOrder = [HomeSectionId.trending, ...originalOrder.where((s) => s != HomeSectionId.trending)];
+      await settings.setHomeSectionsOrder(newOrder);
+      expect(settings.homeSectionsOrder.first, HomeSectionId.trending);
+
+      expect(settings.isPlaylistPinned('p1'), isFalse);
+      await settings.togglePinPlaylist('p1');
+      expect(settings.isPlaylistPinned('p1'), isTrue);
+      expect(settings.pinnedPlaylistIds, contains('p1'));
+
+      await settings.togglePinPlaylist('p1');
+      expect(settings.isPlaylistPinned('p1'), isFalse);
+    });
   });
 
   group('HomeSectionsCustomizerSheet Widget', () {
     testWidgets('renders all home sections and allows toggling', (tester) async {
       var changedCount = 0;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: HomeSectionsCustomizerSheet(
-              onChanged: () => changedCount++,
-            ),
-          ),
+      await pumpTestWidget(
+        tester,
+        HomeSectionsCustomizerSheet(
+          onChanged: () => changedCount++,
         ),
+        size: const Size(400, 1800),
       );
 
       expect(find.text('Customize Home'), findsOneWidget);
