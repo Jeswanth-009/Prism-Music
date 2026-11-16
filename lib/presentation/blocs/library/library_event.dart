@@ -279,3 +279,28 @@ class RemoveSongFromHistoryEvent extends LibraryEvent {
   List<Object?> get props => [songId];
 }
 
+/// Toggle pinned status for a playlist on Home feed
+class TogglePinPlaylistEvent extends LibraryEvent {
+  final String playlistId;
+
+  const TogglePinPlaylistEvent(this.playlistId);
+
+  @override
+  List<Object?> get props => [playlistId];
+}
+
+/// Update custom artwork cover for a playlist
+class UpdatePlaylistCoverEvent extends LibraryEvent {
+  final String playlistId;
+  final String? customCoverUrl;
+
+  const UpdatePlaylistCoverEvent({
+    required this.playlistId,
+    required this.customCoverUrl,
+  });
+
+  @override
+  List<Object?> get props => [playlistId, customCoverUrl];
+}
+
+

@@ -48,6 +48,12 @@ class Playlist extends Equatable {
   /// Last modified timestamp
   final DateTime? updatedAt;
 
+  /// Whether this playlist is pinned to Home feed
+  final bool isPinned;
+
+  /// Custom cover art URL or local image path
+  final String? customCoverUrl;
+
   const Playlist({
     required this.id,
     required this.name,
@@ -64,15 +70,33 @@ class Playlist extends Equatable {
     this.appleMusicPlaylistId,
     this.createdAt,
     this.updatedAt,
+    this.isPinned = false,
+    this.customCoverUrl,
   });
 
-  /// Get the best available thumbnail (or first song's thumbnail)
+  /// Get the best available thumbnail (or custom cover, or first song's thumbnail)
   String? get thumbnailUrl {
+    if (customCoverUrl != null && customCoverUrl!.isNotEmpty) {
+      return customCoverUrl;
+    }
     if (thumbnails?.best != null) return thumbnails!.best;
     if (songs != null && songs!.isNotEmpty) {
       return songs!.first.thumbnailUrl;
     }
     return null;
+  }
+
+  /// Extracts up to four distinct track thumbnails for 2x2 collage artwork.
+  List<String> get collageThumbnails {
+    if (songs == null || songs!.isEmpty) return const [];
+    final urls = <String>[];
+    for (final s in songs!) {
+      if (s.thumbnailUrl.isNotEmpty && !urls.contains(s.thumbnailUrl)) {
+        urls.add(s.thumbnailUrl);
+        if (urls.length == 4) break;
+      }
+    }
+    return urls;
   }
   
   /// Get formatted duration string
@@ -104,6 +128,8 @@ class Playlist extends Equatable {
     Object? appleMusicPlaylistId = _sentinel,
     Object? createdAt = _sentinel,
     Object? updatedAt = _sentinel,
+    bool? isPinned,
+    Object? customCoverUrl = _sentinel,
   }) {
     return Playlist(
       id: id ?? this.id,
@@ -137,6 +163,10 @@ class Playlist extends Equatable {
       updatedAt: identical(updatedAt, _sentinel)
           ? this.updatedAt
           : updatedAt as DateTime?,
+      isPinned: isPinned ?? this.isPinned,
+      customCoverUrl: identical(customCoverUrl, _sentinel)
+          ? this.customCoverUrl
+          : customCoverUrl as String?,
     );
   }
 
@@ -157,5 +187,7 @@ class Playlist extends Equatable {
         appleMusicPlaylistId,
         createdAt,
         updatedAt,
+        isPinned,
+        customCoverUrl,
       ];
 }

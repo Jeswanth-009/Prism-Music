@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_music/core/services/settings_service.dart';
 import 'package:prism_music/presentation/blocs/library/library_bloc.dart';
 import 'package:prism_music/presentation/blocs/library/library_event.dart';
 import 'package:prism_music/presentation/pages/playlist_detail_page.dart';
@@ -11,7 +12,9 @@ void main() {
 
   late FakeLibraryRepository libraryRepo;
 
-  setUp(() {
+  setUp(() async {
+    initTestHive('playlist_detail');
+    await SettingsService.instance.initialize();
     libraryRepo = FakeLibraryRepository();
   });
 
@@ -84,5 +87,31 @@ void main() {
     expect(find.text('Favorites from YT'), findsOneWidget);
     expect(find.text('YOUTUBE IMPORT'), findsOneWidget);
     expect(find.byIcon(Icons.sync_rounded), findsOneWidget);
+  });
+
+  testWidgets('renders pin and share actions', (tester) async {
+    final p = playlist('p1', 'My Pinned Mix', isUserCreated: true);
+    libraryRepo.playlists = [p];
+    final bloc = buildBloc()..add(const LoadLibraryEvent());
+
+    await pumpTestWidget(
+      tester,
+      PlaylistDetailPage(playlist: p),
+      libraryBloc: bloc,
+    );
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(find.byIcon(Icons.push_pin_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.share_rounded), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.push_pin_outlined));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(SettingsService.instance.isPlaylistPinned('p1'), isTrue);
+    expect(find.byIcon(Icons.push_pin_rounded), findsOneWidget);
   });
 }

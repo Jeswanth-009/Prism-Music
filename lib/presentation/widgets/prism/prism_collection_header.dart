@@ -24,6 +24,7 @@ class PrismCollectionHeader extends StatelessWidget {
     this.isPlayActive = false,
     this.actions,
     this.headerBadge,
+    this.customMedia,
   });
 
   /// The collection title (e.g. 'Liked Songs', 'Top 50 USA', 'Album Name').
@@ -61,6 +62,9 @@ class PrismCollectionHeader extends StatelessWidget {
 
   /// An optional alert or provenance banner (e.g. 'Curated Discovery Mix').
   final Widget? headerBadge;
+
+  /// Optional custom hero media widget (e.g. dynamic 2x2 collage artwork).
+  final Widget? customMedia;
 
   @override
   Widget build(BuildContext context) {
@@ -194,6 +198,10 @@ class PrismCollectionHeader extends StatelessWidget {
     ColorScheme scheme,
     PrismSpec spec,
   ) {
+    if (customMedia != null) {
+      return customMedia!;
+    }
+
     const double size = 80;
 
     if (artworkUrl != null && artworkUrl!.isNotEmpty) {

@@ -11,7 +11,9 @@ import '../blocs/player/player_state.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/library/import/playlist_sync_sheet.dart';
 import '../widgets/player/mini_player.dart';
-import '../widgets/playlist/playlist_export_sheet.dart';
+import '../widgets/playlist/playlist_collage_artwork.dart';
+import '../widgets/playlist/playlist_share_sheet.dart';
+import '../../core/services/settings_service.dart';
 import '../widgets/prism/prism_artwork.dart';
 import '../widgets/prism/prism_collection_header.dart';
 import '../widgets/prism/prism_dialog.dart';
@@ -149,6 +151,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                 .where((p) => p.id == widget.playlist.id)
                 .firstOrNull ??
             widget.playlist;
+        final isPinned = SettingsService.instance.isPlaylistPinned(current.id) || current.isPinned;
 
         final songs = current.songs ?? const [];
         final query = _searchCtrl.text.trim().toLowerCase();
@@ -181,6 +184,26 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                     });
                   },
                 ),
+              IconButton(
+                tooltip: isPinned ? 'Unpin from Home' : 'Pin to Home',
+                icon: Icon(
+                  isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+                  color: isPinned ? Theme.of(context).colorScheme.primary : null,
+                ),
+                onPressed: () {
+                  final willPin = !isPinned;
+                  context.read<LibraryBloc>().add(TogglePinPlaylistEvent(current.id));
+                  showPrismToast(
+                    context,
+                    willPin ? 'Pinned to Home feed' : 'Unpinned from Home feed',
+                  );
+                },
+              ),
+              IconButton(
+                tooltip: 'Share playlist',
+                icon: const Icon(Icons.share_rounded),
+                onPressed: () => PlaylistShareSheet.show(context, current),
+              ),
               if (current.spotifyPlaylistId != null ||
                   current.youtubePlaylistId != null)
                 IconButton(
@@ -204,8 +227,8 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                 tooltip: 'Playlist options',
                 icon: const Icon(Icons.more_vert_rounded),
                 onSelected: (val) {
-                  if (val == 'export') {
-                    PlaylistExportSheet.show(context, current);
+                  if (val == 'share' || val == 'export') {
+                    PlaylistShareSheet.show(context, current);
                   } else if (val == 'rename') {
                     _showRenameDialog(context, current);
                   } else if (val == 'delete') {
@@ -217,12 +240,12 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                 itemBuilder: (_) => [
                   if (songs.isNotEmpty)
                     const PopupMenuItem(
-                      value: 'export',
+                      value: 'share',
                       child: Row(
                         children: [
-                          Icon(Icons.ios_share_rounded, size: 18),
+                          Icon(Icons.share_rounded, size: 18),
                           SizedBox(width: 12),
-                          Text('Export playlist'),
+                          Text('Share & Export'),
                         ],
                       ),
                     ),
@@ -360,6 +383,14 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                         : (playlist.isUserCreated ? 'Playlist' : 'Featured')),
                 subtitle: playlist.author,
                 artworkUrl: playlist.thumbnailUrl,
+                customMedia: (playlist.customCoverUrl == null &&
+                        playlist.thumbnails?.best == null &&
+                        playlist.collageThumbnails.length >= 4)
+                    ? PlaylistCollageArtwork(
+                        thumbnailUrls: playlist.collageThumbnails,
+                        size: 80,
+                      )
+                    : null,
                 icon: Icons.queue_music_rounded,
                 metadata: '${Formatters.formatCount(allSongs.length, 'song')}'
                     '${playlist.totalDurationFormatted.isEmpty ? '' : ' · ${playlist.totalDurationFormatted}'}',
@@ -457,7 +488,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
               itemCount: displaySongs.length,
               itemBuilder: (context, index) {
                 final song = displaySongs[index];
-                return BlocBuilder<PlayerBloc, PlayerState>(
+                final tile = BlocBuilder<PlayerBloc, PlayerState>(
                   builder: (context, playerState) => PrismSongTile(
                     song: song,
                     isPlaying: playerState.currentSong?.id == song.id,
@@ -480,6 +511,50 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                     ),
                   ),
                 );
+
+                if (playlist.isUserCreated) {
+                  return Dismissible(
+                    key: ValueKey('dismiss_${song.id}_$index'),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 20),
+                      color: theme.colorScheme.errorContainer,
+                      child: Icon(
+                        Icons.delete_outline_rounded,
+                        color: theme.colorScheme.onErrorContainer,
+                      ),
+                    ),
+                    onDismissed: (_) {
+                      context.read<LibraryBloc>().add(
+                            RemoveFromPlaylistEvent(
+                              playlistId: playlist.id,
+                              songId: song.id,
+                            ),
+                          );
+                      ScaffoldMessenger.of(context).clearSnackBars();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Removed "${song.title}"'),
+                          action: SnackBarAction(
+                            label: 'Undo',
+                            onPressed: () {
+                              context.read<LibraryBloc>().add(
+                                    AddToPlaylistEvent(
+                                      playlistId: playlist.id,
+                                      song: song,
+                                    ),
+                                  );
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                    child: tile,
+                  );
+                }
+
+                return tile;
               },
             ),
           ),

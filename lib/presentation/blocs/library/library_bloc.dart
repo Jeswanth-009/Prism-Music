@@ -48,6 +48,8 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     on<ToggleFavoriteArtistEvent>(_onToggleFavoriteArtist);
     on<LoadFavoriteArtistsEvent>(_onLoadFavoriteArtists);
     on<RemoveSongFromHistoryEvent>(_onRemoveSongFromHistory);
+    on<TogglePinPlaylistEvent>(_onTogglePinPlaylist);
+    on<UpdatePlaylistCoverEvent>(_onUpdatePlaylistCover);
   }
 
   void _onCancelImport(CancelImportEvent event, Emitter<LibraryState> emit) {
@@ -97,13 +99,17 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
       );
       final likedIds = likedSongs.map((s) => s.id).toSet();
 
-      final playlists = playlistsResult.fold(
+      final rawPlaylists = playlistsResult.fold(
         (f) {
           errors.add('Playlists: ${f.message}');
           return state.playlists;
         },
         (p) => p,
       );
+      final playlists = rawPlaylists.map((p) {
+        final isPinned = SettingsService.instance.isPlaylistPinned(p.id);
+        return p.copyWith(isPinned: isPinned);
+      }).toList();
 
       final history = historyResult.fold(
         (f) {
@@ -1115,5 +1121,42 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
         emit(state.copyWith(playlists: updated));
       },
     );
+  }
+
+  Future<void> _onTogglePinPlaylist(
+    TogglePinPlaylistEvent event,
+    Emitter<LibraryState> emit,
+  ) async {
+    await SettingsService.instance.togglePinPlaylist(event.playlistId);
+    final isPinnedNow = SettingsService.instance.isPlaylistPinned(event.playlistId);
+    final exists = state.playlists.any((p) => p.id == event.playlistId);
+    final List<Playlist> updatedPlaylists;
+    if (exists) {
+      updatedPlaylists = state.playlists.map((p) {
+        if (p.id == event.playlistId) {
+          return p.copyWith(isPinned: isPinnedNow);
+        }
+        return p;
+      }).toList();
+    } else {
+      updatedPlaylists = [
+        ...state.playlists,
+        Playlist(id: event.playlistId, name: '', isPinned: isPinnedNow),
+      ];
+    }
+    emit(state.copyWith(playlists: updatedPlaylists));
+  }
+
+  Future<void> _onUpdatePlaylistCover(
+    UpdatePlaylistCoverEvent event,
+    Emitter<LibraryState> emit,
+  ) async {
+    final updatedPlaylists = state.playlists.map((p) {
+      if (p.id == event.playlistId) {
+        return p.copyWith(customCoverUrl: event.customCoverUrl);
+      }
+      return p;
+    }).toList();
+    emit(state.copyWith(playlists: updatedPlaylists));
   }
 }

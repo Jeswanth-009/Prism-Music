@@ -57,6 +57,8 @@ abstract class LocalDataSource {
     String playlistId, {
     String? name,
     String? description,
+    String? customCoverUrl,
+    bool? isPinned,
   });
   
   /// Add song to playlist
@@ -344,6 +346,8 @@ class LocalDataSourceImpl implements LocalDataSource {
     'updatedAt': playlist.updatedAt?.toIso8601String(),
     'trackCount': playlist.trackCount,
     'totalDurationMs': playlist.totalDuration?.inMilliseconds ?? 0,
+    'isPinned': playlist.isPinned,
+    'customCoverUrl': playlist.customCoverUrl,
     'songs': playlist.songs?.map((s) => _songToMap(s)).toList() ?? [],
   };
 
@@ -372,6 +376,8 @@ class LocalDataSourceImpl implements LocalDataSource {
       updatedAt: DateTime.tryParse(data['updatedAt'] as String? ?? ''),
       trackCount: data['trackCount'] as int? ?? songs.length,
       totalDuration: Duration(milliseconds: data['totalDurationMs'] as int? ?? 0),
+      isPinned: data['isPinned'] as bool? ?? false,
+      customCoverUrl: data['customCoverUrl'] as String?,
       songs: songs,
     );
   }
@@ -556,6 +562,8 @@ class LocalDataSourceImpl implements LocalDataSource {
     String playlistId, {
     String? name,
     String? description,
+    String? customCoverUrl,
+    bool? isPinned,
   }) => _withPlaylistLock(playlistId, () async {
     final box = await _getPlaylistsBox();
     final data = box.get(playlistId);
@@ -566,6 +574,8 @@ class LocalDataSourceImpl implements LocalDataSource {
     final updated = existing.copyWith(
       name: name ?? existing.name,
       description: description ?? existing.description,
+      customCoverUrl: customCoverUrl ?? existing.customCoverUrl,
+      isPinned: isPinned ?? existing.isPinned,
     );
     await box.put(playlistId, _playlistToMap(updated));
     _triggerBackup();

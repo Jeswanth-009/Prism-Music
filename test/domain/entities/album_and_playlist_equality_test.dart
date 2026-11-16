@@ -172,5 +172,32 @@ void main() {
       expect(cleared.createdAt, isNull);
       expect(cleared.updatedAt, isNull);
     });
+
+    test('isPinned, customCoverUrl and collageThumbnails work correctly', () {
+      final s1 = Song(id: '1', title: 'T1', artist: 'A1', duration: const Duration(seconds: 100), thumbnails: const Thumbnails(high: 'http://img/1.jpg'), source: MusicSource.youtube);
+      final s2 = Song(id: '2', title: 'T2', artist: 'A2', duration: const Duration(seconds: 100), thumbnails: const Thumbnails(high: 'http://img/2.jpg'), source: MusicSource.youtube);
+      final s3 = Song(id: '3', title: 'T3', artist: 'A3', duration: const Duration(seconds: 100), thumbnails: const Thumbnails(high: 'http://img/3.jpg'), source: MusicSource.youtube);
+      final s4 = Song(id: '4', title: 'T4', artist: 'A4', duration: const Duration(seconds: 100), thumbnails: const Thumbnails(high: 'http://img/4.jpg'), source: MusicSource.youtube);
+
+      final playlist = Playlist(
+        id: 'p_pin',
+        name: 'Collage Test',
+        songs: [s1, s2, s3, s4],
+        isPinned: true,
+        customCoverUrl: 'http://img/custom.jpg',
+      );
+
+      expect(playlist.isPinned, isTrue);
+      expect(playlist.customCoverUrl, 'http://img/custom.jpg');
+      expect(playlist.thumbnailUrl, 'http://img/custom.jpg');
+      expect(playlist.collageThumbnails.length, 4);
+      expect(playlist.collageThumbnails, contains('http://img/1.jpg'));
+      expect(playlist.collageThumbnails, contains('http://img/4.jpg'));
+
+      final unpinned = playlist.copyWith(isPinned: false, customCoverUrl: null);
+      expect(unpinned.isPinned, isFalse);
+      expect(unpinned.customCoverUrl, isNull);
+      expect(unpinned.thumbnailUrl, 'http://img/1.jpg');
+    });
   });
 }
