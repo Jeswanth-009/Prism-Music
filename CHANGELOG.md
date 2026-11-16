@@ -8,6 +8,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.96] - 2026-11-16
+
+### Added
+
+- Add in-app track editing, 2x2 collage artwork, and unified QR sharing hub
+- Add drag-and-drop feed reordering, mood filter bar, and pinned rails
+
 ## [0.2.95] - 2026-11-16
 
 ### Added
@@ -1219,3 +1226,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.93]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.93-build129
 [0.2.94]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.94-build130
 [0.2.95]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.95-build131
+[0.2.96]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.96-build132
