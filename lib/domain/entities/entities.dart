@@ -8,3 +8,5 @@ export 'import_playlist_result.dart';
 export 'import_preview_item.dart';
 export 'user_profile.dart';
 export 'podcast.dart';
+export 'search_category.dart';
+export 'search_results_bundle.dart';

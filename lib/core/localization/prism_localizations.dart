@@ -74,6 +74,13 @@ class PrismLocalizations {
       'allMatched': 'All tracks matched and imported!',
       'diagnostics': 'Provider Health Diagnostics',
       'clearQueue': 'Clear Saved Queue',
+      'topResult': 'Top Result',
+      'playNext': 'Play Next',
+      'viewCredits': 'View Credits',
+      'watchVideo': 'Watch Video',
+      'listenNearby': 'Listening for music nearby...',
+      'genresAndMoods': 'Genres & Moods',
+      'recentSearches': 'Recent Searches',
     },
     'hi': {
       'home': 'होम',
@@ -256,6 +263,13 @@ class PrismLocalizations {
   String get allMatched => _get('allMatched');
   String get diagnostics => _get('diagnostics');
   String get clearQueue => _get('clearQueue');
+  String get topResult => _get('topResult');
+  String get playNext => _get('playNext');
+  String get viewCredits => _get('viewCredits');
+  String get watchVideo => _get('watchVideo');
+  String get listenNearby => _get('listenNearby');
+  String get genresAndMoods => _get('genresAndMoods');
+  String get recentSearches => _get('recentSearches');
 }
 
 class _PrismLocalizationsDelegate

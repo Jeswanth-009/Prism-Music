@@ -1,13 +1,13 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:logging/logging.dart';
 import 'package:rxdart/rxdart.dart';
 import '../../../core/di/injection.dart';
+import '../../../core/matching/search_rank_engine.dart';
 import '../../../core/services/download_service.dart';
+import '../../../core/services/media_resolver_service.dart';
 import '../../../core/services/offline_mode_service.dart';
-import '../../../core/utils/unicode_search_matcher.dart';
 import '../../../data/datasources/local/local_datasource.dart';
 import '../../../domain/entities/entities.dart';
 import '../../../domain/repositories/repositories.dart';
@@ -45,8 +45,9 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
         super(const SearchState()) {
     on<SearchQueryEvent>(
       _onSearchQuery,
-      transformer: _restartableDebounce(const Duration(milliseconds: 300)),
+      transformer: _restartableDebounce(const Duration(milliseconds: 280)),
     );
+    on<SearchRecognizedSongEvent>(_onSearchRecognizedSong);
     on<ClearSearchEvent>(_onClearSearch);
     on<LoadMoreResultsEvent>(
       _onLoadMoreResults,
@@ -136,22 +137,45 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
             },
             (songs) {
               if (emit.isDone || generation != _searchGeneration) return;
-              final rankedSongs = List<Song>.from(songs);
-              rankedSongs.sort((a, b) {
-                final scoreA = max(
-                  UnicodeSearchMatcher.computeSimilarity(a.title, query),
-                  UnicodeSearchMatcher.computeSimilarity(a.artist, query),
-                );
-                final scoreB = max(
-                  UnicodeSearchMatcher.computeSimilarity(b.title, query),
-                  UnicodeSearchMatcher.computeSimilarity(b.artist, query),
-                );
-                return scoreB.compareTo(scoreA);
-              });
+              final rankedSongs = SearchRankEngine.rankSongs(songs, query);
+              SearchTopResult? topResult;
+              if (rankedSongs.isNotEmpty) {
+                topResult = SearchTopResult.song(rankedSongs.first);
+                if (getIt.isRegistered<MediaResolverService>()) {
+                  try {
+                    getIt<MediaResolverService>().preResolveSong(rankedSongs.first);
+                  } catch (_) {}
+                }
+              }
               emit(state.copyWith(
                 status: SearchStatus.success,
                 results: SearchResults(songs: rankedSongs),
+                topResult: topResult,
                 hasMore: songs.length >= 30,
+                page: 1,
+                entitySuggestions: [],
+              ));
+              add(AddToHistoryEvent(query));
+            },
+          );
+          break;
+        case SearchFilter.videos:
+          final result = await _musicRepository.searchSongs(query, limit: 30, filter: 'videos');
+          if (emit.isDone || generation != _searchGeneration) return;
+          result.fold(
+            (failure) {
+              if (emit.isDone || generation != _searchGeneration) return;
+              emit(state.copyWith(
+                status: SearchStatus.error,
+                errorMessage: failure.message,
+              ));
+            },
+            (videos) {
+              if (emit.isDone || generation != _searchGeneration) return;
+              emit(state.copyWith(
+                status: SearchStatus.success,
+                results: SearchResults(songs: videos),
+                hasMore: videos.length >= 30,
                 page: 1,
                 entitySuggestions: [],
               ));
@@ -247,21 +271,27 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
             },
             (searchResults) {
               if (emit.isDone || generation != _searchGeneration) return;
-              final rankedSongs = List<Song>.from(searchResults.songs);
-              rankedSongs.sort((a, b) {
-                final scoreA = max(
-                  UnicodeSearchMatcher.computeSimilarity(a.title, query),
-                  UnicodeSearchMatcher.computeSimilarity(a.artist, query),
-                );
-                final scoreB = max(
-                  UnicodeSearchMatcher.computeSimilarity(b.title, query),
-                  UnicodeSearchMatcher.computeSimilarity(b.artist, query),
-                );
-                return scoreB.compareTo(scoreA);
-              });
+              final rankedSongs = SearchRankEngine.rankSongs(searchResults.songs, query);
+              final topResult = SearchRankEngine.evaluateTopResult(
+                query: query,
+                songs: rankedSongs,
+                artists: searchResults.artists,
+                albums: searchResults.albums,
+                playlists: searchResults.playlists,
+              );
+
+              if (topResult?.song != null && getIt.isRegistered<MediaResolverService>()) {
+                try {
+                  getIt<MediaResolverService>().preResolveSong(topResult!.song!);
+                } catch (_) {}
+              }
+
+              final finalResults = searchResults.copyWith(songs: rankedSongs);
               emit(state.copyWith(
                 status: SearchStatus.success,
-                results: searchResults.copyWith(songs: rankedSongs),
+                results: finalResults,
+                topResult: topResult,
+                cachedAllResults: finalResults,
                 hasMore: false,
                 page: 1,
                 entitySuggestions: [],
@@ -414,6 +444,26 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
             },
           );
           break;
+        case SearchFilter.videos:
+          final offset = state.results.songs.length;
+          final result = await _musicRepository.searchSongs(query, limit: 30, offset: offset, filter: 'videos');
+          if (emit.isDone || generation != _searchGeneration) return;
+          result.fold(
+            (failure) => emit(state.copyWith(status: SearchStatus.success, hasMore: false)),
+            (moreVideos) {
+              if (emit.isDone || generation != _searchGeneration) return;
+              final existingIds = state.results.songs.map((s) => s.playableId).toSet();
+              final newVideos = moreVideos.where((s) => !existingIds.contains(s.playableId)).toList();
+              final combined = [...state.results.songs, ...newVideos];
+              emit(state.copyWith(
+                status: SearchStatus.success,
+                results: state.results.copyWith(songs: combined),
+                hasMore: moreVideos.length >= 30,
+                page: nextPage,
+              ));
+            },
+          );
+          break;
         case SearchFilter.all:
         case SearchFilter.downloads:
           emit(state.copyWith(status: SearchStatus.success, hasMore: false));
@@ -433,9 +483,59 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
         (event.query != null && event.query!.trim().isNotEmpty)
             ? event.query!.trim()
             : state.query.trim();
+
+    // Instant in-memory slicing if cached universal bundle is available
+    if (state.cachedAllResults != null &&
+        effectiveQuery.isNotEmpty &&
+        effectiveQuery == state.query.trim()) {
+      final cached = state.cachedAllResults!;
+      SearchResults sliced;
+      switch (event.filter) {
+        case SearchFilter.all:
+          sliced = cached;
+          break;
+        case SearchFilter.songs:
+          sliced = SearchResults(songs: cached.songs);
+          break;
+        case SearchFilter.artists:
+          sliced = SearchResults(artists: cached.artists);
+          break;
+        case SearchFilter.albums:
+          sliced = SearchResults(albums: cached.albums);
+          break;
+        case SearchFilter.playlists:
+          sliced = SearchResults(playlists: cached.playlists);
+          break;
+        case SearchFilter.videos:
+          sliced = SearchResults(songs: cached.songs.where((s) => s.youtubeId != null).toList());
+          break;
+        case SearchFilter.downloads:
+          final dlService = _downloadService ??
+              (getIt.isRegistered<DownloadService>() ? getIt<DownloadService>() : null);
+          sliced = SearchResults(songs: dlService?.searchDownloadedSongs(effectiveQuery) ?? <Song>[]);
+          break;
+      }
+      emit(state.copyWith(
+        filter: event.filter,
+        results: sliced,
+        status: SearchStatus.success,
+      ));
+      return;
+    }
+
     emit(state.copyWith(filter: event.filter));
     if (effectiveQuery.length >= 2) {
       add(SearchQueryEvent(query: effectiveQuery, filter: event.filter));
+    }
+  }
+
+  Future<void> _onSearchRecognizedSong(
+    SearchRecognizedSongEvent event,
+    Emitter<SearchState> emit,
+  ) async {
+    final query = '${event.title} ${event.artist}'.trim();
+    if (query.isNotEmpty) {
+      add(SearchQueryEvent(query: query, filter: SearchFilter.all));
     }
   }
 

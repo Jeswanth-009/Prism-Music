@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../core/utils/date_grouping.dart';
+import '../../domain/entities/search_results_bundle.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
 import '../blocs/player/player_state.dart';
@@ -11,17 +11,23 @@ import '../blocs/search/search_state.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/player/mini_player.dart';
 import '../widgets/prism/prism_artwork.dart';
-import '../widgets/prism/prism_dialog.dart';
 import '../widgets/prism/prism_section_header.dart';
 import '../widgets/prism/prism_skeleton.dart';
+import '../widgets/prism/prism_song_actions.dart';
 import '../widgets/prism/prism_song_tile.dart';
 import '../widgets/prism/prism_states.dart';
+import '../widgets/search/ambient_recognition_sheet.dart';
+import '../widgets/search/search_category_bar.dart';
+import '../widgets/search/search_discovery_view.dart';
+import '../widgets/search/search_header_bar.dart';
+import '../widgets/search/search_hero_card.dart';
 import 'album_page.dart';
 import 'artist_page.dart';
 import 'remote_playlist_page.dart';
-import 'genre_browse_page.dart';
 
-/// Search: filter chips, full-bleed results, genre/vibe discovery.
+/// Complete revamp of the Search Page featuring deterministic ranking,
+/// background warm-up prefetch, pinned category slivers, top match hero card,
+/// and verified stream provenance.
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key, this.embedded = false});
 
@@ -36,29 +42,22 @@ class _SearchPageState extends State<SearchPage> {
   final FocusNode _focusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
 
-  static const _genres = [
-    'Pop', 'Rock', 'Jazz', 'Metal', 'Hip-Hop', 'Classical', 'Latin', 'Indie',
-    'EDM', 'R&B',
-  ];
-  static const _vibes = [
-    'Party', 'Chill', 'Workout', 'Focus', 'Relax', 'Sleep', 'Driving',
-    'Study', 'Happy', 'Moody',
-  ];
-
   @override
   void initState() {
     super.initState();
     _focusNode.addListener(() => setState(() {}));
-    _scrollController.addListener(() {
-      if (_scrollController.hasClients &&
-          _scrollController.position.pixels >=
-              _scrollController.position.maxScrollExtent - 240) {
-        final state = context.read<SearchBloc>().state;
-        if (state.hasMore && !state.isLoadingMore) {
-          context.read<SearchBloc>().add(const LoadMoreResultsEvent());
-        }
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.hasClients &&
+        _scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 240) {
+      final state = context.read<SearchBloc>().state;
+      if (state.hasMore && !state.isLoadingMore) {
+        context.read<SearchBloc>().add(const LoadMoreResultsEvent());
       }
-    });
+    }
   }
 
   @override
@@ -69,18 +68,18 @@ class _SearchPageState extends State<SearchPage> {
     super.dispose();
   }
 
-  // ── actions ──────────────────────────────────────────────────────────
+  // ── Search & Filter Triggers ──────────────────────────────────────────────
 
   void _onSearch(String query, {SearchFilter? filter}) {
     final trimmed = query.trim();
     if (trimmed.length >= 2) {
       final activeFilter = filter ?? context.read<SearchBloc>().state.filter;
       context.read<SearchBloc>().add(
-        SearchQueryEvent(
-          query: trimmed,
-          filter: activeFilter,
-        ),
-      );
+            SearchQueryEvent(
+              query: trimmed,
+              filter: activeFilter,
+            ),
+          );
     }
   }
 
@@ -102,12 +101,53 @@ class _SearchPageState extends State<SearchPage> {
     setState(() {});
   }
 
-  // ── build ────────────────────────────────────────────────────────────
+  void _openAmbientRecognition() {
+    showAmbientRecognitionSheet(
+      context: context,
+      onRecognized: (recognizedQuery) {
+        _searchController.text = recognizedQuery;
+        context
+            .read<SearchBloc>()
+            .add(SearchRecognizedSongEvent(title: recognizedQuery));
+        _onSearch(recognizedQuery);
+        setState(() {});
+      },
+    );
+  }
+
+  void _handleTopResultTap(SearchTopResult top) {
+    if (top.song != null) {
+      final song = top.song!;
+      context.read<PlayerBloc>().add(
+            PlaySongEvent(song: song, queue: [song], queueIndex: 0),
+          );
+      if (!widget.embedded) Navigator.of(context).maybePop();
+    } else if (top.artist != null) {
+      final artist = top.artist!;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ArtistPage(
+            artistName: artist.name,
+            artistId: artist.id,
+            thumbnailUrl: artist.thumbnailUrl,
+            heroTag: 'top_artist_${artist.id}',
+          ),
+        ),
+      );
+    } else if (top.album != null) {
+      final album = top.album!;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => AlbumPage(album: album),
+        ),
+      );
+    }
+  }
+
+  // ── Build Tree ────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       bottomNavigationBar:
           widget.embedded ? null : const PrismPersistentMiniPlayer(),
@@ -117,39 +157,71 @@ class _SearchPageState extends State<SearchPage> {
           builder: (context, state) {
             final hasQuery = state.query.isNotEmpty ||
                 _searchController.text.trim().isNotEmpty;
-            final canClear = hasQuery || _searchController.text.isNotEmpty;
+
             return CustomScrollView(
               key: const PageStorageKey('prism_search'),
               controller: _scrollController,
               physics: const BouncingScrollPhysics(),
               slivers: [
+                // Floating Frosted Search Header Bar
                 SliverPadding(
                   padding: EdgeInsets.fromLTRB(
-                    20,
-                    widget.embedded ? 18 : 8,
-                    20,
-                    0,
+                    16,
+                    widget.embedded ? 14 : 8,
+                    16,
+                    6,
                   ),
                   sliver: SliverToBoxAdapter(
-                    child: _buildHeader(theme, state, canClear),
-                  ),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
-                  sliver: SliverToBoxAdapter(child: _buildSearchField(theme)),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                  sliver: SliverToBoxAdapter(
-                    child: _FilterChips(
-                      selected: state.filter,
-                      onSelect: _onFilterChanged,
+                    child: SearchHeaderBar(
+                      controller: _searchController,
+                      focusNode: _focusNode,
+                      embedded: widget.embedded,
+                      onChanged: (value) {
+                        setState(() {});
+                        final trimmed = value.trim();
+                        if (trimmed.isEmpty) {
+                          context
+                              .read<SearchBloc>()
+                              .add(const ClearSearchEvent());
+                        } else if (trimmed.length < 2) {
+                          context
+                              .read<SearchBloc>()
+                              .add(FetchSuggestionsEvent(trimmed));
+                        } else {
+                          _onSearch(trimmed);
+                        }
+                      },
+                      onSubmitted: (value) {
+                        final trimmed = value.trim();
+                        if (trimmed.length >= 2) {
+                          _onSearch(trimmed);
+                        }
+                      },
+                      onClear: _clearSearch,
+                      onRecognizeTap: _openAmbientRecognition,
                     ),
                   ),
                 ),
+
+                // Pinned Category Filter Bar
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: PinnedCategoryBarDelegate(
+                    selected: state.filter,
+                    onSelect: _onFilterChanged,
+                  ),
+                ),
+
+                // Body: Discovery Landing vs Results
                 if (!hasQuery)
-                  ..._browseSlivers(state)
-                else ..._resultsSlivers(state),
+                  SliverToBoxAdapter(
+                    child: SearchDiscoveryView(
+                      onApplyQuery: _applyQuickQuery,
+                    ),
+                  )
+                else
+                  ..._resultsSlivers(state),
+
                 const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
               ],
             );
@@ -159,231 +231,12 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  Widget _buildHeader(ThemeData theme, SearchState state, bool canClear) {
-    return Row(
-      children: [
-        if (!widget.embedded) ...[
-          IconButton(
-            onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back_rounded),
-          ),
-          const SizedBox(width: 8),
-        ],
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Search',
-                style: theme.textTheme.headlineLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.9,
-                ),
-              ),
-              Text(
-                'Songs, artists, albums and playlists.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (canClear)
-          TextButton(onPressed: _clearSearch, child: const Text('Clear')),
-      ],
-    );
-  }
-
-  Widget _buildSearchField(ThemeData theme) {
-    return TextField(
-      controller: _searchController,
-      focusNode: _focusNode,
-      textInputAction: TextInputAction.search,
-      style: theme.textTheme.bodyLarge,
-      decoration: InputDecoration(
-        hintText: 'What do you want to listen to?',
-        prefixIcon: const Icon(Icons.search_rounded, size: 22),
-        suffixIcon: _searchController.text.isEmpty
-            ? null
-            : IconButton(
-                onPressed: _clearSearch,
-                icon: const Icon(Icons.close_rounded, size: 18),
-              ),
-        filled: true,
-        fillColor: theme.colorScheme.surfaceContainerHigh.withValues(alpha: .55),
-        contentPadding: const EdgeInsets.symmetric(vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(PrismRadius.xl),
-          borderSide: BorderSide.none,
-        ),
-      ),
-      onChanged: (value) {
-        setState(() {});
-        final trimmed = value.trim();
-        if (trimmed.isEmpty) {
-          context.read<SearchBloc>().add(const ClearSearchEvent());
-        } else if (trimmed.length < 2) {
-          context.read<SearchBloc>().add(FetchSuggestionsEvent(trimmed));
-        } else {
-          _onSearch(trimmed);
-        }
-      },
-      onSubmitted: (value) {
-        final trimmed = value.trim();
-        if (trimmed.length >= 2) {
-          _onSearch(trimmed);
-        }
-      },
-    );
-  }
-
-  // ── browse (no query) ────────────────────────────────────────────────
-
-  List<Widget> _browseSlivers(SearchState state) {
-    final entries = state.historyEntries.isNotEmpty
-        ? state.historyEntries
-        : state.history.map((q) => {'query': q, 'id': q}).toList();
-
-    DateTime getTimestamp(Map<String, String> e) {
-      final tsStr = e['timestamp'];
-      final ts = tsStr != null ? int.tryParse(tsStr) : null;
-      return ts != null ? DateTime.fromMillisecondsSinceEpoch(ts) : DateTime.now();
-    }
-
-    final groupedHistory = DateGrouping.groupByPeriod(entries, getTimestamp);
-
-    return [
-      SliverToBoxAdapter(
-        child: PrismSectionHeader(
-          title: 'Browse genres',
-          actionLabel: 'See all',
-          onAction: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const GenreBrowsePage(),
-            ),
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 10),
-        ),
-      ),
-      SliverPadding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        sliver: SliverToBoxAdapter(
-          child: _ChipWrap(
-            items: _genres.take(6).toList(),
-            onTap: _applyQuickQuery,
-          ),
-        ),
-      ),
-      SliverToBoxAdapter(
-        child: PrismSectionHeader(
-            title: 'Moods & vibes',
-            padding: const EdgeInsets.fromLTRB(20, 22, 20, 10)),
-      ),
-      SliverPadding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        sliver: SliverToBoxAdapter(
-          child: _ChipWrap(
-            items: _vibes.take(6).toList(),
-            onTap: _applyQuickQuery,
-          ),
-        ),
-      ),
-      if (entries.isNotEmpty) ...[
-        SliverToBoxAdapter(
-          child: PrismSectionHeader(
-            title: 'Recent searches',
-            actionLabel: 'Clear all',
-            onAction: () {
-              showPrismConfirmDialog(
-                context: context,
-                title: 'Clear search history?',
-                message:
-                    'All your recent search terms will be permanently removed.',
-                confirmLabel: 'Clear all',
-                isDestructive: true,
-                onConfirm: () =>
-                    context.read<SearchBloc>().add(const ClearHistoryEvent()),
-              );
-            },
-            padding: const EdgeInsets.fromLTRB(20, 22, 20, 4),
-          ),
-        ),
-        for (final group in groupedHistory.entries) ...[
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-              child: Text(
-                group.key.toUpperCase(),
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                    ),
-              ),
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            sliver: SliverList.separated(
-              itemCount: group.value.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 2),
-              itemBuilder: (context, index) {
-                final entry = group.value[index];
-                final query = entry['query'] ?? '';
-                final timeText =
-                    DateGrouping.formatRelativeTime(getTimestamp(entry));
-                return ListTile(
-                  onTap: () => _applyQuickQuery(query),
-                  leading: Icon(
-                    Icons.history_rounded,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  title: Text(
-                    query,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                  subtitle: Text(
-                    timeText,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurfaceVariant
-                              .withValues(alpha: 0.8),
-                        ),
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 16),
-                        tooltip: 'Remove from history',
-                        visualDensity: VisualDensity.compact,
-                        onPressed: () => context
-                            .read<SearchBloc>()
-                            .add(RemoveFromHistoryEvent(entry['id'] ?? query)),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.north_west_rounded, size: 16),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ],
-    ];
-  }
-
-  // ── results ──────────────────────────────────────────────────────────
+  // ── Results Slivers ───────────────────────────────────────────────────────
 
   List<Widget> _resultsSlivers(SearchState state) {
     if (state.isLoading) {
       return const [
-        SliverPadding(padding: EdgeInsets.only(top: 24)),
+        SliverPadding(padding: EdgeInsets.only(top: 16)),
         SliverToBoxAdapter(child: PrismListSkeleton(count: 8)),
       ];
     }
@@ -392,14 +245,15 @@ class _SearchPageState extends State<SearchPage> {
       return [
         SliverFillRemaining(
           hasScrollBody: false,
-          child: PrismErrorState(message: state.errorMessage, onRetry: () {
-            context.read<SearchBloc>().add(
-              SearchQueryEvent(
-                query: _searchController.text.trim(),
+          child: PrismErrorState(
+            message: state.errorMessage,
+            onRetry: () {
+              _onSearch(
+                _searchController.text.trim(),
                 filter: state.filter,
-              ),
-            );
-          }),
+              );
+            },
+          ),
         ),
       ];
     }
@@ -410,17 +264,25 @@ class _SearchPageState extends State<SearchPage> {
       SearchFilter.artists => _artistsSlivers(state),
       SearchFilter.albums => _albumsSlivers(state),
       SearchFilter.playlists => _playlistsSlivers(state),
-      SearchFilter.downloads => _songsSlivers(state),
+      SearchFilter.videos => _videosSlivers(state),
+      SearchFilter.downloads => _downloadsSlivers(state),
     };
   }
+
+  // ── Universal (All) View ──────────────────────────────────────────────────
 
   List<Widget> _allSlivers(SearchState state) {
     final songs = state.results.songs;
     final artists = state.results.artists;
     final albums = state.results.albums;
     final playlists = state.results.playlists;
+    final topResult = state.topResult;
 
-    if (songs.isEmpty && artists.isEmpty && albums.isEmpty && playlists.isEmpty) {
+    if (topResult == null &&
+        songs.isEmpty &&
+        artists.isEmpty &&
+        albums.isEmpty &&
+        playlists.isEmpty) {
       return [
         SliverFillRemaining(
           hasScrollBody: false,
@@ -437,6 +299,19 @@ class _SearchPageState extends State<SearchPage> {
 
     final slivers = <Widget>[];
 
+    // Top Match Hero Card (if identified by ranking engine)
+    if (topResult != null) {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: SearchHeroCard(
+            topResult: topResult,
+            onTap: () => _handleTopResultTap(topResult),
+          ),
+        ),
+      );
+    }
+
+    // Songs section
     if (songs.isNotEmpty) {
       slivers.add(
         SliverToBoxAdapter(
@@ -444,7 +319,7 @@ class _SearchPageState extends State<SearchPage> {
             title: 'Songs',
             actionLabel: songs.length > 5 ? 'See all' : null,
             onAction: () => _onFilterChanged(SearchFilter.songs),
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
           ),
         ),
       );
@@ -464,8 +339,12 @@ class _SearchPageState extends State<SearchPage> {
                   isPlayingPaused: !playerState.isPlaying,
                   onTap: () {
                     context.read<PlayerBloc>().add(
-                      PlaySongEvent(song: song, queue: [song], queueIndex: 0),
-                    );
+                          PlaySongEvent(
+                            song: song,
+                            queue: [song],
+                            queueIndex: 0,
+                          ),
+                        );
                     if (!widget.embedded) Navigator.of(context).maybePop();
                   },
                 ),
@@ -476,6 +355,7 @@ class _SearchPageState extends State<SearchPage> {
       );
     }
 
+    // Artists section
     if (artists.isNotEmpty) {
       slivers.add(
         SliverToBoxAdapter(
@@ -483,7 +363,7 @@ class _SearchPageState extends State<SearchPage> {
             title: 'Artists',
             actionLabel: artists.length > 3 ? 'See all' : null,
             onAction: () => _onFilterChanged(SearchFilter.artists),
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
           ),
         ),
       );
@@ -521,8 +401,8 @@ class _SearchPageState extends State<SearchPage> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
                 subtitle: const Text('Artist'),
               );
@@ -532,6 +412,7 @@ class _SearchPageState extends State<SearchPage> {
       );
     }
 
+    // Albums section
     if (albums.isNotEmpty) {
       slivers.add(
         SliverToBoxAdapter(
@@ -539,19 +420,19 @@ class _SearchPageState extends State<SearchPage> {
             title: 'Albums',
             actionLabel: albums.length > 4 ? 'See all' : null,
             onAction: () => _onFilterChanged(SearchFilter.albums),
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
           ),
         ),
       );
       final topAlbums = albums.take(4).toList();
       slivers.add(
         SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           sliver: SliverGrid.builder(
             itemCount: topAlbums.length,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: .78,
+              childAspectRatio: 0.78,
               crossAxisSpacing: 14,
               mainAxisSpacing: 18,
             ),
@@ -573,6 +454,7 @@ class _SearchPageState extends State<SearchPage> {
       );
     }
 
+    // Playlists section
     if (playlists.isNotEmpty) {
       slivers.add(
         SliverToBoxAdapter(
@@ -580,7 +462,7 @@ class _SearchPageState extends State<SearchPage> {
             title: 'Playlists',
             actionLabel: playlists.length > 3 ? 'See all' : null,
             onAction: () => _onFilterChanged(SearchFilter.playlists),
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
           ),
         ),
       );
@@ -617,8 +499,8 @@ class _SearchPageState extends State<SearchPage> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
                 subtitle: Text('${playlist.trackCount} tracks'),
               );
@@ -630,6 +512,8 @@ class _SearchPageState extends State<SearchPage> {
 
     return slivers;
   }
+
+  // ── Categorized Slivers ───────────────────────────────────────────────────
 
   List<Widget> _songsSlivers(SearchState state) {
     final songs = state.results.songs;
@@ -649,7 +533,7 @@ class _SearchPageState extends State<SearchPage> {
     }
     return [
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
         sliver: SliverList.builder(
           itemCount: songs.length,
           itemBuilder: (context, index) {
@@ -662,8 +546,12 @@ class _SearchPageState extends State<SearchPage> {
                 isPlayingPaused: !playerState.isPlaying,
                 onTap: () {
                   context.read<PlayerBloc>().add(
-                    PlaySongEvent(song: song, queue: [song], queueIndex: 0),
-                  );
+                        PlaySongEvent(
+                          song: song,
+                          queue: [song],
+                          queueIndex: 0,
+                        ),
+                      );
                   if (!widget.embedded) Navigator.of(context).maybePop();
                 },
               ),
@@ -705,7 +593,7 @@ class _SearchPageState extends State<SearchPage> {
     }
     return [
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
         sliver: SliverList.builder(
           itemCount: artists.length,
           itemBuilder: (context, index) {
@@ -736,8 +624,8 @@ class _SearchPageState extends State<SearchPage> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                      fontWeight: FontWeight.w600,
+                    ),
               ),
               subtitle: const Text('Artist'),
             );
@@ -765,12 +653,12 @@ class _SearchPageState extends State<SearchPage> {
     }
     return [
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
         sliver: SliverGrid.builder(
           itemCount: albums.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            childAspectRatio: .78,
+            childAspectRatio: 0.78,
             crossAxisSpacing: 14,
             mainAxisSpacing: 18,
           ),
@@ -810,7 +698,7 @@ class _SearchPageState extends State<SearchPage> {
     }
     return [
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
         sliver: SliverList.builder(
           itemCount: playlists.length,
           itemBuilder: (context, index) {
@@ -840,10 +728,241 @@ class _SearchPageState extends State<SearchPage> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                      fontWeight: FontWeight.w600,
+                    ),
               ),
               subtitle: Text('${playlist.trackCount} tracks'),
+            );
+          },
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _videosSlivers(SearchState state) {
+    final videos = state.results.songs;
+    final theme = Theme.of(context);
+
+    if (videos.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: PrismEmptyState(
+            icon: Icons.video_library_rounded,
+            message: 'No videos found',
+            hint: 'Try a different search or spelling.',
+            actionLabel: 'Clear Search',
+            onAction: _clearSearch,
+          ),
+        ),
+      ];
+    }
+
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+        sliver: SliverList.separated(
+          itemCount: videos.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final video = videos[index];
+            return Card(
+              margin: EdgeInsets.zero,
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(PrismRadius.lg),
+                side: BorderSide(
+                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
+                  width: 1,
+                ),
+              ),
+              child: InkWell(
+                onTap: () {
+                  context.read<PlayerBloc>().add(
+                        PlaySongEvent(
+                          song: video,
+                          queue: [video],
+                          queueIndex: 0,
+                        ),
+                      );
+                  if (!widget.embedded) Navigator.of(context).maybePop();
+                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.network(
+                            video.thumbnailUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: theme.colorScheme.surfaceContainerHigh,
+                              child: const Icon(
+                                Icons.video_collection_rounded,
+                                size: 48,
+                              ),
+                            ),
+                          ),
+                          Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.65),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.play_arrow_rounded,
+                                color: Colors.white,
+                                size: 30,
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            right: 8,
+                            bottom: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.8),
+                                borderRadius:
+                                    BorderRadius.circular(PrismRadius.xs),
+                              ),
+                              child: Text(
+                                video.durationFormatted,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  video.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        video.artist,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                          color:
+                                              theme.colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.primaryContainer
+                                            .withValues(alpha: 0.6),
+                                        borderRadius: BorderRadius.circular(
+                                          PrismRadius.xs,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        'YouTube · Video',
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: theme
+                                              .colorScheme.onPrimaryContainer,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.more_vert_rounded),
+                            onPressed: () =>
+                                showPrismSongActions(context, video),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _downloadsSlivers(SearchState state) {
+    final songs = state.results.songs;
+    if (songs.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: PrismEmptyState(
+            icon: Icons.download_done_rounded,
+            message: 'No downloaded songs found',
+            hint: 'Songs saved offline will appear here.',
+            actionLabel: 'Clear Search',
+            onAction: _clearSearch,
+          ),
+        ),
+      ];
+    }
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+        sliver: SliverList.builder(
+          itemCount: songs.length,
+          itemBuilder: (context, index) {
+            final song = songs[index];
+            return BlocBuilder<PlayerBloc, PlayerState>(
+              builder: (context, playerState) => PrismSongTile(
+                song: song,
+                index: index,
+                isDownloaded: true,
+                isPlaying: playerState.currentSong?.id == song.id,
+                isPlayingPaused: !playerState.isPlaying,
+                onTap: () {
+                  context.read<PlayerBloc>().add(
+                        PlaySongEvent(
+                          song: song,
+                          queue: [song],
+                          queueIndex: 0,
+                        ),
+                      );
+                  if (!widget.embedded) Navigator.of(context).maybePop();
+                },
+              ),
             );
           },
         ),
@@ -855,70 +974,6 @@ class _SearchPageState extends State<SearchPage> {
 // ════════════════════════════════════════════════════════════════════════════
 // Private helper widgets
 // ════════════════════════════════════════════════════════════════════════════
-
-class _FilterChips extends StatelessWidget {
-  const _FilterChips({required this.selected, required this.onSelect});
-
-  final SearchFilter selected;
-  final ValueChanged<SearchFilter> onSelect;
-
-  static const _filters = [
-    SearchFilter.all,
-    SearchFilter.songs,
-    SearchFilter.artists,
-    SearchFilter.albums,
-    SearchFilter.playlists,
-  ];
-
-  String _labelFor(SearchFilter filter) => switch (filter) {
-    SearchFilter.all => 'All',
-    SearchFilter.songs => 'Songs',
-    SearchFilter.playlists => 'Playlists',
-    SearchFilter.albums => 'Albums',
-    SearchFilter.artists => 'Artists',
-    SearchFilter.downloads => 'Downloads',
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: _filters
-          .map(
-            (filter) => ChoiceChip(
-              label: Text(_labelFor(filter)),
-              selected: filter == selected,
-              onSelected: (_) => onSelect(filter),
-            ),
-          )
-          .toList(),
-    );
-  }
-}
-
-class _ChipWrap extends StatelessWidget {
-  const _ChipWrap({required this.items, required this.onTap});
-
-  final List<String> items;
-  final ValueChanged<String> onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: items
-          .map(
-            (item) => ActionChip(
-              label: Text(item),
-              onPressed: () => onTap(item),
-            ),
-          )
-          .toList(),
-    );
-  }
-}
 
 class _AlbumGridCard extends StatelessWidget {
   const _AlbumGridCard({
@@ -990,11 +1045,11 @@ class _AlbumGridCard extends StatelessWidget {
   }
 
   Widget _fallback(ThemeData theme) => Container(
-    color: theme.colorScheme.surfaceContainerHigh,
-    child: Icon(
-      Icons.album_rounded,
-      size: 42,
-      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: .5),
-    ),
-  );
+        color: theme.colorScheme.surfaceContainerHigh,
+        child: Icon(
+          Icons.album_rounded,
+          size: 42,
+          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: .5),
+        ),
+      );
 }

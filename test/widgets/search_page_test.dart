@@ -190,4 +190,52 @@ void main() {
     expect(playerBloc.state.currentSong?.id, 's2');
     expect(playerBloc.state.queue.first.id, 's2');
   });
+
+  testWidgets('renders Top Match hero card with verified quality metadata when top result is present', (tester) async {
+    final topSong = song('top_1', 'Master of Puppets', artist: 'Metallica', source: MusicSource.jiosaavn);
+    musicRepo.searchAllResult = Right(
+      SearchResults(
+        songs: [topSong],
+        artists: const [Artist(id: 'a1', name: 'Metallica')],
+        albums: const [],
+        playlists: const [],
+      ),
+    );
+
+    bloc.add(const SearchQueryEvent(
+      query: 'Master of Puppets',
+      filter: SearchFilter.all,
+    ));
+
+    await pumpTestWidget(
+      tester,
+      const SearchPage(embedded: true),
+      searchBloc: bloc,
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 500)),
+    );
+    await tester.pump();
+
+    expect(find.text('TOP MATCH'), findsOneWidget);
+    expect(find.text('JioSaavn · 320 kbps AAC'), findsOneWidget);
+  });
+
+  testWidgets('tapping identify song icon opens ambient recognition sheet', (tester) async {
+    await pumpTestWidget(
+      tester,
+      const SearchPage(embedded: true),
+      searchBloc: bloc,
+    );
+    await tester.pump();
+
+    final recognizeButton = find.byTooltip('Identify song');
+    expect(recognizeButton, findsOneWidget);
+
+    await tester.tap(recognizeButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Identify Music'), findsOneWidget);
+  });
 }

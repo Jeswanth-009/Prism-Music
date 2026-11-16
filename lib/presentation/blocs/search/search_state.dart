@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../../domain/entities/search_results_bundle.dart';
 import '../../../domain/repositories/music_repository.dart';
 import 'search_event.dart';
 
@@ -68,6 +69,15 @@ class SearchState extends Equatable {
   /// Whether current results were resolved offline from downloads
   final bool isOfflineResults;
 
+  /// Top result selected by ranking engine
+  final SearchTopResult? topResult;
+
+  /// Cached universal bundle for instant chip slicing without network delays
+  final SearchResults? cachedAllResults;
+
+  /// Whether ambient song recognition is actively listening
+  final bool isListening;
+
   const SearchState({
     this.status = SearchStatus.initial,
     this.query = '',
@@ -80,6 +90,9 @@ class SearchState extends Equatable {
     this.page = 1,
     this.errorMessage,
     this.isOfflineResults = false,
+    this.topResult,
+    this.cachedAllResults,
+    this.isListening = false,
   });
 
   /// Whether search is in progress
@@ -91,6 +104,9 @@ class SearchState extends Equatable {
 
   /// Whether there are any results
   bool get hasResults => !results.isEmpty;
+
+  /// Whether top match result is available
+  bool get hasTopResult => topResult != null;
 
   /// Whether we have any suggestions to show
   bool get hasSuggestions =>
@@ -108,6 +124,10 @@ class SearchState extends Equatable {
     int? page,
     String? errorMessage,
     bool? isOfflineResults,
+    SearchTopResult? topResult,
+    bool clearTopResult = false,
+    SearchResults? cachedAllResults,
+    bool? isListening,
   }) {
     return SearchState(
       status: status ?? this.status,
@@ -121,6 +141,9 @@ class SearchState extends Equatable {
       page: page ?? this.page,
       errorMessage: errorMessage ?? this.errorMessage,
       isOfflineResults: isOfflineResults ?? this.isOfflineResults,
+      topResult: clearTopResult ? null : (topResult ?? this.topResult),
+      cachedAllResults: cachedAllResults ?? this.cachedAllResults,
+      isListening: isListening ?? this.isListening,
     );
   }
 
@@ -137,5 +160,8 @@ class SearchState extends Equatable {
         page,
         errorMessage,
         isOfflineResults,
+        topResult,
+        cachedAllResults,
+        isListening,
       ];
 }

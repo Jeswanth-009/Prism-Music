@@ -90,5 +90,20 @@ enum SearchFilter {
   artists,
   albums,
   playlists,
+  videos,
   downloads,
+}
+
+/// Dispatched when ambient recognition identifies a song
+class SearchRecognizedSongEvent extends SearchEvent {
+  final String title;
+  final String artist;
+
+  const SearchRecognizedSongEvent({
+    required this.title,
+    this.artist = '',
+  });
+
+  @override
+  List<Object?> get props => [title, artist];
 }

@@ -123,6 +123,9 @@ class Song extends Equatable {
   /// Explainable reason for this track being recommended or queued
   final String? recommendationReason;
 
+  /// Optional production / writing credits (composers, lyricists, producers)
+  final Map<String, String>? credits;
+
   const Song({
     required this.id,
     required this.title,
@@ -148,10 +151,14 @@ class Song extends Equatable {
     this.originalPlatformId,
     this.isrc,
     this.recommendationReason,
+    this.credits,
   });
 
-  /// Get the primary playable ID (prefers YouTube for streaming)
+  /// Primary playable ID (prefers YouTube for streaming)
   String get playableId => youtubeId ?? jioSaavnId ?? id;
+
+  /// Alias for video streaming ID
+  String? get videoId => youtubeId;
   
   /// Get the best available thumbnail
   String get thumbnailUrl => thumbnails.high ?? thumbnails.medium ?? thumbnails.low ?? '';
@@ -189,6 +196,7 @@ class Song extends Equatable {
     String? originalPlatformId,
     String? isrc,
     String? recommendationReason,
+    Map<String, String>? credits,
   }) {
     return Song(
       id: id ?? this.id,
@@ -215,6 +223,7 @@ class Song extends Equatable {
       originalPlatformId: originalPlatformId ?? this.originalPlatformId,
       isrc: isrc ?? this.isrc,
       recommendationReason: recommendationReason ?? this.recommendationReason,
+      credits: credits ?? this.credits,
     );
   }
 
@@ -242,6 +251,7 @@ class Song extends Equatable {
         originalPlatformId,
         isrc,
         recommendationReason,
+        credits,
       ];
 }
 
