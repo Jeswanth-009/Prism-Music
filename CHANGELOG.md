@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [0.2.95] - 2026-11-16
+
+### Added
+
+- Revamp search experience with deterministic ranking, warm-up prefetch, and refined sliver UI
+
 ## [0.2.94] - 2026-11-15
 
 ### Changed
@@ -1212,3 +1218,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.92]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.92-build128
 [0.2.93]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.93-build129
 [0.2.94]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.94-build130
+[0.2.95]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.95-build131
