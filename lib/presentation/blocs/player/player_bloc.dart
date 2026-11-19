@@ -120,6 +120,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     RecommendationService? recommendationService,
     PlaybackBloc? playbackBloc,
     QueueBloc? queueBloc,
+    // How long a natively advanced queue track may sit without starting to
+    // play before it is treated as stuck. Overridable so tests need not wait.
+    Duration trackStartWatchdogTimeout = const Duration(seconds: 15),
   }) : _musicRepository = musicRepository,
        _libraryRepository = libraryRepository,
        _audioPlayer = audioPlayerService,
@@ -131,6 +134,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
        _recommendationService = recommendationService,
        _playbackBloc = playbackBloc,
        _queueBloc = queueBloc,
+       _trackStartWatchdogTimeout = trackStartWatchdogTimeout,
        super(PlayerState(autoPlay: SettingsService.instance.autoPlay)) {
     if (_recommendationService == null &&
         getIt.isRegistered<RecommendationService>()) {
@@ -232,6 +236,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     on<_CompletedEvent>(_onCompleted);
     on<_AddRecommendationsEvent>(_onAddRecommendations);
     on<_IndexChangedEvent>(_onIndexChanged);
+    on<_TrackStalledEvent>(_onTrackStalled);
     on<ToggleAutoPlayEvent>(_onToggleAutoPlay);
     on<MarkSongNotInterestedEvent>(_onMarkSongNotInterested);
     on<SwitchStreamSourceEvent>(_onSwitchStreamSource);
@@ -513,6 +518,16 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   static const Duration _resolveTimeout = Duration(seconds: 45);
   static const Duration _setSourceTimeout = Duration(seconds: 45);
 
+  /// Watchdog for tracks the native queue advanced to on its own (auto-advance
+  /// or skip). Unlike [_onPlaySong] they have no timeout of their own, so a
+  /// track whose source never loads would leave the player silent forever.
+  /// See [_armTrackStartWatchdog].
+  final Duration _trackStartWatchdogTimeout;
+  Timer? _trackStartWatchdog;
+
+  /// A track counts as started once its position has moved past this.
+  static const Duration _trackStartMinProgress = Duration(seconds: 1);
+
   Future<void> _onStartSongRadio(
     StartSongRadioEvent event,
     Emitter<PlayerState> emit,
@@ -563,6 +578,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     // attempts (bloc handlers run concurrently, so an old hung _onPlaySong
     // may still be awaiting its resolution right now).
     final generation = ++_playbackGeneration;
+    // This attempt has its own timeouts and error handling; a watchdog armed
+    // for an earlier native auto-advance no longer applies.
+    _cancelTrackStartWatchdog();
 
     // Quick check if this is the same song already playing - just update queue position.
     // NOTE: only when playing. Retry/auto-advance flows re-enter here with
@@ -1501,6 +1519,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
   Future<void> _onStop(StopEvent event, Emitter<PlayerState> emit) async {
     _playbackGeneration++;
+    _cancelTrackStartWatchdog();
     cancelSleepTimer();
     await _audioPlayer.stop();
     await _audioFocus.deactivate();
@@ -2163,6 +2182,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       ),
     );
 
+    // The native queue moved on by itself: make sure this track really starts.
+    _armTrackStartWatchdog(newSong, newIndex);
+
     // Update now playing and prefetch ahead.
     resetScrobbleState();
     updateNowPlaying(newSong);
@@ -2175,6 +2197,69 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
     // Check if we need more recommendations.
     _checkAndAddRecommendations();
+  }
+
+  /// Arms a one-shot timer for a track the native queue advanced to on its
+  /// own. If, when it fires, the player claims to be playing but the track has
+  /// made no progress, [_onTrackStalled] recovers it through the normal
+  /// playback-error policy (fresh re-resolve, then skip).
+  ///
+  /// Without this such a track just sits in `loading`: [_onPlayerError]
+  /// deliberately ignores errors while loading (it assumes [_onPlaySong] is
+  /// handling them), but nothing is handling a native auto-advance.
+  void _armTrackStartWatchdog(Song song, int index) {
+    _trackStartWatchdog?.cancel();
+    final generation = _playbackGeneration;
+    _trackStartWatchdog = Timer(_trackStartWatchdogTimeout, () {
+      if (isClosed) return;
+      add(_TrackStalledEvent(song: song, index: index, generation: generation));
+    });
+  }
+
+  void _cancelTrackStartWatchdog() {
+    _trackStartWatchdog?.cancel();
+    _trackStartWatchdog = null;
+  }
+
+  void _onTrackStalled(_TrackStalledEvent event, Emitter<PlayerState> emit) {
+    try {
+      // A newer playback attempt (or a stop) owns the player now.
+      if (event.generation != _playbackGeneration) return;
+      if (state.status == PlayerStatus.error) return;
+
+      // The user moved on, or the track changed again, since the timer was set.
+      final current = state.currentSong;
+      if (current == null ||
+          current.playableId != event.song.playableId ||
+          state.queueIndex != event.index) {
+        return;
+      }
+
+      // Paused (by the user, a sleep timer or video mode): nothing is stuck.
+      if (!_audioPlayer.playing) return;
+
+      // Audio is flowing: the track started fine.
+      if (state.position >= _trackStartMinProgress) return;
+
+      _log(
+        'PlayerBloc: "${current.title}" made no progress within '
+        '${_trackStartWatchdogTimeout.inSeconds}s of becoming the active queue '
+        'track; recovering',
+      );
+      _handlePlaybackError(
+        emit,
+        failedSong: current,
+        error: 'Track failed to start (stalled while loading)',
+        queue: state.queue,
+        queueIndex: state.queueIndex,
+        // A timing heuristic must never delete a user's local download.
+        isOffline: false,
+        generation: event.generation,
+      );
+    } catch (e) {
+      // The watchdog is a safety net; it must never take playback down itself.
+      _log('PlayerBloc: Track watchdog failed: $e');
+    }
   }
 
   /// Local file path of [song] when it has been downloaded, otherwise null.
@@ -2488,6 +2573,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   Future<void> close() async {
     WidgetsBinding.instance.removeObserver(this);
     cancelSleepTimer();
+    _cancelTrackStartWatchdog();
     await _positionSubscription?.cancel();
     await _bufferedSubscription?.cancel();
     await _durationSubscription?.cancel();
@@ -2537,6 +2623,25 @@ class _IndexChangedEvent extends PlayerEvent {
 
   @override
   List<Object?> get props => [index];
+}
+
+/// Internal event fired by the track-start watchdog when a track that the
+/// native queue advanced to has not started playing in time.
+class _TrackStalledEvent extends PlayerEvent {
+  final Song song;
+  final int index;
+
+  /// Value of the bloc's playback generation when the watchdog was armed.
+  final int generation;
+
+  const _TrackStalledEvent({
+    required this.song,
+    required this.index,
+    required this.generation,
+  });
+
+  @override
+  List<Object?> get props => [song, index, generation];
 }
 
 /// Internal event fired when the sleep timer elapses and playback was
