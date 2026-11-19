@@ -2043,6 +2043,28 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       _log(
         'Added ${uniqueSongs.length} recommendations to queue (total: ${updatedQueue.length})',
       );
+      // Keep the native ConcatenatingAudioSource in lock-step with the bloc
+      // queue. Without this the native queue ends early, completion handling
+      // has to rebuild the whole queue from scratch, and playback stalls or
+      // jumps instead of simply advancing to the next track.
+      if (_audioPlayer.isQueueMode) {
+        final quality = _mapAudioQuality(state.audioQuality);
+        final payload = uniqueSongs
+            .map(
+              (s) => <String, dynamic>{
+                'videoId': s.playableId,
+                'url': _downloadedPathFor(s) ?? s.streamUrl ?? '',
+                'headers': null,
+                'quality': quality,
+                'title': s.title,
+                'artist': s.artist,
+                'artUri': s.thumbnails.medium ?? s.thumbnailUrl,
+                'album': s.album,
+              },
+            )
+            .toList();
+        unawaited(_audioPlayer.appendToQueue(payload));
+      }
       // Next button in the media notification may now be usable.
       MediaSessionCoordinator.instance.notifyQueueChanged();
     }
