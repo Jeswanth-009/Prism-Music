@@ -812,7 +812,7 @@ class AudioPlayerService {
 
         if (isLocal) {
           logDebug('AudioPlayerService: Using local file for queued track');
-          source = AudioSource.uri(_uriForUrl(url!), tag: mediaItem);
+          source = AudioSource.uri(_uriForUrl(url), tag: mediaItem);
         } else if (isYouTube) {
           logDebug('AudioPlayerService: Using YouTubeAudioSource for queued track');
           source = YouTubeAudioSource(
