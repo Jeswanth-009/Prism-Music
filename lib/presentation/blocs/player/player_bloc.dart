@@ -2155,6 +2155,14 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     _checkAndAddRecommendations();
   }
 
+  /// Local file path of [song] when it has been downloaded, otherwise null.
+  String? _downloadedPathFor(Song song) {
+    final id = song.playableId;
+    if (!_downloadService.isDownloaded(id)) return null;
+    final path = _downloadService.getLocalPath(id);
+    return (path != null && path.isNotEmpty) ? path : null;
+  }
+
   Future<Duration?> _loadAudioQueueSafe(
     List<Song> queue,
     int index,
@@ -2166,9 +2174,16 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     try {
       final songsPayload = queue.map((s) {
         final isCurrent = s.playableId == songToPlay.playableId;
+        // Downloaded entries carry their local file path so the player loads
+        // them from disk instead of resolving a network stream (which cannot
+        // work offline). Other entries keep their stream URL, or are
+        // resolved lazily when their turn comes.
+        final url = isCurrent
+            ? resolvedSource.uri
+            : (_downloadedPathFor(s) ?? s.streamUrl ?? '');
         return <String, dynamic>{
           'videoId': s.playableId,
-          'url': isCurrent ? resolvedSource.uri : (s.streamUrl ?? ''),
+          'url': url,
           'headers': isCurrent ? resolvedSource.headers : null,
           'quality': _mapAudioQuality(state.audioQuality),
           'title': s.title,
