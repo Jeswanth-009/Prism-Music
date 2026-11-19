@@ -60,6 +60,11 @@ class StreamLoaderService {
   static const Duration _streamFetchTimeout = Duration(milliseconds: 9000);
   static const Duration _overallResolutionBudget = Duration(seconds: 22);
 
+  /// How long the best-ranked resolver runs alone before the next one is
+  /// started alongside it. See [_raceResolvers].
+  static const Duration defaultHedgeDelay = Duration(seconds: 2);
+  final Duration _hedgeDelay;
+
   final PlaybackReliabilityService _reliability;
   PlaybackReliabilityService get reliability => _reliability;
 
@@ -86,7 +91,9 @@ class StreamLoaderService {
     JioSaavnDataSource? jioSaavn,
     List<AudioStreamResolver>? resolvers,
     PlaybackReliabilityService? reliability,
+    Duration hedgeDelay = defaultHedgeDelay,
   }) : _reliability = reliability ?? PlaybackReliabilityService(),
+       _hedgeDelay = hedgeDelay,
        _resolvers = resolvers ??
            [
              JioSaavnAudioStreamResolver(dataSource: jioSaavn ?? JioSaavnDataSourceImpl()),
@@ -173,7 +180,12 @@ class StreamLoaderService {
     return streamInfo;
   }
 
-  /// Optimized fetch - use primary source once and fail fast on errors.
+  /// Resolves a stream for [song].
+  ///
+  /// Resolvers are ranked by priority. Normally they are raced with a stagger
+  /// (see [_raceResolvers]): a slow or hung resolver no longer holds playback
+  /// up for its whole timeout. An explicit [preferredResolverName] is a user
+  /// choice and keeps the strict "preferred first, then fall back" order.
   Future<StreamInfo> _fetchOptimized(
     Song song,
     AudioQuality preferredQuality, {
@@ -189,6 +201,23 @@ class StreamLoaderService {
           ]
         : _resolvers;
 
+    if (preferredResolverName == null) {
+      final eligible = <AudioStreamResolver>[];
+      for (final resolver in candidateResolvers) {
+        if (!resolver.isAvailable) continue;
+        final source = _mapResolverToSource(resolver.resolverName);
+        if (_isCircuitOpen(source)) {
+          debugPrint('StreamLoader: ${resolver.resolverName} circuit is OPEN; skipping.');
+          continue;
+        }
+        eligible.add(resolver);
+      }
+      // With fewer than two usable resolvers there is nothing to race.
+      if (eligible.length > 1) {
+        return _raceResolvers(song, preferredQuality, eligible, stopwatch);
+      }
+    }
+
     for (final resolver in candidateResolvers) {
       if (!resolver.isAvailable) continue;
       final source = _mapResolverToSource(resolver.resolverName);
@@ -200,18 +229,7 @@ class StreamLoaderService {
       }
 
       debugPrint('StreamLoader: Trying ${resolver.resolverName} resolver...');
-      StreamInfo? stream;
-      try {
-        stream = await resolver
-            .resolveStream(song, preferredQuality: preferredQuality)
-            .timeout(_streamFetchTimeout);
-      } catch (e) {
-        if (e is GeoRestrictionException) {
-          debugPrint('StreamLoader: ${resolver.resolverName} hit geo-restriction: $e');
-          _geoRestrictionController.add(e);
-        }
-        debugPrint('StreamLoader: ${resolver.resolverName} failed or timed out: $e');
-      }
+      final stream = await _attemptResolver(resolver, song, preferredQuality);
 
       if (stream != null) {
         debugPrint(
@@ -234,6 +252,112 @@ class StreamLoaderService {
 
     stopwatch.stop();
     throw Exception('All stream sources failed to fetch $videoId');
+  }
+
+  /// Runs a single [resolver], bounded by [_streamFetchTimeout].
+  ///
+  /// Never throws: any failure (including a timeout) yields `null`, and a
+  /// geo-restriction is additionally reported on [onGeoRestrictionDetected].
+  Future<StreamInfo?> _attemptResolver(
+    AudioStreamResolver resolver,
+    Song song,
+    AudioQuality preferredQuality,
+  ) async {
+    try {
+      return await resolver
+          .resolveStream(song, preferredQuality: preferredQuality)
+          .timeout(_streamFetchTimeout);
+    } catch (e) {
+      if (e is GeoRestrictionException) {
+        debugPrint('StreamLoader: ${resolver.resolverName} hit geo-restriction: $e');
+        // A resolver that loses a race can fail after dispose().
+        if (!_geoRestrictionController.isClosed) {
+          _geoRestrictionController.add(e);
+        }
+      }
+      debugPrint('StreamLoader: ${resolver.resolverName} failed or timed out: $e');
+      return null;
+    }
+  }
+
+  /// Starts [candidates] in priority order, staggered by [_hedgeDelay], and
+  /// completes with the first stream any of them resolves.
+  ///
+  /// The best-ranked resolver runs alone for [_hedgeDelay]. If it has neither
+  /// answered nor failed by then, the next one is started alongside it, and so
+  /// on down the list. A resolver that fails or finds no match starts the next
+  /// one immediately. A healthy primary therefore behaves exactly like a
+  /// sequential loop (the others are never contacted), while a slow or hung one
+  /// no longer costs its full timeout before the fallback even begins.
+  ///
+  /// Resolvers that lose the race keep running until they finish or time out.
+  /// Their streams are discarded, but their outcomes still feed the circuit
+  /// breakers: a primary that is persistently too slow to win must still get
+  /// its circuit opened, otherwise every track would keep paying the hedge
+  /// delay for it.
+  Future<StreamInfo> _raceResolvers(
+    Song song,
+    AudioQuality preferredQuality,
+    List<AudioStreamResolver> candidates,
+    Stopwatch stopwatch,
+  ) {
+    final completer = Completer<StreamInfo>();
+    Timer? hedgeTimer;
+    var launched = 0;
+    var failures = 0;
+
+    void launchNext() {
+      if (completer.isCompleted || launched >= candidates.length) return;
+      hedgeTimer?.cancel();
+
+      final resolver = candidates[launched++];
+      final source = _mapResolverToSource(resolver.resolverName);
+      debugPrint('StreamLoader: Trying ${resolver.resolverName} resolver...');
+
+      _attemptResolver(resolver, song, preferredQuality).then((stream) {
+        // Health tracking covers every resolver, winner or not.
+        if (stream != null) {
+          _recordSourceSuccess(source);
+        } else {
+          _recordSourceFailure(source);
+        }
+        if (completer.isCompleted) return; // another resolver already won
+
+        if (stream != null) {
+          hedgeTimer?.cancel();
+          debugPrint(
+            'StreamLoader: ${resolver.resolverName} succeeded in ${stopwatch.elapsedMilliseconds}ms',
+          );
+          _recordAttempt(
+            _FetchResult(
+              source: source,
+              streamInfo: stream,
+              error: null,
+              fetchTime: stopwatch.elapsed,
+            ),
+          );
+          completer.complete(stream);
+          return;
+        }
+
+        failures++;
+        if (launched < candidates.length) {
+          launchNext(); // fail over right away instead of waiting for the hedge
+        } else if (failures >= candidates.length) {
+          hedgeTimer?.cancel();
+          completer.completeError(
+            Exception('All stream sources failed to fetch ${song.playableId}'),
+          );
+        }
+      });
+
+      if (launched < candidates.length) {
+        hedgeTimer = Timer(_hedgeDelay, launchNext);
+      }
+    }
+
+    launchNext();
+    return completer.future;
   }
 
   StreamSource _mapResolverToSource(String resolverName) {
