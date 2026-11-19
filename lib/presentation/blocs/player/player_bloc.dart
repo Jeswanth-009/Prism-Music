@@ -2215,8 +2215,14 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         };
       }).toList();
 
+      // The user's prefetch setting also controls how many upcoming tracks
+      // get their stream manifests warmed while the current one plays.
       final dur = await _audioPlayer
-          .loadQueue(songsPayload, initialIndex: index)
+          .loadQueue(
+            songsPayload,
+            initialIndex: index,
+            prewarmLookahead: _prefetchLookahead,
+          )
           .timeout(_setSourceTimeout);
       if (dur != null) return dur;
     } catch (e) {

@@ -11,6 +11,7 @@ import 'youtube_audio_source.dart';
 import 'equalizer_service.dart';
 import 'audio_normalization_service.dart';
 import 'desktop_audio_support.dart';
+import 'offline_mode_service.dart';
 
 /// Audio player service using just_audio with direct YouTube streaming
 class AudioPlayerService {
@@ -23,6 +24,20 @@ class AudioPlayerService {
   ConcatenatingAudioSource? _playlist;
   final List<AudioSource> _queueSources = [];
   bool _initialized = false;
+
+  /// Upper bound on how many upcoming queue entries are warmed at a time.
+  static const int _maxQueuePrewarm = 3;
+
+  /// How many upcoming lazily-resolved queue entries to keep warm (0 = off).
+  /// Held at 0 while a queue is loading so the current track gets the
+  /// network first; [loadQueue] raises it once that track is ready.
+  int _queuePrewarmLookahead = 0;
+
+  /// `videoId|quality` keys whose manifest warm-up is currently in flight.
+  final Set<String> _prewarmInflight = <String>{};
+
+  /// Shape of a YouTube video id (11 URL-safe characters).
+  static final RegExp _youtubeVideoIdPattern = RegExp(r'^[A-Za-z0-9_-]{11}$');
 
   AudioPlayer get player => _player; 
   // Stream controllers for player events
@@ -176,6 +191,9 @@ class AudioPlayerService {
             return;
           }
           _currentIndexController.add(index);
+          // Keep the next few tracks' stream manifests warm as playback
+          // moves through the queue.
+          _prewarmUpcomingQueue(fromIndex: index);
           if (kDebugMode) {
             debugPrint('AudioPlayerService: Current index changed to $index');
           }
@@ -732,9 +750,14 @@ class AudioPlayerService {
 
   /// Load and start playing a queue of songs using ConcatenatingAudioSource
   /// This enables auto-advance between songs even when app is in background
+  ///
+  /// [prewarmLookahead] is how many of the tracks after the current one get
+  /// their stream manifests fetched in the background while the current
+  /// track plays (0 disables it; capped at [_maxQueuePrewarm]).
   Future<Duration?> loadQueue(
     List<Map<String, dynamic>> songs, {
     int initialIndex = 0,
+    int prewarmLookahead = _maxQueuePrewarm,
   }) async {
     if (!_initialized) return null;
 
@@ -742,6 +765,8 @@ class AudioPlayerService {
       logDebug('AudioPlayerService: Loading queue with ${songs.length} songs, starting at index $initialIndex');
 
       _queueSources.clear();
+      // Warm upcoming tracks only once the current one is ready (below).
+      _queuePrewarmLookahead = 0;
       final sources = <AudioSource>[];
 
       for (final songData in songs) {
@@ -840,11 +865,58 @@ class AudioPlayerService {
       );
 
       logDebug('AudioPlayerService: ✓ Queue loaded successfully, duration: ${_player.duration}');
+      // The current track is ready, so the network is free to warm the stream
+      // manifests of the tracks that follow it.
+      _queuePrewarmLookahead = math.min(
+        math.max(prewarmLookahead, 0),
+        _maxQueuePrewarm,
+      );
+      _prewarmUpcomingQueue(fromIndex: startIndex);
       return _player.duration;
     } catch (e, st) {
       logError('AudioPlayerService: ✗ Failed to load queue', e, st);
       _errorController.add('Failed to load queue: $e');
       return null;
+    }
+  }
+
+  /// Warms the stream manifests of the next few queue entries.
+  ///
+  /// Queue entries that carry no stream URL are [YouTubeAudioSource]s, which
+  /// only fetch their manifest when the player first asks for the track.
+  /// Walking the client fallback chain at that moment can take many seconds,
+  /// which is what makes a track change feel slow (or never arrive). Fetching
+  /// the manifests while the current track plays turns that into a cache hit.
+  /// Local files and entries that already carry a URL are skipped, as is
+  /// everything while the app is offline.
+  void _prewarmUpcomingQueue({int? fromIndex}) {
+    final lookahead = _queuePrewarmLookahead;
+    if (lookahead <= 0 || _playlist == null) return;
+    final current = fromIndex ?? _player.currentIndex;
+    if (current == null || current < 0) return;
+    if (OfflineModeService.instance.isOffline) return;
+
+    final end = math.min(_queueSources.length, current + 1 + lookahead);
+    for (var i = current + 1; i < end; i++) {
+      final source = _queueSources[i];
+      if (source is! YouTubeAudioSource) continue;
+      final initialUrl = source.initialStreamUrl;
+      if (initialUrl != null && initialUrl.isNotEmpty) continue;
+      final id = source.videoId;
+      // Only real YouTube video ids have a manifest to warm; anything else
+      // (e.g. a JioSaavn id) would just burn a full client fallback walk.
+      if (!_youtubeVideoIdPattern.hasMatch(id)) continue;
+      final quality = source.quality;
+      if (YouTubeAudioSource.isStreamCached(id, quality: quality)) continue;
+      final key = '$id|$quality';
+      if (!_prewarmInflight.add(key)) continue;
+      unawaited(
+        YouTubeAudioSource.prewarmCache(id, quality: quality)
+            .catchError((_) {})
+            .whenComplete(() {
+              _prewarmInflight.remove(key);
+            }),
+      );
     }
   }
 
