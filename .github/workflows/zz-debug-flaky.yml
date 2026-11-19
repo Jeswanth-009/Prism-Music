@@ -1,0 +1,97 @@
+name: Debug flaky test (TEMPORARY - do not merge)
+
+# Temporary diagnostic, removed afterwards. The full suite occasionally fails
+# with exactly one failing test and job logs are not retrievable from the
+# environment that authored this change, so the suite is run in parallel on
+# several runners and every failure is reported as an annotation.
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  suite:
+    name: Suite run ${{ matrix.run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        run: [1, 2, 3, 4, 5, 6, 7, 8]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Flutter (3.38.4 stable)
+        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff # v2.18.0
+        with:
+          flutter-version: "3.38.4"
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run the suite and report failures
+        run: |
+          set +e
+          flutter test --reporter json > "$RUNNER_TEMP/full.jsonl"
+          echo "flutter test exit code: $?"
+          python3 - "$RUNNER_TEMP/full.jsonl" "${{ matrix.run }}" <<'PY'
+          import json, sys
+
+          path, run = sys.argv[1], sys.argv[2]
+          names, errors, failed, prints, files = {}, {}, {}, {}, {}
+          total = passed = 0
+          with open(path, encoding="utf-8", errors="replace") as fh:
+              for line in fh:
+                  line = line.strip()
+                  if not line.startswith("{"):
+                      continue
+                  try:
+                      ev = json.loads(line)
+                  except Exception:
+                      continue
+                  kind = ev.get("type")
+                  if kind == "testStart":
+                      t = ev["test"]
+                      names[t["id"]] = t["name"]
+                      files[t["id"]] = t.get("url") or ""
+                  elif kind == "error":
+                      errors.setdefault(ev["testID"], []).append(
+                          (ev.get("error", ""), ev.get("stackTrace", ""))
+                      )
+                  elif kind == "print":
+                      prints.setdefault(ev["testID"], []).append(ev.get("message", ""))
+                  elif kind == "testDone":
+                      ok = ev.get("result") == "success"
+                      if not ev.get("hidden"):
+                          total += 1
+                          passed += 1 if ok else 0
+                      if not ok:
+                          failed[ev["testID"]] = ev.get("result")
+
+
+          def esc(s):
+              return s.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+          print(f"::notice title=run {run} totals::{total} tests, {passed} passed, {len(failed)} failed")
+          for tid, result in failed.items():
+              name = names.get(tid, str(tid))
+              parts = [f"file: {files.get(tid, '')}", f"result: {result}"]
+              for err, stack in errors.get(tid, []):
+                  parts.append(err)
+                  parts.append(stack[:2000])
+              tail = prints.get(tid, [])[-20:]
+              if tail:
+                  parts.append("--- last prints ---")
+                  parts.extend(p[:300] for p in tail)
+              message = "\n".join(parts)[:9000]
+              print(f"::error title={esc('run ' + run + ': ' + name)[:200]}::{esc(message)}")
+          PY
+          exit 0
