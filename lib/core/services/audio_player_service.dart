@@ -634,6 +634,24 @@ class AudioPlayerService {
     allowYouTubeFallbackOnDirectFailure: allowYouTubeFallbackOnDirectFailure,
   );
 
+  /// Whether [url] points at a local audio file (downloaded track) rather
+  /// than a remote stream. Local files must never be routed through the
+  /// YouTube streaming path — doing so makes offline playback fail silently.
+  bool _isLocalPath(String? url) {
+    if (url == null || url.isEmpty) return false;
+    if (url.startsWith('file://')) return true;
+    if (url.startsWith('http://') || url.startsWith('https://')) return false;
+    return File(url).existsSync();
+  }
+
+  /// Builds the correct [Uri] for [url]: [Uri.file] for local paths,
+  /// [Uri.parse] for remote streams.
+  Uri _uriForUrl(String url) {
+    if (url.startsWith('file://')) return Uri.parse(url);
+    if (_isLocalPath(url)) return Uri.file(url);
+    return Uri.parse(url);
+  }
+
   /// Add a song to the end of the playlist queue
   Future<void> addToQueue(
     String url, {
@@ -647,13 +665,21 @@ class AudioPlayerService {
     try {
       AudioSource source;
 
+      final isLocal = _isLocalPath(url);
       final isGoogleVideo = url.contains('googlevideo.com');
-      final isYouTube = (videoId != null && videoId.isNotEmpty) ||
-          url.contains('youtube.com') ||
-          url.contains('youtu.be') ||
-          isGoogleVideo;
+      final isYouTube = !isLocal &&
+          ((videoId != null && videoId.isNotEmpty) ||
+              url.contains('youtube.com') ||
+              url.contains('youtu.be') ||
+              isGoogleVideo);
 
-      if (isYouTube) {
+      if (isLocal) {
+        logDebug('AudioPlayerService: Adding local file to queue');
+        source = AudioSource.uri(
+          _uriForUrl(url),
+          tag: MediaItem(id: url, title: 'Loading...', album: 'Prism Music'),
+        );
+      } else if (isYouTube) {
         logDebug('AudioPlayerService: Adding YouTube song to queue');
         source = YouTubeAudioSource(
           videoId: (videoId != null && videoId.isNotEmpty) ? videoId : 'direct',
@@ -668,7 +694,7 @@ class AudioPlayerService {
       } else if (url.isNotEmpty) {
         logDebug('AudioPlayerService: Adding regular URL to queue');
         source = AudioSource.uri(
-          Uri.parse(url),
+          _uriForUrl(url),
           headers: sanitizedHeaders,
           tag: MediaItem(id: url, title: 'Loading...', album: 'Prism Music'),
         );
@@ -750,14 +776,19 @@ class AudioPlayerService {
 
         AudioSource source;
 
+        final isLocal = url != null && _isLocalPath(url);
         final isGoogleVideo = url != null && url.contains('googlevideo.com');
-        final isYouTube = (videoId != null && videoId.isNotEmpty) ||
-            (url != null &&
-                (url.contains('youtube.com') ||
-                    url.contains('youtu.be') ||
-                    isGoogleVideo));
+        final isYouTube = !isLocal &&
+            ((videoId != null && videoId.isNotEmpty) ||
+                (url != null &&
+                    (url.contains('youtube.com') ||
+                        url.contains('youtu.be') ||
+                        isGoogleVideo)));
 
-        if (isYouTube) {
+        if (isLocal) {
+          logDebug('AudioPlayerService: Using local file for queued track');
+          source = AudioSource.uri(_uriForUrl(url!), tag: mediaItem);
+        } else if (isYouTube) {
           logDebug('AudioPlayerService: Using YouTubeAudioSource for queued track');
           source = YouTubeAudioSource(
             videoId: (videoId != null && videoId.isNotEmpty) ? videoId : 'direct',
@@ -768,7 +799,7 @@ class AudioPlayerService {
         } else if (url != null && url.isNotEmpty) {
           logDebug('AudioPlayerService: Using pre-loaded URL directly');
           source = AudioSource.uri(
-            Uri.parse(url),
+            _uriForUrl(url),
             headers: sanitizedHeaders,
             tag: mediaItem,
           );
@@ -850,9 +881,11 @@ class AudioPlayerService {
         );
 
         AudioSource source;
-        if (url != null && url.isNotEmpty) {
+        if (url != null && _isLocalPath(url)) {
+          source = AudioSource.uri(_uriForUrl(url), tag: mediaItem);
+        } else if (url != null && url.isNotEmpty) {
           source = AudioSource.uri(
-            Uri.parse(url),
+            _uriForUrl(url),
             headers: sanitizedHeaders,
             tag: mediaItem,
           );
