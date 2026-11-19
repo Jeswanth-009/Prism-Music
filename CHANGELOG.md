@@ -8,6 +8,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [1.0.0] - 2026-11-19
+
+### Fixed
+
+- Drop redundant null assertion in queue loading
+- Add a watchdog for queue tracks that never start playing
+- Race stream resolvers with a staggered hedge
+- Pre-warm stream manifests for upcoming queue tracks
+- Sync native queue when recommendations are appended
+- Resolve downloaded file paths for every queue entry
+- Detect local file paths before YouTube classification in queue loading
+
+### Changed
+
+- Add 2026-11-19 full-app audit report
+
 ## [0.2.96] - 2026-11-16
 
 ### Added
@@ -1227,3 +1243,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.94]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.94-build130
 [0.2.95]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.95-build131
 [0.2.96]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.96-build132
+[1.0.0]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.0-build133
