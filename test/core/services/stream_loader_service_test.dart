@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_music/core/providers/audio_stream_resolver.dart';
+import 'package:prism_music/core/services/playback_reliability_service.dart';
 import 'package:prism_music/core/services/stream_cache_service.dart';
 import 'package:prism_music/core/services/stream_loader_service.dart';
 import 'package:prism_music/data/datasources/remote/jiosaavn/jiosaavn_datasource.dart';
@@ -233,6 +234,233 @@ void main() {
       expect(forcedResult.streamProvenance, equals('youtube_explode'));
     });
   });
+
+  group('StreamLoaderService resolver racing', () {
+    late StreamCacheService cache;
+    late MockYouTubeMusicDataSource mockYt;
+    late PlaybackReliabilityService reliability;
+
+    const jioStream = StreamInfo(
+      url: 'https://jio.cdn.example/song.m4a',
+      codec: 'mp4a',
+      bitrate: 320,
+      container: 'm4a',
+      quality: AudioQuality.high,
+      streamProvenance: 'jiosaavn_matched',
+    );
+    const ytStream = StreamInfo(
+      url: 'https://rr1---sn.googlevideo.com/videoplayback',
+      codec: 'opus',
+      bitrate: 160,
+      container: 'webm',
+      quality: AudioQuality.high,
+      streamProvenance: 'youtube_explode',
+    );
+
+    final testSong = Song(
+      id: 'race_123',
+      title: 'Kesariya',
+      artist: 'Arijit Singh',
+      duration: const Duration(seconds: 240),
+      thumbnails: const Thumbnails(),
+      source: MusicSource.youtube,
+      youtubeId: 'race_123',
+    );
+
+    StreamLoaderService buildLoader(
+      List<AudioStreamResolver> resolvers, {
+      Duration hedgeDelay = const Duration(milliseconds: 40),
+    }) {
+      return StreamLoaderService(
+        mockYt,
+        cache,
+        reliability: reliability,
+        resolvers: resolvers,
+        hedgeDelay: hedgeDelay,
+      );
+    }
+
+    setUp(() {
+      cache = StreamCacheService();
+      mockYt = MockYouTubeMusicDataSource();
+      reliability = PlaybackReliabilityService();
+    });
+
+    test('starts the fallback after the hedge delay when the primary is slow',
+        () async {
+      final slowPrimary = _ScriptedResolver(
+        'jiosaavn',
+        delay: const Duration(seconds: 3),
+        result: jioStream,
+      );
+      final fastFallback =
+          _ScriptedResolver('youtube_explode', result: ytStream);
+      final loader = buildLoader([slowPrimary, fastFallback]);
+
+      final stopwatch = Stopwatch()..start();
+      final result = await loader.loadStream(testSong, useCache: false);
+      stopwatch.stop();
+
+      // The fallback won without waiting for the slow primary to finish.
+      expect(result.streamProvenance, equals('youtube_explode'));
+      expect(stopwatch.elapsedMilliseconds, lessThan(2000));
+      expect(slowPrimary.calls, equals(1));
+      expect(fastFallback.calls, equals(1));
+    });
+
+    test('never contacts the fallbacks when the primary answers in time',
+        () async {
+      final primary = _ScriptedResolver('jiosaavn', result: jioStream);
+      final fallback = _ScriptedResolver('youtube_explode', result: ytStream);
+      final loader = buildLoader([primary, fallback]);
+
+      final result = await loader.loadStream(testSong, useCache: false);
+      // Wait well past the hedge delay: a leaked hedge timer would fire now.
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+
+      expect(result.streamProvenance, equals('jiosaavn_matched'));
+      expect(primary.calls, equals(1));
+      expect(fallback.calls, equals(0));
+    });
+
+    test('fails over immediately when the primary finds no match', () async {
+      final primary = _ScriptedResolver('jiosaavn'); // resolves to null
+      final fallback = _ScriptedResolver('youtube_explode', result: ytStream);
+      // A hedge delay this long would dominate the run time if the loader
+      // waited for it instead of failing over right away.
+      final loader = buildLoader(
+        [primary, fallback],
+        hedgeDelay: const Duration(seconds: 30),
+      );
+
+      final stopwatch = Stopwatch()..start();
+      final result = await loader.loadStream(testSong, useCache: false);
+      stopwatch.stop();
+
+      expect(result.streamProvenance, equals('youtube_explode'));
+      expect(stopwatch.elapsedMilliseconds, lessThan(5000));
+      expect(primary.calls, equals(1));
+      expect(fallback.calls, equals(1));
+    });
+
+    test('walks the whole priority list when earlier resolvers fail',
+        () async {
+      final first = _ScriptedResolver('jiosaavn');
+      final second = _ScriptedResolver('youtube_explode', shouldThrow: true);
+      final third = _ScriptedResolver('piped', result: ytStream);
+      final loader = buildLoader([first, second, third]);
+
+      final result = await loader.loadStream(testSong, useCache: false);
+
+      expect(result.url, equals(ytStream.url));
+      expect(first.calls, equals(1));
+      expect(second.calls, equals(1));
+      expect(third.calls, equals(1));
+    });
+
+    test('throws once every resolver has failed', () async {
+      final first = _ScriptedResolver('jiosaavn');
+      final second = _ScriptedResolver('youtube_explode', shouldThrow: true);
+      final loader = buildLoader([first, second]);
+
+      await expectLater(
+        loader.loadStream(testSong, useCache: false),
+        throwsA(isA<Exception>()),
+      );
+      expect(first.calls, equals(1));
+      expect(second.calls, equals(1));
+    });
+
+    test('an explicit preferred resolver is tried alone first, not raced',
+        () async {
+      final jio = _ScriptedResolver('jiosaavn', result: jioStream);
+      final yt = _ScriptedResolver(
+        'youtube_explode',
+        delay: const Duration(milliseconds: 150),
+        result: ytStream,
+      );
+      final loader = buildLoader(
+        [jio, yt],
+        hedgeDelay: const Duration(milliseconds: 10),
+      );
+
+      final result = await loader.loadStream(
+        testSong,
+        useCache: false,
+        preferredResolverName: 'youtube_explode',
+      );
+
+      // The user's choice is honored even though JioSaavn would have won a race.
+      expect(result.streamProvenance, equals('youtube_explode'));
+      expect(jio.calls, equals(0));
+      expect(yt.calls, equals(1));
+    });
+
+    test('a persistently slow primary still trips its circuit and is skipped',
+        () async {
+      // Never wins: always answers "no match", but only after the race is over.
+      final slowPrimary = _ScriptedResolver(
+        'jiosaavn',
+        delay: const Duration(milliseconds: 120),
+      );
+      final fallback = _ScriptedResolver('youtube_explode', result: ytStream);
+      final loader = buildLoader(
+        [slowPrimary, fallback],
+        hedgeDelay: const Duration(milliseconds: 20),
+      );
+
+      for (var i = 0; i < 3; i++) {
+        final result = await loader.loadStream(testSong, useCache: false);
+        expect(result.streamProvenance, equals('youtube_explode'));
+        // Let the primary's late failure arrive after the race was decided.
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+      }
+
+      // Late failures of race losers still feed the circuit breaker...
+      expect(reliability.isSourceCircuitOpen(StreamSource.jioSaavn), isTrue);
+
+      // ...so the dead primary is no longer contacted at all.
+      final callsBefore = slowPrimary.calls;
+      await loader.loadStream(testSong, useCache: false);
+      expect(slowPrimary.calls, equals(callsBefore));
+    });
+  });
+}
+
+/// Scripted [AudioStreamResolver]: optionally waits [delay], then either
+/// throws, or resolves to [result] (null means "no match").
+class _ScriptedResolver implements AudioStreamResolver {
+  _ScriptedResolver(
+    this.resolverName, {
+    this.delay = Duration.zero,
+    this.result,
+    this.shouldThrow = false,
+  });
+
+  @override
+  final String resolverName;
+  final Duration delay;
+  final StreamInfo? result;
+  final bool shouldThrow;
+  int calls = 0;
+
+  @override
+  bool get isAvailable => true;
+
+  @override
+  Future<StreamInfo?> resolveStream(
+    Song song, {
+    AudioQuality preferredQuality = AudioQuality.high,
+  }) async {
+    calls++;
+    if (delay > Duration.zero) {
+      await Future<void>.delayed(delay);
+    }
+    if (shouldThrow) {
+      throw Exception('$resolverName failed');
+    }
+    return result;
+  }
 }
 
 class _FakeCustomResolver implements AudioStreamResolver {
