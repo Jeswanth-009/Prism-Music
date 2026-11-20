@@ -518,15 +518,20 @@ class _SearchPageState extends State<SearchPage> {
   List<Widget> _songsSlivers(SearchState state) {
     final songs = state.results.songs;
     if (songs.isEmpty) {
+      final hasOtherMatches = !state.results.isEmpty;
       return [
         SliverFillRemaining(
           hasScrollBody: false,
           child: PrismEmptyState(
-            icon: Icons.search_off_rounded,
+            icon: Icons.music_note_rounded,
             message: 'No songs found',
-            hint: 'Try a different search or spelling.',
-            actionLabel: 'Clear Search',
-            onAction: _clearSearch,
+            hint: hasOtherMatches
+                ? 'Try switching to All to view matches in other categories.'
+                : 'Try a different search or check your spelling.',
+            actionLabel: hasOtherMatches ? 'Switch to All' : 'Clear Search',
+            onAction: hasOtherMatches
+                ? () => _onFilterChanged(SearchFilter.all)
+                : _clearSearch,
           ),
         ),
       ];
@@ -578,15 +583,20 @@ class _SearchPageState extends State<SearchPage> {
   List<Widget> _artistsSlivers(SearchState state) {
     final artists = state.results.artists;
     if (artists.isEmpty) {
+      final hasOtherMatches = !state.results.isEmpty;
       return [
         SliverFillRemaining(
           hasScrollBody: false,
           child: PrismEmptyState(
-            icon: Icons.search_off_rounded,
+            icon: Icons.person_search_rounded,
             message: 'No artists found',
-            hint: 'Try a different search or spelling.',
-            actionLabel: 'Clear Search',
-            onAction: _clearSearch,
+            hint: hasOtherMatches
+                ? 'Try switching to All to view matches in other categories.'
+                : 'Try a different search or check your spelling.',
+            actionLabel: hasOtherMatches ? 'Switch to All' : 'Clear Search',
+            onAction: hasOtherMatches
+                ? () => _onFilterChanged(SearchFilter.all)
+                : _clearSearch,
           ),
         ),
       ];
@@ -638,15 +648,20 @@ class _SearchPageState extends State<SearchPage> {
   List<Widget> _albumsSlivers(SearchState state) {
     final albums = state.results.albums;
     if (albums.isEmpty) {
+      final hasOtherMatches = !state.results.isEmpty;
       return [
         SliverFillRemaining(
           hasScrollBody: false,
           child: PrismEmptyState(
-            icon: Icons.search_off_rounded,
+            icon: Icons.album_rounded,
             message: 'No albums found',
-            hint: 'Try a different search or spelling.',
-            actionLabel: 'Clear Search',
-            onAction: _clearSearch,
+            hint: hasOtherMatches
+                ? 'Try switching to All to view matches in other categories.'
+                : 'Try a different search or check your spelling.',
+            actionLabel: hasOtherMatches ? 'Switch to All' : 'Clear Search',
+            onAction: hasOtherMatches
+                ? () => _onFilterChanged(SearchFilter.all)
+                : _clearSearch,
           ),
         ),
       ];
@@ -683,15 +698,20 @@ class _SearchPageState extends State<SearchPage> {
   List<Widget> _playlistsSlivers(SearchState state) {
     final playlists = state.results.playlists;
     if (playlists.isEmpty) {
+      final hasOtherMatches = !state.results.isEmpty;
       return [
         SliverFillRemaining(
           hasScrollBody: false,
           child: PrismEmptyState(
-            icon: Icons.search_off_rounded,
+            icon: Icons.queue_music_rounded,
             message: 'No playlists found',
-            hint: 'Try a different search or spelling.',
-            actionLabel: 'Clear Search',
-            onAction: _clearSearch,
+            hint: hasOtherMatches
+                ? 'Try switching to All to view matches in other categories.'
+                : 'Try a different search or check your spelling.',
+            actionLabel: hasOtherMatches ? 'Switch to All' : 'Clear Search',
+            onAction: hasOtherMatches
+                ? () => _onFilterChanged(SearchFilter.all)
+                : _clearSearch,
           ),
         ),
       ];
@@ -744,15 +764,20 @@ class _SearchPageState extends State<SearchPage> {
     final theme = Theme.of(context);
 
     if (videos.isEmpty) {
+      final hasOtherMatches = !state.results.isEmpty;
       return [
         SliverFillRemaining(
           hasScrollBody: false,
           child: PrismEmptyState(
             icon: Icons.video_library_rounded,
             message: 'No videos found',
-            hint: 'Try a different search or spelling.',
-            actionLabel: 'Clear Search',
-            onAction: _clearSearch,
+            hint: hasOtherMatches
+                ? 'Try switching to All to view matches in other categories.'
+                : 'Try a different search or check your spelling.',
+            actionLabel: hasOtherMatches ? 'Switch to All' : 'Clear Search',
+            onAction: hasOtherMatches
+                ? () => _onFilterChanged(SearchFilter.all)
+                : _clearSearch,
           ),
         ),
       ];
