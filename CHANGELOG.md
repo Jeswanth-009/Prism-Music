@@ -8,6 +8,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [1.0.3] - 2026-11-20
+
+### Fixed
+
+- Enforce scoped storage paths and add modern Android backup rules
+
+### Changed
+
+- Add keystore integrity check preventing non-debug keys
+- Correct database privacy claims, audit credentials and document pins
+
 ## [1.0.2] - 2026-11-20
 
 ### Added
@@ -1280,3 +1291,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [1.0.0]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.0-build133
 [1.0.1]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.1-build134
 [1.0.2]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.2-build135
+[1.0.3]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.3-build136
