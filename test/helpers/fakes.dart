@@ -744,6 +744,12 @@ class FakeAudioPlayerService implements AudioPlayerService {
     isPlayingFlag = true;
   }
 
+  @override
+  Future<void> stop() async {
+    stopCalls++;
+    isPlayingFlag = false;
+  }
+
   Duration? lastSeekPosition;
   int seekCalls = 0;
 

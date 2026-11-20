@@ -666,6 +666,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     emit(
       state.copyWith(
         status: PlayerStatus.loading,
+        loadingStage: PlayerLoadingStage.resolving,
         currentSong: songToPlay,
         position: Duration.zero,
         duration: Duration.zero,
@@ -673,6 +674,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         originalQueue: List<Song>.from(initialQueue),
         queueIndex: initialQueueIndex,
         clearVideoStreamInfo: true,
+        clearPlaybackNotification: true,
       ),
     );
     _lastNearEndPrefetchIndex = -1; // reset for new track
@@ -761,6 +763,12 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
                 songToPlay.youtubeId != null) &&
             songToPlay.playableId.isNotEmpty;
 
+        emit(
+          state.copyWith(
+            loadingStage: PlayerLoadingStage.buffering,
+          ),
+        );
+
         final duration = shouldCrossfade
             ? await _audioPlayer
                   .crossfadeTo(
@@ -832,6 +840,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         emit(
           state.copyWith(
             status: PlayerStatus.playing,
+            loadingStage: PlayerLoadingStage.none,
             currentSong: songToPlay,
             currentStreamInfo: resolvedSource.streamInfo,
             originalQueue: state.originalQueue.isNotEmpty
@@ -1862,12 +1871,14 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       emit(
         state.copyWith(
           status: PlayerStatus.loading,
+          loadingStage: PlayerLoadingStage.resolving,
           currentSong: nextSong,
           queue: effectiveQueue,
           queueIndex: nextIndex,
           position: Duration.zero,
           duration: Duration.zero,
           errorMessage: 'Skipping unplayable track: "${failedSong.title}"',
+          playbackNotification: "Couldn't play '${failedSong.title}' — skipped",
         ),
       );
 
@@ -1891,12 +1902,15 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     final consecutiveSkips = _consecutiveFailureSkips;
     _consecutiveFailureSkips = 0;
     unawaited(_audioPlayer.stop());
+    final errorMsg = effectiveQueue.length > 1 && consecutiveSkips >= 3
+        ? 'Multiple songs failed to play. Please check your connection and try again.'
+        : 'Playback error: $error';
     emit(
       state.copyWith(
         status: PlayerStatus.error,
-        errorMessage: effectiveQueue.length > 1 && consecutiveSkips >= 3
-            ? 'Multiple songs failed to play. Please check your connection and try again.'
-            : 'Playback error: $error',
+        loadingStage: PlayerLoadingStage.none,
+        errorMessage: errorMsg,
+        playbackNotification: "Couldn't play '${failedSong.title}'",
       ),
     );
   }

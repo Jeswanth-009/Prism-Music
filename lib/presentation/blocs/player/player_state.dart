@@ -14,6 +14,21 @@ enum PlayerStatus {
   error,
 }
 
+/// Granular loading stages during track startup
+enum PlayerLoadingStage {
+  none,
+  resolving,
+  buffering,
+}
+
+extension PlayerLoadingStageX on PlayerLoadingStage {
+  String get displayLabel => switch (this) {
+        PlayerLoadingStage.none => '',
+        PlayerLoadingStage.resolving => 'Resolving audio stream…',
+        PlayerLoadingStage.buffering => 'Buffering audio…',
+      };
+}
+
 /// Represents the complete player state
 class PlayerState extends Equatable {
   /// Current status of the player
@@ -91,6 +106,12 @@ class PlayerState extends Equatable {
   /// Whether a track crossfade transition is actively occurring
   final bool isCrossfading;
 
+  /// Granular loading stage (resolving stream vs buffering audio)
+  final PlayerLoadingStage loadingStage;
+
+  /// Transient notification message for user toasts/snackbars
+  final String? playbackNotification;
+
   const PlayerState({
     this.status = PlayerStatus.initial,
     this.currentSong,
@@ -117,7 +138,15 @@ class PlayerState extends Equatable {
     this.videoStreamInfo,
     this.isVideoBuffering = false,
     this.isCrossfading = false,
+    this.loadingStage = PlayerLoadingStage.none,
+    this.playbackNotification,
   });
+
+  /// Whether the player is currently resolving audio stream
+  bool get isResolving => loadingStage == PlayerLoadingStage.resolving;
+
+  /// Whether the player is currently buffering audio bytes
+  bool get isBufferingAudio => loadingStage == PlayerLoadingStage.buffering;
 
   /// Whether the player is currently playing
   bool get isPlaying => status == PlayerStatus.playing;
@@ -256,6 +285,9 @@ class PlayerState extends Equatable {
     bool clearVideoStreamInfo = false,
     bool? isVideoBuffering,
     bool? isCrossfading,
+    PlayerLoadingStage? loadingStage,
+    String? playbackNotification,
+    bool clearPlaybackNotification = false,
   }) {
     return PlayerState(
       status: status ?? this.status,
@@ -286,6 +318,10 @@ class PlayerState extends Equatable {
       videoStreamInfo: clearVideoStreamInfo ? null : (videoStreamInfo ?? this.videoStreamInfo),
       isVideoBuffering: isVideoBuffering ?? this.isVideoBuffering,
       isCrossfading: isCrossfading ?? this.isCrossfading,
+      loadingStage: loadingStage ?? this.loadingStage,
+      playbackNotification: clearPlaybackNotification
+          ? null
+          : (playbackNotification ?? this.playbackNotification),
     );
   }
 
@@ -316,5 +352,7 @@ class PlayerState extends Equatable {
         videoStreamInfo,
         isVideoBuffering,
         isCrossfading,
+        loadingStage,
+        playbackNotification,
       ];
 }

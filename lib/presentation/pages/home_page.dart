@@ -207,8 +207,13 @@ class _HomePageState extends State<HomePage> {
         extendBody: false,
         body: BlocListener<PlayerBloc, PlayerState>(
           listenWhen: (prev, next) =>
-              prev.currentSong?.id != next.currentSong?.id,
+              prev.currentSong?.id != next.currentSong?.id ||
+              (next.playbackNotification != null &&
+                  next.playbackNotification != prev.playbackNotification),
           listener: (context, state) {
+            if (state.playbackNotification != null) {
+              showPrismToast(context, state.playbackNotification!);
+            }
             final song = state.currentSong;
             if (song != null && song.thumbnailUrl.isNotEmpty) {
               context.read<ThemeBloc>().add(
@@ -276,8 +281,13 @@ class _HomePageState extends State<HomePage> {
       extendBody: false,
       body: BlocListener<PlayerBloc, PlayerState>(
         listenWhen: (prev, next) =>
-            prev.currentSong?.id != next.currentSong?.id,
+            prev.currentSong?.id != next.currentSong?.id ||
+            (next.playbackNotification != null &&
+                next.playbackNotification != prev.playbackNotification),
         listener: (context, state) {
+          if (state.playbackNotification != null) {
+            showPrismToast(context, state.playbackNotification!);
+          }
           // App-wide dynamic accent: retint the chrome from artwork.
           final song = state.currentSong;
           if (song != null && song.thumbnailUrl.isNotEmpty) {

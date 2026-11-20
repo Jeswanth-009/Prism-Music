@@ -119,6 +119,32 @@ class MiniPlayer extends StatelessWidget {
                                         fontWeight: FontWeight.w500,
                                       ),
                                     )
+                                  else if (state.isLoading &&
+                                      state.loadingStage != PlayerLoadingStage.none)
+                                    Row(
+                                      children: [
+                                        SizedBox.square(
+                                          dimension: 10,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 1.5,
+                                            color: scheme.primary,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            state.loadingStage.displayLabel,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                                  color: scheme.primary,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    )
                                   else
                                     Row(
                                       children: [

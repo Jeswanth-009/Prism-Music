@@ -27,6 +27,7 @@ import '../widgets/player/player_lyrics_sheet.dart';
 import '../widgets/player/player_metadata_row.dart';
 import '../widgets/player/player_sheets.dart';
 import '../widgets/player/player_slider_widget.dart';
+import '../widgets/prism/prism_sheet.dart';
 import '../widgets/prism/prism_states.dart';
 import 'artist_page.dart';
 
@@ -135,8 +136,13 @@ class _PlayerPageState extends State<PlayerPage> {
   Widget build(BuildContext context) {
     return BlocConsumer<PlayerBloc, PlayerState>(
       listenWhen: (prev, curr) =>
-          prev.currentSong?.playableId != curr.currentSong?.playableId,
+          prev.currentSong?.playableId != curr.currentSong?.playableId ||
+          (curr.playbackNotification != null &&
+              curr.playbackNotification != prev.playbackNotification),
       listener: (context, state) {
+        if (state.playbackNotification != null) {
+          showPrismToast(context, state.playbackNotification!);
+        }
         if (state.currentSong != null) {
           _extractDominantColor(state.currentSong!);
         }
@@ -144,6 +150,7 @@ class _PlayerPageState extends State<PlayerPage> {
       buildWhen: (prev, curr) {
         return prev.currentSong?.playableId != curr.currentSong?.playableId ||
             prev.status != curr.status ||
+            prev.loadingStage != curr.loadingStage ||
             prev.isVideoMode != curr.isVideoMode ||
             prev.errorMessage != curr.errorMessage ||
             prev.hasVideoAvailable != curr.hasVideoAvailable ||
@@ -255,6 +262,7 @@ class _PlayerPageState extends State<PlayerPage> {
                                           child: PlayerArtworkSection(
                                             song: song,
                                             dominantColor: _dominantColor,
+                                            loadingStage: state.loadingStage,
                                           ),
                                         ),
                                         const SizedBox(height: 28),
@@ -277,11 +285,39 @@ class _PlayerPageState extends State<PlayerPage> {
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-                        child: AudioVisualizerWidget(
-                          isPlaying: state.status == PlayerStatus.playing,
-                          dominantColor: _dominantColor,
-                          height: 32,
-                        ),
+                        child: state.isLoading &&
+                                state.loadingStage != PlayerLoadingStage.none
+                            ? SizedBox(
+                                height: 32,
+                                child: Center(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SizedBox.square(
+                                        dimension: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: _dominantColor ??
+                                              theme.colorScheme.primary,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        state.loadingStage.displayLabel,
+                                        style: theme.textTheme.labelMedium?.copyWith(
+                                          color: theme.colorScheme.onSurfaceVariant,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            : AudioVisualizerWidget(
+                                isPlaying: state.status == PlayerStatus.playing,
+                                dominantColor: _dominantColor,
+                                height: 32,
+                              ),
                       ),
                       const SizedBox(height: 4),
                       const PlayerSliderWidget(),
