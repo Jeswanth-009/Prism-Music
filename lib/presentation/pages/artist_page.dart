@@ -196,6 +196,7 @@ class _ArtistPageState extends State<ArtistPage> {
           ? AppBar(
               title: Text(widget.artistName),
               leading: IconButton(
+                tooltip: 'Back',
                 icon: const Icon(Icons.arrow_back_rounded),
                 onPressed: () => Navigator.of(context).maybePop(),
               ),
@@ -247,11 +248,13 @@ class _ArtistPageState extends State<ArtistPage> {
       backgroundColor: theme.colorScheme.surface,
       automaticallyImplyLeading: true,
       leading: IconButton(
+        tooltip: 'Back',
         icon: const Icon(Icons.arrow_back_rounded),
         onPressed: () => Navigator.of(context).maybePop(),
       ),
       actions: [
         IconButton(
+          tooltip: 'Share artist',
           icon: const Icon(Icons.share_rounded),
           onPressed: () {
             final url = 'https://music.youtube.com/search?q=${Uri.encodeComponent(artist.name)}';

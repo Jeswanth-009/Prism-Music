@@ -294,6 +294,7 @@ class _PodcastDetailPageState extends State<PodcastDetailPage> {
                             ],
                           ),
                           trailing: IconButton(
+                            tooltip: 'Play ${ep.title}',
                             icon: const Icon(Icons.play_circle_fill_rounded, size: 36, color: PrismColors.accentDark),
                             onPressed: () => _playEpisode(ep),
                           ),

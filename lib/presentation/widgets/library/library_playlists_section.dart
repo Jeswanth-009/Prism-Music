@@ -69,6 +69,7 @@ class LibraryPlaylistsSection extends StatelessWidget {
                   prefixIcon: const Icon(Icons.search_rounded, size: 20),
                   suffixIcon: searchController.text.isNotEmpty
                       ? IconButton(
+                          tooltip: 'Clear search',
                           icon: const Icon(Icons.close_rounded, size: 18),
                           onPressed: () {
                             searchController.clear();

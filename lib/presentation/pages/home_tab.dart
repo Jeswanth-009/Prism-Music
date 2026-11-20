@@ -738,19 +738,23 @@ class _TopBar extends StatelessWidget {
           initialData: UserProfileService.instance.getActiveProfile(),
           builder: (context, snapshot) {
             final profile = snapshot.data ?? UserProfileService.instance.getActiveProfile();
-            return Tooltip(
-              message: 'Profile: ${profile.name}',
-              child: Container(
-                width: 32,
-                height: 32,
-                margin: const EdgeInsets.only(left: 4),
-                decoration: BoxDecoration(
-                  color: Color(profile.avatarColorValue),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white24, width: 1.5),
-                ),
-                child: Center(
-                  child: Text(profile.avatarEmoji, style: const TextStyle(fontSize: 14)),
+            return Semantics(
+              button: true,
+              label: 'Profile: ${profile.name}',
+              child: Tooltip(
+                message: 'Profile: ${profile.name}',
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  margin: const EdgeInsets.only(left: 4),
+                  decoration: BoxDecoration(
+                    color: Color(profile.avatarColorValue),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white24, width: 1.5),
+                  ),
+                  child: Center(
+                    child: Text(profile.avatarEmoji, style: const TextStyle(fontSize: 14)),
+                  ),
                 ),
               ),
             );

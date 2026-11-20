@@ -173,6 +173,7 @@ class _VinylPlayerLayoutState extends State<VinylPlayerLayout>
                                 builder: (context, lib) {
                                   final isLiked = lib.isSongLiked(widget.song.id);
                                   return IconButton(
+                                    tooltip: isLiked ? 'Unlike' : 'Like',
                                     icon: Icon(
                                       isLiked
                                           ? Icons.favorite_rounded

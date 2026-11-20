@@ -123,6 +123,7 @@ class _AlbumPageState extends State<AlbumPage> {
               overflow: TextOverflow.ellipsis,
             ),
             leading: IconButton(
+              tooltip: 'Back',
               onPressed: () => Navigator.of(context).maybePop(),
               icon: const Icon(Icons.arrow_back_rounded),
             ),

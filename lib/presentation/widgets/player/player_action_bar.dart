@@ -39,80 +39,104 @@ class PlayerActionBar extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              IconButton(
-                tooltip: 'Shuffle',
-                onPressed: () =>
-                    context.read<PlayerBloc>().add(const ToggleShuffleEvent()),
-                icon: Icon(
-                  Icons.shuffle_rounded,
-                  color: state.isShuffleEnabled
-                      ? scheme.primary
-                      : scheme.onSurfaceVariant,
+              Semantics(
+                button: true,
+                label: state.isShuffleEnabled ? 'Disable shuffle' : 'Enable shuffle',
+                child: IconButton(
+                  tooltip: 'Shuffle',
+                  onPressed: () =>
+                      context.read<PlayerBloc>().add(const ToggleShuffleEvent()),
+                  icon: Icon(
+                    Icons.shuffle_rounded,
+                    color: state.isShuffleEnabled
+                        ? scheme.primary
+                        : scheme.onSurfaceVariant,
+                  ),
                 ),
               ),
-              IconButton(
-                tooltip: switch (state.repeatMode) {
-                  RepeatMode.off => 'Repeat: Off',
-                  RepeatMode.all => 'Repeat: All',
-                  RepeatMode.one => 'Repeat: One',
+              Semantics(
+                button: true,
+                label: switch (state.repeatMode) {
+                  RepeatMode.off => 'Repeat: Off. Tap to repeat all',
+                  RepeatMode.all => 'Repeat: All. Tap to repeat one',
+                  RepeatMode.one => 'Repeat: One. Tap to turn repeat off',
                 },
-                onPressed: () {
-                  context.read<PlayerBloc>().add(
-                        const CycleRepeatModeEvent(),
-                      );
-                  final nextMode = switch (state.repeatMode) {
-                    RepeatMode.off => 'Repeat All',
-                    RepeatMode.all => 'Repeat One',
-                    RepeatMode.one => 'Repeat Off',
-                  };
-                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(nextMode),
-                      duration: const Duration(milliseconds: 900),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-                icon: Icon(
-                  switch (state.repeatMode) {
-                    RepeatMode.one => Icons.repeat_one_rounded,
-                    RepeatMode.all => Icons.repeat_rounded,
-                    RepeatMode.off => Icons.repeat_rounded,
+                child: IconButton(
+                  tooltip: switch (state.repeatMode) {
+                    RepeatMode.off => 'Repeat: Off',
+                    RepeatMode.all => 'Repeat: All',
+                    RepeatMode.one => 'Repeat: One',
                   },
-                  color: state.repeatMode != RepeatMode.off
-                      ? scheme.primary
-                      : scheme.onSurfaceVariant,
+                  onPressed: () {
+                    context.read<PlayerBloc>().add(
+                          const CycleRepeatModeEvent(),
+                        );
+                    final nextMode = switch (state.repeatMode) {
+                      RepeatMode.off => 'Repeat All',
+                      RepeatMode.all => 'Repeat One',
+                      RepeatMode.one => 'Repeat Off',
+                    };
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(nextMode),
+                        duration: const Duration(milliseconds: 900),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  icon: Icon(
+                    switch (state.repeatMode) {
+                      RepeatMode.one => Icons.repeat_one_rounded,
+                      RepeatMode.all => Icons.repeat_rounded,
+                      RepeatMode.off => Icons.repeat_rounded,
+                    },
+                    color: state.repeatMode != RepeatMode.off
+                        ? scheme.primary
+                        : scheme.onSurfaceVariant,
+                  ),
                 ),
               ),
-              IconButton(
-                tooltip: isLiked ? 'Unlike' : 'Like',
-                onPressed: () =>
-                    context.read<LibraryBloc>().add(ToggleLikeSongEvent(song)),
-                icon: Icon(
-                  isLiked
-                      ? Icons.favorite_rounded
-                      : Icons.favorite_outline_rounded,
-                  color: isLiked ? scheme.primary : scheme.onSurfaceVariant,
+              Semantics(
+                button: true,
+                label: isLiked ? 'Unlike song' : 'Like song',
+                child: IconButton(
+                  tooltip: isLiked ? 'Unlike' : 'Like',
+                  onPressed: () =>
+                      context.read<LibraryBloc>().add(ToggleLikeSongEvent(song)),
+                  icon: Icon(
+                    isLiked
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_outline_rounded,
+                    color: isLiked ? scheme.primary : scheme.onSurfaceVariant,
+                  ),
                 ),
               ),
-              IconButton(
-                tooltip: 'Lyrics',
-                onPressed: onToggleLyrics,
-                icon: Icon(
-                  Icons.lyrics_outlined,
-                  color: showLyrics ? scheme.primary : scheme.onSurfaceVariant,
+              Semantics(
+                button: true,
+                label: showLyrics ? 'Hide lyrics' : 'Show lyrics',
+                child: IconButton(
+                  tooltip: 'Lyrics',
+                  onPressed: onToggleLyrics,
+                  icon: Icon(
+                    Icons.lyrics_outlined,
+                    color: showLyrics ? scheme.primary : scheme.onSurfaceVariant,
+                  ),
                 ),
               ),
-              IconButton(
-                tooltip: 'Queue',
-                onPressed: () => showModalBottomSheet<void>(
-                  context: context,
-                  builder: (_) => const PlayerQueueSheet(),
-                ),
-                icon: Icon(
-                  Icons.queue_music_rounded,
-                  color: scheme.onSurfaceVariant,
+              Semantics(
+                button: true,
+                label: 'Playback queue',
+                child: IconButton(
+                  tooltip: 'Queue',
+                  onPressed: () => showModalBottomSheet<void>(
+                    context: context,
+                    builder: (_) => const PlayerQueueSheet(),
+                  ),
+                  icon: Icon(
+                    Icons.queue_music_rounded,
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             ],

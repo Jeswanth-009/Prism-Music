@@ -42,6 +42,7 @@ class _SmartPlaylistPageState extends State<SmartPlaylistPage> {
             expandedHeight: 250,
             pinned: true,
             leading: IconButton(
+              tooltip: 'Back',
               icon: const Icon(Icons.arrow_back_rounded),
               onPressed: () => Navigator.pop(context),
             ),

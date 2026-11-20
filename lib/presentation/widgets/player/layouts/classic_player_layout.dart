@@ -196,6 +196,7 @@ class ClassicPlayerLayout extends StatelessWidget {
                                 builder: (context, lib) {
                                   final isLiked = lib.isSongLiked(song.id);
                                   return IconButton(
+                                    tooltip: isLiked ? 'Unlike' : 'Like',
                                     icon: Icon(
                                       isLiked
                                           ? Icons.favorite_rounded
