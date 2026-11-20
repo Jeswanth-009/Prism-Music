@@ -38,7 +38,10 @@ migrate_working_dir/
 /android/key.properties
 /android/release-keystore.jks
 /android/*.jks
+/android/app/*.jks
 /android/*.keystore
+*.p12
+*.jks
 
 # Symbolication related
 app.*.symbols
