@@ -8,6 +8,34 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [1.0.1] - 2026-11-20
+
+### Added
+
+- Add semantic labels and tooltips to icon-only buttons across presentation layer
+- Apply unified PrismErrorState with retry pattern to all async pages
+- Add shared streaming error banner component for playback failures
+
+### Fixed
+
+- Unify local path and YouTube track classification across setUrl and queue methods
+- Drop redundant null assertion in queue loading
+- Add a watchdog for queue tracks that never start playing
+- Race stream resolvers with a staggered hedge
+- Pre-warm stream manifests for upcoming queue tracks
+- Sync native queue when recommendations are appended
+- Resolve downloaded file paths for every queue entry
+- Detect local file paths before YouTube classification in queue loading
+
+### Changed
+
+- Update goldens for bundled typography and resolve sheet flex bounds
+- Use bundled Inter font natively and remove dead google_fonts dependency
+- Vendor color extraction and remove discontinued palette_generator dependency
+- Document staggered hedging and race resolver architecture in StreamLoaderService
+- Parallelize CDN candidate probes on cold stream resolution
+- Dedupe manifest-fetch fallback chain into shared resolver helper
+
 ## [1.0.0] - 2026-11-19
 
 ### Fixed
@@ -1244,3 +1272,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.95]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.95-build131
 [0.2.96]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.96-build132
 [1.0.0]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.0-build133
+[1.0.1]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.1-build134
