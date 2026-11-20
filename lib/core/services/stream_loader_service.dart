@@ -52,7 +52,8 @@ class _FetchResult {
   bool get isSuccess => streamInfo != null;
 }
 
-/// Production-ready stream loader with parallel fetching and caching
+/// Production-ready stream loader with caching, circuit breakers, and
+/// staggered hedging race resolution across audio providers.
 class StreamLoaderService {
   final StreamCacheService _cache;
   final List<AudioStreamResolver> _resolvers;
@@ -113,7 +114,9 @@ class StreamLoaderService {
   void _recordSourceFailure(StreamSource source) =>
       _reliability.recordSourceFailure(source);
 
-  /// Load stream URL with cache check and parallel fetching
+  /// Resolves the stream URL using cache checks, circuit breakers, and
+  /// staggered-race resolution across eligible resolvers (or sequential fallback
+  /// when an explicit resolver is preferred).
   Future<StreamInfo> loadStream(
     Song song, {
     bool useCache = true,
