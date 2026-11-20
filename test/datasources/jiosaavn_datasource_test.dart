@@ -270,5 +270,56 @@ void main() {
       expect(streamInfo.quality, AudioQuality.high);
       expect(streamInfo.streamProvenance, 'jiosaavn_matched');
     });
+
+    test('parallel CDN probing picks first responsive CDN host when a primary fails', () async {
+      final mockClient = MockClient((request) async {
+        if (request.method == 'GET' && request.url.host == 'www.jiosaavn.com') {
+          return http.Response.bytes(
+            utf8.encode(jsonEncode({
+              'results': [
+                {
+                  'id': 'jio-dec-2',
+                  'title': 'Shape of You',
+                  'more_info': {
+                    'primary_artists': 'Ed Sheeran',
+                    'duration': '233',
+                    'encrypted_media_url': encryptedMediaUrl,
+                  },
+                },
+              ],
+            })),
+            200,
+          );
+        }
+        if (request.method == 'HEAD') {
+          // Fail the primary aac host, let jiotune succeed
+          if (request.url.host == 'aac.saavncdn.com') {
+            return http.Response('', 500);
+          }
+          if (request.url.host == 'jiotune.saavncdn.com') {
+            return http.Response('', 200);
+          }
+        }
+        return http.Response('', 404);
+      });
+
+      final datasource = JioSaavnDataSourceImpl(client: mockClient);
+      final song = Song(
+        id: 'yt-8',
+        title: 'Shape of You',
+        artist: 'Ed Sheeran',
+        album: 'Divide',
+        duration: const Duration(seconds: 233),
+        thumbnails: const Thumbnails(),
+      );
+
+      final streamInfo = await datasource.getStreamUrl(
+        song,
+        preferredQuality: AudioQuality.high,
+      );
+
+      expect(streamInfo, isNotNull);
+      expect(streamInfo!.url, contains('jiotune.saavncdn.com'));
+    });
   });
 }

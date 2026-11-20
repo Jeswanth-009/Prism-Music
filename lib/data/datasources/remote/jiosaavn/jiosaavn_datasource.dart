@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -292,34 +293,76 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
             // Try to find a working CDN host
             String? finalUrl;
             int geoBlockCount = 0;
-            
-            // Re-order CDNs to try the cached working one first
+
             final hostsToTry = _workingCdnHost != null 
                 ? [_workingCdnHost!, ..._cdnHosts.where((h) => h != _workingCdnHost)]
                 : _cdnHosts;
 
-            for (final host in hostsToTry) {
-              final testUrl = candidateDecryptedUrl.replaceFirst(originalHost, host);
-              try {
-                debugPrint('JioSaavnDataSource: Testing CDN $host for $targetSuffix');
-                final headResponse = await _client
-                    .head(Uri.parse(testUrl))
-                    .timeout(const Duration(milliseconds: 1500));
-                
-                if (headResponse.statusCode == 200 || headResponse.statusCode == 206) {
-                  _workingCdnHost = host;
-                  finalUrl = testUrl;
-                  debugPrint('JioSaavnDataSource: Found working CDN: $host');
-                  break; // Found a working CDN
-                } else if (headResponse.statusCode == 403 || headResponse.statusCode == 451) {
-                  geoBlockCount++;
+            Future<({String? host, String? url})> probeCdnHosts(
+              List<String> hosts,
+              String targetTemplate,
+            ) async {
+              // 1. If we have a cached working host, test it first
+              if (_workingCdnHost != null && hosts.contains(_workingCdnHost)) {
+                final testUrl = targetTemplate.replaceFirst(originalHost, _workingCdnHost!);
+                try {
+                  debugPrint('JioSaavnDataSource: Testing cached CDN $_workingCdnHost');
+                  final headResponse = await _client
+                      .head(Uri.parse(testUrl))
+                      .timeout(const Duration(milliseconds: 1500));
+                  if (headResponse.statusCode == 200 || headResponse.statusCode == 206) {
+                    return (host: _workingCdnHost, url: testUrl);
+                  } else if (headResponse.statusCode == 403 || headResponse.statusCode == 451) {
+                    geoBlockCount++;
+                  }
+                } catch (_) {
+                  debugPrint('JioSaavnDataSource: Cached CDN $_workingCdnHost unreachable/timed out');
                 }
-              } on GeoRestrictionException {
-      rethrow;
-    } catch (e) {
-                debugPrint('JioSaavnDataSource: CDN $host unreachable/timed out');
+              }
+
+              // 2. Parallel probing across candidate hosts
+              final candidateHosts = hosts.where((h) => h != _workingCdnHost).toList();
+              if (candidateHosts.isEmpty) return (host: null, url: null);
+
+              final completer = Completer<({String host, String url})>();
+              var remainingProbes = candidateHosts.length;
+
+              for (final host in candidateHosts) {
+                final testUrl = targetTemplate.replaceFirst(originalHost, host);
+                debugPrint('JioSaavnDataSource: Parallel probing CDN $host');
+                _client
+                    .head(Uri.parse(testUrl))
+                    .timeout(const Duration(milliseconds: 1500))
+                    .then((headResponse) {
+                  if (headResponse.statusCode == 200 || headResponse.statusCode == 206) {
+                    if (!completer.isCompleted) {
+                      completer.complete((host: host, url: testUrl));
+                    }
+                  } else if (headResponse.statusCode == 403 || headResponse.statusCode == 451) {
+                    geoBlockCount++;
+                  }
+                }).catchError((_) {
+                  // unreachable or timed out
+                }).whenComplete(() {
+                  remainingProbes--;
+                  if (remainingProbes == 0 && !completer.isCompleted) {
+                    completer.completeError(Exception('All CDN candidate probes failed'));
+                  }
+                });
+              }
+
+              try {
+                final winner = await completer.future;
+                _workingCdnHost = winner.host;
+                debugPrint('JioSaavnDataSource: Found working CDN: ${winner.host}');
+                return (host: winner.host as String?, url: winner.url as String?);
+              } catch (_) {
+                return (host: null, url: null);
               }
             }
+
+            final initialProbe = await probeCdnHosts(hostsToTry, candidateDecryptedUrl);
+            finalUrl = initialProbe.url;
 
             // Fallback: If requested high bitrate isn't served by CDN, try 160 or 96
             if (finalUrl == null && targetSuffix != '_96.mp4') {
@@ -328,20 +371,11 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
                   : ['_96.mp4'];
               for (final fbSuffix in fallbackSuffixes) {
                 final fallbackDecrypted = decryptedUrl.replaceAll('_96.mp4', fbSuffix);
-                for (final host in hostsToTry) {
-                  final testUrl = fallbackDecrypted.replaceFirst(originalHost, host);
-                  try {
-                    final headResponse = await _client
-                        .head(Uri.parse(testUrl))
-                        .timeout(const Duration(milliseconds: 1500));
-                    if (headResponse.statusCode == 200 || headResponse.statusCode == 206) {
-                      _workingCdnHost = host;
-                      finalUrl = testUrl;
-                      break;
-                    }
-                  } catch (_) {}
+                final probeResult = await probeCdnHosts(hostsToTry, fallbackDecrypted);
+                if (probeResult.url != null) {
+                  finalUrl = probeResult.url;
+                  break;
                 }
-                if (finalUrl != null) break;
               }
             }
 
