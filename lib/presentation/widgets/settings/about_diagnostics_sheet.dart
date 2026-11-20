@@ -92,13 +92,16 @@ class _DiagnosticsSheetContentState extends State<DiagnosticsSheetContent> {
                   size: 24,
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  'System Diagnostics',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                Expanded(
+                  child: Text(
+                    'System Diagnostics',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Spacer(),
                 IconButton(
                   tooltip: 'Close',
                   icon: const Icon(Icons.close_rounded, size: 20),
@@ -325,10 +328,12 @@ class _DiagnosticsSheetContentState extends State<DiagnosticsSheetContent> {
                 children: [
                   Icon(Icons.verified_rounded, color: theme.colorScheme.primary),
                   const SizedBox(width: 8),
-                  Text(
-                    'Verified Artifact Downloads',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Text(
+                      'Verified Artifact Downloads',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -374,10 +379,12 @@ class _DiagnosticsSheetContentState extends State<DiagnosticsSheetContent> {
                         children: [
                           Row(
                             children: [
-                              Text(
-                                c.title,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  fontWeight: FontWeight.bold,
+                              Expanded(
+                                child: Text(
+                                  c.title,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                               if (c.isRecommended) ...[

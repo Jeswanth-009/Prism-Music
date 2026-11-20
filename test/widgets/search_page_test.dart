@@ -70,6 +70,7 @@ void main() {
       tester,
       const SearchPage(embedded: true),
       searchBloc: bloc,
+      size: const Size(600, 900),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));

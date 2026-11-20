@@ -167,13 +167,18 @@ class _ProviderHealthSheetContentState
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            _formatProvenanceName(activeProvenance),
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
+                          Expanded(
+                            child: Text(
+                              _formatProvenanceName(activeProvenance),
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (currentStream != null && currentStream.bitrate > 0)
+                          if (currentStream != null && currentStream.bitrate > 0) ...[
+                            const SizedBox(width: 8),
                             Text(
                               '${currentStream.bitrate} kbps · .${currentStream.container}',
                               style: theme.textTheme.bodySmall?.copyWith(
@@ -181,6 +186,7 @@ class _ProviderHealthSheetContentState
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
+                          ],
                         ],
                       ),
                       if (currentStream?.matchConfidence != null) ...[

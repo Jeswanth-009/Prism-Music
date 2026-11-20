@@ -757,7 +757,7 @@ class PaletteColor with Diagnosticable {
   /// Returns the contrast ratio between [foreground] and [background].
   /// [background] must be opaque.
   ///
-  /// Formula defined [here](http://www.w3.org/TR/2008/REC-WCAG20-20081211/#contrast-ratiodef).
+  /// Formula defined [here](https://www.w3.org/TR/2008/REC-WCAG20-20081211/#contrast-ratiodef).
   static double _calculateContrast(Color foreground, Color background) {
     assert(background.alpha == 0xff,
         'background can not be translucent: $background.');
