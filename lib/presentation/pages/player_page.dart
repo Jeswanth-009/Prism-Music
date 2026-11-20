@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prism_music/core/utils/palette_generator.dart';
 
-import '../../core/error/error_message_mapper.dart';
 import '../../core/services/settings_service.dart';
 import '../../core/services/visualizer_service.dart';
 import '../../core/services/cast_service.dart';
@@ -14,6 +13,7 @@ import '../blocs/player/player_event.dart';
 import '../blocs/player/player_state.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/common/adaptive_layout.dart';
+import '../widgets/common/prism_streaming_error_banner.dart';
 import '../widgets/dialogs/cast_device_picker_dialog.dart';
 import '../widgets/player/audio_visualizer_widget.dart';
 import '../widgets/player/layouts/classic_player_layout.dart';
@@ -390,43 +390,17 @@ class _PlayerPageState extends State<PlayerPage> {
     Song song,
     PlayerState state,
   ) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.errorContainer.withValues(alpha: 0.88),
-        borderRadius: BorderRadius.circular(PrismRadius.md),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.error_outline_rounded,
-              color: theme.colorScheme.error, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              ErrorMessageMapper.map(state.errorMessage!),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onErrorContainer,
-                fontWeight: FontWeight.w500,
+    return PrismStreamingErrorBanner(
+      errorMessage: state.errorMessage!,
+      onRetry: () {
+        context.read<PlayerBloc>().add(
+              PlaySongEvent(
+                song: song,
+                queue: state.queue,
+                queueIndex: state.queueIndex,
               ),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              context.read<PlayerBloc>().add(
-                    PlaySongEvent(
-                      song: song,
-                      queue: state.queue,
-                      queueIndex: state.queueIndex,
-                    ),
-                  );
-            },
-            child: const Text('Retry'),
-          ),
-        ],
-      ),
+            );
+      },
     );
   }
 }
