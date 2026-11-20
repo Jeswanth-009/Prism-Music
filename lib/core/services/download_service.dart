@@ -221,21 +221,7 @@ class DownloadService {
       logError('Failed to use external storage directory', e, stack);
     }
 
-    // Alternative: public Downloads (may work on older Android or rooted devices)
-    try {
-      final downloadsDir = Directory('/storage/emulated/0/Download');
-      if (await downloadsDir.exists()) {
-        final dir = Directory('${downloadsDir.path}/PrismMusic/Audio');
-        if (!await dir.exists()) {
-          await dir.create(recursive: true);
-        }
-        return dir;
-      }
-    } catch (e, stack) {
-      logError('Failed to use public Downloads folder', e, stack);
-    }
-
-    // Fallback: app documents (always writable, but less visible)
+    // Fallback: app documents (always writable, scoped to application)
     try {
       final appDir = await getApplicationDocumentsDirectory();
       final fallbackDir = Directory('${appDir.path}/Downloads/PrismMusic/Audio');
