@@ -4,6 +4,7 @@ import '../../../../domain/entities/song.dart';
 import '../../../../domain/entities/playlist.dart';
 import '../../../../domain/entities/stream_info.dart' as domain;
 import '../../../../core/services/stream_cache_service.dart';
+import '../../../../core/services/youtube_manifest_resolver.dart';
 import 'invidious_datasource.dart';
 import 'piped_datasource.dart';
 
@@ -103,32 +104,13 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
   }
 
   Future<yt.StreamManifest> _fetchAudioManifest(String videoId) async {
-    final candidateClients = [
-      (name: 'androidSdkless', client: yt.YoutubeApiClient.androidSdkless, timeout: Duration(milliseconds: 3500)),
-      (name: 'android', client: yt.YoutubeApiClient.android, timeout: Duration(seconds: 5)),
-      (name: 'ios', client: yt.YoutubeApiClient.ios, timeout: Duration(seconds: 6)),
-      (name: 'mweb', client: yt.YoutubeApiClient.mweb, timeout: Duration(seconds: 6)),
-    ];
-
-    Object? lastError;
-    for (final candidate in candidateClients) {
-      try {
-        final manifest = await _youtube.videos.streamsClient.getManifest(
-          videoId,
-          ytClients: [candidate.client],
-          requireWatchPage: false,
-        ).timeout(candidate.timeout);
-
-        if (manifest.audioOnly.isNotEmpty) {
-          return manifest;
-        }
-      } catch (e) {
-        lastError = e;
-        debugPrint('YouTubeDataSource: ${candidate.name} client failed ($e), falling back...');
-      }
-    }
-
-    throw lastError ?? Exception('All YouTube API clients failed for video: $videoId');
+    return YouTubeManifestResolver.fetchAudioManifest(
+      _youtube,
+      videoId,
+      onClientFailure: (clientName, e) {
+        debugPrint('YouTubeDataSource: $clientName client failed ($e), falling back...');
+      },
+    );
   }
 
   @override
