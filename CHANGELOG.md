@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [1.0.2] - 2026-11-20
+
+### Added
+
+- Add granular loading stages and user-visible failure skip notifications
+
 ## [1.0.1] - 2026-11-20
 
 ### Added
@@ -1273,3 +1279,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [0.2.96]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v0.2.96-build132
 [1.0.0]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.0-build133
 [1.0.1]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.1-build134
+[1.0.2]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.2-build135
