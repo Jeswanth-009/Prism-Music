@@ -255,15 +255,9 @@ class AudioPlayerService {
 
     final sanitizedHeaders = _prepareHeaders(headers);
     final hasDirectUrl = url.isNotEmpty;
-    final isLikelyLocalPath =
-        url.startsWith('file://') ||
-        (!url.startsWith('http://') &&
-            !url.startsWith('https://') &&
-            File(url).existsSync());
+    final isLocal = isLocalPath(url);
     final isGoogleVideo = url.contains('googlevideo.com');
-    final isYouTubeUrl =
-        url.contains('youtube.com') || url.contains('youtu.be') || isGoogleVideo;
-    final isYouTube = (videoId != null && videoId.isNotEmpty) || isYouTubeUrl;
+    final isYouTube = !isLocal && isYouTubeTrack(url: url, videoId: videoId);
 
     PlayerException? lastDirectException;
     Object? lastDirectError;
@@ -282,7 +276,7 @@ class AudioPlayerService {
     // Raw googlevideo.com URLs fail in Android ExoPlayer due to IP binding, SSL handshakes,
     // and missing range proxies. YouTubeAudioSource streams via localhost, providing bulletproof
     // native playback without skipping.
-    if (isYouTube && !isLikelyLocalPath) {
+    if (isYouTube && !isLocal) {
       try {
         final ytSource = YouTubeAudioSource(
           videoId: (videoId != null && videoId.isNotEmpty)
@@ -319,12 +313,10 @@ class AudioPlayerService {
     if (!isYouTube || (lastDirectException != null || lastDirectError != null)) {
       if (hasDirectUrl && !isGoogleVideo) {
         try {
-          final sourceUri = url.startsWith('file://')
-              ? Uri.parse(url)
-              : (isLikelyLocalPath ? Uri.file(url) : Uri.parse(url));
+          final sourceUri = uriForUrl(url);
           final directSource = AudioSource.uri(
             sourceUri,
-            headers: isLikelyLocalPath ? null : sanitizedHeaders,
+            headers: isLocal ? null : sanitizedHeaders,
             tag: MediaItem(
               id: videoId ?? url,
               title: title ?? 'Unknown Title',
@@ -343,7 +335,7 @@ class AudioPlayerService {
             debugPrint('AudioPlayerService: Direct URL failed: $e\n$st');
           }
 
-          if (isLikelyLocalPath) {
+          if (isLocal) {
             final errorMessage = _mapPlayerExceptionToMessage(e.message);
             _errorController.add(errorMessage);
             return null;
@@ -354,7 +346,7 @@ class AudioPlayerService {
             debugPrint('AudioPlayerService: Direct URL threw: $e\n$st');
           }
 
-          if (isLikelyLocalPath) {
+          if (isLocal) {
             _errorController.add('Failed to load local audio file: $e');
             return null;
           }
@@ -655,20 +647,54 @@ class AudioPlayerService {
   /// Whether [url] points at a local audio file (downloaded track) rather
   /// than a remote stream. Local files must never be routed through the
   /// YouTube streaming path — doing so makes offline playback fail silently.
-  bool _isLocalPath(String? url) {
+  static bool isLocalPath(String? url) {
     if (url == null || url.isEmpty) return false;
     if (url.startsWith('file://')) return true;
     if (url.startsWith('http://') || url.startsWith('https://')) return false;
     return File(url).existsSync();
   }
 
+  /// Whether a track should be routed through [YouTubeAudioSource].
+  ///
+  /// Evaluates strictly:
+  /// 1. Local files are NEVER YouTube tracks.
+  /// 2. Direct non-YouTube URLs (such as JioSaavn CDN saavncdn.com) are NEVER YouTube tracks,
+  ///    even if a videoId identifier was provided.
+  /// 3. Returns true if the URL is an explicit YouTube or GoogleVideo URL, OR if there is a
+  ///    valid YouTube videoId and no direct non-YouTube URL overriding it.
+  static bool isYouTubeTrack({String? url, String? videoId}) {
+    if (isLocalPath(url)) return false;
+
+    final hasUrl = url != null && url.isNotEmpty;
+    final isGoogleVideo = hasUrl && url.contains('googlevideo.com');
+    final isExplicitYouTubeUrl = hasUrl &&
+        (url.contains('youtube.com') || url.contains('youtu.be') || isGoogleVideo);
+
+    if (isExplicitYouTubeUrl) return true;
+
+    final isNonYouTubeDirectUrl = hasUrl &&
+        (url.startsWith('http://') || url.startsWith('https://')) &&
+        (url.contains('saavn') || !isGoogleVideo);
+
+    // If a direct non-YouTube HTTP/HTTPS stream URL is already resolved, don't route to YouTube
+    if (hasUrl && isNonYouTubeDirectUrl) {
+      return false;
+    }
+
+    // Has a videoId (and no conflicting non-YouTube direct URL)
+    return videoId != null && videoId.isNotEmpty;
+  }
+
   /// Builds the correct [Uri] for [url]: [Uri.file] for local paths,
   /// [Uri.parse] for remote streams.
-  Uri _uriForUrl(String url) {
+  static Uri uriForUrl(String url) {
     if (url.startsWith('file://')) return Uri.parse(url);
-    if (_isLocalPath(url)) return Uri.file(url);
+    if (isLocalPath(url)) return Uri.file(url);
     return Uri.parse(url);
   }
+
+  bool _isLocalPath(String? url) => isLocalPath(url);
+  Uri _uriForUrl(String url) => uriForUrl(url);
 
   /// Add a song to the end of the playlist queue
   Future<void> addToQueue(
@@ -683,18 +709,13 @@ class AudioPlayerService {
     try {
       AudioSource source;
 
-      final isLocal = _isLocalPath(url);
-      final isGoogleVideo = url.contains('googlevideo.com');
-      final isYouTube = !isLocal &&
-          ((videoId != null && videoId.isNotEmpty) ||
-              url.contains('youtube.com') ||
-              url.contains('youtu.be') ||
-              isGoogleVideo);
+      final isLocal = isLocalPath(url);
+      final isYouTube = !isLocal && isYouTubeTrack(url: url, videoId: videoId);
 
       if (isLocal) {
         logDebug('AudioPlayerService: Adding local file to queue');
         source = AudioSource.uri(
-          _uriForUrl(url),
+          uriForUrl(url),
           tag: MediaItem(id: url, title: 'Loading...', album: 'Prism Music'),
         );
       } else if (isYouTube) {
@@ -712,7 +733,7 @@ class AudioPlayerService {
       } else if (url.isNotEmpty) {
         logDebug('AudioPlayerService: Adding regular URL to queue');
         source = AudioSource.uri(
-          _uriForUrl(url),
+          uriForUrl(url),
           headers: sanitizedHeaders,
           tag: MediaItem(id: url, title: 'Loading...', album: 'Prism Music'),
         );
@@ -801,18 +822,12 @@ class AudioPlayerService {
 
         AudioSource source;
 
-        final isLocal = url != null && _isLocalPath(url);
-        final isGoogleVideo = url != null && url.contains('googlevideo.com');
-        final isYouTube = !isLocal &&
-            ((videoId != null && videoId.isNotEmpty) ||
-                (url != null &&
-                    (url.contains('youtube.com') ||
-                        url.contains('youtu.be') ||
-                        isGoogleVideo)));
+        final isLocal = url != null && isLocalPath(url);
+        final isYouTube = !isLocal && isYouTubeTrack(url: url, videoId: videoId);
 
         if (isLocal) {
           logDebug('AudioPlayerService: Using local file for queued track');
-          source = AudioSource.uri(_uriForUrl(url), tag: mediaItem);
+          source = AudioSource.uri(uriForUrl(url), tag: mediaItem);
         } else if (isYouTube) {
           logDebug('AudioPlayerService: Using YouTubeAudioSource for queued track');
           source = YouTubeAudioSource(
@@ -824,7 +839,7 @@ class AudioPlayerService {
         } else if (url != null && url.isNotEmpty) {
           logDebug('AudioPlayerService: Using pre-loaded URL directly');
           source = AudioSource.uri(
-            _uriForUrl(url),
+            uriForUrl(url),
             headers: sanitizedHeaders,
             tag: mediaItem,
           );
@@ -953,18 +968,22 @@ class AudioPlayerService {
         );
 
         AudioSource source;
-        if (url != null && _isLocalPath(url)) {
-          source = AudioSource.uri(_uriForUrl(url), tag: mediaItem);
-        } else if (url != null && url.isNotEmpty) {
-          source = AudioSource.uri(
-            _uriForUrl(url),
-            headers: sanitizedHeaders,
+        final isLocal = url != null && isLocalPath(url);
+        final isYouTube = !isLocal && isYouTubeTrack(url: url, videoId: videoId);
+
+        if (isLocal) {
+          source = AudioSource.uri(uriForUrl(url), tag: mediaItem);
+        } else if (isYouTube) {
+          source = YouTubeAudioSource(
+            videoId: (videoId != null && videoId.isNotEmpty) ? videoId : 'direct',
+            quality: quality,
+            initialStreamUrl: (url != null && url.isNotEmpty) ? url : null,
             tag: mediaItem,
           );
-        } else if (videoId != null && videoId.isNotEmpty) {
-          source = YouTubeAudioSource(
-            videoId: videoId,
-            quality: quality,
+        } else if (url != null && url.isNotEmpty) {
+          source = AudioSource.uri(
+            uriForUrl(url),
+            headers: sanitizedHeaders,
             tag: mediaItem,
           );
         } else {
