@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:prism_music/presentation/blocs/theme/theme_state.dart';
 import 'package:prism_music/presentation/widgets/prism/prism_artwork.dart';
 
 import '../helpers/fakes.dart';
@@ -56,8 +56,9 @@ void main() {
   });
 
   group('Typography Configuration', () {
-    test('runtime font fetching is disabled to ensure offline bundled typography', () {
-      expect(GoogleFonts.config.allowRuntimeFetching, isFalse);
+    test('bundled Inter font family is applied across theme typography', () {
+      final theme = const ThemeState().lightTheme;
+      expect(theme.textTheme.bodyMedium?.fontFamily, 'Inter');
     });
   });
 }

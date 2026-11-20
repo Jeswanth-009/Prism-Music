@@ -24,7 +24,6 @@ import 'package:prism_music/domain/repositories/repositories.dart';
 import 'package:prism_music/presentation/blocs/library/library_bloc.dart';
 import 'package:prism_music/presentation/blocs/player/player_bloc.dart';
 import 'package:prism_music/presentation/blocs/search/search_bloc.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:prism_music/presentation/blocs/theme/theme_bloc.dart';
 import 'package:prism_music/presentation/blocs/theme/theme_state.dart';
 
@@ -1008,7 +1007,6 @@ Widget wrapForTests(
   SearchBloc? searchBloc,
   ThemeBloc? themeBloc,
 }) {
-  GoogleFonts.config.allowRuntimeFetching = false;
   final themeState = const ThemeState();
   return MultiBlocProvider(
     providers: [

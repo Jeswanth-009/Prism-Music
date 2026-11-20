@@ -6,7 +6,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:logging/logging.dart';
 
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/localization/prism_localizations.dart';
 
@@ -30,9 +29,6 @@ import 'presentation/pages/onboarding_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Enforce bundled offline typography: prevent GoogleFonts from downloading over the network
-  GoogleFonts.config.allowRuntimeFetching = false;
 
   // Global uncaught crash & error reporting (privacy-first on-device logs & optional Sentry)
   FlutterError.onError = (details) {

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart' show Right;
-import 'package:google_fonts/google_fonts.dart';
 import 'package:prism_music/core/di/injection.dart';
 import 'package:prism_music/domain/entities/entities.dart';
 import 'package:prism_music/domain/repositories/music_repository.dart';
@@ -44,7 +43,6 @@ Future<Lyrics> _syncedLyrics() async => Lyrics(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  GoogleFonts.config.allowRuntimeFetching = false;
 
   // Cross-platform font rasterization differs by a fraction of a percent;
   // tolerate it while still catching real layout regressions. The basedir

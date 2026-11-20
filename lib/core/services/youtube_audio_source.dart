@@ -39,10 +39,6 @@ class YouTubeAudioSource extends StreamAudioSource {
   
   // YouTube stream URLs can expire, cache for 45 minutes (conservative)
   static const _cacheExpirationDuration = Duration(minutes: 45);
-
-  /// Client priority fallback chain (fastest pure audio -> standard -> cross-platform -> mobile web)
-  static List<({String name, YoutubeApiClient client, Duration timeout})>
-      get _candidateClients => YouTubeManifestResolver.candidateClients;
   static const _maxRetries = 3;
 
   YouTubeAudioSource({

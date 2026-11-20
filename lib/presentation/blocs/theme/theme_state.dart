@@ -1,6 +1,5 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'theme_event.dart';
 import '../../theme/prism_page_transitions.dart';
@@ -130,11 +129,10 @@ class ThemeState extends Equatable {
         : lightColorScheme;
     final isDark = brightness == Brightness.dark;
 
-    final baseTextTheme = GoogleFonts.interTextTheme(
-      brightness == Brightness.dark
-          ? ThemeData(brightness: Brightness.dark).textTheme
-          : ThemeData(brightness: Brightness.light).textTheme,
-    );
+    final baseTextTheme = (brightness == Brightness.dark
+            ? ThemeData(brightness: Brightness.dark).textTheme
+            : ThemeData(brightness: Brightness.light).textTheme)
+        .apply(fontFamily: 'Inter');
 
     final textTheme = baseTextTheme
         .copyWith(
@@ -215,6 +213,7 @@ class ThemeState extends Equatable {
 
     return ThemeData(
       useMaterial3: true,
+      fontFamily: 'Inter',
       colorScheme: scheme,
       brightness: brightness,
       scaffoldBackgroundColor: scheme.surface,

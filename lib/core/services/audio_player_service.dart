@@ -693,9 +693,6 @@ class AudioPlayerService {
     return Uri.parse(url);
   }
 
-  bool _isLocalPath(String? url) => isLocalPath(url);
-  Uri _uriForUrl(String url) => uriForUrl(url);
-
   /// Add a song to the end of the playlist queue
   Future<void> addToQueue(
     String url, {
