@@ -865,6 +865,7 @@ class FakeStreamLoader implements StreamLoaderService {
 class FakeDownloadService implements DownloadService {
   final Set<String> downloadedIds;
   final List<Song> downloadedSongs;
+  final Map<String, DownloadInfo> activeDownloadsMap = {};
 
   FakeDownloadService({
     Set<String>? downloadedIds,
@@ -877,6 +878,24 @@ class FakeDownloadService implements DownloadService {
 
   @override
   List<Song> getDownloadedSongsList() => downloadedSongs;
+
+  @override
+  Map<String, DownloadInfo> get activeDownloads => activeDownloadsMap;
+
+  @override
+  Future<int> reconcileStorageState() async => 0;
+
+  @override
+  List<Map<String, dynamic>> getAllDownloadedSongs() => [];
+
+  @override
+  Future<int> getTotalDownloadSize() async => 0;
+
+  @override
+  void addListener(Function(DownloadInfo) listener) {}
+
+  @override
+  void removeListener(Function(DownloadInfo) listener) {}
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

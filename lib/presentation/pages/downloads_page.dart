@@ -11,6 +11,7 @@ import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
 import '../blocs/player/player_state.dart';
 import '../theme/prism_theme.dart';
+import '../widgets/downloads/offline_storage_info_sheet.dart';
 import '../widgets/player/mini_player.dart';
 import '../widgets/prism/prism_artwork.dart';
 import '../widgets/prism/prism_collection_header.dart';
@@ -140,6 +141,13 @@ class _DownloadsPageState extends State<DownloadsPage> {
           icon: const Icon(Icons.arrow_back_rounded),
         ),
         title: const Text('Downloads'),
+        actions: [
+          IconButton(
+            tooltip: 'Offline & Storage Info',
+            icon: const Icon(Icons.info_outline_rounded),
+            onPressed: () => showOfflineStorageInfoSheet(context),
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
