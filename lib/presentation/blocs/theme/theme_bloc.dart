@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:palette_generator/palette_generator.dart';
+import 'package:prism_music/core/utils/palette_generator.dart';
 import '../../../core/services/settings_service.dart';
 import 'theme_event.dart';
 import 'theme_state.dart';

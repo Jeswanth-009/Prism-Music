@@ -2,7 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:palette_generator/palette_generator.dart';
+import 'package:prism_music/core/utils/palette_generator.dart';
 
 import '../../core/error/error_message_mapper.dart';
 import '../../core/services/settings_service.dart';

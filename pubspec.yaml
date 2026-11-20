@@ -66,9 +66,6 @@ dependencies:
   package_info_plus: ^10.2.1
   device_info_plus: ^13.2.0
   
-  # Color Extraction for Dynamic Theming
-  palette_generator: ^0.3.3+4
-  
   # Lyrics
   scrollable_positioned_list: ^0.3.8
   
