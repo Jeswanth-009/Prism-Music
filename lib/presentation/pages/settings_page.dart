@@ -39,6 +39,7 @@ import '../widgets/player/mini_player.dart';
 import '../widgets/prism/prism_artwork.dart';
 import '../widgets/prism/prism_dialog.dart';
 import '../widgets/prism/prism_sheet.dart';
+import '../widgets/prism/prism_states.dart';
 import '../widgets/settings/about_diagnostics_sheet.dart';
 import '../widgets/settings/portable_backup_sheet.dart';
 import '../widgets/settings/setting_row.dart';
@@ -60,6 +61,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   bool _isInitialized = false;
   bool _hasInitialized = false;
+  String? _initError;
   bool _fastStartEnabled = true;
   bool _autoBackupEnabled = true;
   bool _sharedBackupEnabled = false;
@@ -97,6 +99,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (mounted) setState(() {});
     } catch (e) {
       if (kDebugMode) debugPrint('Initialization error: $e');
+      _initError = e.toString();
       _recommendationService = null;
     }
     if (mounted) setState(() => _isInitialized = true);
@@ -502,6 +505,25 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_isInitialized && _initError != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Settings')),
+        body: Center(
+          child: PrismErrorState(
+            title: 'Could not load settings',
+            message: _initError,
+            onRetry: () {
+              setState(() {
+                _isInitialized = false;
+                _initError = null;
+                _hasInitialized = true;
+              });
+              _initialize();
+            },
+          ),
+        ),
+      );
+    }
     final theme = Theme.of(context);
     return Scaffold(
       body: CustomScrollView(

@@ -6,6 +6,7 @@ import '../theme/prism_theme.dart';
 import '../widgets/common/bouncing_tap_widget.dart';
 import '../widgets/player/mini_player.dart';
 import '../widgets/prism/prism_chart_chip.dart';
+import '../widgets/prism/prism_states.dart';
 import 'chart_page.dart';
 
 /// Charts hub: available charts per region as rich, tappable cards.
@@ -23,10 +24,17 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
 
   @override
   Widget build(BuildContext context) {
-    final charts = ChartService.getAvailableCharts(
-      _settings.countryCode,
-      _settings.selectedCountry.name,
-    );
+    List<ChartDefinition> charts;
+    String? error;
+    try {
+      charts = ChartService.getAvailableCharts(
+        _settings.countryCode,
+        _settings.selectedCountry.name,
+      );
+    } catch (e) {
+      charts = const [];
+      error = e.toString();
+    }
     final theme = Theme.of(context);
     final spec = context.prismSpec;
 
@@ -88,9 +96,20 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
               ),
             ),
           ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
-            sliver: SliverGrid.builder(
+          if (error != null || charts.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: PrismErrorState(
+                title: 'Could not load charts',
+                message: error ??
+                    'No charts available for ${_settings.selectedCountry.name}. Tap to reload.',
+                onRetry: () => setState(() {}),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+              sliver: SliverGrid.builder(
               itemCount: charts.length,
               gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                 maxCrossAxisExtent: 260,

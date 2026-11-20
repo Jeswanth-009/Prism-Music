@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/services/genre_service.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/player/mini_player.dart';
+import '../widgets/prism/prism_states.dart';
 import 'genre_detail_page.dart';
 
 /// Full-page browser for musical genres and mood playlists.
@@ -123,24 +124,18 @@ class _GenreBrowsePageState extends State<GenreBrowsePage> {
               if (filtered.isEmpty)
                 SliverFillRemaining(
                   hasScrollBody: false,
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.search_off_rounded,
-                          size: 48,
-                          color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No genres found for "$_searchQuery"',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
+                  child: PrismErrorState(
+                    title: _searchQuery.isNotEmpty ? 'No genres found' : 'Could not load genres',
+                    message: _searchQuery.isNotEmpty
+                        ? 'No genres match "$_searchQuery".'
+                        : 'No genres or moods available.',
+                    onRetry: () {
+                      _searchController.clear();
+                      setState(() {
+                        _searchQuery = '';
+                        _selectedFilterIndex = 0;
+                      });
+                    },
                   ),
                 )
               else

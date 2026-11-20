@@ -66,10 +66,12 @@ class PrismEmptyState extends StatelessWidget {
 class PrismErrorState extends StatelessWidget {
   const PrismErrorState({
     super.key,
+    this.title,
     this.message,
     required this.onRetry,
   });
 
+  final String? title;
   final String? message;
   final VoidCallback onRetry;
 
@@ -89,7 +91,7 @@ class PrismErrorState extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              'Could not load music',
+              title ?? 'Could not load music',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),

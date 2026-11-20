@@ -4,6 +4,7 @@ import '../../core/services/podcast_service.dart';
 import '../../domain/entities/podcast.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/player/mini_player.dart';
+import '../widgets/prism/prism_states.dart';
 import 'podcast_detail_page.dart';
 
 /// Full-page browser and discovery hub for podcasts.
@@ -19,6 +20,7 @@ class _PodcastsPageState extends State<PodcastsPage> {
   List<Podcast> _podcasts = [];
   List<Podcast> _subscribedPodcasts = [];
   bool _isLoading = true;
+  String? _error;
   String _activeCategory = 'technology';
 
   static const List<String> _categories = [
@@ -43,15 +45,27 @@ class _PodcastsPageState extends State<PodcastsPage> {
   }
 
   Future<void> _loadInitial() async {
-    setState(() => _isLoading = true);
-    final subs = PodcastService.instance.getSubscribedPodcasts();
-    final results = await PodcastService.instance.getFeaturedPodcasts(query: _activeCategory);
-    if (mounted) {
-      setState(() {
-        _subscribedPodcasts = subs;
-        _podcasts = results;
-        _isLoading = false;
-      });
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final subs = PodcastService.instance.getSubscribedPodcasts();
+      final results = await PodcastService.instance.getFeaturedPodcasts(query: _activeCategory);
+      if (mounted) {
+        setState(() {
+          _subscribedPodcasts = subs;
+          _podcasts = results;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -60,13 +74,25 @@ class _PodcastsPageState extends State<PodcastsPage> {
       _loadCategory(_activeCategory);
       return;
     }
-    setState(() => _isLoading = true);
-    final results = await PodcastService.instance.searchPodcasts(query);
-    if (mounted) {
-      setState(() {
-        _podcasts = results;
-        _isLoading = false;
-      });
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final results = await PodcastService.instance.searchPodcasts(query);
+      if (mounted) {
+        setState(() {
+          _podcasts = results;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -74,13 +100,23 @@ class _PodcastsPageState extends State<PodcastsPage> {
     setState(() {
       _activeCategory = category.toLowerCase();
       _isLoading = true;
+      _error = null;
     });
-    final results = await PodcastService.instance.getFeaturedPodcasts(query: _activeCategory);
-    if (mounted) {
-      setState(() {
-        _podcasts = results;
-        _isLoading = false;
-      });
+    try {
+      final results = await PodcastService.instance.getFeaturedPodcasts(query: _activeCategory);
+      if (mounted) {
+        setState(() {
+          _podcasts = results;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -251,6 +287,15 @@ class _PodcastsPageState extends State<PodcastsPage> {
                   hasScrollBody: false,
                   child: Center(
                     child: CircularProgressIndicator(),
+                  ),
+                )
+              else if (_error != null)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: PrismErrorState(
+                    title: 'Could not load podcasts',
+                    message: _error,
+                    onRetry: _loadInitial,
                   ),
                 )
               else if (_podcasts.isEmpty)

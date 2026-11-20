@@ -24,6 +24,7 @@ import '../widgets/library/smart_playlist_card.dart';
 import '../widgets/playlist/playlist_export_sheet.dart';
 import '../widgets/prism/prism_section_header.dart';
 import '../widgets/prism/prism_sheet.dart';
+import '../widgets/prism/prism_states.dart';
 import 'settings_page.dart';
 import 'stats_page.dart';
 import 'podcasts_page.dart';
@@ -91,10 +92,21 @@ class _LibraryTabState extends State<LibraryTab>
     return SafeArea(
       bottom: false,
       child: BlocBuilder<LibraryBloc, LibraryState>(
-        builder: (context, state) => CustomScrollView(
-          key: const PageStorageKey('prism_library'),
-          physics: const BouncingScrollPhysics(),
-          slivers: [
+        builder: (context, state) {
+          if (state.status == LibraryStatus.error) {
+            return Center(
+              child: PrismErrorState(
+                title: 'Could not load library',
+                message: state.errorMessage,
+                onRetry: () =>
+                    context.read<LibraryBloc>().add(const LoadLibraryEvent()),
+              ),
+            );
+          }
+          return CustomScrollView(
+            key: const PageStorageKey('prism_library'),
+            physics: const BouncingScrollPhysics(),
+            slivers: [
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
               sliver: SliverToBoxAdapter(
@@ -307,8 +319,9 @@ class _LibraryTabState extends State<LibraryTab>
               ),
             ),
           ],
-        ),
-      ),
+        );
+      },
+    ),
     );
   }
 

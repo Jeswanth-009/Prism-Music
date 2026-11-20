@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/services/settings_service.dart';
 import '../theme/prism_theme.dart';
+import '../widgets/prism/prism_states.dart';
 import 'home_page.dart';
 
 /// First-launch onboarding: three slides introducing the app, then straight
@@ -49,14 +50,21 @@ class _OnboardingPageState extends State<OnboardingPage> {
     ),
   ];
 
+  String? _error;
+
   void _finish({int initialIndex = 0}) async {
-    await SettingsService.instance.setOnboardingComplete();
-    if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => HomePage(initialIndex: initialIndex),
-      ),
-    );
+    setState(() => _error = null);
+    try {
+      await SettingsService.instance.setOnboardingComplete();
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => HomePage(initialIndex: initialIndex),
+        ),
+      );
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    }
   }
 
   @override
@@ -67,6 +75,17 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_error != null) {
+      return Scaffold(
+        body: Center(
+          child: PrismErrorState(
+            title: 'Setup error',
+            message: _error,
+            onRetry: () => _finish(initialIndex: 0),
+          ),
+        ),
+      );
+    }
     final theme = Theme.of(context);
     final isLast = _page == _slides.length - 1;
 

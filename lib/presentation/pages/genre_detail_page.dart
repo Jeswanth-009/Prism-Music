@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/services/genre_service.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/player/mini_player.dart';
+import '../widgets/prism/prism_states.dart';
 import 'curated_playlist_page.dart';
 
 /// Page displaying curated playlists and tracks for a selected music genre or mood.
@@ -111,9 +112,19 @@ class GenreDetailPage extends StatelessWidget {
                   ),
                 ),
               ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
-                sliver: SliverGrid(
+              if (genre.playlists.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: PrismErrorState(
+                    title: 'No playlists available',
+                    message: 'No curated playlists found for ${genre.name}.',
+                    onRetry: () => Navigator.maybePop(context),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+                  sliver: SliverGrid(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     childAspectRatio: 0.88,

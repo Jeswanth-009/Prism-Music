@@ -221,7 +221,11 @@ class _HomeTabState extends State<HomeTab>
                 if (_error != null) {
                   return SliverFillRemaining(
                     hasScrollBody: false,
-                    child: PrismErrorState(message: _error, onRetry: _load),
+                    child: PrismErrorState(
+                      title: 'Could not load home feed',
+                      message: _error,
+                      onRetry: _load,
+                    ),
                   );
                 }
 

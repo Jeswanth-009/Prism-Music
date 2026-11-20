@@ -7,6 +7,7 @@ import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/player/mini_player.dart';
+import '../widgets/prism/prism_states.dart';
 
 /// Page displaying a podcast series and its streamable episodes.
 class PodcastDetailPage extends StatefulWidget {
@@ -21,6 +22,7 @@ class PodcastDetailPage extends StatefulWidget {
 class _PodcastDetailPageState extends State<PodcastDetailPage> {
   List<PodcastEpisode> _episodes = [];
   bool _isLoading = true;
+  String? _error;
   late bool _isSubscribed;
 
   @override
@@ -31,13 +33,25 @@ class _PodcastDetailPageState extends State<PodcastDetailPage> {
   }
 
   Future<void> _loadEpisodes() async {
-    setState(() => _isLoading = true);
-    final eps = await PodcastService.instance.fetchEpisodes(widget.podcast);
-    if (mounted) {
-      setState(() {
-        _episodes = eps;
-        _isLoading = false;
-      });
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final eps = await PodcastService.instance.fetchEpisodes(widget.podcast);
+      if (mounted) {
+        setState(() {
+          _episodes = eps;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -202,6 +216,15 @@ class _PodcastDetailPageState extends State<PodcastDetailPage> {
                   hasScrollBody: false,
                   child: Center(
                     child: CircularProgressIndicator(),
+                  ),
+                )
+              else if (_error != null)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: PrismErrorState(
+                    title: 'Could not load episodes',
+                    message: _error,
+                    onRetry: _loadEpisodes,
                   ),
                 )
               else if (_episodes.isEmpty)
