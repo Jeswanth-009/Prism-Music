@@ -969,6 +969,22 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       return;
     }
 
+    // If player reached end of queue, user tapping play restarts queue from track 0
+    if (state.currentSong != null && state.status == PlayerStatus.completed) {
+      _log('  - In completed state, restarting queue from track 0');
+      final firstSong =
+          state.queue.isNotEmpty ? state.queue.first : state.currentSong!;
+      add(
+        PlaySongEvent(
+          song: firstSong,
+          queue: state.queue,
+          queueIndex: 0,
+          userInitiated: true,
+        ),
+      );
+      return;
+    }
+
     // Proactively check stream URL freshness before playback resume.
     // If stream URL is expired or cache is stale (e.g. paused for hours), invalidate cache and re-resolve.
     if (state.currentSong != null &&
@@ -1698,7 +1714,10 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     } else {
       // Queue is empty or at the end - no more songs
       emit(
-        state.copyWith(status: PlayerStatus.paused, position: Duration.zero),
+        state.copyWith(
+          status: PlayerStatus.completed,
+          position: Duration.zero,
+        ),
       );
     }
   }

@@ -81,16 +81,36 @@ class PlayerPlayPauseButton extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final isPlaying = state.isPlaying;
     final isError = state.status == PlayerStatus.error;
+    final isCompleted = state.status == PlayerStatus.completed;
 
     return Semantics(
       button: true,
-      label: isError ? 'Retry' : (isPlaying ? 'Pause' : 'Play'),
+      label: isError
+          ? 'Retry'
+          : (isCompleted ? 'Replay' : (isPlaying ? 'Pause' : 'Play')),
       child: GestureDetector(
         onTap: state.isBuffering
             ? null
-            : () => context.read<PlayerBloc>().add(
-                  isPlaying ? const PauseEvent() : const ResumeEvent(),
-                ),
+            : () {
+                if (isCompleted) {
+                  final replaySong = state.queue.isNotEmpty
+                      ? state.queue.first
+                      : state.currentSong;
+                  if (replaySong != null) {
+                    context.read<PlayerBloc>().add(
+                          PlaySongEvent(
+                            song: replaySong,
+                            queue: state.queue,
+                            queueIndex: 0,
+                          ),
+                        );
+                  }
+                } else {
+                  context.read<PlayerBloc>().add(
+                        isPlaying ? const PauseEvent() : const ResumeEvent(),
+                      );
+                }
+              },
         child: AnimatedContainer(
           duration: PrismMotion.fast,
           curve: PrismMotion.curve,
@@ -118,9 +138,11 @@ class PlayerPlayPauseButton extends StatelessWidget {
               : Icon(
                   isError
                       ? Icons.refresh_rounded
-                      : (isPlaying
-                          ? Icons.pause_rounded
-                          : Icons.play_arrow_rounded),
+                      : (isCompleted
+                          ? Icons.replay_rounded
+                          : (isPlaying
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded)),
                   size: 38,
                   color: scheme.onPrimary,
                 ),

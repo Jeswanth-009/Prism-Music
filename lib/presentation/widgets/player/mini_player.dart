@@ -96,15 +96,69 @@ class MiniPlayer extends StatelessWidget {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    song.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.titleSmall
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                          letterSpacing: -0.2,
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          song.title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: theme.textTheme.titleSmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                                letterSpacing: -0.2,
+                                              ),
                                         ),
+                                      ),
+                                      if (state.repeatMode != RepeatMode.off ||
+                                          state.isShuffleEnabled) ...[
+                                        const SizedBox(width: 4),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 4,
+                                            vertical: 1.5,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: scheme.primaryContainer
+                                                .withValues(alpha: 0.7),
+                                            borderRadius:
+                                                BorderRadius.circular(PrismRadius.xs),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (state.isShuffleEnabled) ...[
+                                                Icon(
+                                                  Icons.shuffle_rounded,
+                                                  size: 11,
+                                                  color: scheme
+                                                      .onPrimaryContainer,
+                                                ),
+                                                if (state.repeatMode !=
+                                                    RepeatMode.off)
+                                                  const SizedBox(width: 2),
+                                              ],
+                                              if (state.repeatMode ==
+                                                  RepeatMode.one)
+                                                Icon(
+                                                  Icons.repeat_one_rounded,
+                                                  size: 11,
+                                                  color: scheme
+                                                      .onPrimaryContainer,
+                                                )
+                                              else if (state.repeatMode ==
+                                                  RepeatMode.all)
+                                                Icon(
+                                                  Icons.repeat_rounded,
+                                                  size: 11,
+                                                  color: scheme
+                                                      .onPrimaryContainer,
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                   const SizedBox(height: 1),
                                   if (state.status == PlayerStatus.error)
@@ -117,6 +171,16 @@ class MiniPlayer extends StatelessWidget {
                                       style: theme.textTheme.bodySmall?.copyWith(
                                         color: scheme.error,
                                         fontWeight: FontWeight.w500,
+                                      ),
+                                    )
+                                  else if (state.status == PlayerStatus.completed)
+                                    Text(
+                                      'Queue finished · Tap to replay',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: scheme.primary,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     )
                                   else if (state.isLoading &&
@@ -186,19 +250,40 @@ class MiniPlayer extends StatelessWidget {
                             _MiniAction(
                               label: state.status == PlayerStatus.error
                                   ? 'Retry'
-                                  : (state.isPlaying ? 'Pause' : 'Play'),
+                                  : (state.status == PlayerStatus.completed
+                                      ? 'Replay'
+                                      : (state.isPlaying ? 'Pause' : 'Play')),
                               icon: state.isBuffering
                                   ? null
                                   : state.status == PlayerStatus.error
                                       ? Icons.refresh_rounded
-                                      : (state.isPlaying
-                                          ? Icons.pause_rounded
-                                          : Icons.play_arrow_rounded),
-                              onPressed: () => context.read<PlayerBloc>().add(
-                                state.isPlaying
-                                    ? const PauseEvent()
-                                    : const ResumeEvent(),
-                              ),
+                                      : (state.status == PlayerStatus.completed
+                                          ? Icons.replay_rounded
+                                          : (state.isPlaying
+                                              ? Icons.pause_rounded
+                                              : Icons.play_arrow_rounded)),
+                              onPressed: () {
+                                if (state.status == PlayerStatus.completed) {
+                                  final replaySong = state.queue.isNotEmpty
+                                      ? state.queue.first
+                                      : state.currentSong;
+                                  if (replaySong != null) {
+                                    context.read<PlayerBloc>().add(
+                                          PlaySongEvent(
+                                            song: replaySong,
+                                            queue: state.queue,
+                                            queueIndex: 0,
+                                          ),
+                                        );
+                                  }
+                                } else {
+                                  context.read<PlayerBloc>().add(
+                                        state.isPlaying
+                                            ? const PauseEvent()
+                                            : const ResumeEvent(),
+                                      );
+                                }
+                              },
                             ),
                             _MiniAction(
                               label: 'Next',
