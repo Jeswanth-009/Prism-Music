@@ -41,7 +41,7 @@ Search and stream millions of songs from YouTube Music and JioSaavn with line-sy
 ## 💡 Why Prism Music?
 
 - 🚫 **Zero accounts or logins**: Search, stream, like, and download directly without ever signing up or handing over an email address.
-- 🔒 **100% Local-first data**: Likes, playlists, history, and listening metrics live strictly in an encrypted on-device database with zero cloud telemetry. Backups live in app-private storage with optional manual JSON export.
+- 🔒 **100% Local-first data**: Likes, playlists, history, and listening metrics live strictly in app-private sandbox-isolated storage with zero cloud telemetry. Sensitive secrets are protected by hardware-backed secure storage (Android Keystore / iOS Keychain). Backups live in app-private storage with optional manual JSON export.
 - ⚡ **Direct HTTPS streaming**: Audio streams, catalog metadata, and lyrics are fetched directly from external services over HTTPS without intermediary proxy servers or logging middleboxes.
 - 🛡️ **Four-tier fallback resilience**: Automated stream failover (JioSaavn up to 320 kbps → YouTube Explode → Piped → Invidious) backed by a circuit breaker ensures playback never freezes when a provider experiences downtime.
 - 📻 **Infinite Radio recommendations**: Tap any searched track to immediately seed playback and trigger continuous algorithmic recommendations that learn from your listening habits.

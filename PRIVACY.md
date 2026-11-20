@@ -20,6 +20,8 @@ Prism Music is an open-source, local-first music application for Android. We res
 
 All core user data is stored locally using Hive databases and app-private filesystem storage:
 
+> **Data Storage Architecture:** Local Hive databases (likes, history, downloads metadata, settings) are stored within the operating system's private application sandbox, isolated from other applications by OS-enforced user boundaries and excluded from automatic cloud backups via modern backup rules. Sensitive credentials (such as Spotify Client Secret and Last.fm session tokens) are stored separately using hardware-backed secure storage (`FlutterSecureStorage` backed by Android Keystore / iOS Keychain).
+
 | Data Type | Storage Location | Retention & Lifecycle |
 |---|---|---|
 | **Liked Songs & Playlists** | App-private storage (`hive/`) | Retained until you delete them or clear app data |
@@ -73,10 +75,10 @@ flowchart TD
 - **What is received:** Plain text or synchronized (LRC) lyrics.
 - **Privacy consideration:** LRCLIB is a community-run open lyrics service. No personal or device identifiers are sent.
 
-#### D. Spotify (Playlist Imports)
-- **What is sent:** Spotify playlist URLs you explicitly paste into the app.
-- **What is received:** Public playlist HTML and metadata.
-- **Privacy consideration:** Prism Music fetches the public web page for the playlist and parses the track names to match them on YouTube Music. The app does not ask for or store Spotify user account credentials.
+#### D. Spotify (Playlist Imports & Web API)
+- **What is sent:** Spotify playlist URLs you explicitly paste into the app, or Web API requests for playlist metadata if developer credentials are configured.
+- **What is received:** Public playlist metadata (track names, artists, durations, and ISRC identifiers).
+- **Credentials & Token Security:** If developer credentials (Client ID and Client Secret) are provided in Settings, they are stored securely in hardware-backed secure storage (`FlutterSecureStorage`). Temporary access tokens obtained via Spotify's client-credentials OAuth flow are held strictly in volatile memory and are never written to disk or database storage.
 
 #### E. Last.fm (Optional Scrobbling)
 - **Default state:** Disabled.

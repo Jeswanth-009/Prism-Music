@@ -131,4 +131,6 @@ flutter_launcher_icons:
   adaptive_icon_foreground: "assets/icon/dark.png"
 
 dependency_overrides:
+  # Pinned to <14.0.0 because permission_handler_android 14+ requires Android Gradle Plugin (AGP) 9.0+,
+  # while Prism Music currently targets AGP 8.9.1 / Gradle 8.14.
   permission_handler_android: <14.0.0
