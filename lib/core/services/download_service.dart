@@ -111,6 +111,7 @@ class DownloadService {
   static const int _maxConcurrentDownloads = 3;
   final StreamLoaderService _streamLoaderService;
   final Dio _dio;
+  final SettingsService _settingsService;
   final Map<String, CancelToken> _cancelTokens = {};
 
   final List<QueuedDownload> _downloadQueue = [];
@@ -120,7 +121,12 @@ class DownloadService {
   final Map<String, DownloadInfo> _downloadProgress = {};
   final List<Function(DownloadInfo)> _listeners = [];
 
-  DownloadService(this._streamLoaderService, {Dio? dio}) : _dio = dio ?? Dio();
+  DownloadService(
+    this._streamLoaderService, {
+    Dio? dio,
+    SettingsService? settingsService,
+  })  : _dio = dio ?? Dio(),
+        _settingsService = settingsService ?? SettingsService.instance;
 
   /// Sort queue by priority descending (high > normal > low), then FIFO
   void _sortQueue() {
@@ -147,7 +153,7 @@ class DownloadService {
 
   /// Check whether total downloaded storage + estimated download size fits in quota
   Future<bool> checkStorageQuotaAllowed({int estimatedBytes = 8 * 1024 * 1024}) async {
-    final quotaMB = SettingsService.instance.downloadStorageQuotaMB;
+    final quotaMB = _settingsService.downloadStorageQuotaMB;
     if (quotaMB <= 0) return true; // 0 = unlimited
 
     final currentTotalBytes = await getTotalDownloadSize();
@@ -192,7 +198,7 @@ class DownloadService {
 
   /// Get download directory (uses custom path from settings if available)
   Future<Directory> _getDownloadDirectory() async {
-    final customPath = SettingsService.instance.downloadFolderPath;
+    final customPath = _settingsService.downloadFolderPath;
 
     // Try custom path first when provided
     if (customPath != null && customPath.isNotEmpty) {
@@ -303,7 +309,7 @@ class DownloadService {
     // Permissions: Default downloads use app-specific external storage which
     // requires no runtime permissions. Only check storage permissions if a
     // custom download directory is configured.
-    final customFolder = SettingsService.instance.downloadFolderPath;
+    final customFolder = _settingsService.downloadFolderPath;
     if (customFolder != null && customFolder.isNotEmpty && Platform.isAndroid) {
       try {
         final plugin = DeviceInfoPlugin();
@@ -338,7 +344,7 @@ class DownloadService {
     }
 
     // Wi-Fi only check: if downloadWifiOnly is enabled, verify network is Wi-Fi or Ethernet
-    if (SettingsService.instance.downloadWifiOnly) {
+    if (_settingsService.downloadWifiOnly) {
       try {
         final connectivityResults = await Connectivity().checkConnectivity();
         final hasWifi = connectivityResults.contains(ConnectivityResult.wifi) ||
@@ -366,7 +372,7 @@ class DownloadService {
     // Storage quota check
     final quotaAllowed = await checkStorageQuotaAllowed();
     if (!quotaAllowed) {
-      final quotaMB = SettingsService.instance.downloadStorageQuotaMB;
+      final quotaMB = _settingsService.downloadStorageQuotaMB;
       logDebug('Download skipped: Storage quota ($quotaMB MB) reached');
       final blockedInfo = DownloadInfo(
         songId: song.playableId,
@@ -493,7 +499,7 @@ class DownloadService {
       } else {
         try {
           final effectiveQuality = quality ??
-              AudioQuality.fromString(SettingsService.instance.downloadAudioQuality);
+              AudioQuality.fromString(_settingsService.downloadAudioQuality);
           final streamInfo = await _streamLoaderService.loadStream(
             song,
             useCache: false, // Force fresh stream URL for downloading
@@ -585,7 +591,7 @@ class DownloadService {
 
       // Download and persist rich offline artwork alongside audio
       String? localArtworkPath;
-      if (SettingsService.instance.offlineArtworkPersistence &&
+      if (_settingsService.offlineArtworkPersistence &&
           song.thumbnailUrl.isNotEmpty) {
         try {
           final downloadDir = await _getDownloadDirectory();
@@ -620,7 +626,7 @@ class DownloadService {
         'contentType': contentType,
         'bitrate': resolvedStream?.bitrate ?? 0,
         'isrc': song.isrc,
-        'quality': (quality ?? AudioQuality.fromString(SettingsService.instance.downloadAudioQuality)).name,
+        'quality': (quality ?? AudioQuality.fromString(_settingsService.downloadAudioQuality)).name,
         'downloadedAt': DateTime.now().toIso8601String(),
       });
 

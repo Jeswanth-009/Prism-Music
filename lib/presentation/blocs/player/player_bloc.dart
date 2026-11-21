@@ -42,7 +42,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   final PlaybackReliabilityService _reliability;
   final StreamLoaderService _streamLoader;
   final DownloadService _downloadService;
-  final SettingsService _settingsService = SettingsService.instance;
+  final SettingsService _settingsService;
   bool _fastStartEnabled = true;
   double _preSleepTimerVolume = 1.0;
 
@@ -112,6 +112,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     required StreamLoaderService streamLoader,
     required DownloadService downloadService,
     RecommendationService? recommendationService,
+    SettingsService? settingsService,
     // How long a natively advanced queue track may sit without starting to
     // play before it is treated as stuck. Overridable so tests need not wait.
     Duration trackStartWatchdogTimeout = const Duration(seconds: 15),
@@ -124,8 +125,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
        _streamLoader = streamLoader,
        _downloadService = downloadService,
        _recommendationService = recommendationService,
+       _settingsService = settingsService ?? SettingsService.instance,
        _trackStartWatchdogTimeout = trackStartWatchdogTimeout,
-       super(PlayerState(autoPlay: SettingsService.instance.autoPlay)) {
+       super(PlayerState(autoPlay: (settingsService ?? SettingsService.instance).autoPlay)) {
     if (_recommendationService == null &&
         getIt.isRegistered<RecommendationService>()) {
       _recommendationService = getIt<RecommendationService>();
