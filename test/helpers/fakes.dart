@@ -869,6 +869,34 @@ class FakeDownloadService implements DownloadService {
   bool isDownloaded(String songId) => downloadedIds.contains(songId);
 
   @override
+  bool isSongDownloaded(Song song) =>
+      downloadedIds.contains(song.playableId) ||
+      downloadedIds.contains(song.id) ||
+      (song.isrc != null && downloadedIds.contains(song.isrc));
+
+  @override
+  String? getLocalPathForSong(Song song) {
+    if (isSongDownloaded(song)) {
+      return '/tmp/downloads/${song.playableId}.m4a';
+    }
+    return null;
+  }
+
+  @override
+  String? getLocalPath(String songId) {
+    if (downloadedIds.contains(songId)) {
+      return '/tmp/downloads/$songId.m4a';
+    }
+    return null;
+  }
+
+  @override
+  Future<bool> verifyDownloadIntegrity(String songId) async => isDownloaded(songId);
+
+  @override
+  Future<List<Map<String, dynamic>>> getAllDownloadedSongsAsync() async => getAllDownloadedSongs();
+
+  @override
   List<Song> getDownloadedSongsList() => downloadedSongs;
 
   @override

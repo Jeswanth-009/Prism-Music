@@ -851,7 +851,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         updateNowPlaying(songToPlay);
         try {
           _libraryRepository.isSongLiked(songToPlay.id).then((liked) {
-            final isDown = _downloadService.isDownloaded(songToPlay.id);
+            final isDown = _downloadService.isDownloaded(songToPlay.playableId);
             final qLabel = isDown ? 'Offline • Downloaded' : state.audioQuality.displayName;
             MediaSessionCoordinator.instance.updatePlaybackInfo(
               isLiked: liked,
@@ -859,7 +859,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
             );
           }).catchError((_) {});
         } catch (_) {
-          final isDown = _downloadService.isDownloaded(songToPlay.id);
+          final isDown = _downloadService.isDownloaded(songToPlay.playableId);
           final qLabel = isDown ? 'Offline • Downloaded' : state.audioQuality.displayName;
           MediaSessionCoordinator.instance.updatePlaybackInfo(
             isLiked: songToPlay.isLiked,

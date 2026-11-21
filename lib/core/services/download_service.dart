@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
@@ -118,6 +119,7 @@ class DownloadService {
   final Set<String> _activeDownloadIds = {};
 
   Box? _downloadBox;
+  final Map<String, String> _secondaryKeyIndex = {};
   final Map<String, DownloadInfo> _downloadProgress = {};
   final List<Function(DownloadInfo)> _listeners = [];
 
@@ -168,10 +170,39 @@ class DownloadService {
       } else {
         _downloadBox = await Hive.openBox(_downloadBoxName);
       }
+      _rebuildSecondaryIndex();
     } catch (e, stack) {
       logError('Download service initialization error', e, stack);
     }
   }
+
+  void _indexRecord(String primaryKey, Map record) {
+    void addKey(dynamic val) {
+      if (val is String && val.trim().isNotEmpty && val != primaryKey) {
+        _secondaryKeyIndex[val.trim()] = primaryKey;
+      }
+    }
+
+    addKey(record['isrc']);
+    addKey(record['youtubeId']);
+    addKey(record['jioSaavnId']);
+    addKey(record['id']);
+    addKey(record['songId']);
+  }
+
+  void _rebuildSecondaryIndex() {
+    _secondaryKeyIndex.clear();
+    if (_downloadBox == null) return;
+    for (final key in _downloadBox!.keys) {
+      final info = _downloadBox!.get(key) as Map?;
+      if (info != null) {
+        _indexRecord(key.toString(), info);
+      }
+    }
+  }
+
+  @visibleForTesting
+  Box? get downloadBox => _downloadBox;
 
   /// Add listener for download progress updates
   void addListener(Function(DownloadInfo) listener) {
@@ -252,7 +283,11 @@ class DownloadService {
 
   /// Check if song is downloaded
   bool isDownloaded(String songId) {
-    final info = _downloadBox?.get(songId) as Map?;
+    var info = _downloadBox?.get(songId) as Map?;
+    if (info == null && _secondaryKeyIndex.containsKey(songId)) {
+      final primaryKey = _secondaryKeyIndex[songId]!;
+      info = _downloadBox?.get(primaryKey) as Map?;
+    }
     if (info == null) return false;
     final localPath = info['localPath'] as String?;
     if (localPath == null) return false;
@@ -268,6 +303,26 @@ class DownloadService {
     }
 
     return true;
+  }
+
+  /// Check if song is downloaded using any available provider identifier or ISRC
+  bool isSongDownloaded(Song song) {
+    if (isDownloaded(song.playableId)) return true;
+    if (song.isrc != null && song.isrc!.isNotEmpty && isDownloaded(song.isrc!)) return true;
+    if (song.youtubeId != null && song.youtubeId!.isNotEmpty && isDownloaded(song.youtubeId!)) return true;
+    if (song.jioSaavnId != null && song.jioSaavnId!.isNotEmpty && isDownloaded(song.jioSaavnId!)) return true;
+    if (song.id.isNotEmpty && isDownloaded(song.id)) return true;
+    return false;
+  }
+
+  /// Get local path for a song using any matching key
+  String? getLocalPathForSong(Song song) {
+    if (isDownloaded(song.playableId)) return getLocalPath(song.playableId);
+    if (song.isrc != null && isDownloaded(song.isrc!)) return getLocalPath(song.isrc!);
+    if (song.youtubeId != null && isDownloaded(song.youtubeId!)) return getLocalPath(song.youtubeId!);
+    if (song.jioSaavnId != null && isDownloaded(song.jioSaavnId!)) return getLocalPath(song.jioSaavnId!);
+    if (song.id.isNotEmpty && isDownloaded(song.id)) return getLocalPath(song.id);
+    return null;
   }
 
   /// Get download status
@@ -290,7 +345,11 @@ class DownloadService {
 
   /// Get local file path if downloaded
   String? getLocalPath(String songId) {
-    final info = _downloadBox?.get(songId) as Map?;
+    var info = _downloadBox?.get(songId) as Map?;
+    if (info == null && _secondaryKeyIndex.containsKey(songId)) {
+      final primaryKey = _secondaryKeyIndex[songId]!;
+      info = _downloadBox?.get(primaryKey) as Map?;
+    }
     return info?['localPath'] as String?;
   }
 
@@ -612,8 +671,11 @@ class DownloadService {
       }
 
       // Save enriched metadata to Hive
-      await _downloadBox?.put(song.playableId, {
+      final downloadRecord = {
         'songId': song.playableId,
+        'id': song.id,
+        'youtubeId': song.youtubeId,
+        'jioSaavnId': song.jioSaavnId,
         'title': song.title,
         'artist': song.artist,
         'artists': song.artists,
@@ -628,7 +690,9 @@ class DownloadService {
         'isrc': song.isrc,
         'quality': (quality ?? AudioQuality.fromString(_settingsService.downloadAudioQuality)).name,
         'downloadedAt': DateTime.now().toIso8601String(),
-      });
+      };
+      await _downloadBox?.put(song.playableId, downloadRecord);
+      _indexRecord(song.playableId, downloadRecord);
 
       // Update status to completed
       downloadInfo = downloadInfo.copyWith(
@@ -702,6 +766,7 @@ class DownloadService {
       }
 
       await _downloadBox?.delete(songId);
+      _secondaryKeyIndex.removeWhere((k, v) => v == songId || k == songId);
       final removedInfo = DownloadInfo(
         songId: songId,
         status: DownloadStatus.notDownloaded,
