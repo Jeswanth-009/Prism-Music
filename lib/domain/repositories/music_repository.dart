@@ -48,15 +48,6 @@ abstract class MusicRepository {
 
   // ============ STREAM OPERATIONS ============
 
-  /// Get the stream URL for a song
-  /// Implements quality fallback: High -> Medium -> Low
-  /// If high quality stream buffers for > 3s, auto-switch to medium
-  Future<Either<Failure, StreamInfo>> getStreamUrl(
-    String videoId, {
-    AudioQuality preferredQuality = AudioQuality.high,
-    bool forceRefresh = false,
-  });
-
   /// Get multiple stream options for a song (for quality selection)
   Future<Either<Failure, List<StreamInfo>>> getAvailableStreams(String videoId);
 

@@ -31,8 +31,6 @@ class MusicRepositoryImpl implements MusicRepository {
   final LocalDataSource _localDataSource;
   final JioSaavnDataSource _jioSaavnDataSource;
   final YtMusicApiService _ytMusicApiService;
-  final PipedDataSource _pipedDataSource;
-  final InvidiousDataSource _invidiousDataSource;
 
   MusicRepositoryImpl({
     required YouTubeMusicDataSource youtubeMusicDataSource,
@@ -50,9 +48,7 @@ class MusicRepositoryImpl implements MusicRepository {
         _lyricsDataSource = lyricsDataSource,
         _localDataSource = localDataSource,
         _jioSaavnDataSource = jioSaavnDataSource,
-        _ytMusicApiService = ytMusicApiService,
-        _pipedDataSource = pipedDataSource ?? PipedDataSource(),
-        _invidiousDataSource = invidiousDataSource ?? InvidiousDataSource();
+        _ytMusicApiService = ytMusicApiService;
 
   @override
   Future<Either<Failure, List<Song>>> searchSongs(
@@ -228,50 +224,6 @@ class MusicRepositoryImpl implements MusicRepository {
     }
   }
 
-  @override
-  Future<Either<Failure, StreamInfo>> getStreamUrl(
-    String videoId, {
-    AudioQuality preferredQuality = AudioQuality.high,
-    bool forceRefresh = false,
-  }) async {
-    try {
-      final streamInfo = await _youtubeMusicDataSource.getStreamUrl(
-        videoId,
-        preferredQuality: preferredQuality,
-        forceRefresh: forceRefresh,
-      );
-      return Right(streamInfo);
-    } on StreamNotFoundException catch (e) {
-      final fallback = await _resolveStreamViaMirrors(videoId);
-      if (fallback != null) return Right(fallback);
-      debugPrint('MusicRepositoryImpl: StreamNotFound ($e)');
-      return const Left(StreamNotFoundFailure());
-    } on NetworkException catch (e) {
-      final fallback = await _resolveStreamViaMirrors(videoId);
-      if (fallback != null) return Right(fallback);
-      debugPrint('MusicRepositoryImpl: NetworkException ($e)');
-      return const Left(NetworkFailure());
-    } catch (e) {
-      final fallback = await _resolveStreamViaMirrors(videoId);
-      if (fallback != null) return Right(fallback);
-      return Left(AudioFailure(message: e.toString()));
-    }
-  }
-
-  Future<StreamInfo?> _resolveStreamViaMirrors(String videoId) async {
-    try {
-      final pipedStream = await _pipedDataSource.getStreamUrl(videoId);
-      if (pipedStream != null) return pipedStream;
-    } catch (e) {
-      debugPrint('MusicRepositoryImpl: Piped stream fallback failed: $e');
-    }
-    try {
-      return await _invidiousDataSource.getStreamUrl(videoId);
-    } catch (e) {
-      debugPrint('MusicRepositoryImpl: Invidious stream fallback failed: $e');
-      return null;
-    }
-  }
 
   @override
   Future<Either<Failure, List<StreamInfo>>> getAvailableStreams(String videoId) async {

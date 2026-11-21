@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:prism_music/core/error/exceptions.dart';
 import 'package:prism_music/core/services/ytmusic_api_service.dart';
 import 'package:prism_music/data/datasources/local/local_datasource.dart';
 import 'package:prism_music/data/datasources/remote/jiosaavn/jiosaavn_datasource.dart';
@@ -223,43 +222,6 @@ void main() {
         pipedDataSource: repoPiped,
         invidiousDataSource: repoInvidious,
       );
-    });
-
-    test('getStreamUrl falls back from YoutubeExplode -> Piped -> Invidious',
-        () async {
-      when(
-        () => mockYtRepoDs.getStreamUrl(
-          'vid_stream_1',
-          preferredQuality: AudioQuality.high,
-          forceRefresh: false,
-        ),
-      ).thenThrow(const StreamNotFoundException(
-        videoId: 'vid_stream_1',
-        message: 'cipher broken',
-      ));
-      when(() => repoPiped.getStreamUrl('vid_stream_1'))
-          .thenAnswer((_) async => null);
-      const expectedStream = StreamInfo(
-        url: 'https://inv.example/latest_version?id=vid_stream_1&itag=140',
-        codec: 'aac',
-        bitrate: 128,
-        container: 'm4a',
-        quality: AudioQuality.medium,
-        isAudioOnly: true,
-        streamProvenance: 'invidious_instance',
-      );
-      when(() => repoInvidious.getStreamUrl('vid_stream_1'))
-          .thenAnswer((_) async => expectedStream);
-
-      final result = await repository.getStreamUrl('vid_stream_1');
-
-      expect(result.isRight(), isTrue);
-      expect(
-        result.getOrElse((_) => throw StateError('expected stream')).url,
-        expectedStream.url,
-      );
-      verify(() => repoPiped.getStreamUrl('vid_stream_1')).called(1);
-      verify(() => repoInvidious.getStreamUrl('vid_stream_1')).called(1);
     });
 
     test('getTrending falls back to YouTubeMusicDataSource when YtMusicApi throws',

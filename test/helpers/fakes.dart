@@ -296,16 +296,6 @@ class FakeMusicRepository implements MusicRepository {
     String artistName,
   ) async {}
 
-  @override
-  Future<Either<Failure, StreamInfo>> getStreamUrl(
-    String songId, {
-    bool forceRefresh = false,
-    AudioQuality preferredQuality = AudioQuality.high,
-  }) async {
-    getStreamUrlCallCount++;
-    lastStreamUrlSongId = songId;
-    return streamUrlResult;
-  }
 
   @override
   Future<Either<Failure, List<Song>>> getTrending({
@@ -560,6 +550,8 @@ class FakeLibraryRepository implements LibraryRepository {
     return Right(historyEntries);
   }
 
+  Either<Failure, String>? downloadSongResult;
+
   @override
   Future<Either<Failure, String>> downloadSong(
     Song song,
@@ -567,7 +559,7 @@ class FakeLibraryRepository implements LibraryRepository {
     void Function(double progress)? onProgress,
   }) async {
     downloadsSaved[song.id] = streamUrl;
-    return Right('/tmp/downloads/${song.id}.m4a');
+    return downloadSongResult ?? Right('/tmp/downloads/${song.id}.m4a');
   }
 
   @override

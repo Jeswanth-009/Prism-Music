@@ -994,40 +994,26 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     DownloadSongEvent event,
     Emitter<LibraryState> emit,
   ) async {
-    // Get stream URL first
-    final streamResult = await _musicRepository.getStreamUrl(event.song.playableId);
+    final downloadResult = await _libraryRepository.downloadSong(
+      event.song,
+      event.song.streamUrl ?? '',
+    );
 
-    await streamResult.fold(
-      (failure) async {
+    downloadResult.fold(
+      (failure) {
         emit(state.copyWith(
           status: LibraryStatus.error,
           errorMessage: failure.message,
         ));
       },
-      (streamInfo) async {
-        // Download the song
-        final downloadResult = await _libraryRepository.downloadSong(
-          event.song,
-          streamInfo.url,
-        );
-
-        downloadResult.fold(
-          (failure) {
-            emit(state.copyWith(
-              status: LibraryStatus.error,
-              errorMessage: failure.message,
-            ));
-          },
-          (filePath) {
-            final updatedDownloads = [event.song, ...state.downloads];
-            final updatedIds = Set<String>.from(state.downloadedSongIds)
-              ..add(event.song.id);
-            emit(state.copyWith(
-              downloads: updatedDownloads,
-              downloadedSongIds: updatedIds,
-            ));
-          },
-        );
+      (filePath) {
+        final updatedDownloads = [event.song, ...state.downloads];
+        final updatedIds = Set<String>.from(state.downloadedSongIds)
+          ..add(event.song.id);
+        emit(state.copyWith(
+          downloads: updatedDownloads,
+          downloadedSongIds: updatedIds,
+        ));
       },
     );
   }

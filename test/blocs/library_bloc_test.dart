@@ -485,30 +485,23 @@ void main() {
   });
 
   group('DownloadSongEvent', () {
-    test('resolves the stream then downloads the file', () async {
-      musicRepo.streamUrlResult =
-          Right(streamInfo('https://stream.example.com/audio'));
+    test('downloads the file through library repository', () async {
+      libraryRepo.downloadSongResult = const Right('/tmp/downloads/d9.m4a');
 
       bloc.add(DownloadSongEvent(song('d9', 'Offline Song')));
       await waitFor(() => bloc.state.downloadedSongIds.contains('d9'));
 
-      expect(musicRepo.lastStreamUrlSongId, 'd9');
-      expect(
-        libraryRepo.downloadsSaved['d9'],
-        'https://stream.example.com/audio',
-      );
       expect(bloc.state.downloads.single.id, 'd9');
     });
 
-    test('emits error when stream resolution fails', () async {
-      musicRepo.streamUrlResult =
-          const Left(UnknownFailure(message: 'no stream'));
+    test('emits error when download fails', () async {
+      libraryRepo.downloadSongResult =
+          const Left(UnknownFailure(message: 'download failed'));
 
       bloc.add(DownloadSongEvent(song('bad', 'Bad Song')));
       await waitFor(() => bloc.state.status == LibraryStatus.error);
 
-      expect(bloc.state.errorMessage, contains('no stream'));
-      expect(libraryRepo.downloadsSaved, isEmpty);
+      expect(bloc.state.errorMessage, contains('download failed'));
     });
   });
 
