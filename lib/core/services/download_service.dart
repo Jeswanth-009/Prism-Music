@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -594,35 +595,65 @@ class DownloadService {
       final fileName = downloadFileName(song.playableId, song.title);
       final filePath = '${downloadDir.path}/$fileName';
       tempFilePath = '$filePath.tmp';
-
-      // Ensure any leftover temp file from an earlier interrupted attempt is removed
       final tempFile = File(tempFilePath);
+
+      int existingBytes = 0;
       if (await tempFile.exists()) {
-        await tempFile.delete();
+        existingBytes = await tempFile.length();
       }
 
-      // Download file to temp destination with progress tracking and proper headers
-      final response = await _dio.download(
+      final requestHeaders = Map<String, String>.from(headers ?? {});
+      if (existingBytes > 0) {
+        requestHeaders['Range'] = 'bytes=$existingBytes-';
+      }
+
+      // Download file to temp destination with HTTP Range resume support
+      final response = await _dio.get<ResponseBody>(
         streamUrl,
-        tempFilePath,
         cancelToken: cancelToken,
         options: Options(
-          headers: headers,
+          headers: requestHeaders,
           responseType: ResponseType.stream,
           followRedirects: true,
           validateStatus: (status) => status != null && (status == 200 || status == 206),
           sendTimeout: const Duration(seconds: 60),
           receiveTimeout: const Duration(seconds: 60),
         ),
-        onReceiveProgress: (received, total) {
-          if (total > 0) {
-            final progress = received / total;
+      );
+
+      final isPartial = response.statusCode == 206;
+      final fileMode = (isPartial && existingBytes > 0) ? FileMode.append : FileMode.write;
+      if (!isPartial) {
+        existingBytes = 0;
+      }
+
+      final responseBody = response.data;
+      if (responseBody == null) {
+        throw Exception('Received empty response body for download');
+      }
+
+      final rawContentLength = response.headers.value(Headers.contentLengthHeader);
+      final streamLength = rawContentLength != null ? int.tryParse(rawContentLength) ?? -1 : -1;
+      final totalExpectedBytes = streamLength > 0 ? (existingBytes + streamLength) : -1;
+
+      final sink = tempFile.openWrite(mode: fileMode);
+      int totalReceived = existingBytes;
+
+      try {
+        await for (final chunk in responseBody.stream) {
+          sink.add(chunk);
+          totalReceived += chunk.length;
+          if (totalExpectedBytes > 0) {
+            final progress = (totalReceived / totalExpectedBytes).clamp(0.0, 1.0);
             final progressInf = downloadInfo.copyWith(progress: progress);
             _downloadProgress[song.playableId] = progressInf;
             _notifyListeners(progressInf);
           }
-        },
-      );
+        }
+      } finally {
+        await sink.flush();
+        await sink.close();
+      }
 
       final contentType = response.headers.value(Headers.contentTypeHeader) ?? '';
 
@@ -640,6 +671,10 @@ class DownloadService {
         await tempFile.delete();
         throw Exception('Downloaded content is not a valid audio file (content-type: $contentType)');
       }
+
+      // Compute SHA-256 checksum of the validated file
+      final fileBytes = await tempFile.readAsBytes();
+      final calculatedChecksum = sha256.convert(fileBytes).toString();
 
       // Atomically promote validated temp file to target path
       final targetFile = File(filePath);
@@ -688,6 +723,7 @@ class DownloadService {
         'contentType': contentType,
         'bitrate': resolvedStream?.bitrate ?? 0,
         'isrc': song.isrc,
+        'checksum': calculatedChecksum,
         'quality': (quality ?? AudioQuality.fromString(_settingsService.downloadAudioQuality)).name,
         'downloadedAt': DateTime.now().toIso8601String(),
       };
@@ -707,16 +743,11 @@ class DownloadService {
       logDebug('Successfully downloaded: ${song.title} to $filePath');
       return true;
     } catch (e, stack) {
-      if (tempFilePath != null) {
-        try {
-          final tf = File(tempFilePath);
-          if (await tf.exists()) await tf.delete();
-        } catch (_) {}
-      }
+      // Note: do not delete tempFilePath on cancel or network errors to enable resume on retry
 
       // Check if download was cancelled
       if (e is DioException && e.type == DioExceptionType.cancel) {
-        logDebug('Download cancelled for: ${song.title}');
+        logDebug('Download cancelled for: ${song.title} (partial download kept for resume)');
         _downloadProgress.remove(song.playableId);
         _notifyListeners(
           DownloadInfo(
@@ -765,6 +796,11 @@ class DownloadService {
         if (await af.exists()) await af.delete();
       }
 
+      final tempFile = File('${localPath}.tmp');
+      if (await tempFile.exists() && await DownloadPathGuard.canDelete(tempFile.path)) {
+        await tempFile.delete();
+      }
+
       await _downloadBox?.delete(songId);
       _secondaryKeyIndex.removeWhere((k, v) => v == songId || k == songId);
       final removedInfo = DownloadInfo(
@@ -779,6 +815,53 @@ class DownloadService {
       return true;
     } catch (e, stack) {
       logError('Error deleting song', e, stack);
+      return false;
+    }
+  }
+
+  /// Verify the file integrity of a downloaded song against its recorded checksum, file size, and magic bytes.
+  Future<bool> verifyDownloadIntegrity(String songId) async {
+    var info = _downloadBox?.get(songId) as Map?;
+    if (info == null && _secondaryKeyIndex.containsKey(songId)) {
+      final primaryKey = _secondaryKeyIndex[songId]!;
+      info = _downloadBox?.get(primaryKey) as Map?;
+    }
+    if (info == null) return false;
+
+    final localPath = info['localPath'] as String?;
+    if (localPath == null) return false;
+
+    final file = File(localPath);
+    if (!await file.exists()) return false;
+
+    try {
+      final len = await file.length();
+      if (len < _minValidAudioBytes) return false;
+
+      final expectedSize = info['fileSize'];
+      if (expectedSize is int && expectedSize > 0 && len != expectedSize) {
+        logError('Integrity check failed: file size mismatch ($len != $expectedSize)');
+        return false;
+      }
+
+      if (!await _looksLikeAudioFile(file)) {
+        logError('Integrity check failed: invalid audio magic bytes');
+        return false;
+      }
+
+      final expectedChecksum = info['checksum'] as String?;
+      if (expectedChecksum != null && expectedChecksum.isNotEmpty) {
+        final bytes = await file.readAsBytes();
+        final actualChecksum = sha256.convert(bytes).toString();
+        if (actualChecksum != expectedChecksum) {
+          logError('Integrity check failed: checksum mismatch (expected $expectedChecksum, got $actualChecksum)');
+          return false;
+        }
+      }
+
+      return true;
+    } catch (e) {
+      logError('Integrity verification exception: $e');
       return false;
     }
   }
