@@ -230,28 +230,6 @@ getIt.registerLazySingleton<LibraryRepository>(
 
     // ============ BLOCS ============
   
-  getIt.registerLazySingleton<QueueBloc>(
-    () => QueueBloc(
-      musicRepository: getIt<MusicRepository>(),
-      recommendationService: getIt<RecommendationService>(),
-      settingsService: SettingsService.instance,
-    ),
-  );
-
-  getIt.registerLazySingleton<PlaybackBloc>(
-    () => PlaybackBloc(
-      musicRepository: getIt<MusicRepository>(),
-      libraryRepository: getIt<LibraryRepository>(),
-      audioPlayerService: getIt<AudioPlayerService>(),
-      audioFocus: getIt<AudioFocusOrchestratorService>(),
-      mediaResolver: getIt<MediaResolverService>(),
-      reliability: getIt<PlaybackReliabilityService>(),
-      streamLoader: getIt<StreamLoaderService>(),
-      downloadService: getIt<DownloadService>(),
-      recommendationService: getIt<RecommendationService>(),
-    ),
-  );
-
   getIt.registerLazySingleton<PlayerBloc>(
     () => PlayerBloc(
       musicRepository: getIt<MusicRepository>(),
@@ -263,8 +241,6 @@ getIt.registerLazySingleton<LibraryRepository>(
       streamLoader: getIt<StreamLoaderService>(),
       downloadService: getIt<DownloadService>(),
       recommendationService: getIt<RecommendationService>(),
-      playbackBloc: getIt<PlaybackBloc>(),
-      queueBloc: getIt<QueueBloc>(),
     ),
   );
 

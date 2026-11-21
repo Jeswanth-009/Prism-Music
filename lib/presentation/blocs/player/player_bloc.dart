@@ -29,8 +29,7 @@ import 'player_event.dart';
 import 'player_state.dart';
 import 'mixins/scrobble_mixin.dart';
 import 'mixins/sleep_timer_mixin.dart';
-import 'playback_bloc.dart';
-import 'queue_bloc.dart';
+
 
 /// BLoC for managing audio player state
 class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
@@ -85,11 +84,6 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   bool _resumeAudioAfterVideo = false;
   RecommendationService? _recommendationService;
   int _recommendationGeneration = 0;
-  final PlaybackBloc? _playbackBloc;
-  final QueueBloc? _queueBloc;
-
-  PlaybackBloc? get playbackBloc => _playbackBloc;
-  QueueBloc? get queueBloc => _queueBloc;
 
   StreamSubscription<Duration>? _positionSubscription;
   StreamSubscription<Duration>? _bufferedSubscription;
@@ -118,8 +112,6 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     required StreamLoaderService streamLoader,
     required DownloadService downloadService,
     RecommendationService? recommendationService,
-    PlaybackBloc? playbackBloc,
-    QueueBloc? queueBloc,
     // How long a natively advanced queue track may sit without starting to
     // play before it is treated as stuck. Overridable so tests need not wait.
     Duration trackStartWatchdogTimeout = const Duration(seconds: 15),
@@ -132,8 +124,6 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
        _streamLoader = streamLoader,
        _downloadService = downloadService,
        _recommendationService = recommendationService,
-       _playbackBloc = playbackBloc,
-       _queueBloc = queueBloc,
        _trackStartWatchdogTimeout = trackStartWatchdogTimeout,
        super(PlayerState(autoPlay: SettingsService.instance.autoPlay)) {
     if (_recommendationService == null &&
@@ -2465,7 +2455,6 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       ),
     );
 
-    _queueBloc?.add(event);
     _syncWidgetState(event.currentSong, false);
 
     if (event.autoPlay) {

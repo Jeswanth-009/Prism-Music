@@ -10,7 +10,6 @@ class MockBox extends Mock implements Box {}
 
 class MockSettingsService extends Mock implements SettingsService {}
 
-class MockQueueBloc extends Mock implements QueueBloc {}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
