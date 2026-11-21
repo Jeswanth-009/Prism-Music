@@ -796,7 +796,7 @@ class DownloadService {
         if (await af.exists()) await af.delete();
       }
 
-      final tempFile = File('${localPath}.tmp');
+      final tempFile = File('$localPath.tmp');
       if (await tempFile.exists() && await DownloadPathGuard.canDelete(tempFile.path)) {
         await tempFile.delete();
       }
@@ -876,6 +876,24 @@ class DownloadService {
       if (info != null) {
         final localPath = info['localPath'] as String?;
         if (localPath != null && File(localPath).existsSync()) {
+          songs.add(Map<String, dynamic>.from(info));
+        }
+      }
+    }
+    return songs;
+  }
+
+  /// Get all downloaded songs asynchronously to avoid blocking the UI thread
+  /// with synchronous file-system stat/existence checks.
+  Future<List<Map<String, dynamic>>> getAllDownloadedSongsAsync() async {
+    if (_downloadBox == null) return [];
+
+    final songs = <Map<String, dynamic>>[];
+    for (final key in _downloadBox!.keys) {
+      final info = _downloadBox!.get(key) as Map?;
+      if (info != null) {
+        final localPath = info['localPath'] as String?;
+        if (localPath != null && await File(localPath).exists()) {
           songs.add(Map<String, dynamic>.from(info));
         }
       }

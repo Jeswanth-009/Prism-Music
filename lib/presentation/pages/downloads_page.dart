@@ -59,7 +59,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
   Future<void> _loadDownloads() async {
     setState(() => _isLoading = true);
     await _downloadService.reconcileStorageState();
-    final songs = _downloadService.getAllDownloadedSongs();
+    final songs = await _downloadService.getAllDownloadedSongsAsync();
     final size = await _downloadService.getTotalDownloadSize();
 
     if (mounted) {

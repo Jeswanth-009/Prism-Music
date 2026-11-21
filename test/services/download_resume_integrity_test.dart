@@ -97,6 +97,11 @@ void main() {
       // Integrity verification fails due to checksum mismatch
       final isTamperedValid = await downloadService.verifyDownloadIntegrity(song.playableId);
       expect(isTamperedValid, isFalse);
+
+      // Verify async download listing off the UI thread
+      final asyncDownloads = await downloadService.getAllDownloadedSongsAsync();
+      expect(asyncDownloads.length, equals(1));
+      expect(asyncDownloads.first['songId'], equals(song.playableId));
     });
   });
 }
