@@ -8,6 +8,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [1.0.4] - 2026-11-21
+
+### Added
+
+- Add HTTP Range download resume and SHA-256 checksum integrity verification
+
+### Fixed
+
+- Resolve offline download badges with stable playableId and multi-key matching
+
+### Changed
+
+- Offload download listing and existence checks from UI thread to async
+- Remove legacy getStreamUrl to unify on StreamLoaderService pipeline
+- Inject SettingsService into PlayerBloc and DownloadService
+- Remove dead PlaybackBloc and QueueBloc parallel state machines
+
 ## [1.0.3] - 2026-11-20
 
 ### Fixed
@@ -1292,3 +1309,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [1.0.1]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.1-build134
 [1.0.2]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.2-build135
 [1.0.3]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.3-build136
+[1.0.4]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.4-build137
