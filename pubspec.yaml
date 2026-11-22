@@ -15,7 +15,6 @@ dependencies:
 
   # UI & Icons
   cupertino_icons: ^1.0.8
-  flutter_svg: ^2.0.10+1
   cached_network_image: ^3.3.1
   flutter_cache_manager: ^3.3.1
   
@@ -40,12 +39,8 @@ dependencies:
   http: ^1.2.2
   logging: ^1.2.0
   crypto: ^3.0.5
-  html: ^0.15.4
   xml: ^6.6.1
   pointycastle: ^4.0.0
-  
-  # Last.fm Integration
-  lastfm: ^0.0.6
   
   # Local Database - Hive for key-value, SQLite for queries
   hive_flutter: ^1.1.0
@@ -53,9 +48,9 @@ dependencies:
   
   # Dependency Injection
   get_it: ^9.2.1
-  injectable: ^2.4.4
   
   # Utils
+  collection: ^1.19.1
   intl: ^0.20.2
   path_provider: ^2.1.4
   permission_handler: ^13.0.1
@@ -74,9 +69,6 @@ dependencies:
   # Functional Programming
   fpdart: ^1.2.0
   
-  # JSON Serialization
-  json_annotation: ^4.9.0
-  freezed_annotation: ^3.1.0
   audio_session: ^0.2.4
   flutter_secure_storage: ^11.2.0
 
@@ -87,11 +79,6 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   
-  # Code Generation
-  build_runner: ^2.4.13
-  json_serializable: ^6.8.0
-  freezed: ^3.2.3
-  injectable_generator: ^2.6.2
   bloc_test: ^10.0.0
   mocktail: ^1.0.4
   flutter_launcher_icons: ^0.14.4

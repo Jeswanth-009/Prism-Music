@@ -4,7 +4,6 @@
 
 // TODO(goderbauer): Fix this warning for the classes in this file.
 // ignore_for_file: avoid_equals_and_hash_code_on_mutable_classes
-// ignore_for_file: depend_on_referenced_packages
 
 import 'dart:async';
 import 'dart:collection';
