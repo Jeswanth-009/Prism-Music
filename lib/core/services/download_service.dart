@@ -5,8 +5,10 @@ import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
+import '../../data/datasources/remote/lyrics/lyrics_datasource.dart';
 import '../../domain/entities/song.dart';
 import '../../domain/entities/stream_info.dart';
+import '../di/injection.dart';
 
 import 'stream_loader_service.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -114,6 +116,7 @@ class DownloadService {
   final StreamLoaderService _streamLoaderService;
   final Dio _dio;
   final SettingsService _settingsService;
+  final LyricsDataSource? _lyricsDataSource;
   final Map<String, CancelToken> _cancelTokens = {};
 
   final List<QueuedDownload> _downloadQueue = [];
@@ -128,8 +131,10 @@ class DownloadService {
     this._streamLoaderService, {
     Dio? dio,
     SettingsService? settingsService,
+    LyricsDataSource? lyricsDataSource,
   })  : _dio = dio ?? Dio(),
-        _settingsService = settingsService ?? SettingsService.instance;
+        _settingsService = settingsService ?? SettingsService.instance,
+        _lyricsDataSource = lyricsDataSource;
 
   /// Sort queue by priority descending (high > normal > low), then FIFO
   void _sortQueue() {
@@ -683,10 +688,9 @@ class DownloadService {
       }
       await tempFile.rename(filePath);
 
-      // Download and persist rich offline artwork alongside audio
+      // 1. Download and persist high-resolution offline artwork alongside audio
       String? localArtworkPath;
-      if (_settingsService.offlineArtworkPersistence &&
-          song.thumbnailUrl.isNotEmpty) {
+      if (song.thumbnailUrl.isNotEmpty) {
         try {
           final downloadDir = await _getDownloadDirectory();
           final artworkName =
@@ -705,6 +709,23 @@ class DownloadService {
         }
       }
 
+      // 2. Fetch and persist offline word/synced lyrics alongside audio
+      String? localLyricsPath;
+      try {
+        final lyrics = await _fetchOfflineLyrics(song);
+        if (lyrics != null && lyrics.trim().isNotEmpty) {
+          final downloadDir = await _getDownloadDirectory();
+          final lyricsName =
+              '${sanitizePathComponent(song.playableId, maxLength: 64)}_lyrics.lrc';
+          final lyricsFile = File('${downloadDir.path}/$lyricsName');
+          await lyricsFile.writeAsString(lyrics, flush: true);
+          localLyricsPath = lyricsFile.path;
+          logDebug('Offline lyrics saved to $localLyricsPath');
+        }
+      } catch (e) {
+        logDebug('Offline lyrics caching skipped or failed: $e');
+      }
+
       // Save enriched metadata to Hive
       final downloadRecord = {
         'songId': song.playableId,
@@ -718,6 +739,7 @@ class DownloadService {
         'duration': song.duration.inSeconds,
         'thumbnailUrl': song.thumbnailUrl,
         'localArtworkPath': localArtworkPath,
+        'localLyricsPath': localLyricsPath,
         'localPath': filePath,
         'fileSize': fileSize,
         'contentType': contentType,
@@ -796,6 +818,12 @@ class DownloadService {
         if (await af.exists()) await af.delete();
       }
 
+      final lyricsPath = info['localLyricsPath'] as String?;
+      if (lyricsPath != null && await DownloadPathGuard.canDelete(lyricsPath)) {
+        final lf = File(lyricsPath);
+        if (await lf.exists()) await lf.delete();
+      }
+
       final tempFile = File('$localPath.tmp');
       if (await tempFile.exists() && await DownloadPathGuard.canDelete(tempFile.path)) {
         await tempFile.delete();
@@ -817,6 +845,79 @@ class DownloadService {
       logError('Error deleting song', e, stack);
       return false;
     }
+  }
+
+  /// Returns the local artwork file path for [songId] if present.
+  String? getLocalArtworkPath(String songId) {
+    var info = _downloadBox?.get(songId) as Map?;
+    if (info == null && _secondaryKeyIndex.containsKey(songId)) {
+      final primaryKey = _secondaryKeyIndex[songId]!;
+      info = _downloadBox?.get(primaryKey) as Map?;
+    }
+    return info?['localArtworkPath'] as String?;
+  }
+
+  /// Returns the local lyrics file path for [songId] if present.
+  String? getLocalLyricsPath(String songId) {
+    var info = _downloadBox?.get(songId) as Map?;
+    if (info == null && _secondaryKeyIndex.containsKey(songId)) {
+      final primaryKey = _secondaryKeyIndex[songId]!;
+      info = _downloadBox?.get(primaryKey) as Map?;
+    }
+    return info?['localLyricsPath'] as String?;
+  }
+
+  /// Returns the cached offline lyrics string for [songId] if saved on disk.
+  Future<String?> getLocalLyrics(String songId) async {
+    final path = getLocalLyricsPath(songId);
+    if (path == null) return null;
+    final file = File(path);
+    if (await file.exists()) {
+      return file.readAsString();
+    }
+    return null;
+  }
+
+  Future<String?> _fetchOfflineLyrics(Song song) async {
+    try {
+      final ds = _lyricsDataSource ??
+          (getIt.isRegistered<LyricsDataSource>() ? getIt<LyricsDataSource>() : null);
+      if (ds != null) {
+        final res = await ds.getSyncedLyrics(
+          song.title,
+          song.artist,
+          duration: song.duration,
+          songId: song.id,
+        );
+        if (res?.syncedLyrics != null && res!.syncedLyrics!.isNotEmpty) {
+          final buffer = StringBuffer();
+          for (final line in res.syncedLyrics!) {
+            final min = (line.startTimeMs ~/ 60000).toString().padLeft(2, '0');
+            final sec = ((line.startTimeMs % 60000) ~/ 1000).toString().padLeft(2, '0');
+            final hun = ((line.startTimeMs % 1000) ~/ 10).toString().padLeft(2, '0');
+            if (line.words != null && line.words!.isNotEmpty) {
+              buffer.write('[$min:$sec.$hun]');
+              for (final w in line.words!) {
+                final wMin = (w.startTimeMs ~/ 60000).toString().padLeft(2, '0');
+                final wSec = ((w.startTimeMs % 60000) ~/ 1000).toString().padLeft(2, '0');
+                final wHun = ((w.startTimeMs % 1000) ~/ 10).toString().padLeft(2, '0');
+                buffer.write('<$wMin:$wSec.$wHun>${w.text} ');
+              }
+              buffer.writeln();
+            } else {
+              buffer.writeln('[$min:$sec.$hun]${line.text}');
+            }
+          }
+          return buffer.toString();
+        }
+        if (res?.plainLyrics != null && res!.plainLyrics!.isNotEmpty) {
+          return res.plainLyrics;
+        }
+      }
+    } catch (e) {
+      logDebug('Offline lyrics fetch error: $e');
+    }
+    return null;
   }
 
   /// Verify the file integrity of a downloaded song against its recorded checksum, file size, and magic bytes.

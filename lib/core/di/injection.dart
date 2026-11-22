@@ -188,6 +188,7 @@ getIt.registerLazySingleton<LibraryRepository>(
      final downloadService = DownloadService(
        getIt<StreamLoaderService>(),
        settingsService: SettingsService.instance,
+       lyricsDataSource: getIt<LyricsDataSource>(),
      );
      await downloadService.initialize();
      getIt.registerSingleton<DownloadService>(downloadService);
