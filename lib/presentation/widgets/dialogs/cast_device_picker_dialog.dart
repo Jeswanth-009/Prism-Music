@@ -20,6 +20,7 @@ class CastDevicePickerDialog extends StatefulWidget {
 
 class _CastDevicePickerDialogState extends State<CastDevicePickerDialog> {
   double _volume = 0.8;
+  String? _connectingDeviceId;
 
   @override
   void initState() {
@@ -159,6 +160,14 @@ class _CastDevicePickerDialogState extends State<CastDevicePickerDialog> {
                                     },
                                   ),
                                 ),
+                                Text(
+                                  '${(_volume * 100).round()}%',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
                                 const Icon(Icons.volume_up_rounded, size: 20),
                               ],
                             ),
@@ -204,6 +213,12 @@ class _CastDevicePickerDialogState extends State<CastDevicePickerDialog> {
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
                               ),
+                              const SizedBox(height: 16),
+                              FilledButton.tonalIcon(
+                                onPressed: () => cast.startDiscovery(),
+                                icon: const Icon(Icons.refresh_rounded, size: 18),
+                                label: const Text('Scan Again'),
+                              ),
                             ],
                           ),
                         ),
@@ -216,25 +231,67 @@ class _CastDevicePickerDialogState extends State<CastDevicePickerDialog> {
                         itemBuilder: (context, index) {
                           final device = devices[index];
                           final isCurrent = currentDevice?.id == device.id;
+                          final isConnecting = _connectingDeviceId == device.id ||
+                              (state == CastState.connecting && isCurrent);
 
                           return ListTile(
-                            leading: Icon(
-                              device.protocol == CastProtocol.chromecast
-                                  ? Icons.cast_rounded
-                                  : Icons.speaker_rounded,
-                              color: isCurrent ? theme.colorScheme.primary : null,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            leading: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: isCurrent
+                                    ? theme.colorScheme.primaryContainer
+                                    : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                device.protocol == CastProtocol.chromecast
+                                    ? Icons.cast_rounded
+                                    : Icons.speaker_rounded,
+                                color: isCurrent
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.onSurfaceVariant,
+                                size: 22,
+                              ),
                             ),
-                            title: Text(device.name),
-                            subtitle: Text('${device.protocol.name.toUpperCase()} · ${device.host}'),
+                            title: Text(
+                              device.name,
+                              style: TextStyle(
+                                fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                            subtitle: Text(
+                              '${device.protocol.name.toUpperCase()} · ${device.host}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
                             trailing: isCurrent
                                 ? const Icon(Icons.check_circle_rounded, color: Colors.green)
-                                : null,
-                            onTap: isCurrent
+                                : isConnecting
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.chevron_right_rounded, size: 20),
+                            onTap: isCurrent || isConnecting
                                 ? null
                                 : () async {
-                                    await cast.connect(device);
+                                    setState(() => _connectingDeviceId = device.id);
+                                    final success = await cast.connect(device);
                                     if (context.mounted) {
-                                      Navigator.pop(context);
+                                      if (success) {
+                                        Navigator.pop(context);
+                                      } else {
+                                        setState(() => _connectingDeviceId = null);
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Could not connect to ${device.name}'),
+                                            behavior: SnackBarBehavior.floating,
+                                          ),
+                                        );
+                                      }
                                     }
                                   },
                           );

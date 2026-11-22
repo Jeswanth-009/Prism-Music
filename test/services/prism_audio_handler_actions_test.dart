@@ -125,6 +125,22 @@ void main() {
       await expectLater(handler.search(''), completes);
       await expectLater(handler.playFromSearch(''), completes);
     });
+
+    test('getChildren returns enriched Android Auto top-level categories including artists', () async {
+      final root = await handler.getChildren(AudioService.MEDIA_ROOT_ID);
+      expect(root.map((i) => i.id).toList(), containsAll(['downloads', 'favorites', 'playlists', 'recent', 'artists']));
+      expect(root.every((i) => i.playable == false), isTrue);
+    });
+
+    test('getMediaItem returns root and category items', () async {
+      final root = await handler.getMediaItem(AudioService.MEDIA_ROOT_ID);
+      expect(root, isNotNull);
+      expect(root?.id, 'root');
+
+      final artistsItem = await handler.getMediaItem('artists');
+      expect(artistsItem, isNotNull);
+      expect(artistsItem?.title, 'Favorite Artists');
+    });
   });
 
   group('WidgetService', () {

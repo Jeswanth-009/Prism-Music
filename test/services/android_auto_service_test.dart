@@ -69,10 +69,10 @@ void main() {
   });
 
   group('PrismAudioHandler - Android Auto MediaBrowser Tree', () {
-    test('getChildren at root returns 4 browsable categories', () async {
+    test('getChildren at root returns 5 browsable categories', () async {
       final children = await handler.getChildren(AudioService.MEDIA_ROOT_ID);
-      expect(children.length, 4);
-      expect(children.map((c) => c.id).toList(), ['downloads', 'favorites', 'playlists', 'recent']);
+      expect(children.length, 5);
+      expect(children.map((c) => c.id).toList(), ['downloads', 'favorites', 'playlists', 'recent', 'artists']);
       expect(children.every((c) => c.playable == false), isTrue);
     });
 

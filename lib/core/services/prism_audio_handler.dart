@@ -1,6 +1,7 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../../domain/entities/artist.dart';
 import '../../domain/entities/playlist.dart';
 import '../../domain/entities/song.dart';
 import '../../domain/repositories/library_repository.dart';
@@ -394,6 +395,13 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
             playable: false,
             extras: {'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 1},
           ),
+          MediaItem(
+            id: 'artists',
+            title: 'Favorite Artists',
+            album: 'Prism Music',
+            playable: false,
+            extras: {'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 1},
+          ),
         ];
       }
 
@@ -444,6 +452,40 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
         return songs.map((s) => _songToMediaItem(s, prefix: 'rec_')).toList();
       }
 
+      if (parentMediaId == 'artists') {
+        final res = await _library?.getFavoriteArtists();
+        final artists = res?.fold((l) => <Artist>[], (r) => r) ?? [];
+        return artists
+            .map(
+              (a) => MediaItem(
+                id: 'artist_${a.id}',
+                title: a.name,
+                album: 'Artist',
+                playable: false,
+                artUri: a.thumbnailUrl != null && a.thumbnailUrl!.isNotEmpty
+                    ? Uri.tryParse(a.thumbnailUrl!)
+                    : null,
+                extras: {'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 1},
+              ),
+            )
+            .toList();
+      }
+
+      if (parentMediaId.startsWith('artist_')) {
+        final artistId = parentMediaId.substring('artist_'.length);
+        final allSongs = <Song>[
+          ...(_downloads?.getDownloadedSongsList() ?? []),
+          ...((await _library?.getLikedSongs())?.fold((l) => <Song>[], (r) => r) ?? []),
+        ];
+        final artistSongs = allSongs
+            .where((s) => s.artist.toLowerCase().contains(artistId.toLowerCase()) ||
+                          s.artists.any((a) => a.toLowerCase().contains(artistId.toLowerCase())))
+            .toList();
+        return artistSongs
+            .map((s) => _songToMediaItem(s, prefix: 'artist_${artistId}_'))
+            .toList();
+      }
+
       return const [];
     } catch (e, st) {
       logError('PrismAudioHandler: getChildren error for $parentMediaId', e, st);
@@ -480,6 +522,24 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
             playable: false,
             artUri: pl.thumbnailUrl != null && pl.thumbnailUrl!.isNotEmpty
                 ? Uri.tryParse(pl.thumbnailUrl!)
+                : null,
+          );
+        }
+      }
+
+      if (mediaId.startsWith('artist_') && !mediaId.substring('artist_'.length).contains('_')) {
+        final artistId = mediaId.substring('artist_'.length);
+        final res = await _library?.getFavoriteArtists();
+        final artists = res?.fold((l) => <Artist>[], (r) => r) ?? [];
+        final artist = artists.where((a) => a.id == artistId).firstOrNull;
+        if (artist != null) {
+          return MediaItem(
+            id: mediaId,
+            title: artist.name,
+            album: 'Artist',
+            playable: false,
+            artUri: artist.thumbnailUrl != null && artist.thumbnailUrl!.isNotEmpty
+                ? Uri.tryParse(artist.thumbnailUrl!)
                 : null,
           );
         }
@@ -599,6 +659,34 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
         if (idx != -1) {
           MediaSessionCoordinator.instance.playFromMedia(songs[idx], songs, idx);
           return;
+        }
+      }
+
+      // 8. Play artist (or song inside artist)
+      if (mediaId.startsWith('artist_')) {
+        final remaining = mediaId.substring('artist_'.length);
+        final allSongs = <Song>[
+          ...(_downloads?.getDownloadedSongsList() ?? []),
+          ...((await _library?.getLikedSongs())?.fold((l) => <Song>[], (r) => r) ?? []),
+        ];
+        if (remaining.contains('_')) {
+          final parts = remaining.split('_');
+          final songId = parts.sublist(1).join('_');
+          final idx = allSongs.indexWhere((s) => s.id == songId);
+          if (idx != -1) {
+            MediaSessionCoordinator.instance.playFromMedia(allSongs[idx], allSongs, idx);
+            return;
+          }
+        } else {
+          final artistId = remaining;
+          final artistSongs = allSongs
+              .where((s) => s.artist.toLowerCase().contains(artistId.toLowerCase()) ||
+                            s.artists.any((a) => a.toLowerCase().contains(artistId.toLowerCase())))
+              .toList();
+          if (artistSongs.isNotEmpty) {
+            MediaSessionCoordinator.instance.playFromMedia(artistSongs.first, artistSongs, 0);
+            return;
+          }
         }
       }
 
