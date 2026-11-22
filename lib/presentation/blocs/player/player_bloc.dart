@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show File;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -97,6 +98,11 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   AppLifecycleState _lastLifecycleState = AppLifecycleState.resumed;
   int _consecutiveFailureSkips = 0;
   final Set<String> _attemptedFreshResolutions = {};
+  final Map<String, String> _widgetArtworkPathCache = {};
+  static const int _maxWidgetArtworkCacheSize = 50;
+  String? _lastWidgetSongKey;
+  bool? _lastWidgetIsPlaying;
+  String? _lastWidgetArtworkPath;
 
   void _log(String message) {
     if (kDebugMode) debugPrint(message);
@@ -268,22 +274,64 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   }
 
   void _syncWidgetState(Song? song, bool isPlaying) {
-    if (song != null) {
-      unawaited(WidgetService.instance.updateWidget(
-        title: song.title,
-        artist: song.artist,
-        isPlaying: isPlaying,
-      ));
-
-      if (song.thumbnailUrl.isNotEmpty) {
-        unawaited(_fetchAndSyncWidgetArtwork(song, isPlaying));
-      }
-    } else {
+    if (song == null) {
+      if (_lastWidgetSongKey == null && _lastWidgetIsPlaying == false) return;
+      _lastWidgetSongKey = null;
+      _lastWidgetIsPlaying = false;
+      _lastWidgetArtworkPath = null;
       unawaited(WidgetService.instance.updateWidget(
         title: 'Prism Music',
         artist: 'No song playing',
         isPlaying: false,
       ));
+      return;
+    }
+
+    final localPath = _downloadedPathFor(song);
+    String? knownArtwork;
+
+    // 1. Check in-memory cache
+    if (song.thumbnailUrl.isNotEmpty) {
+      final cached = _widgetArtworkPathCache[song.thumbnailUrl];
+      if (cached != null) {
+        if (File(cached).existsSync()) {
+          knownArtwork = cached;
+        } else {
+          _widgetArtworkPathCache.remove(song.thumbnailUrl);
+        }
+      }
+    }
+
+    // 2. Check if local audio file directory has artwork or if local file exists
+    if (knownArtwork == null && localPath != null && localPath.isNotEmpty) {
+      final localArtwork = '$localPath.art';
+      if (File(localArtwork).existsSync()) {
+        knownArtwork = localArtwork;
+      }
+    }
+
+    // 3. Skip update if exact state was already sent
+    if (_lastWidgetSongKey == song.playableId &&
+        _lastWidgetIsPlaying == isPlaying &&
+        _lastWidgetArtworkPath == knownArtwork) {
+      return;
+    }
+
+    _lastWidgetSongKey = song.playableId;
+    _lastWidgetIsPlaying = isPlaying;
+    _lastWidgetArtworkPath = knownArtwork;
+
+    // Single-call dispatch if artwork is already known
+    unawaited(WidgetService.instance.updateWidget(
+      title: song.title,
+      artist: song.artist,
+      isPlaying: isPlaying,
+      artworkPath: knownArtwork,
+    ));
+
+    // If artwork not yet in cache, fetch it asynchronously once
+    if (knownArtwork == null && song.thumbnailUrl.isNotEmpty) {
+      unawaited(_fetchAndSyncWidgetArtwork(song, isPlaying));
     }
   }
 
@@ -291,12 +339,22 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     try {
       final fileInfo = await DefaultCacheManager().getFileFromCache(song.thumbnailUrl);
       if (fileInfo != null && await fileInfo.file.exists()) {
-        await WidgetService.instance.updateWidget(
-          title: song.title,
-          artist: song.artist,
-          isPlaying: isPlaying,
-          artworkPath: fileInfo.file.path,
-        );
+        final path = fileInfo.file.path;
+        if (_widgetArtworkPathCache.length >= _maxWidgetArtworkCacheSize) {
+          _widgetArtworkPathCache.remove(_widgetArtworkPathCache.keys.first);
+        }
+        _widgetArtworkPathCache[song.thumbnailUrl] = path;
+
+        // If the same song is still current, push artwork update
+        if (state.currentSong?.playableId == song.playableId) {
+          _lastWidgetArtworkPath = path;
+          await WidgetService.instance.updateWidget(
+            title: song.title,
+            artist: song.artist,
+            isPlaying: state.isPlaying,
+            artworkPath: path,
+          );
+        }
       }
     } catch (_) {
       // Best-effort artwork sync
