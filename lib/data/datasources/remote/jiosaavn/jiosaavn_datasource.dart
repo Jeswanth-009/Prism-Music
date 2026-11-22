@@ -83,13 +83,83 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
         );
       }
       debugPrint('JioSaavn: Request failed with status ${response.statusCode}');
-      return null;
+      return await _fallbackOfficial(endpoint, params);
     } on GeoRestrictionException {
       rethrow;
     } catch (e) {
       debugPrint('JioSaavn: Request error: $e');
+      return await _fallbackOfficial(endpoint, params);
+    }
+  }
+
+  Future<Map<String, dynamic>?> _makeOfficialRequest(
+    String call, {
+    Map<String, String>? params,
+  }) async {
+    try {
+      final queryParams = {
+        '__call': call,
+        '_format': 'json',
+        '_marker': '0',
+        'api_version': '4',
+        'ctx': 'web6dot0',
+        if (params != null) ...params,
+      };
+      final uri = Uri.https('www.jiosaavn.com', '/api.php', queryParams);
+      debugPrint('JioSaavn: Official fallback requesting $uri');
+      final response = await _client.get(
+        uri,
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        final decoded = json.decode(response.body.trim());
+        if (decoded is Map<String, dynamic>) {
+          return decoded;
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('JioSaavn: Official fallback error: $e');
       return null;
     }
+  }
+
+  Future<Map<String, dynamic>?> _fallbackOfficial(
+    String endpoint,
+    Map<String, String>? params,
+  ) async {
+    try {
+      if (endpoint == '/song' && params?['id'] != null) {
+        final data = await _makeOfficialRequest(
+          'song.getDetails',
+          params: {'pids': params!['id']!},
+        );
+        if (data != null && data.containsKey(params['id'])) {
+          return {'results': [data[params['id']]]};
+        }
+      } else if (endpoint == '/album' && params?['id'] != null) {
+        return await _makeOfficialRequest(
+          'content.getAlbumDetails',
+          params: {'albumid': params!['id']!},
+        );
+      } else if (endpoint == '/playlist' && params?['id'] != null) {
+        return await _makeOfficialRequest(
+          'playlist.getDetails',
+          params: {'listid': params!['id']!},
+        );
+      } else if (endpoint == '/artist' && params?['id'] != null) {
+        return await _makeOfficialRequest(
+          'artist.getArtistPageDetails',
+          params: {'artistId': params!['id']!},
+        );
+      }
+    } catch (_) {}
+    return null;
   }
 
   @override
@@ -216,7 +286,9 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
       final searchUrl = 'https://www.jiosaavn.com/api.php?__call=search.getResults&q=$query&_format=json&_marker=0&api_version=4&ctx=web6dot0';
 
       debugPrint('JioSaavnDataSource: Searching for ${song.title} - ${song.artist}');
-      final response = await _client.get(Uri.parse(searchUrl)).timeout(const Duration(seconds: 5));
+      final response = await _client
+          .get(Uri.parse(searchUrl))
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 451 ||
           (response.statusCode == 403 &&

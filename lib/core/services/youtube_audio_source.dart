@@ -36,6 +36,7 @@ class YouTubeAudioSource extends StreamAudioSource {
   AudioOnlyStreamInfo? _cachedStreamInfo;
   DateTime? _cacheTime;
   int? _lastRequestPosition;
+  http.Client? _activeClient;
   
   // YouTube stream URLs can expire, cache for 45 minutes (conservative)
   static const _cacheExpirationDuration = Duration(minutes: 45);
@@ -194,13 +195,22 @@ class YouTubeAudioSource extends StreamAudioSource {
         request.headers['User-Agent'] =
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-        final response = await request.send().timeout(
+        // Abort in-flight previous connection before opening a new stream (FIX-11)
+        _activeClient?.close();
+        final client = http.Client();
+        _activeClient = client;
+
+        final response = await client.send(request).timeout(
           const Duration(seconds: 15),
-          onTimeout: () => throw Exception('HTTP stream request timed out'),
+          onTimeout: () {
+            client.close();
+            throw Exception('HTTP stream request timed out');
+          },
         );
         debugPrint('YouTubeAudioSource: Response status: ${response.statusCode}');
 
         if (response.statusCode != 206 && response.statusCode != 200) {
+          client.close();
           throw Exception('HTTP ${response.statusCode}: Failed to get stream');
         }
 
@@ -217,11 +227,26 @@ class YouTubeAudioSource extends StreamAudioSource {
         final contentLength = response.contentLength ??
             (rangeEnd != null ? rangeEnd - start : null);
 
+        // Ensure HTTP connection is closed when the stream completes or errors (FIX-11)
+        final safeStream = response.stream.transform(
+          StreamTransformer<List<int>, List<int>>.fromHandlers(
+            handleData: (data, sink) => sink.add(data),
+            handleError: (error, stack, sink) {
+              client.close();
+              sink.addError(error, stack);
+            },
+            handleDone: (sink) {
+              client.close();
+              sink.close();
+            },
+          ),
+        );
+
         return StreamAudioResponse(
           sourceLength: resolvedSourceLength > 0 ? resolvedSourceLength : null,
           contentLength: contentLength,
           offset: start,
-          stream: response.stream,
+          stream: safeStream,
           contentType: response.headers['content-type'] ?? contentType,
         );
       } catch (e) {
@@ -249,6 +274,8 @@ class YouTubeAudioSource extends StreamAudioSource {
 
   /// Clear cached stream info (useful when stream expires)
   void clearCache() {
+    _activeClient?.close();
+    _activeClient = null;
     _cachedStreamInfo = null;
     _cacheTime = null;
     _lastRequestPosition = null;

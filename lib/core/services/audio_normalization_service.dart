@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import '../../domain/entities/song.dart';
+import '../models/song_scan_data.dart';
 import 'settings_service.dart';
 
 enum NormalizationTarget {
@@ -48,8 +49,13 @@ class AudioNormalizationService {
   }
 
   /// Computes the linear volume multiplier (gain factor) to apply to playback.
+  ///
+  /// When [scanData] or [measuredLufs] is provided, uses exact ITU-R BS.1770-4
+  /// integrated loudness and true-peak headroom constraints rather than source heuristics.
   double computeGainFactor(
     Song song, {
+    SongScanData? scanData,
+    double? measuredLufs,
     bool? enabled,
     String? targetMode,
     double? preampDb,
@@ -60,10 +66,18 @@ class AudioNormalizationService {
 
     final target = NormalizationTarget.fromString(targetMode ?? settings.audioNormalizationTarget);
     final preamp = preampDb ?? settings.audioNormalizationPreampDb;
-    final trackLufs = estimateTrackLufs(song);
+    final trackLufs = measuredLufs ?? scanData?.integratedLufs ?? estimateTrackLufs(song);
 
     // Gain in decibels = target LUFS - track LUFS + preamp dB
-    final gainDb = (target.lufs - trackLufs) + preamp;
+    double gainDb = (target.lufs - trackLufs) + preamp;
+
+    // Peak clipping prevention: if true peak is known, don't allow gain to exceed headroom
+    if (scanData != null && scanData.truePeakDbfs > -50.0) {
+      final maxSafeGainDb = -scanData.truePeakDbfs - 0.2; // 0.2 dB true-peak safety margin
+      if (gainDb > maxSafeGainDb) {
+        gainDb = maxSafeGainDb;
+      }
+    }
 
     // Linear amplitude factor = 10 ^ (gainDb / 20)
     final factor = math.pow(10, gainDb / 20.0).toDouble();
