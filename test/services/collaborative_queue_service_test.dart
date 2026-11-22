@@ -57,7 +57,7 @@ void main() {
       expect(res.body, contains('Prism Party'));
     });
 
-    test('serves session info at /api/session', () async {
+    test('serves session info at /api/session without exposing PIN (SEC-01)', () async {
       final nowPlaying = makeSong('np1', 'Current Track', 'Artist 1');
       final queuedSong = makeSong('q1', 'Next Track', 'Artist 2');
 
@@ -74,12 +74,12 @@ void main() {
       expect(res.statusCode, 200);
       final json = jsonDecode(res.body) as Map<String, dynamic>;
       expect(json['status'], 'ok');
-      expect(json['pin'], service.pin);
+      expect(json.containsKey('pin'), isFalse);
       expect(json['nowPlaying']['title'], 'Current Track');
       expect((json['queue'] as List).first['title'], 'Next Track');
     });
 
-    test('handles song search at /api/search?q=query', () async {
+    test('handles song search at /api/search with valid PIN and rejects without PIN (SEC-07)', () async {
       final searchResult = [makeSong('s1', 'Found Song', 'Search Artist')];
       when(() => mockMusicRepository.searchSongs('test', limit: any(named: 'limit')))
           .thenAnswer((_) async => Right(searchResult));
@@ -91,7 +91,12 @@ void main() {
 
       await service.startServer(port: testPort);
 
-      final res = await http.get(Uri.parse('http://127.0.0.1:$testPort/api/search?q=test'));
+      // 1. Without PIN - must be rejected
+      final unauthRes = await http.get(Uri.parse('http://127.0.0.1:$testPort/api/search?q=test'));
+      expect(unauthRes.statusCode, 401);
+
+      // 2. With valid PIN - returns results
+      final res = await http.get(Uri.parse('http://127.0.0.1:$testPort/api/search?q=test&pin=${service.pin}'));
       expect(res.statusCode, 200);
       final json = jsonDecode(res.body) as Map<String, dynamic>;
       expect((json['results'] as List).length, 1);

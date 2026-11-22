@@ -42,6 +42,23 @@ class CollaborativeQueueService {
   final StreamController<List<PartyActivityEntry>> _activityController =
       StreamController<List<PartyActivityEntry>>.broadcast();
 
+  final Map<String, List<DateTime>> _failedAttemptsByIp = {};
+
+  bool _isIpRateLimited(String ip) {
+    final now = DateTime.now();
+    final attempts = _failedAttemptsByIp[ip];
+    if (attempts == null) return false;
+    attempts.removeWhere((t) => now.difference(t) > const Duration(minutes: 1));
+    return attempts.length >= 5;
+  }
+
+  void _recordFailedAttempt(String ip) {
+    final now = DateTime.now();
+    final attempts = _failedAttemptsByIp.putIfAbsent(ip, () => []);
+    attempts.removeWhere((t) => now.difference(t) > const Duration(minutes: 1));
+    attempts.add(now);
+  }
+
   bool get isRunning => _server != null;
   String? get localIp => _localIp;
   int get port => _port;
@@ -134,7 +151,7 @@ class CollaborativeQueueService {
       logError('Error handling HTTP request $path: $e');
       try {
         request.response.statusCode = HttpStatus.internalServerError;
-        request.response.write(jsonEncode({'error': e.toString()}));
+        request.response.write(jsonEncode({'error': 'An internal error occurred'}));
         await request.response.close();
       } catch (_) {}
     }
@@ -146,7 +163,6 @@ class CollaborativeQueueService {
 
     final payload = {
       'status': 'ok',
-      'pin': _pin,
       'nowPlaying': nowPlaying != null
           ? {
               'id': nowPlaying.id,
@@ -172,6 +188,23 @@ class CollaborativeQueueService {
   }
 
   Future<void> _handleSearch(HttpRequest request) async {
+    final clientIp = request.connectionInfo?.remoteAddress.address ?? '127.0.0.1';
+    if (_isIpRateLimited(clientIp)) {
+      request.response.statusCode = HttpStatus.tooManyRequests;
+      request.response.write(jsonEncode({'error': 'Too many failed attempts. Please wait.'}));
+      await request.response.close();
+      return;
+    }
+
+    final reqPin = request.uri.queryParameters['pin']?.trim().toUpperCase();
+    if (reqPin != _pin) {
+      _recordFailedAttempt(clientIp);
+      request.response.statusCode = HttpStatus.unauthorized;
+      request.response.write(jsonEncode({'error': 'Valid party PIN required for search'}));
+      await request.response.close();
+      return;
+    }
+
     final query = request.uri.queryParameters['q']?.trim() ?? '';
     if (query.isEmpty) {
       request.response.headers.contentType = ContentType.json;
@@ -211,6 +244,14 @@ class CollaborativeQueueService {
   }
 
   Future<void> _handleQueueAdd(HttpRequest request) async {
+    final clientIp = request.connectionInfo?.remoteAddress.address ?? '127.0.0.1';
+    if (_isIpRateLimited(clientIp)) {
+      request.response.statusCode = HttpStatus.tooManyRequests;
+      request.response.write(jsonEncode({'error': 'Too many failed attempts. Please wait.'}));
+      await request.response.close();
+      return;
+    }
+
     final bodyStr = await utf8.decoder.bind(request).join();
     final dynamic body = jsonDecode(bodyStr);
 
@@ -223,6 +264,7 @@ class CollaborativeQueueService {
 
     final reqPin = body['pin']?.toString().trim().toUpperCase();
     if (reqPin != _pin) {
+      _recordFailedAttempt(clientIp);
       request.response.statusCode = HttpStatus.unauthorized;
       request.response.write(jsonEncode({'error': 'Incorrect party PIN'}));
       await request.response.close();
@@ -305,7 +347,7 @@ class CollaborativeQueueService {
 
   String _generateRandomPin() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    final rand = Random();
+    final rand = Random.secure();
     return List.generate(4, (_) => chars[rand.nextInt(chars.length)]).join();
   }
 
@@ -405,37 +447,65 @@ class CollaborativeQueueService {
             art.style.display = 'block';
           }
         }
-        if (!document.getElementById('guest-pin').value && data.pin) {
-          document.getElementById('guest-pin').value = data.pin;
-        }
       } catch (e) {}
     }
 
     async function searchMusic() {
       const q = document.getElementById('search-input').value.trim();
+      const pin = document.getElementById('guest-pin').value.trim();
       if (!q) return;
-      const res = await fetch('/api/search?q=' + encodeURIComponent(q));
-      const data = await res.json();
-      const list = document.getElementById('results-list');
-      list.innerHTML = '';
-      if (!data.results || data.results.length === 0) {
-        list.innerHTML = '<div style="color:var(--subtext);font-size:13px;padding:8px;">No songs found</div>';
-      } else {
-        data.results.forEach(s => {
-          const item = document.createElement('div');
-          item.className = 'result-item';
-          item.innerHTML = `
-            <div style="flex:1;overflow:hidden;">
-              <div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">\${s.title}</div>
-              <div style="font-size:12px;color:var(--subtext);">\${s.artist}</div>
-            </div>
-            <button class="add-btn">+ Queue</button>
-          `;
-          item.querySelector('.add-btn').onclick = () => addToQueue(s);
-          list.appendChild(item);
-        });
+      if (!pin) {
+        alert('Please enter the party PIN to search');
+        return;
       }
-      document.getElementById('results-card').style.display = 'block';
+      try {
+        const res = await fetch('/api/search?q=' + encodeURIComponent(q) + '&pin=' + encodeURIComponent(pin));
+        if (res.status === 401) {
+          alert('Incorrect or missing party PIN');
+          return;
+        }
+        if (res.status === 429) {
+          alert('Too many attempts. Please wait a moment.');
+          return;
+        }
+        const data = await res.json();
+        const list = document.getElementById('results-list');
+        list.innerHTML = '';
+        if (!data.results || data.results.length === 0) {
+          list.innerHTML = '<div style="color:var(--subtext);font-size:13px;padding:8px;">No songs found</div>';
+        } else {
+          data.results.forEach(s => {
+            const item = document.createElement('div');
+            item.className = 'result-item';
+
+            const infoDiv = document.createElement('div');
+            infoDiv.style.cssText = 'flex:1;overflow:hidden;';
+
+            const titleDiv = document.createElement('div');
+            titleDiv.style.cssText = 'font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+            titleDiv.textContent = s.title || '';
+
+            const artistDiv = document.createElement('div');
+            artistDiv.style.cssText = 'font-size:12px;color:var(--subtext);';
+            artistDiv.textContent = s.artist || '';
+
+            infoDiv.appendChild(titleDiv);
+            infoDiv.appendChild(artistDiv);
+
+            const btn = document.createElement('button');
+            btn.className = 'add-btn';
+            btn.textContent = '+ Queue';
+            btn.onclick = () => addToQueue(s);
+
+            item.appendChild(infoDiv);
+            item.appendChild(btn);
+            list.appendChild(item);
+          });
+        }
+        document.getElementById('results-card').style.display = 'block';
+      } catch (e) {
+        alert('Search failed');
+      }
     }
 
     async function addToQueue(song) {
