@@ -117,9 +117,9 @@ jobs:
           # it must never be re-tagged. This also covers merge commits,
           # where comparing against HEAD~1 is unreliable (the first parent
           # may predate the version bump that the merge brought in).
-          CURRENT_TAG="alpha-v${CURRENT_VERSION}-build${CURRENT_BUILD}"
-          if git rev-parse -q --verify "refs/tags/${CURRENT_TAG}" >/dev/null; then
-            echo "Tag ${CURRENT_TAG} already exists — version was already released, bumping forward."
+          CURRENT_TAG="v${CURRENT_VERSION}"
+          if git rev-parse -q --verify "refs/tags/${CURRENT_TAG}" >/dev/null || git rev-parse -q --verify "refs/tags/alpha-v${CURRENT_VERSION}-build${CURRENT_BUILD}" >/dev/null; then
+            echo "Tag ${CURRENT_TAG} (or legacy alpha tag) already exists — version was already released, bumping forward."
             VERSION_ALREADY_RELEASED=true
           else
             echo "Tag ${CURRENT_TAG} does not exist yet."
@@ -166,8 +166,8 @@ jobs:
 
           # Safety net: if the computed tag somehow already exists (e.g.
           # a concurrent run), skip the release instead of failing.
-          NEXT_TAG="alpha-v${NEXT_VERSION}-build${NEXT_BUILD}"
-          if git rev-parse -q --verify "refs/tags/${NEXT_TAG}" >/dev/null; then
+          NEXT_TAG="v${NEXT_VERSION}"
+          if git rev-parse -q --verify "refs/tags/${NEXT_TAG}" >/dev/null || git rev-parse -q --verify "refs/tags/alpha-v${NEXT_VERSION}-build${NEXT_BUILD}" >/dev/null; then
             echo "Computed tag ${NEXT_TAG} already exists; skipping release."
             SHOULD_RELEASE=false
           else
@@ -332,13 +332,26 @@ jobs:
       - name: Build release APK
         if: steps.next_version.outputs.should_release == 'true'
         run: |
+          mkdir -p build/release-apks
+
+          echo "Building split-per-abi APKs under 30MB for IzzyOnDroid & Obtainium..."
+          flutter build apk --release --split-per-abi \
+            --build-name "${{ steps.next_version.outputs.next_version }}" \
+            --build-number "${{ steps.next_version.outputs.next_build }}" \
+            --android-skip-build-dependency-validation \
+            ${{ env.SIGNING_FLAG }}
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
+            build/release-apks/app-arm64-v8a-release.apk
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk \
+            build/release-apks/app-armeabi-v7a-release.apk
+
+          echo "Building universal phone APK..."
           flutter build apk --release \
             --target-platform android-arm,android-arm64 \
             --build-name "${{ steps.next_version.outputs.next_version }}" \
             --build-number "${{ steps.next_version.outputs.next_build }}" \
             --android-skip-build-dependency-validation \
             ${{ env.SIGNING_FLAG }}
-          mkdir -p build/release-apks
           cp build/app/outputs/flutter-apk/app-release.apk \
             build/release-apks/app-phone-release.apk
 
@@ -371,10 +384,12 @@ jobs:
         run: |
           echo "Running APK integrity and release regression gate..."
           APK_PHONE="build/release-apks/app-phone-release.apk"
+          APK_ARM64="build/release-apks/app-arm64-v8a-release.apk"
+          APK_ARMV7="build/release-apks/app-armeabi-v7a-release.apk"
           APK_EMU="build/release-apks/app-emulator-x86_64-release.apk"
           AAB_FILE="build/app/outputs/bundle/release/app-release.aab"
 
-          for f in "$APK_PHONE" "$APK_EMU" "$AAB_FILE"; do
+          for f in "$APK_PHONE" "$APK_ARM64" "$APK_ARMV7" "$APK_EMU" "$AAB_FILE"; do
             if [[ ! -f "$f" ]]; then
               echo "ERROR: Artifact $f does not exist"; exit 1
             fi
@@ -383,6 +398,12 @@ jobs:
           PHONE_SIZE=$(stat -c%s "$APK_PHONE" 2>/dev/null || stat -f%z "$APK_PHONE")
           if [[ $PHONE_SIZE -lt 15000000 ]]; then
             echo "ERROR: Phone APK size is suspiciously small: $PHONE_SIZE bytes"; exit 1
+          fi
+
+          ARM64_SIZE=$(stat -c%s "$APK_ARM64" 2>/dev/null || stat -f%z "$APK_ARM64")
+          echo "ARM64 APK size: $ARM64_SIZE bytes"
+          if [[ $ARM64_SIZE -gt 35000000 ]]; then
+            echo "ERROR: ARM64 APK size exceeds 35MB: $ARM64_SIZE bytes"; exit 1
           fi
 
           unzip -l "$APK_PHONE" | grep -q "classes.dex" || { echo "ERROR: Missing classes.dex"; exit 1; }
@@ -413,19 +434,27 @@ jobs:
         run: |
           TAG="${{ steps.next_version.outputs.next_tag }}"
           APK_SRC="build/release-apks/app-phone-release.apk"
+          ARM64_APK_SRC="build/release-apks/app-arm64-v8a-release.apk"
+          ARMV7_APK_SRC="build/release-apks/app-armeabi-v7a-release.apk"
           EMULATOR_APK_SRC="build/release-apks/app-emulator-x86_64-release.apk"
           AAB_SRC="build/app/outputs/bundle/release/app-release.aab"
           SBOM_SRC="prism-music-${TAG}-sbom.spdx.json"
 
           APK_OUT="prism-music-${TAG}-android.apk"
+          ARM64_APK_OUT="prism-music-${TAG}-arm64-v8a.apk"
+          ARMV7_APK_OUT="prism-music-${TAG}-armeabi-v7a.apk"
           EMULATOR_APK_OUT="prism-music-${TAG}-android-emulator-x86_64.apk"
           AAB_OUT="prism-music-${TAG}.aab"
           SBOM_OUT="prism-music-${TAG}-sbom.spdx.json"
 
           cp "$APK_SRC" "$APK_OUT"
+          cp "$ARM64_APK_SRC" "$ARM64_APK_OUT"
+          cp "$ARMV7_APK_SRC" "$ARMV7_APK_OUT"
           cp "$EMULATOR_APK_SRC" "$EMULATOR_APK_OUT"
           cp "$AAB_SRC" "$AAB_OUT"
           sha256sum "$APK_OUT" > "${APK_OUT}.sha256"
+          sha256sum "$ARM64_APK_OUT" > "${ARM64_APK_OUT}.sha256"
+          sha256sum "$ARMV7_APK_OUT" > "${ARMV7_APK_OUT}.sha256"
           sha256sum "$EMULATOR_APK_OUT" > "${EMULATOR_APK_OUT}.sha256"
           sha256sum "$AAB_OUT" > "${AAB_OUT}.sha256"
 
@@ -436,9 +465,13 @@ jobs:
           fi
 
           echo "apk=$APK_OUT"                     >> "$GITHUB_OUTPUT"
+          echo "arm64_apk=$ARM64_APK_OUT"         >> "$GITHUB_OUTPUT"
+          echo "armv7_apk=$ARMV7_APK_OUT"         >> "$GITHUB_OUTPUT"
           echo "emulator_apk=$EMULATOR_APK_OUT"   >> "$GITHUB_OUTPUT"
           echo "aab=$AAB_OUT"                     >> "$GITHUB_OUTPUT"
           echo "apk_sha=${APK_OUT}.sha256"         >> "$GITHUB_OUTPUT"
+          echo "arm64_apk_sha=${ARM64_APK_OUT}.sha256" >> "$GITHUB_OUTPUT"
+          echo "armv7_apk_sha=${ARMV7_APK_OUT}.sha256" >> "$GITHUB_OUTPUT"
           echo "emulator_apk_sha=${EMULATOR_APK_OUT}.sha256" >> "$GITHUB_OUTPUT"
           echo "aab_sha=${AAB_OUT}.sha256"         >> "$GITHUB_OUTPUT"
 
@@ -449,6 +482,8 @@ jobs:
         with:
           subject-path: |
             ${{ steps.assets.outputs.apk }}
+            ${{ steps.assets.outputs.arm64_apk }}
+            ${{ steps.assets.outputs.armv7_apk }}
             ${{ steps.assets.outputs.emulator_apk }}
             ${{ steps.assets.outputs.aab }}
 
@@ -542,7 +577,7 @@ jobs:
         run: |
           {
             cat release_notes.md
-            echo "## Prism Music — Automated Alpha Release"
+            echo "## Prism Music — Release \`${{ steps.next_version.outputs.next_tag }}\`"
             echo ""
             echo "| Field | Value |"
             echo "|-------|-------|"
@@ -552,20 +587,15 @@ jobs:
             echo "| **Signed APK** | \`${{ env.SIGNED_BUILD }}\` |"
             echo "| **Source ref** | \`${{ github.sha }}\` |"
             echo ""
-            echo "> ⚠️ This is an automated pre-release and may contain breaking changes."
+            echo "### Android Downloads"
+            echo "- **Universal Phone APK:** Download \`prism-music-${{ steps.next_version.outputs.next_tag }}-android.apk\` (~44 MB) supporting all ARM devices."
+            echo "- **Slim Phone APK (ARM64-v8a):** Download \`prism-music-${{ steps.next_version.outputs.next_tag }}-arm64-v8a.apk\` (~19 MB, recommended for modern Android phones; IzzyOnDroid & Obtainium compatible)."
+            echo "- **Older ARM Devices (armeabi-v7a):** Download \`prism-music-${{ steps.next_version.outputs.next_tag }}-armeabi-v7a.apk\` (~17 MB)."
+            echo "- **PC / Android Emulator (x86_64):** Download \`prism-music-${{ steps.next_version.outputs.next_tag }}-android-emulator-x86_64.apk\`."
             echo ""
-            echo "### Install"
-            echo "Download \`prism-music-${{ steps.next_version.outputs.next_tag }}-android.apk\` and tap it to install."
-            echo "It supports modern 64-bit and older 32-bit ARM phones in one file, while"
-            echo "omitting emulator-only x86 libraries to keep the download smaller. The clearly"
-            echo "labelled \`android-emulator-x86_64.apk\` is only for PC Android emulators."
-            echo "Each release has a strictly increasing \`versionCode\`, so Android will"
-            echo "always accept the upgrade without a conflict."
-            echo ""
-            echo "### Windows (64-bit)"
-            echo "Download \`prism-music-${{ steps.next_version.outputs.next_tag }}-windows-x64.zip\`,"
-            echo "extract it and run \`prism_music.exe\`. The zip is built by a separate"
-            echo "Windows job, so it appears on the release a few minutes after the Android assets."
+            echo "### Desktop Downloads"
+            echo "- **Windows (64-bit):** Download \`prism-music-${{ steps.next_version.outputs.next_tag }}-windows-x64.zip\`, extract and run \`prism_music.exe\`."
+            echo "- **Linux (64-bit):** Download \`prism-music-${{ steps.next_version.outputs.next_tag }}-linux-x64.tar.gz\`, extract and run \`prism_music\`."
           } > release_body.md
           echo "--- release body ---"
           cat release_body.md
@@ -577,14 +607,19 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name:     ${{ steps.tag.outputs.release_name }}
-          prerelease: true
+          prerelease: ${{ contains(steps.tag.outputs.tag, 'alpha') || contains(steps.tag.outputs.tag, 'beta') }}
+          make_latest: ${{ !(contains(steps.tag.outputs.tag, 'alpha') || contains(steps.tag.outputs.tag, 'beta')) }}
           generate_release_notes: true
           body_path: release_body.md
           files: |
             ${{ steps.assets.outputs.apk }}
+            ${{ steps.assets.outputs.arm64_apk }}
+            ${{ steps.assets.outputs.armv7_apk }}
             ${{ steps.assets.outputs.emulator_apk }}
             ${{ steps.assets.outputs.aab }}
             ${{ steps.assets.outputs.apk_sha }}
+            ${{ steps.assets.outputs.arm64_apk_sha }}
+            ${{ steps.assets.outputs.armv7_apk_sha }}
             ${{ steps.assets.outputs.emulator_apk_sha }}
             ${{ steps.assets.outputs.aab_sha }}
             ${{ steps.assets.outputs.sbom }}
@@ -700,4 +735,81 @@ jobs:
             echo "Uploaded $ZIP_NAME to release $TAG"
           else
             echo "::warning::Release $TAG was not published (unsigned build?); the Windows build stays available as a workflow artifact only."
+          fi
+
+  # ───────────────────────────────────────────────────────────────
+  # Linux desktop job: builds the release bundle on Ubuntu x64,
+  # packages it into a tar.gz, and attaches it to the GitHub release.
+  # ───────────────────────────────────────────────────────────────
+  linux:
+    name: Build Linux release (x64)
+    runs-on: ubuntu-latest
+    needs: release
+    if: needs.release.outputs.should_release == 'true'
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev libjsoncpp-dev
+
+      - name: Set up Flutter (3.38.4 stable)
+        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff # v2.18.0
+        with:
+          flutter-version: "3.38.4"
+          channel: stable
+          cache: true
+
+      - name: Enable Linux desktop
+        run: flutter config --enable-linux-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Linux release
+        env:
+          VERSION: ${{ needs.release.outputs.next_version }}
+          BUILD_NUMBER: ${{ needs.release.outputs.next_build }}
+        run: |
+          flutter build linux --release \
+            --build-name "$VERSION" \
+            --build-number "$BUILD_NUMBER"
+
+      - name: Package release folder as a tar.gz
+        env:
+          TAG: ${{ needs.release.outputs.next_tag }}
+        run: |
+          TAR="prism-music-${TAG}-linux-x64.tar.gz"
+          tar -czf "$TAR" -C build/linux/x64/release/bundle .
+          if [[ ! -f "$TAR" ]]; then
+            echo "ERROR: tar archive was not created"
+            exit 1
+          fi
+          sha256sum "$TAR" > "${TAR}.sha256"
+          cat "${TAR}.sha256"
+          echo "TAR_NAME=$TAR" >> "$GITHUB_ENV"
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: prism-music-${{ needs.release.outputs.next_tag }}-linux-x64
+          path: |
+            ${{ env.TAR_NAME }}
+            ${{ env.TAR_NAME }}.sha256
+          if-no-files-found: error
+
+      - name: Attach Linux build to the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release.outputs.next_tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$TAR_NAME" "${TAR_NAME}.sha256" --clobber
+            echo "Uploaded $TAR_NAME to release $TAG"
+          else
+            echo "::warning::Release $TAG was not published (unsigned build?); the Linux build stays available as a workflow artifact only."
           fi

@@ -12,6 +12,7 @@ on:
   push:
     tags:
       - "alpha-v*"
+      - "v*"
   workflow_dispatch:
 
 permissions:
@@ -270,7 +271,8 @@ jobs:
         with:
           tag_name:    ${{ steps.release_tag.outputs.tag }}
           name:        ${{ steps.release_tag.outputs.release_name }}
-          prerelease:  true
+          prerelease:  ${{ contains(steps.release_tag.outputs.tag, 'alpha') || contains(steps.release_tag.outputs.tag, 'beta') }}
+          make_latest: ${{ !(contains(steps.release_tag.outputs.tag, 'alpha') || contains(steps.release_tag.outputs.tag, 'beta')) }}
           generate_release_notes: true
           body: |
             ## Prism Music — Manual / Tag Re-Build
