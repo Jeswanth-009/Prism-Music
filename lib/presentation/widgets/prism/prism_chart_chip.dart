@@ -24,8 +24,9 @@ IconData chartIcon(ChartIconType type) => switch (type) {
 
 String chartSourceLabel(ChartSource source) => switch (source) {
   ChartSource.billboard => 'Billboard',
-  ChartSource.youtube => 'YouTube',
+  ChartSource.youtube => 'YouTube Music',
   ChartSource.spotify => 'Spotify',
+  ChartSource.appleMusic => 'Apple Music',
 };
 
 /// Rounded accent chip carrying a chart's icon, shared by the charts hub

@@ -10,17 +10,18 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('ChartService.getAvailableCharts', () {
-    test('returns six charts with unique ids', () {
+    test('returns eight charts with unique ids', () {
       final charts = ChartService.getAvailableCharts('US', 'United States');
-      expect(charts, hasLength(6));
-      expect(charts.map((c) => c.id).toSet(), hasLength(6));
+      expect(charts, hasLength(8));
+      expect(charts.map((c) => c.id).toSet(), hasLength(8));
     });
 
     test('regional charts embed the country code', () {
       final charts = ChartService.getAvailableCharts('IN', 'India');
       final ids = charts.map((c) => c.id).toList();
       expect(ids, contains('youtube_trending_IN'));
-      expect(ids, contains('youtube_top_music_IN'));
+      expect(ids, contains('apple_top50_IN'));
+      expect(ids, contains('spotify_top50_IN'));
       // Billboard charts stay global regardless of region.
       expect(ids, contains('billboard_hot100'));
     });

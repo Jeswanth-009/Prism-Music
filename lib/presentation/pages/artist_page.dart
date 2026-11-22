@@ -15,6 +15,7 @@ import '../blocs/library/library_state.dart';
 import '../blocs/player/player_bloc.dart';
 import '../blocs/player/player_event.dart';
 import '../blocs/player/player_state.dart';
+import '../theme/prism_theme.dart';
 import '../widgets/player/mini_player.dart';
 import '../widgets/prism/prism_artwork.dart';
 import '../widgets/prism/prism_sheet.dart';
@@ -220,6 +221,8 @@ class _ArtistPageState extends State<ArtistPage> {
                                 CrossAxisAlignment.start,
                             children: [
                               const SizedBox(height: 12),
+                              _buildActionRow(theme),
+                              const SizedBox(height: 16),
                               _buildStatsRow(theme),
                               const SizedBox(height: 18),
                               if (_albums.isNotEmpty)
@@ -306,6 +309,30 @@ class _ArtistPageState extends State<ArtistPage> {
                             CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary,
+                              borderRadius: BorderRadius.circular(PrismRadius.xs),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.verified_rounded, size: 10, color: Colors.white),
+                                const SizedBox(width: 3),
+                                Text(
+                                  'VERIFIED ARTIST',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
                           Text(
                             artist.name,
                             style: theme.textTheme.titleLarge
@@ -368,6 +395,54 @@ class _ArtistPageState extends State<ArtistPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildActionRow(ThemeData theme) {
+    if (_topSongs.isEmpty) return const SizedBox.shrink();
+    return Row(
+      children: [
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: () => _playSong(_topSongs.first, _topSongs),
+            icon: const Icon(Icons.play_arrow_rounded),
+            label: const Text('Play Top Tracks'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton.filledTonal(
+          tooltip: 'Shuffle Artist',
+          icon: const Icon(Icons.shuffle_rounded),
+          onPressed: () {
+            final shuffled = [..._topSongs]..shuffle();
+            _playSong(shuffled.first, shuffled);
+          },
+        ),
+        const SizedBox(width: 8),
+        BlocBuilder<LibraryBloc, LibraryState>(
+          builder: (context, libraryState) {
+            final isFavorite = _artist != null && libraryState.isArtistFavorite(_artist!.id);
+            return IconButton.filledTonal(
+              tooltip: isFavorite ? 'Favorited' : 'Favorite Artist',
+              icon: Icon(
+                isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                color: isFavorite ? theme.colorScheme.primary : null,
+              ),
+              onPressed: _artist == null
+                  ? null
+                  : () {
+                      context.read<LibraryBloc>().add(ToggleFavoriteArtistEvent(_artist!));
+                      showPrismToast(
+                        context,
+                        isFavorite
+                            ? 'Removed ${_artist!.name} from favorites'
+                            : 'Added ${_artist!.name} to favorites',
+                      );
+                    },
+            );
+          },
+        ),
+      ],
     );
   }
 

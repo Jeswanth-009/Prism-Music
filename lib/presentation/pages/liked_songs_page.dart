@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/di/injection.dart';
+import '../../core/services/download_service.dart';
 import '../../core/utils/formatters.dart';
 import '../../domain/entities/song.dart';
 import '../blocs/library/library_bloc.dart';
@@ -11,6 +13,7 @@ import '../blocs/player/player_state.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/player/mini_player.dart';
 import '../widgets/prism/prism_collection_header.dart';
+import '../widgets/prism/prism_sheet.dart';
 import '../widgets/prism/prism_song_tile.dart';
 import '../widgets/prism/prism_states.dart';
 
@@ -68,6 +71,23 @@ class _LikedSongsPageState extends State<LikedSongsPage> {
     );
   }
 
+  Future<void> _downloadAll(List<Song> songs) async {
+    final downloadService = getIt<DownloadService>();
+    int queued = 0;
+    for (final song in songs) {
+      if (!downloadService.isDownloaded(song.playableId)) {
+        downloadService.downloadSong(song);
+        queued++;
+      }
+    }
+    showPrismToast(
+      context,
+      queued > 0
+          ? 'Queued $queued songs for 100% offline playback.'
+          : 'All liked songs are already downloaded.',
+    );
+  }
+
   String _formatTotalDuration(List<Song> songs) {
     var totalSeconds = 0;
     for (final s in songs) {
@@ -90,6 +110,14 @@ class _LikedSongsPageState extends State<LikedSongsPage> {
         ),
         title: const Text('Liked Songs'),
         actions: [
+          IconButton(
+            tooltip: 'Download all liked songs',
+            icon: const Icon(Icons.download_rounded),
+            onPressed: () {
+              final songs = context.read<LibraryBloc>().state.likedSongs;
+              if (songs.isNotEmpty) _downloadAll(songs);
+            },
+          ),
           IconButton(
             tooltip: _showSearch ? 'Hide search' : 'Search in liked songs',
             icon: Icon(_showSearch ? Icons.close_rounded : Icons.search_rounded),

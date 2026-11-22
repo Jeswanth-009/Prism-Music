@@ -14,6 +14,7 @@ import '../blocs/library/library.dart';
 import '../blocs/player/player.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/prism/prism_artwork.dart';
+import '../widgets/prism/prism_chart_chip.dart';
 import '../widgets/prism/prism_media_card.dart';
 import '../widgets/prism/prism_section_header.dart';
 import '../widgets/prism/prism_skeleton.dart';
@@ -1086,9 +1087,12 @@ class _ChartTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Open chart',
+                  chartSourceLabel(chart.source),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],

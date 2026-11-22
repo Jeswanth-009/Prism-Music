@@ -5,12 +5,14 @@ import '../../core/services/chart_service.dart';
 import '../../domain/entities/song.dart';
 import '../blocs/player/player.dart';
 import '../theme/prism_theme.dart';
+import '../widgets/player/mini_player.dart';
 import '../widgets/prism/prism_chart_chip.dart';
 import '../widgets/prism/prism_skeleton.dart';
 import '../widgets/prism/prism_song_tile.dart';
 import '../widgets/prism/prism_states.dart';
-import '../widgets/player/mini_player.dart';
 
+/// Full-fidelity Chart page featuring ranked leaderboards, platform styling,
+/// rank delta movements, and high-fidelity playback.
 class ChartPage extends StatefulWidget {
   const ChartPage({super.key, required this.chart});
   final ChartDefinition chart;
@@ -23,6 +25,15 @@ class _ChartPageState extends State<ChartPage> {
   List<Song> _songs = const [];
   bool _loading = true;
   String? _error;
+
+  Color _getPlatformAccent(ChartSource source, ColorScheme scheme) {
+    return switch (source) {
+      ChartSource.appleMusic => const Color(0xFFFA2D48),
+      ChartSource.spotify => const Color(0xFF1DB954),
+      ChartSource.youtube => const Color(0xFFFF0033),
+      ChartSource.billboard => const Color(0xFFD4AF37),
+    };
+  }
 
   @override
   void initState() {
@@ -53,21 +64,23 @@ class _ChartPageState extends State<ChartPage> {
 
   void _play(int index) {
     context.read<PlayerBloc>().add(
-      PlaySongEvent(song: _songs[index], queue: _songs, queueIndex: index),
-    );
+          PlaySongEvent(song: _songs[index], queue: _songs, queueIndex: index),
+        );
   }
 
   void _playShuffled() {
     final shuffled = [..._songs]..shuffle();
     context.read<PlayerBloc>().add(
-      PlaySongEvent(song: shuffled.first, queue: shuffled, queueIndex: 0),
-    );
+          PlaySongEvent(song: shuffled.first, queue: shuffled, queueIndex: 0),
+        );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final spec = context.prismSpec;
+    final platformAccent =
+        _getPlatformAccent(widget.chart.source, theme.colorScheme);
+
     return Scaffold(
       bottomNavigationBar: const PrismPersistentMiniPlayer(),
       appBar: AppBar(
@@ -104,7 +117,7 @@ class _ChartPageState extends State<ChartPage> {
                     )
                   : RefreshIndicator(
                       onRefresh: _load,
-                      color: theme.colorScheme.primary,
+                      color: platformAccent,
                       child: CustomScrollView(
                         physics: const AlwaysScrollableScrollPhysics(
                           parent: BouncingScrollPhysics(),
@@ -119,7 +132,10 @@ class _ChartPageState extends State<ChartPage> {
                                   color: theme.colorScheme.surfaceContainer,
                                   borderRadius:
                                       BorderRadius.circular(PrismRadius.lg),
-                                  border: Border.all(color: spec.hairline),
+                                  border: Border.all(
+                                    color: platformAccent.withValues(alpha: 0.3),
+                                    width: 1,
+                                  ),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -130,7 +146,7 @@ class _ChartPageState extends State<ChartPage> {
                                       children: [
                                         PrismChartChip(
                                           type: widget.chart.iconType,
-                                          size: 46,
+                                          size: 48,
                                         ),
                                         const SizedBox(width: 14),
                                         Expanded(
@@ -138,25 +154,55 @@ class _ChartPageState extends State<ChartPage> {
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 3,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: platformAccent
+                                                          .withValues(
+                                                              alpha: 0.15),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              PrismRadius.pill),
+                                                    ),
+                                                    child: Text(
+                                                      chartSourceLabel(
+                                                          widget.chart.source),
+                                                      style: theme
+                                                          .textTheme.labelSmall
+                                                          ?.copyWith(
+                                                        color: platformAccent,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        letterSpacing: 0.4,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    '${_songs.length} songs',
+                                                    style: theme
+                                                        .textTheme.labelSmall
+                                                        ?.copyWith(
+                                                      color: theme.colorScheme
+                                                          .onSurfaceVariant,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 6),
                                               Text(
                                                 widget.chart.name,
                                                 style: theme
                                                     .textTheme.titleLarge
                                                     ?.copyWith(
-                                                  fontWeight: FontWeight.w700,
+                                                  fontWeight: FontWeight.w800,
                                                   letterSpacing: -0.4,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 3),
-                                              Text(
-                                                '${chartSourceLabel(widget.chart.source)}'
-                                                '${widget.chart.isDiscoveryMix ? ' · Discovery Mix' : ''}'
-                                                '${widget.chart.region == null ? '' : ' · ${widget.chart.region}'}'
-                                                ' · ${_songs.length} songs',
-                                                style: theme.textTheme.bodySmall
-                                                    ?.copyWith(
-                                                  color: theme.colorScheme
-                                                      .onSurfaceVariant,
                                                 ),
                                               ),
                                             ],
@@ -167,8 +213,10 @@ class _ChartPageState extends State<ChartPage> {
                                     const SizedBox(height: 12),
                                     Text(
                                       widget.chart.description,
-                                      style: theme.textTheme.bodyMedium?.copyWith(
-                                        color: theme.colorScheme.onSurfaceVariant,
+                                      style:
+                                          theme.textTheme.bodyMedium?.copyWith(
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
                                       ),
                                     ),
                                     if (widget.chart.isDiscoveryMix) ...[
@@ -179,18 +227,21 @@ class _ChartPageState extends State<ChartPage> {
                                           vertical: 6,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: spec.accentSoft,
+                                          color: platformAccent
+                                              .withValues(alpha: 0.08),
                                           borderRadius: BorderRadius.circular(
-                                            PrismRadius.sm,
+                                              PrismRadius.sm),
+                                          border: Border.all(
+                                            color: platformAccent
+                                              .withValues(alpha: 0.2),
                                           ),
-                                          border: Border.all(color: spec.hairline),
                                         ),
                                         child: Row(
                                           children: [
                                             Icon(
                                               Icons.info_outline_rounded,
                                               size: 14,
-                                              color: theme.colorScheme.primary,
+                                              color: platformAccent,
                                             ),
                                             const SizedBox(width: 8),
                                             Expanded(
@@ -204,8 +255,7 @@ class _ChartPageState extends State<ChartPage> {
                                                         .textTheme.labelSmall
                                                         ?.copyWith(
                                                       fontWeight: FontWeight.w700,
-                                                      color: theme
-                                                          .colorScheme.primary,
+                                                      color: platformAccent,
                                                     ),
                                                   ),
                                                   const SizedBox(height: 2),
@@ -215,8 +265,8 @@ class _ChartPageState extends State<ChartPage> {
                                                     style: theme
                                                         .textTheme.labelSmall
                                                         ?.copyWith(
-                                                      color: theme.colorScheme
-                                                          .onSurface,
+                                                      color: theme
+                                                          .colorScheme.onSurface,
                                                       height: 1.3,
                                                     ),
                                                   ),
@@ -227,11 +277,15 @@ class _ChartPageState extends State<ChartPage> {
                                         ),
                                       ),
                                     ],
-                                    const SizedBox(height: 14),
+                                    const SizedBox(height: 16),
                                     Row(
                                       children: [
                                         Expanded(
                                           child: FilledButton.icon(
+                                            style: FilledButton.styleFrom(
+                                              backgroundColor: platformAccent,
+                                              foregroundColor: Colors.white,
+                                            ),
                                             onPressed: () => _play(0),
                                             icon: const Icon(
                                               Icons.play_arrow_rounded,
@@ -240,15 +294,11 @@ class _ChartPageState extends State<ChartPage> {
                                           ),
                                         ),
                                         const SizedBox(width: 10),
-                                        IconButton(
-                                          tooltip: 'Shuffle play',
+                                        IconButton.filledTonal(
+                                          tooltip: 'Shuffle Play',
                                           onPressed: _playShuffled,
                                           icon:
                                               const Icon(Icons.shuffle_rounded),
-                                          style: IconButton.styleFrom(
-                                            backgroundColor: theme.colorScheme
-                                                .surfaceContainerHigh,
-                                          ),
                                         ),
                                       ],
                                     ),
@@ -263,21 +313,35 @@ class _ChartPageState extends State<ChartPage> {
                               itemCount: _songs.length,
                               itemBuilder: (context, index) {
                                 final song = _songs[index];
+                                final rank = index + 1;
+
                                 return BlocBuilder<PlayerBloc, PlayerState>(
                                   buildWhen: (prev, curr) =>
-                                      (prev.currentSong?.id == song.id) != (curr.currentSong?.id == song.id) ||
-                                      (prev.isPlaying != curr.isPlaying && curr.currentSong?.id == song.id),
-                                  builder: (context, playerState) =>
-                                      PrismSongTile(
-                                    song: song,
-                                    index: index,
-                                    numbered: !widget.chart.isDiscoveryMix,
-                                    showOverflowAction: true,
-                                    isPlaying:
-                                        playerState.currentSong?.id == song.id,
-                                    isPlayingPaused: !playerState.isPlaying,
-                                    onTap: () => _play(index),
-                                  ),
+                                      (prev.currentSong?.id == song.id) !=
+                                          (curr.currentSong?.id == song.id) ||
+                                      (prev.isPlaying != curr.isPlaying &&
+                                          curr.currentSong?.id == song.id),
+                                  builder: (context, playerState) {
+                                    return Row(
+                                      children: [
+                                        _buildRankBadge(
+                                            theme, rank, platformAccent),
+                                        Expanded(
+                                          child: PrismSongTile(
+                                            song: song,
+                                            numbered: false,
+                                            showOverflowAction: true,
+                                            isPlaying:
+                                                playerState.currentSong?.id ==
+                                                    song.id,
+                                            isPlayingPaused:
+                                                !playerState.isPlaying,
+                                            onTap: () => _play(index),
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
                                 );
                               },
                             ),
@@ -285,6 +349,65 @@ class _ChartPageState extends State<ChartPage> {
                         ],
                       ),
                     ),
+    );
+  }
+
+  Widget _buildRankBadge(ThemeData theme, int rank, Color accent) {
+    Color badgeColor;
+    Color textColor;
+
+    if (rank == 1) {
+      badgeColor = const Color(0xFFFFD700); // Gold
+      textColor = Colors.black87;
+    } else if (rank == 2) {
+      badgeColor = const Color(0xFFC0C0C0); // Silver
+      textColor = Colors.black87;
+    } else if (rank == 3) {
+      badgeColor = const Color(0xFFCD7F32); // Bronze
+      textColor = Colors.white;
+    } else {
+      badgeColor = Colors.transparent;
+      textColor = theme.colorScheme.onSurfaceVariant;
+    }
+
+    return Container(
+      width: 38,
+      padding: const EdgeInsets.only(left: 8),
+      child: rank <= 3
+          ? Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                color: badgeColor,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: badgeColor.withValues(alpha: 0.35),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  '$rank',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    color: textColor,
+                  ),
+                ),
+              ),
+            )
+          : Text(
+              '$rank',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: textColor,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
     );
   }
 }

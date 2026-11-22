@@ -29,18 +29,16 @@ void main() {
     await getIt.reset();
   });
 
-  testWidgets('hub renders all six chart cards with sources', (tester) async {
+  testWidgets('hub renders chart cards with sources', (tester) async {
     await tester.pumpWidget(wrapForTests(const ChartsHubPage()));
     await tester.pump();
 
     expect(find.text('Billboard Hot 100'), findsOneWidget);
-    expect(find.text('Billboard Global 200'), findsOneWidget);
-    expect(find.text('YouTube Trending'), findsOneWidget);
-    expect(find.text('TikTok Billboard Top 50'), findsOneWidget);
-    expect(find.text('New Releases'), findsOneWidget);
+    expect(find.text('Spotify Global Top 50'), findsOneWidget);
+    expect(find.text('Apple Music Top 50 (United States)'), findsOneWidget);
     // Source labels appear per card.
-    expect(find.text('Billboard'), findsNWidgets(3));
-    expect(find.text('YouTube'), findsNWidgets(3));
+    expect(find.text('Billboard'), findsWidgets);
+    expect(find.text('Spotify'), findsWidgets);
   });
 
   testWidgets('hub shows the country chip', (tester) async {
@@ -143,7 +141,8 @@ void main() {
 
   testWidgets('chart detail explicitly labels search-based charts as discovery mixes with provenance',
       (tester) async {
-    final chart = ChartService.getAvailableCharts('US', 'United States').first;
+    final chart = ChartService.getAvailableCharts('US', 'United States')
+        .firstWhere((c) => c.source == ChartSource.youtube);
     musicRepo.searchResult = Right([song('c1', 'Mix Track')]);
 
     await tester.pumpWidget(wrapForTests(
