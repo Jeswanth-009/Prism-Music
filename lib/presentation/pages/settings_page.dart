@@ -931,7 +931,7 @@ class _SettingsPageState extends State<SettingsPage> {
         SettingRow(
           leading: const Icon(Icons.volume_up_rounded),
           title: 'Audio Normalization',
-          subtitle: 'Consistent volume ()',
+          subtitle: 'Consistent volume (${_settingsService.audioNormalizationTarget})',
           trailing: Switch.adaptive(
             value: _settingsService.audioNormalizationEnabled,
             onChanged: (value) async {

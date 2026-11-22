@@ -9,7 +9,7 @@ abstract final class DateGrouping {
   static const String earlier = 'Earlier';
 
   /// How long ago a timestamp may be and still count as part of the current
-  /// \"Today\" session. A listening session that runs past midnight is still
+  /// "Today" session. A listening session that runs past midnight is still
   /// today for the listener, so elapsed time decides this, not the calendar.
   static const Duration _todayWindow = Duration(hours: 6);
 
@@ -59,7 +59,7 @@ abstract final class DateGrouping {
       return '${diff.inMinutes}m ago';
     } else if (diff.inHours < 24) {
       // Elapsed hours win over the calendar day: a track from 23:45 is still
-      // \"2h ago\" at 01:45, not \"Yesterday\".
+      // "2h ago" at 01:45, not "Yesterday".
       return '${diff.inHours}h ago';
     }
 

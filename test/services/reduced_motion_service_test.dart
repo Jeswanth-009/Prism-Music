@@ -7,6 +7,7 @@ void main() {
   late Directory tempDir;
 
   setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
     tempDir = await Directory.systemTemp.createTemp('reduced_motion_service_test_');
     Hive.init(tempDir.path);
     await SettingsService.instance.initialize();
