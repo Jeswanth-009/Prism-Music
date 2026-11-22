@@ -33,6 +33,8 @@ import '../widgets/home/home_sections_sheet.dart';
 import '../widgets/home/home_mood_filter_bar.dart';
 import '../widgets/home/home_pinned_playlists_rail.dart';
 import '../widgets/home/home_smart_rules_rail.dart';
+import '../widgets/home/prism_update_capsule.dart';
+import '../../core/services/app_update_service.dart';
 
 /// Artwork-led Home surface: calm chrome, artwork carries the colour.
 class HomeTab extends StatefulWidget {
@@ -52,6 +54,7 @@ class _HomeTabState extends State<HomeTab>
   bool _loading = true;
   bool _loadingRecs = false;
   String? _error;
+  AppUpdateInfo? _updateInfo;
 
   @override
   bool get wantKeepAlive => true;
@@ -62,6 +65,19 @@ class _HomeTabState extends State<HomeTab>
     _load();
     _loadRecommendations();
     _loadNewAlbums();
+    _checkAppUpdate();
+  }
+
+  Future<void> _checkAppUpdate() async {
+    try {
+      final info = await AppUpdateService.instance.checkForUpdate();
+      if (mounted &&
+          info != null &&
+          info.hasUpdate &&
+          !AppUpdateService.instance.isDismissed(info.latestVersion)) {
+        setState(() => _updateInfo = info);
+      }
+    } catch (_) {}
   }
 
   Future<void> _refreshAll() =>
@@ -230,6 +246,16 @@ class _HomeTabState extends State<HomeTab>
                 }
 
                 final sectionSlivers = <Widget>[];
+                if (_updateInfo != null) {
+                  sectionSlivers.add(
+                    SliverToBoxAdapter(
+                      child: PrismUpdateCapsule(
+                        updateInfo: _updateInfo!,
+                        onDismiss: () => setState(() => _updateInfo = null),
+                      ),
+                    ),
+                  );
+                }
                 for (final sectionId in _settings.homeSectionsOrder) {
                   if (!_settings.isHomeSectionEnabled(sectionId)) continue;
                   final sliver = _buildSectionSliver(sectionId, library);
