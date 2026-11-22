@@ -8,6 +8,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [1.0.5] - 2026-11-22
+
+### Added
+
+- Polish Android Auto media browsing tree and Cast device picker UX
+
+### Fixed
+
+- Align Android 14+ foreground service config and enhance desktop audio handling
+- Add defensive try-catch and logging to PrismAudioHandler callbacks
+
+### Changed
+
+- Add desktop Linux build and wire playback latency benchmark into CI
+- Add regression tests for offline queue, recommendation sync, and local source resolution
+- Tighten tolerant golden comparator tolerance threshold to 1.5%
+- Optimize widget artwork sync with in-memory caching and single-call dispatch
+
 ## [1.0.4] - 2026-11-21
 
 ### Added
@@ -1310,3 +1328,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [1.0.2]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.2-build135
 [1.0.3]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.3-build136
 [1.0.4]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.4-build137
+[1.0.5]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.5-build138
