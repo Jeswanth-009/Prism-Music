@@ -211,13 +211,13 @@ flutter build appbundle --release
 
 | Guide | Description |
 |---|---|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Architectural layers, dependency injection, and BLoC contracts |
-| [STREAM_ARCHITECTURE.md](STREAM_ARCHITECTURE.md) | Multi-source resolution, stream caching, prefetching, and fallback rules |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architectural layers, dependency injection, and BLoC contracts |
+| [STREAM_ARCHITECTURE.md](docs/STREAM_ARCHITECTURE.md) | Multi-source resolution, stream caching, prefetching, and fallback rules |
 | [PRIVACY.md](PRIVACY.md) | Transparent privacy disclosures, permission usage, and local data storage |
-| [BACKEND_INTEGRATION.md](BACKEND_INTEGRATION.md) | Direct API mappings for catalog search, metadata, and lyrics |
+| [BACKEND_INTEGRATION.md](docs/BACKEND_INTEGRATION.md) | Direct API mappings for catalog search, metadata, and lyrics |
 | [docs/TESTING.md](docs/TESTING.md) | Testing strategy across unit, widget, golden, and integration tests |
 | [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | Automated CI/CD release pipeline and verification steps |
-| [LASTFM_SETUP.md](LASTFM_SETUP.md) | Guide to configuring your Last.fm API credentials for scrobbling |
+| [LASTFM_SETUP.md](docs/LASTFM_SETUP.md) | Guide to configuring your Last.fm API credentials for scrobbling |
 | [CHANGELOG.md](CHANGELOG.md) | Complete release notes and monotonic version history |
 | [SECURITY.md](SECURITY.md) | Security policy and vulnerability disclosure guidelines |
 
