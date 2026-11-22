@@ -1,37 +1,49 @@
-import 'fallback_lyrics_provider.dart';
+import 'dart:async';
 import 'package:dio/dio.dart';
-
-import '../../../../core/utils/lyrics_matching.dart';
 import '../../../../domain/entities/entities.dart';
-import 'lyrics_local_cache.dart';
 import 'custom_lyrics_storage.dart';
+import 'fallback_lyrics_provider.dart';
+import 'lyrics_local_cache.dart';
+import 'providers/better_lyrics_provider.dart';
+import 'providers/bini_lyrics_provider.dart';
+import 'providers/genius_lyrics_provider.dart';
+import 'providers/jiosaavn_lyrics_provider.dart';
+import 'providers/kugou_lyrics_provider.dart';
+import 'providers/lrclib_provider.dart';
+import 'providers/lyrics_plus_provider.dart';
+import 'providers/lyrics_provider.dart';
+import 'providers/netease_lyrics_provider.dart';
+import 'providers/qq_music_provider.dart';
+import 'providers/unison_lyrics_provider.dart';
+import 'providers/youtube_transcript_provider.dart';
 
-/// Data source for fetching lyrics from LRCLIB (free, no API key required).
-///
-/// Lookup strategy:
-/// 1. Local cache of previous successful lookups.
-/// 2. LRCLIB `/get` — exact match, with the song duration when plausible so
-///    studio, live and remastered versions stay distinguishable.
-/// 3. LRCLIB `/search` — candidate list, scored on title / artist /
-///    duration proximity.
-///
-/// A second provider will only be added if its licensing and API terms
-/// permit redistribution.
+/// Abstract contract for multi-source lyrics data operations.
 abstract class LyricsDataSource {
-  /// Get synced lyrics for a song
+  /// Get synced or plain lyrics for a song.
+  /// When [preferredProviderId] is provided, that specific provider is used.
+  /// Otherwise, the 3-tier intelligent auto-switcher selects the highest quality source.
   Future<Lyrics?> getSyncedLyrics(
     String title,
     String artist, {
     Duration? duration,
     bool forceRefresh = false,
+    String? preferredProviderId,
+    String? songId,
   });
 
-  /// Get plain text lyrics for a song
+  /// Get plain text lyrics for a song.
   Future<String?> getPlainLyrics(String title, String artist);
+
+  /// Inspect and list all available lyrics sources and their status for a song.
+  Future<List<LyricsSourceDescriptor>> getAvailableSources(
+    String title,
+    String artist, {
+    Duration? duration,
+    String? songId,
+  });
 }
 
-/// Thrown when the lyrics service is unreachable or encounters an outage
-/// (5xx, timeouts, connection errors).
+/// Thrown when the lyrics service is unreachable or encounters an outage.
 class LyricsOutageException implements Exception {
   final String message;
   const LyricsOutageException(this.message);
@@ -40,11 +52,24 @@ class LyricsOutageException implements Exception {
   String toString() => 'LyricsOutageException: $message';
 }
 
-/// Implementation using the public LRCLIB API.
+/// Multi-source orchestrator with 3-tier quality cascade and provider selection.
 class LyricsDataSourceImpl implements LyricsDataSource {
   final Dio _dio;
   final LyricsLocalCache _cache;
   final FallbackLyricsProvider? _fallbackProvider;
+
+  // Registered providers
+  late final BetterLyricsProvider _betterLyrics;
+  late final LyricsPlusProvider _lyricsPlus;
+  late final QqMusicLyricsProvider _qqMusic;
+  late final BiniLyricsProvider _bini;
+  late final UnisonLyricsProvider _unison;
+  late final LrclibLyricsProvider _lrclib;
+  late final NetEaseLyricsProvider _netEase;
+  late final KuGouLyricsProvider _kuGou;
+  late final YouTubeTranscriptProvider _ytTranscript;
+  late final JioSaavnLyricsProvider _jioSaavn;
+  late final GeniusLyricsProvider _genius;
 
   LyricsDataSourceImpl({
     required Dio dio,
@@ -52,15 +77,41 @@ class LyricsDataSourceImpl implements LyricsDataSource {
     FallbackLyricsProvider? fallbackProvider,
   })  : _dio = dio,
         _cache = cache ?? LyricsLocalCache(),
-        _fallbackProvider = fallbackProvider;
+        _fallbackProvider = fallbackProvider {
+    _betterLyrics = BetterLyricsProvider(dio: _dio);
+    _lyricsPlus = LyricsPlusProvider(dio: _dio);
+    _qqMusic = QqMusicLyricsProvider(dio: _dio);
+    _bini = BiniLyricsProvider(dio: _dio);
+    _unison = UnisonLyricsProvider(dio: _dio);
+    _lrclib = LrclibLyricsProvider(dio: _dio);
+    _netEase = NetEaseLyricsProvider(dio: _dio);
+    _kuGou = KuGouLyricsProvider(dio: _dio);
+    _ytTranscript = YouTubeTranscriptProvider();
+    _jioSaavn = JioSaavnLyricsProvider(dio: _dio);
+    _genius = GeniusLyricsProvider(dio: _dio);
+  }
 
-  static const String _lrclibBaseUrl = 'https://lrclib.net/api';
+  List<LyricsProvider> get _allProviders => [
+        _kuGou,
+        _qqMusic,
+        _betterLyrics,
+        _lyricsPlus,
+        _bini,
+        _netEase,
+        _lrclib,
+        _unison,
+        _genius,
+        _ytTranscript,
+        _jioSaavn,
+      ];
 
-  /// LRCLIB asks automated clients to identify themselves; the shared Dio
-  /// keeps its browser UA for other providers, so override per request.
-  static const Map<String, String> _lrclibHeaders = {
-    'User-Agent': 'PrismMusic/1.0 (https://github.com/Jeswanth-009/Prism-Music)',
-  };
+  LyricsProvider? _getProviderById(String id) {
+    try {
+      return _allProviders.firstWhere((p) => p.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
 
   @override
   Future<Lyrics?> getSyncedLyrics(
@@ -68,98 +119,155 @@ class LyricsDataSourceImpl implements LyricsDataSource {
     String artist, {
     Duration? duration,
     bool forceRefresh = false,
+    String? preferredProviderId,
+    String? songId,
   }) async {
-    final songId = '${artist}_$title';
+    final effectiveSongId = songId ?? '${artist}_$title';
 
-    // 0. Always prioritize user-edited / locally corrected lyrics
-    final customLyrics = await CustomLyricsStorage.instance.getCustomLyrics(title, artist, songId);
-    if (customLyrics != null) return customLyrics;
-
-    if (!forceRefresh) {
-      final isKnownNotFound = await _cache.isMarkedNotFound(
+    // 0. Always check user-edited / custom lyrics first unless explicitly requesting another source
+    if (preferredProviderId == null || preferredProviderId == 'prism_custom') {
+      final customLyrics = await CustomLyricsStorage.instance.getCustomLyrics(
         title,
         artist,
-        duration: duration,
+        effectiveSongId,
       );
-      if (isKnownNotFound) return null;
+      if (customLyrics != null) return customLyrics;
+      if (preferredProviderId == 'prism_custom') return null;
+    }
 
+    // 1. Direct provider selection override
+    if (preferredProviderId != null) {
+      final targetProvider = _getProviderById(preferredProviderId);
+      if (targetProvider != null) {
+        final result = await targetProvider.fetchLyrics(
+          title,
+          artist,
+          duration: duration,
+          songId: effectiveSongId,
+        );
+        if (result != null) {
+          await _cacheSuccess(title, artist, result, duration: duration);
+          return result;
+        }
+        return null;
+      }
+    }
+
+    // 2. Cache lookup (bypass on forceRefresh)
+    if (!forceRefresh) {
       final cached = await _cache.get(
         title,
         artist,
-        songId,
+        effectiveSongId,
         duration: duration,
+        provider: preferredProviderId ?? 'LRCLIB',
       );
       if (cached != null) return cached;
 
       final fallbackCached = await _cache.get(
         title,
         artist,
-        songId,
+        effectiveSongId,
         duration: duration,
         provider: 'lyrics.ovh',
       );
       if (fallbackCached != null) return fallbackCached;
+
+      final isKnownNotFound = await _cache.isMarkedNotFound(
+        title,
+        artist,
+        duration: duration,
+      );
+      if (isKnownNotFound) return null;
     }
 
-    final query = LyricsQuery(title: title, artist: artist, duration: duration);
+    // 3. Intelligent 3-Tier Auto-Switcher Cascade
+    // Tier 1: Word-by-Word Karaoke (Better Lyrics, LyricsPlus, QQ Music, Bini, Unison)
+    final tier1Providers = [
+      _betterLyrics,
+      _lyricsPlus,
+      _qqMusic,
+      _bini,
+      _unison,
+    ];
 
-    Lyrics? exact;
-    LyricsOutageException? outage;
-    try {
-      exact = await _fetchFromGet(query);
-    } on LyricsOutageException catch (e) {
-      outage = e;
-    }
-
-    if (exact != null) {
-      await _cacheSuccess(title, artist, exact, duration: duration);
-      return exact;
-    }
-
-    Lyrics? scored;
-    if (outage == null) {
+    for (final provider in tier1Providers) {
       try {
-        scored = await _fetchFromSearch(query);
-      } on LyricsOutageException catch (e) {
-        outage = e;
+        final result = await provider.fetchLyrics(
+          title,
+          artist,
+          duration: duration,
+          songId: effectiveSongId,
+        );
+        if (result != null && result.isWordSynced) {
+          await _cacheSuccess(title, artist, result, duration: duration);
+          return result;
+        }
+      } catch (_) {
+        // Individual provider timeout / error falls through
       }
     }
 
-    if (scored != null) {
-      await _cacheSuccess(title, artist, scored, duration: duration);
-      return scored;
+    // Tier 2: Time-synced lines (LRCLIB, NetEase, KuGou, JioSaavn, YouTube Transcripts)
+    final tier2Providers = [
+      _lrclib,
+      _netEase,
+      _kuGou,
+      _ytTranscript,
+      _jioSaavn,
+    ];
+
+    for (final provider in tier2Providers) {
+      try {
+        final result = await provider.fetchLyrics(
+          title,
+          artist,
+          duration: duration,
+          songId: effectiveSongId,
+        );
+        if (result != null && result.isSynced) {
+          await _cacheSuccess(title, artist, result, duration: duration);
+          return result;
+        }
+      } catch (_) {
+        // Fall through
+      }
     }
 
-    // 3. Fallback provider (plain lyrics from secondary source, e.g. lyrics.ovh)
+    // Tier 3: Plain text fallbacks (Genius, Lyrics.ovh)
+    try {
+      final geniusResult = await _genius.fetchLyrics(
+        title,
+        artist,
+        duration: duration,
+        songId: effectiveSongId,
+      );
+      if (geniusResult != null && (geniusResult.plainLyrics?.isNotEmpty ?? false)) {
+        await _cacheSuccess(title, artist, geniusResult, duration: duration);
+        return geniusResult;
+      }
+    } catch (_) {}
+
     if (_fallbackProvider != null) {
       try {
-        final fallbackPlain = await _fallbackProvider.fetchLyrics(
-          _usable(query.title) ?? query.title,
-          _usableArtist(query.artist) ?? query.artist,
-        );
+        final fallbackPlain = await _fallbackProvider.fetchLyrics(title, artist);
         if (fallbackPlain != null && fallbackPlain.trim().isNotEmpty) {
           final fallbackLyrics = Lyrics(
-            songId: songId,
+            songId: effectiveSongId,
             plainLyrics: fallbackPlain.trim(),
             syncedLyrics: null,
             source: 'lyrics.ovh',
+            syncType: LyricsSyncType.plain,
+            providerId: 'lyrics.ovh',
           );
           await _cacheSuccess(title, artist, fallbackLyrics, duration: duration);
           return fallbackLyrics;
         }
-      } catch (_) {
-        // Fallback provider errors are non-fatal
-      }
+      } catch (_) {}
     }
 
-    if (outage != null) {
-      throw outage;
-    }
-
-    // Both primary and fallback lookups completed without finding lyrics (and without network outage).
-    // Mark as verified not-found so future plays do not spam the remote lyrics API.
+    // Mark not found in cache so subsequent lookups are fast
     await _cache.markNotFound(title, artist, duration: duration);
-
     return null;
   }
 
@@ -169,127 +277,89 @@ class LyricsDataSourceImpl implements LyricsDataSource {
     return lyrics?.plainLyrics;
   }
 
-  Future<Lyrics?> _fetchFromGet(LyricsQuery query) async {
-    try {
-      final response = await _dio.get(
-        '$_lrclibBaseUrl/get',
-        queryParameters: {
-          'track_name': _usable(query.title) ?? query.title,
-          'artist_name': _usableArtist(query.artist) ?? query.artist,
-          if (query.plausibleSeconds != null)
-            'duration': query.plausibleSeconds,
-        },
-        options: Options(headers: _lrclibHeaders),
-      );
+  @override
+  Future<List<LyricsSourceDescriptor>> getAvailableSources(
+    String title,
+    String artist, {
+    Duration? duration,
+    String? songId,
+  }) async {
+    final effectiveSongId = songId ?? '${artist}_$title';
+    final results = <LyricsSourceDescriptor>[];
 
-      if (response.statusCode != 200 || response.data is! Map<String, dynamic>) {
-        return null;
-      }
-      return _mapLrclibEntry(response.data as Map<String, dynamic>, query);
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
-        return null;
-      }
-      if (_isOutage(e)) {
-        throw LyricsOutageException(
-          'Lyrics service temporarily unavailable (${e.response?.statusCode ?? e.type.name})',
-        );
-      }
-      return null;
-    } catch (e) {
-      if (e is LyricsOutageException) rethrow;
-      return null;
-    }
-  }
-
-  Future<Lyrics?> _fetchFromSearch(LyricsQuery query) async {
-    try {
-      final response = await _dio.get(
-        '$_lrclibBaseUrl/search',
-        queryParameters: {
-          'track_name': _usable(query.title) ?? query.title,
-          'artist_name': _usableArtist(query.artist) ?? query.artist,
-        },
-        options: Options(headers: _lrclibHeaders),
-      );
-
-      if (response.statusCode != 200 || response.data is! List) {
-        return null;
-      }
-
-      Lyrics? best;
-      var bestScore = 0.0;
-      for (final entry in response.data as List) {
-        if (entry is! Map<String, dynamic>) continue;
-        final candidate = LyricsCandidate(
-          trackName: (entry['trackName'] ?? '').toString(),
-          artistName: (entry['artistName'] ?? '').toString(),
-          durationSeconds: (entry['duration'] as num?)?.toInt(),
-          plainLyrics: entry['plainLyrics'] as String?,
-          syncedLyrics: entry['syncedLyrics'] as String?,
-        );
-        if (!candidate.hasSynced && !candidate.hasPlain) continue;
-
-        final score = scoreLyricsCandidate(query, candidate);
-        if (score > bestScore && score >= lyricsAcceptScore) {
-          bestScore = score;
-          best = _lyricsFromCandidate(candidate, query);
-        }
-      }
-      return best;
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
-        return null;
-      }
-      if (_isOutage(e)) {
-        throw LyricsOutageException(
-          'Lyrics service temporarily unavailable (${e.response?.statusCode ?? e.type.name})',
-        );
-      }
-      return null;
-    } catch (e) {
-      if (e is LyricsOutageException) rethrow;
-      return null;
-    }
-  }
-
-  bool _isOutage(DioException e) {
-    return e.type == DioExceptionType.connectionTimeout ||
-        e.type == DioExceptionType.sendTimeout ||
-        e.type == DioExceptionType.receiveTimeout ||
-        e.type == DioExceptionType.connectionError ||
-        (e.response?.statusCode != null && e.response!.statusCode! >= 500);
-  }
-
-  Lyrics? _mapLrclibEntry(
-    Map<String, dynamic> data,
-    LyricsQuery query,
-  ) {
-    final candidate = LyricsCandidate(
-      trackName: (data['trackName'] ?? '').toString(),
-      artistName: (data['artistName'] ?? '').toString(),
-      durationSeconds: (data['duration'] as num?)?.toInt(),
-      plainLyrics: data['plainLyrics'] as String?,
-      syncedLyrics: data['syncedLyrics'] as String?,
+    // Check custom lyrics first
+    final customLyrics = await CustomLyricsStorage.instance.getCustomLyrics(
+      title,
+      artist,
+      effectiveSongId,
     );
-    if (!candidate.hasSynced && !candidate.hasPlain) return null;
 
-    // /get can still return a differently-titled record (LRCLIB falls back
-    // loosely) — sanity-check before accepting.
-    final score = scoreLyricsCandidate(query, candidate);
-    if (score < lyricsAcceptScore) return null;
+    // Query each provider concurrently with a 2.5-second cap
+    final providerChecks = _allProviders.map((provider) async {
+      try {
+        final lyrics = await provider
+            .fetchLyrics(
+              title,
+              artist,
+              duration: duration,
+              songId: effectiveSongId,
+            )
+            .timeout(const Duration(milliseconds: 2500));
 
-    return _lyricsFromCandidate(candidate, query);
-  }
+        final available = lyrics != null;
+        final syncType = lyrics?.syncType ?? provider.syncType;
+        return LyricsSourceDescriptor.fromAvailability(
+          id: provider.id,
+          displayName: provider.displayName,
+          type: syncType,
+          available: available,
+        );
+      } catch (_) {
+        return LyricsSourceDescriptor.fromAvailability(
+          id: provider.id,
+          displayName: provider.displayName,
+          type: provider.syncType,
+          available: false,
+        );
+      }
+    }).toList();
 
-  Lyrics _lyricsFromCandidate(LyricsCandidate candidate, LyricsQuery query) {
-    return Lyrics(
-      songId: '${query.artist}_${query.title}',
-      plainLyrics: candidate.plainLyrics,
-      syncedLyrics:
-          candidate.hasSynced ? parseLrc(candidate.syncedLyrics!) : null,
-      source: 'LRCLIB',
-    );
+    final descriptors = await Future.wait(providerChecks);
+
+    // Map ordered descriptors matching Screenshot 2:
+    // KuGou, QQ Music, Better Lyrics, LyricsPlus, Bini, Prism Music, NetEase, LRCLIB, Unison, Genius
+    final orderedIds = [
+      'kugou',
+      'qq_music',
+      'better_lyrics',
+      'lyrics_plus',
+      'bini',
+      'netease',
+      'lrclib',
+      'unison',
+      'genius',
+      'youtube_transcript',
+      'jiosaavn',
+    ];
+
+    final descMap = {for (final d in descriptors) d.id: d};
+
+    for (final id in orderedIds) {
+      if (id == 'netease') {
+        // Insert Prism Music descriptor right before NetEase
+        results.add(LyricsSourceDescriptor.fromAvailability(
+          id: 'prism_custom',
+          displayName: 'Prism Music',
+          type: LyricsSyncType.lineSynced,
+          available: customLyrics != null,
+        ));
+      }
+      if (descMap.containsKey(id)) {
+        results.add(descMap[id]!);
+      }
+    }
+
+    return results;
   }
 
   Future<void> _cacheSuccess(
@@ -303,13 +373,14 @@ class LyricsDataSourceImpl implements LyricsDataSource {
       artist,
       duration: duration,
       provider: lyrics.source,
+      providerId: lyrics.providerId,
+      syncType: lyrics.syncType,
       plainLyrics: lyrics.plainLyrics,
       syncedLrc: _encodeLrc(lyrics.syncedLyrics),
+      syncedLyrics: lyrics.syncedLyrics,
     );
   }
 
-  /// Re-encode parsed lines back into LRC so the cache stores compact raw
-  /// data that future parser upgrades can re-interpret.
   String? _encodeLrc(List<LyricLine>? lines) {
     if (lines == null || lines.isEmpty) return null;
     return lines.map((line) {
@@ -319,19 +390,5 @@ class LyricsDataSourceImpl implements LyricsDataSource {
       final hundredths = ((ms % 1000) ~/ 10).toString().padLeft(2, '0');
       return '[$minutes:$seconds.$hundredths]${line.text}';
     }).join('\n');
-  }
-
-  /// Normalized value for an LRCLIB track title query parameter, or null when
-  /// normalization emptied the string (then the caller sends the raw one).
-  String? _usable(String raw) {
-    final normalized = normalizeTrackTitle(raw);
-    return normalized.isEmpty ? null : normalized;
-  }
-
-  /// Normalized value for an LRCLIB artist query parameter using artist-specific
-  /// normalization (stripping channel suffixes like " - Topic" and "VEVO").
-  String? _usableArtist(String raw) {
-    final normalized = normalizeArtistName(raw);
-    return normalized.isEmpty ? null : normalized;
   }
 }

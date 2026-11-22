@@ -75,17 +75,51 @@ class LyricsLocalCache {
 
       final syncedLrc = entry['syncedLrc'] as String?;
       final plain = entry['plainLyrics'] as String?;
-      if ((syncedLrc == null || syncedLrc.isEmpty) &&
+      final wordsData = entry['syncedWords'];
+
+      List<LyricLine>? syncedLines;
+      if (wordsData is List && wordsData.isNotEmpty) {
+        syncedLines = wordsData.map<LyricLine>((lineMap) {
+          final lMap = Map<String, dynamic>.from(lineMap as Map);
+          final wordsList = lMap['words'] as List?;
+          return LyricLine(
+            startTimeMs: (lMap['startTimeMs'] as num?)?.toInt() ?? 0,
+            endTimeMs: (lMap['endTimeMs'] as num?)?.toInt(),
+            text: (lMap['text'] ?? '').toString(),
+            words: wordsList?.map<LyricWord>((wMap) {
+              final w = Map<String, dynamic>.from(wMap as Map);
+              return LyricWord(
+                startTimeMs: (w['startTimeMs'] as num?)?.toInt() ?? 0,
+                endTimeMs: (w['endTimeMs'] as num?)?.toInt() ?? 0,
+                text: (w['text'] ?? '').toString(),
+                isBackground: (w['isBackground'] as bool?) ?? false,
+              );
+            }).toList(),
+          );
+        }).toList();
+      } else if (syncedLrc != null && syncedLrc.isNotEmpty) {
+        syncedLines = parseLrc(syncedLrc);
+      }
+
+      if ((syncedLines == null || syncedLines.isEmpty) &&
           (plain == null || plain.isEmpty)) {
         return null;
       }
 
+      final syncTypeStr = entry['syncType'] as String?;
+      final syncType = syncTypeStr == 'wordSynced'
+          ? LyricsSyncType.wordSynced
+          : (syncedLines != null && syncedLines.isNotEmpty
+              ? LyricsSyncType.lineSynced
+              : LyricsSyncType.plain);
+
       return Lyrics(
         songId: songId,
         plainLyrics: plain,
-        syncedLyrics:
-            syncedLrc == null || syncedLrc.isEmpty ? null : parseLrc(syncedLrc),
+        syncedLyrics: syncedLines,
         source: entry['source'] as String? ?? provider,
+        syncType: syncType,
+        providerId: entry['providerId'] as String? ?? provider,
       );
     } catch (_) {
       // Cache is best-effort — never block a lookup on it.
@@ -101,9 +135,13 @@ class LyricsLocalCache {
     String provider = 'LRCLIB',
     String? plainLyrics,
     String? syncedLrc,
+    List<LyricLine>? syncedLyrics,
+    LyricsSyncType? syncType,
+    String? providerId,
   }) async {
     if ((plainLyrics == null || plainLyrics.isEmpty) &&
-        (syncedLrc == null || syncedLrc.isEmpty)) {
+        (syncedLrc == null || syncedLrc.isEmpty) &&
+        (syncedLyrics == null || syncedLyrics.isEmpty)) {
       return;
     }
     try {
@@ -122,12 +160,31 @@ class LyricsLocalCache {
         artist,
         duration: duration,
         version: version,
-        provider: provider,
+        provider: providerId ?? provider,
       );
+
+      List<Map<String, dynamic>>? serializedWords;
+      if (syncedLyrics != null && syncedLyrics.any((l) => l.isWordSynced)) {
+        serializedWords = syncedLyrics.map((l) => <String, dynamic>{
+          'startTimeMs': l.startTimeMs,
+          'endTimeMs': l.endTimeMs,
+          'text': l.text,
+          'words': l.words?.map((w) => <String, dynamic>{
+            'startTimeMs': w.startTimeMs,
+            'endTimeMs': w.endTimeMs,
+            'text': w.text,
+            'isBackground': w.isBackground,
+          }).toList(),
+        }).toList();
+      }
+
       await box.put(key, <String, dynamic>{
         'plainLyrics': plainLyrics,
         'syncedLrc': syncedLrc,
+        if (serializedWords != null) ...{'syncedWords': serializedWords},
         'source': provider,
+        'providerId': providerId ?? provider,
+        'syncType': syncType?.name,
         'cachedAt': DateTime.now().toIso8601String(),
       });
     } catch (_) {

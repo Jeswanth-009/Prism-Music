@@ -58,6 +58,10 @@ class CustomLyricsStorage {
             ? parseLrc(syncedLrc)
             : null,
         source: 'User Edited',
+        syncType: syncedLrc != null && syncedLrc.trim().isNotEmpty
+            ? LyricsSyncType.lineSynced
+            : LyricsSyncType.plain,
+        providerId: 'prism_custom',
       );
     } catch (_) {
       return null;
