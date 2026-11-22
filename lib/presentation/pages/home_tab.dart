@@ -840,6 +840,8 @@ class _Hero extends StatelessWidget {
         return 'YouTube · 160 kbps Opus';
       case MusicSource.spotify:
         return 'Spotify · Matched';
+      case MusicSource.appleMusic:
+        return 'Apple Music · Matched';
       case MusicSource.unknown:
         return 'Verified Audio';
     }

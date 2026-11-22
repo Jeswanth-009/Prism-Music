@@ -38,6 +38,7 @@ class AudioNormalizationService {
       case MusicSource.jiosaavn:
         return -11.5; // Indian streaming tracks typically mastered hotter
       case MusicSource.spotify:
+      case MusicSource.appleMusic:
         return -14.0;
       case MusicSource.local:
         return -16.0; // Uncompressed/CD rip dynamic range

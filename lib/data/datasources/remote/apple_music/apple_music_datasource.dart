@@ -244,7 +244,7 @@ class AppleMusicDataSourceImpl implements AppleMusicDataSource {
                   duration: Duration(milliseconds: durationMs),
                   thumbnails: Thumbnails.fromUrl(thumbUrl),
                   isrc: isrc,
-                  source: MusicSource.spotify,
+                  source: MusicSource.appleMusic,
                 ),
               );
             }
@@ -340,7 +340,7 @@ class AppleMusicDataSourceImpl implements AppleMusicDataSource {
                       duration: duration,
                       thumbnails: Thumbnails.fromUrl(fallbackImage ?? ''),
                       isrc: isrc,
-                      source: MusicSource.spotify,
+                      source: MusicSource.appleMusic,
                     ),
                   );
                 }
@@ -384,7 +384,7 @@ class AppleMusicDataSourceImpl implements AppleMusicDataSource {
             artist: artist ?? 'Unknown Artist',
             duration: Duration.zero,
             thumbnails: const Thumbnails(),
-            source: MusicSource.spotify,
+            source: MusicSource.appleMusic,
           ),
         );
       }

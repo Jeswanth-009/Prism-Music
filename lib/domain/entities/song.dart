@@ -5,6 +5,7 @@ enum MusicSource {
   youtube,
   youtubeMusic,
   spotify,
+  appleMusic,
   jiosaavn,
   local,
   unknown,
@@ -15,7 +16,9 @@ enum AudioQuality {
   low(64),      // 64 kbps
   medium(128),  // 128 kbps
   high(256),    // 256 kbps
-  lossless(320); // 320 kbps (Ultra / Opus)
+  ultra(320);   // 320 kbps (High-Efficiency AAC/Opus)
+
+  static const AudioQuality lossless = AudioQuality.ultra;
 
   final int bitrate;
   const AudioQuality(this.bitrate);
@@ -28,7 +31,7 @@ enum AudioQuality {
         return AudioQuality.medium;
       case 'lossless':
       case 'ultra':
-        return AudioQuality.lossless;
+        return AudioQuality.ultra;
       case 'high':
       default:
         return AudioQuality.high;
@@ -43,7 +46,7 @@ enum AudioQuality {
         return 'Medium (128 kbps)';
       case AudioQuality.high:
         return 'High (256 kbps)';
-      case AudioQuality.lossless:
+      case AudioQuality.ultra:
         return 'Ultra (320 kbps)';
     }
   }
