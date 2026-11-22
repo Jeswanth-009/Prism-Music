@@ -165,6 +165,14 @@ class SettingsDialogs {
                       'Classic compact layout with 5-button transport bar',
                     PlayerUiStyle.vinyl =>
                       'Audiophile turntable design with rotating vinyl artwork and complete controls',
+                    PlayerUiStyle.glass =>
+                      'Frosted glassmorphism with translucency and glowing control deck',
+                    PlayerUiStyle.fullBleed =>
+                      'Edge-to-edge full artwork canvas with gradient scrim overlay',
+                    PlayerUiStyle.studio =>
+                      'Precision studio reference with 32-band visualizer and acoustic metrics',
+                    PlayerUiStyle.karaoke =>
+                      'Sing view featuring 85% word-synced lyrics with real-time syllable sweep',
                   },
                 ),
               ),

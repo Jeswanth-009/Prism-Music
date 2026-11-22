@@ -17,7 +17,11 @@ import '../widgets/common/prism_streaming_error_banner.dart';
 import '../widgets/dialogs/cast_device_picker_dialog.dart';
 import '../widgets/player/audio_visualizer_widget.dart';
 import '../widgets/player/layouts/classic_player_layout.dart';
+import '../widgets/player/layouts/full_bleed_player_layout.dart';
+import '../widgets/player/layouts/glass_player_layout.dart';
+import '../widgets/player/layouts/karaoke_player_layout.dart';
 import '../widgets/player/layouts/landscape_player_layout.dart';
+import '../widgets/player/layouts/studio_player_layout.dart';
 import '../widgets/player/layouts/vinyl_player_layout.dart';
 import '../widgets/player/player_action_bar.dart';
 import '../widgets/player/player_ambient_background.dart';
@@ -36,8 +40,16 @@ export '../widgets/player/layouts/vinyl_player_layout.dart'
     show AudiophileTonearm, VinylPlayerLayout;
 export '../widgets/player/layouts/classic_player_layout.dart'
     show ClassicPlayerLayout;
+export '../widgets/player/layouts/full_bleed_player_layout.dart'
+    show FullBleedPlayerLayout;
+export '../widgets/player/layouts/glass_player_layout.dart'
+    show GlassPlayerLayout;
+export '../widgets/player/layouts/karaoke_player_layout.dart'
+    show KaraokePlayerLayout;
 export '../widgets/player/layouts/landscape_player_layout.dart'
     show LandscapePlayerLayout;
+export '../widgets/player/layouts/studio_player_layout.dart'
+    show StudioPlayerLayout;
 export '../widgets/player/player_action_bar.dart';
 export '../widgets/player/player_ambient_background.dart';
 export '../widgets/player/player_artwork_section.dart';
@@ -234,6 +246,68 @@ class _PlayerPageState extends State<PlayerPage> {
                             song,
                             state.currentStreamInfo,
                           ),
+                        ),
+                      )
+                    else if (style == PlayerUiStyle.glass)
+                      Expanded(
+                        child: GlassPlayerLayout(
+                          song: song,
+                          state: state,
+                          dominantColor: _dominantColor,
+                          showLyrics: _showLyrics,
+                          onToggleLyrics: () =>
+                              setState(() => _showLyrics = !_showLyrics),
+                          onArtistTap: _openArtistPage,
+                          onProvenanceTap: () => showPlayerStreamDetailsSheet(
+                            context,
+                            song,
+                            state.currentStreamInfo,
+                          ),
+                        ),
+                      )
+                    else if (style == PlayerUiStyle.fullBleed)
+                      Expanded(
+                        child: FullBleedPlayerLayout(
+                          song: song,
+                          state: state,
+                          dominantColor: _dominantColor,
+                          showLyrics: _showLyrics,
+                          onToggleLyrics: () =>
+                              setState(() => _showLyrics = !_showLyrics),
+                          onArtistTap: _openArtistPage,
+                          onProvenanceTap: () => showPlayerStreamDetailsSheet(
+                            context,
+                            song,
+                            state.currentStreamInfo,
+                          ),
+                        ),
+                      )
+                    else if (style == PlayerUiStyle.studio)
+                      Expanded(
+                        child: StudioPlayerLayout(
+                          song: song,
+                          state: state,
+                          dominantColor: _dominantColor,
+                          showLyrics: _showLyrics,
+                          onToggleLyrics: () =>
+                              setState(() => _showLyrics = !_showLyrics),
+                          onArtistTap: _openArtistPage,
+                          onProvenanceTap: () => showPlayerStreamDetailsSheet(
+                            context,
+                            song,
+                            state.currentStreamInfo,
+                          ),
+                        ),
+                      )
+                    else if (style == PlayerUiStyle.karaoke)
+                      Expanded(
+                        child: KaraokePlayerLayout(
+                          song: song,
+                          state: state,
+                          dominantColor: _dominantColor,
+                          lyricsText: null,
+                          onExitKaraoke: () =>
+                              SettingsService.instance.setPlayerUiStyle(PlayerUiStyle.modern),
                         ),
                       )
                     else ...[

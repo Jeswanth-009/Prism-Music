@@ -64,13 +64,25 @@ const List<CountryInfo> supportedCountries = [
 ];
 
 /// Available layouts for the full screen player
-enum PlayerUiStyle { classic, modern, vinyl }
+enum PlayerUiStyle {
+  classic,
+  modern,
+  vinyl,
+  glass,
+  fullBleed,
+  studio,
+  karaoke,
+}
 
 extension PlayerUiStyleX on PlayerUiStyle {
   String get label => switch (this) {
         PlayerUiStyle.classic => 'Classic',
         PlayerUiStyle.modern => 'Modern',
-        PlayerUiStyle.vinyl => 'Vinyl',
+        PlayerUiStyle.vinyl => 'Vinyl Turntable',
+        PlayerUiStyle.glass => 'Frosted Glass',
+        PlayerUiStyle.fullBleed => 'Full Bleed',
+        PlayerUiStyle.studio => 'Studio Reference',
+        PlayerUiStyle.karaoke => 'Karaoke Sing',
       };
 
   static PlayerUiStyle fromValue(String? value) {
