@@ -1,0 +1,5 @@
+• Added desktop Linux and Windows support with automated release packaging
+• Enhanced background playback resilience with defensive audio handlers
+• Optimized home screen widget artwork synchronization and caching
+• Upgraded Android 14+ foreground service compatibility
+• Added comprehensive offline queue regression tests and playback benchmarks

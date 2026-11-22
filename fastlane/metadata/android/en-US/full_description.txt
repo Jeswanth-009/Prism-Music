@@ -1,0 +1,12 @@
+Prism Music is a free, privacy-first, open-source music streaming and offline player for Android, built with Flutter.
+
+Key Features:
+• Multi-Source Streaming: Direct streaming from YouTube Music and JioSaavn up to 320 kbps lossless audio.
+• Zero Accounts Required: No registration, no email, no subscriptions, and zero telemetry tracking.
+• Line-Synced Lyrics: Real-time karaoke-style scrolling lyrics for millions of tracks.
+• Infinite Radio: Algorithmic station generation seeded from any track.
+• Built-In Equalizer: Native audio session binding with multi-band parametric equalization and bass boost.
+• Offline Downloads: Save tracks locally to device storage with full playback support while offline.
+• Android Auto: Clean automotive media browsing tree with voice search integration.
+• Home Screen Widgets: Interactive playback controls and album artwork on your launcher.
+• Local-First Privacy: All playlists, favorites, and history reside on-device.
