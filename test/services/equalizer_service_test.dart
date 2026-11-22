@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_music/core/models/reverb_preset.dart';
+import 'package:prism_music/core/services/desktop_audio_support.dart';
 import 'package:prism_music/core/services/equalizer_service.dart';
 import 'package:prism_music/core/services/settings_service.dart';
 
@@ -75,6 +76,16 @@ void main() {
       expect(bound, isFalse);
       expect(service.audioSessionId, 0);
       expect(service.isSupported, isFalse);
+    });
+
+    test('isPlatformSupported and bindAudioSession behave gracefully on desktop/test platforms', () async {
+      final service = EqualizerService();
+      expect(service.isPlatformSupported, DesktopAudioSupport.instance.supportsNativeEffects);
+      if (!service.isPlatformSupported) {
+        final bound = await service.bindAudioSession(42);
+        expect(bound, isFalse);
+        expect(service.isSupported, isFalse);
+      }
     });
   });
 }

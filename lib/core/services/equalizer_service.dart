@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:prism_music/core/services/audio_effects_channel.dart';
 import 'package:prism_music/core/models/reverb_preset.dart';
+import 'package:prism_music/core/services/desktop_audio_support.dart';
 import 'package:prism_music/core/services/settings_service.dart';
 
 /// Service to manage audio equalizer and effects with real platform-specific audio processing
@@ -105,6 +106,9 @@ class EqualizerService {
     } catch (_) {}
   }
 
+  /// Whether the platform supports hardware/native audio effects
+  bool get isPlatformSupported => DesktopAudioSupport.instance.supportsNativeEffects;
+
   /// Whether native audio effects are supported and bound to a valid session
   bool get isSupported => _isSupported;
 
@@ -117,7 +121,7 @@ class EqualizerService {
   /// Bind audio effects to a specific player audio session ID.
   /// Reapplies active preset/custom effects when bound successfully.
   Future<bool> bindAudioSession(int sessionId) async {
-    if (sessionId <= 0) {
+    if (sessionId <= 0 || !isPlatformSupported) {
       _audioSessionId = 0;
       _isSupported = false;
       _isInitialized = false;

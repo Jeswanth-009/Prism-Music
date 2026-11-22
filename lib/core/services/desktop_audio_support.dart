@@ -35,6 +35,9 @@ class DesktopAudioSupport {
     return 'Unknown';
   }
 
+  /// Whether native equalizer and session audio effects are supported
+  bool get supportsNativeEffects => !isDesktop && !kIsWeb && Platform.isAndroid;
+
   /// Returns platform-tuned audio load configuration.
   /// On Android, configures optimized low-latency AndroidLoadControl buffers.
   /// On desktop and iOS, returns null to allow the platform native engine

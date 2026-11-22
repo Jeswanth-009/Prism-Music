@@ -92,7 +92,7 @@ void main() async {
           notificationColor: Color(0xFF8B7BFF),
           androidNotificationIcon: 'drawable/ic_notification',
           androidNotificationOngoing: false,
-          androidStopForegroundOnPause: false,
+          androidStopForegroundOnPause: true,
           artDownscaleWidth: 512,
           artDownscaleHeight: 512,
         ),

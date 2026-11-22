@@ -27,6 +27,7 @@ class AudioEffectsChannel {
   /// Set bass boost level (0.0 - 1.0)
   /// Internally converts to 0-1000 range for Android BassBoost API
   static Future<void> setBassBoost(double level, bool enabled) async {
+    if (kIsWeb || !Platform.isAndroid) return;
     try {
       await _channel.invokeMethod('setBassBoost', {
         'level': level.clamp(0.0, 1.0),
@@ -40,6 +41,7 @@ class AudioEffectsChannel {
   /// Set treble level (0.0 - 1.0); 0.5 is neutral, above boosts the
   /// highest equalizer band, below cuts it.
   static Future<void> setTreble(double level) async {
+    if (kIsWeb || !Platform.isAndroid) return;
     try {
       await _channel.invokeMethod('setTreble', {
         'level': level.clamp(0.0, 1.0),
@@ -51,6 +53,7 @@ class AudioEffectsChannel {
 
   /// Set reverb preset
   static Future<void> setReverb(String preset) async {
+    if (kIsWeb || !Platform.isAndroid) return;
     try {
       await _channel.invokeMethod('setReverb', {
         'preset': preset,
@@ -62,6 +65,7 @@ class AudioEffectsChannel {
 
   /// Release all audio effects
   static Future<void> release() async {
+    if (kIsWeb || !Platform.isAndroid) return;
     try {
       await _channel.invokeMethod('release');
     } catch (e) {
