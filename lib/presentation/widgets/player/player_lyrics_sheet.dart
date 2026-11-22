@@ -1,23 +1,21 @@
 import 'package:flutter/material.dart';
-import 'lyrics_edit_sheet.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/di/injection.dart';
-import '../../../domain/entities/song.dart';
-import '../../../domain/entities/stream_info.dart';
+import '../../../domain/entities/entities.dart';
 import '../../../domain/repositories/music_repository.dart';
 import '../../blocs/player/player.dart';
 import '../../theme/prism_theme.dart';
+import 'lyrics_edit_sheet.dart';
+import 'lyrics_source_sheet.dart';
 
-/// Lyrics view for the player: synced lines auto-scroll with playback,
-/// plain lyrics render as a simple column.
-///
-/// Requests are guarded against staleness — a slow lookup for song A can
-/// never overwrite lyrics after the user has moved to song B. Results are
-/// cached locally by the data source; the refresh control bypasses it.
+/// Lyrics view for the player:
+/// - Karaoke word-by-word active highlighting with real-time syllable illumination.
+/// - Line-synced auto-scroll with playback position.
+/// - Multi-source provider selector bottom sheet matching native designs.
+/// - Plain lyrics fallback.
 class PlayerLyricsView extends StatefulWidget {
   const PlayerLyricsView({super.key, required this.song});
 
@@ -29,11 +27,17 @@ class PlayerLyricsView extends StatefulWidget {
 
 class _PlayerLyricsViewState extends State<PlayerLyricsView> {
   Lyrics? _lyrics;
+  List<LyricsSourceDescriptor> _availableSources = const [];
   bool _loading = true;
+  bool _loadingSources = false;
   String? _error;
   int _activeLine = -1;
   int _userOffsetMs = 0;
   bool _followCurrentLine = true;
+  String? _selectedProviderId;
+  String? _customTitle;
+  String? _customArtist;
+  int _playbackPositionMs = 0;
 
   /// Bumped on every load; results from superseded requests are dropped.
   int _requestId = 0;
@@ -52,36 +56,109 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
       _activeLine = -1;
       _userOffsetMs = 0;
       _followCurrentLine = true;
+      _selectedProviderId = null;
+      _customTitle = null;
+      _customArtist = null;
       _load();
     }
   }
 
-  Future<void> _load({bool forceRefresh = false}) async {
+  Future<void> _load({
+    bool forceRefresh = false,
+    String? preferredProviderId,
+    String? queryTitle,
+    String? queryArtist,
+  }) async {
     final requestId = ++_requestId;
     setState(() {
       _loading = true;
       _error = null;
+      if (preferredProviderId != null) {
+        _selectedProviderId = preferredProviderId;
+      }
+      if (queryTitle != null) {
+        _customTitle = queryTitle;
+        _customArtist = queryArtist;
+      }
     });
-    final result = await getIt<MusicRepository>().getLyrics(
-      widget.song.title,
-      widget.song.artist,
-      // Only trust the duration when it is plausible — placeholder or zero
-      // durations would push LRCLIB towards wrong-version matches.
+
+    final targetTitle = _customTitle ?? widget.song.title;
+    final targetArtist = _customArtist ?? widget.song.artist;
+
+    final repo = getIt<MusicRepository>();
+    final result = await repo.getLyrics(
+      targetTitle,
+      targetArtist,
       duration: widget.song.duration.inSeconds >= 30
           ? widget.song.duration
           : null,
       forceRefresh: forceRefresh,
+      preferredProviderId: _selectedProviderId,
+      songId: widget.song.id,
     );
+
     if (!mounted || requestId != _requestId) return;
+
     result.fold(
       (failure) => setState(() {
         _error = failure.message;
         _loading = false;
       }),
-      (lyrics) => setState(() {
-        _lyrics = lyrics;
-        _loading = false;
-      }),
+      (lyrics) {
+        setState(() {
+          _lyrics = lyrics;
+          _selectedProviderId = lyrics.providerId;
+          _loading = false;
+        });
+        _loadAvailableSources(targetTitle, targetArtist);
+      },
+    );
+  }
+
+  Future<void> _loadAvailableSources(String title, String artist) async {
+    if (_loadingSources) return;
+    _loadingSources = true;
+    try {
+      final repo = getIt<MusicRepository>();
+      final res = await repo.getAvailableLyricsSources(
+        title,
+        artist,
+        duration: widget.song.duration.inSeconds >= 30
+            ? widget.song.duration
+            : null,
+        songId: widget.song.id,
+      );
+      if (mounted) {
+        res.fold(
+          (_) {},
+          (sources) => setState(() => _availableSources = sources),
+        );
+      }
+    } finally {
+      _loadingSources = false;
+    }
+  }
+
+  void _openLyricsSourceSheet() {
+    LyricsSourceSheet.show(
+      context,
+      song: widget.song,
+      currentLyrics: _lyrics,
+      sources: _availableSources,
+      isLoading: _availableSources.isEmpty && _loadingSources,
+      onSelectSource: (providerId) {
+        _load(forceRefresh: true, preferredProviderId: providerId);
+      },
+      onRedownload: () {
+        _load(forceRefresh: true);
+      },
+      onCustomSearch: (customTitle, customArtist) {
+        _load(
+          forceRefresh: true,
+          queryTitle: customTitle,
+          queryArtist: customArtist,
+        );
+      },
     );
   }
 
@@ -122,9 +199,14 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
   }
 
   void _syncToPosition(Duration position) {
+    final posMs = position.inMilliseconds;
+    if (_playbackPositionMs != posMs) {
+      setState(() => _playbackPositionMs = posMs);
+    }
+
     final synced = _lyrics?.syncedLyrics;
     if (synced == null || synced.isEmpty) return;
-    final ms = position.inMilliseconds - _userOffsetMs;
+    final ms = posMs - _userOffsetMs;
     var index = -1;
     for (var i = 0; i < synced.length; i++) {
       if (synced[i].startTimeMs <= ms) index = i;
@@ -163,8 +245,10 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
             ),
           ),
           _LyricsFooter(
+            providerName: _lyrics?.source,
             onRefresh: () => _load(forceRefresh: true),
             onEdit: _openLyricsEditor,
+            onSourceSelect: _openLyricsSourceSheet,
             isUserEdited: false,
           ),
         ],
@@ -174,6 +258,8 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
     final lyrics = _lyrics!;
     if (lyrics.isSynced) {
       final lines = lyrics.syncedLyrics!;
+      final effectivePos = _playbackPositionMs - _userOffsetMs;
+
       return Column(
         children: [
           Expanded(
@@ -187,8 +273,6 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
                 return false;
               },
               child: BlocListener<PlayerBloc, PlayerState>(
-                // Only react when the playback position advances so UI events
-                // (play/pause etc.) don't trigger redundant scrolls.
                 listenWhen: (prev, next) =>
                     prev.position.inMilliseconds != next.position.inMilliseconds,
                 listener: (context, state) => _syncToPosition(state.position),
@@ -201,6 +285,7 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
                     final isActive = index == _activeLine;
                     final isPast = _activeLine >= 0 && index < _activeLine;
                     final timeLabel = _formatLineTime(line.startTimeMs);
+
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Material(
@@ -211,18 +296,14 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
                         child: InkWell(
                           borderRadius: BorderRadius.circular(PrismRadius.md),
                           onTap: () {
-                            final seekPositionMs = (line.startTimeMs +
-                                    _userOffsetMs)
-                                .clamp(
+                            final seekPositionMs = (line.startTimeMs + _userOffsetMs).clamp(
                               0,
                               widget.song.duration.inMilliseconds > 0
                                   ? widget.song.duration.inMilliseconds
                                   : 0x7fffffff,
                             );
                             context.read<PlayerBloc>().add(
-                                  SeekEvent(
-                                    Duration(milliseconds: seekPositionMs),
-                                  ),
+                                  SeekEvent(Duration(milliseconds: seekPositionMs)),
                                 );
                             setState(() => _followCurrentLine = true);
                           },
@@ -235,25 +316,32 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Expanded(
-                                  child: AnimatedDefaultTextStyle(
-                                    duration: PrismMotion.base,
-                                    style: (theme.textTheme.headlineSmall ??
-                                            const TextStyle())
-                                        .copyWith(
-                                      fontWeight: isActive
-                                          ? FontWeight.w800
-                                          : FontWeight.w600,
-                                      letterSpacing: -0.4,
-                                      height: 1.25,
-                                      color: isActive
-                                          ? theme.colorScheme.primary
-                                          : theme.colorScheme.onSurface
-                                              .withValues(
-                                              alpha: isPast ? 0.35 : 0.70,
-                                            ),
-                                    ),
-                                    child: Text(line.text.trim()),
-                                  ),
+                                  child: line.isWordSynced && line.words != null
+                                      ? _KaraokeLineText(
+                                          line: line,
+                                          isActive: isActive,
+                                          isPast: isPast,
+                                          currentPositionMs: effectivePos,
+                                          theme: theme,
+                                        )
+                                      : AnimatedDefaultTextStyle(
+                                          duration: PrismMotion.base,
+                                          style: (theme.textTheme.headlineSmall ??
+                                                  const TextStyle())
+                                              .copyWith(
+                                            fontWeight: isActive
+                                                ? FontWeight.w800
+                                                : FontWeight.w600,
+                                            letterSpacing: -0.4,
+                                            height: 1.25,
+                                            color: isActive
+                                                ? theme.colorScheme.primary
+                                                : theme.colorScheme.onSurface.withValues(
+                                                    alpha: isPast ? 0.35 : 0.70,
+                                                  ),
+                                          ),
+                                          child: Text(line.text.trim()),
+                                        ),
                                 ),
                                 const SizedBox(width: 8),
                                 AnimatedOpacity(
@@ -267,14 +355,11 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
                                     decoration: BoxDecoration(
                                       color: theme.colorScheme.primary
                                           .withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(
-                                        PrismRadius.xs,
-                                      ),
+                                      borderRadius: BorderRadius.circular(PrismRadius.xs),
                                     ),
                                     child: Text(
                                       timeLabel,
-                                      style:
-                                          theme.textTheme.labelSmall?.copyWith(
+                                      style: theme.textTheme.labelSmall?.copyWith(
                                         color: theme.colorScheme.primary,
                                         fontWeight: FontWeight.w700,
                                         fontFeatures: const [
@@ -301,8 +386,7 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
               child: FilledButton.tonalIcon(
                 style: FilledButton.styleFrom(
                   visualDensity: VisualDensity.compact,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                 ),
                 onPressed: () {
                   setState(() => _followCurrentLine = true);
@@ -321,6 +405,8 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
             ),
           _LyricsFooter(
             isSynced: true,
+            providerName: lyrics.source,
+            isKaraoke: lyrics.isKaraoke,
             syncOffsetMs: _userOffsetMs,
             followCurrentLine: _followCurrentLine,
             onToggleFollow: _toggleFollow,
@@ -336,7 +422,9 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
             },
             onRefresh: () => _load(forceRefresh: true),
             onEdit: _openLyricsEditor,
-            isUserEdited: _lyrics?.source == 'User Edited',
+            onSourceSelect: _openLyricsSourceSheet,
+            isUserEdited: _lyrics?.source == 'User Edited' ||
+                _lyrics?.providerId == 'prism_custom',
           ),
         ],
       );
@@ -366,11 +454,85 @@ class _PlayerLyricsViewState extends State<PlayerLyricsView> {
           ),
         ),
         _LyricsFooter(
+          providerName: lyrics.source,
           onRefresh: () => _load(forceRefresh: true),
           onEdit: _openLyricsEditor,
-          isUserEdited: _lyrics?.source == 'User Edited',
+          onSourceSelect: _openLyricsSourceSheet,
+          isUserEdited: _lyrics?.source == 'User Edited' ||
+              _lyrics?.providerId == 'prism_custom',
         ),
       ],
+    );
+  }
+}
+
+/// Renders a lyric line with word-by-word active syllable illumination.
+class _KaraokeLineText extends StatelessWidget {
+  final LyricLine line;
+  final bool isActive;
+  final bool isPast;
+  final int currentPositionMs;
+  final ThemeData theme;
+
+  const _KaraokeLineText({
+    required this.line,
+    required this.isActive,
+    required this.isPast,
+    required this.currentPositionMs,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final words = line.words!;
+    final baseStyle = (theme.textTheme.headlineSmall ?? const TextStyle()).copyWith(
+      letterSpacing: -0.4,
+      height: 1.25,
+    );
+
+    return RichText(
+      text: TextSpan(
+        children: words.map((word) {
+          final isWordDone = isPast || (isActive && currentPositionMs >= word.endTimeMs);
+          final isWordActive = isActive &&
+              currentPositionMs >= word.startTimeMs &&
+              currentPositionMs < word.endTimeMs;
+
+          Color wordColor;
+          FontWeight weight;
+          List<Shadow>? shadows;
+
+          if (isWordActive) {
+            wordColor = theme.colorScheme.primary;
+            weight = FontWeight.w900;
+            shadows = [
+              Shadow(
+                color: theme.colorScheme.primary.withValues(alpha: 0.6),
+                blurRadius: 10,
+              ),
+            ];
+          } else if (isWordDone) {
+            wordColor = isActive
+                ? theme.colorScheme.primary.withValues(alpha: 0.85)
+                : theme.colorScheme.onSurface.withValues(alpha: 0.35);
+            weight = FontWeight.w800;
+          } else {
+            wordColor = theme.colorScheme.onSurface.withValues(alpha: 0.30);
+            weight = FontWeight.w600;
+          }
+
+          final textWithSpace = word.text.endsWith(' ') ? word.text : '${word.text} ';
+
+          return TextSpan(
+            text: textWithSpace,
+            style: baseStyle.copyWith(
+              color: wordColor,
+              fontWeight: weight,
+              shadows: shadows,
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 }
@@ -429,28 +591,34 @@ class _LyricsMessage extends StatelessWidget {
   }
 }
 
-/// Attribution + sync correction + manual refresh shown below lyrics views.
+/// Attribution + source selector + sync correction + manual refresh shown below lyrics.
 class _LyricsFooter extends StatelessWidget {
   const _LyricsFooter({
     required this.onRefresh,
     this.isSynced = false,
+    this.isKaraoke = false,
+    this.providerName,
     this.syncOffsetMs = 0,
     this.followCurrentLine = true,
     this.onToggleFollow,
     this.onAdjustSync,
     this.onResetSync,
     this.onEdit,
+    this.onSourceSelect,
     this.isUserEdited = false,
   });
 
   final VoidCallback onRefresh;
   final bool isSynced;
+  final bool isKaraoke;
+  final String? providerName;
   final int syncOffsetMs;
   final bool followCurrentLine;
   final VoidCallback? onToggleFollow;
   final void Function(int deltaMs)? onAdjustSync;
   final VoidCallback? onResetSync;
   final VoidCallback? onEdit;
+  final VoidCallback? onSourceSelect;
   final bool isUserEdited;
 
   void _showSyncModal(BuildContext context) {
@@ -548,28 +716,49 @@ class _LyricsFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 6, 12, 10),
+      padding: const EdgeInsets.fromLTRB(16, 6, 12, 10),
       child: Row(
         children: [
+          // Source button to open LyricsSourceSheet
           Expanded(
-            child: TextButton(
-              onPressed: () async {
-                final url = Uri.parse('https://lrclib.net');
-                try {
-                  await launchUrl(url, mode: LaunchMode.externalApplication);
-                } catch (_) {
-                  // Attribution link is best-effort.
-                }
-              },
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                alignment: Alignment.centerLeft,
-              ),
-              child: Text(
-                'Lyrics provided by LRCLIB',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+            child: InkWell(
+              onTap: onSourceSelect,
+              borderRadius: BorderRadius.circular(PrismRadius.xs),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isKaraoke ? Icons.mic_external_on_rounded : Icons.layers_outlined,
+                      size: 15,
+                      color: isKaraoke ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        providerName != null
+                            ? 'Lyrics provided by $providerName'
+                            : 'Lyrics provided by LRCLIB',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: isKaraoke
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    Icon(
+                      Icons.arrow_drop_down_rounded,
+                      size: 16,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ],
                 ),
               ),
             ),
