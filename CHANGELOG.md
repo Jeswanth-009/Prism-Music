@@ -8,6 +8,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [1.0.6] - 2026-11-22
+
+### Added
+
+- Add local audio scanner service, folder filters, and Android Auto browsing
+- Add 24-hour persistent throttling and latest-release fallback to update checker
+- Add robots.txt and sitemap.xml for search engine indexing
+
+### Changed
+
+- Automate Linux and Windows release asset packaging and publication
+- Add fastlane android metadata for IzzyOnDroid and F-Droid listings
+- Add Obtainium one-click install badge to readme and website
+- Automate stable releases with dynamic prerelease flag and split-abi apks
+- Organize internal documentation into docs and scripts
+
 ## [1.0.5] - 2026-11-22
 
 ### Added
@@ -1329,3 +1345,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [1.0.3]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.3-build136
 [1.0.4]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.4-build137
 [1.0.5]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.5-build138
+[1.0.6]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.6
