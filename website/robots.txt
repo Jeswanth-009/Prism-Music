@@ -1,0 +1,5 @@
+# robots.txt for Prism Music landing page
+User-agent: *
+Allow: /
+
+Sitemap: https://jeswanth-009.github.io/Prism-Music/sitemap.xml
