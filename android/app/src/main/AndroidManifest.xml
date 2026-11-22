@@ -31,6 +31,8 @@
          this declaration the runtime request silently no-ops (permission_handler
          logs "No permissions found in manifest"). -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+    <!-- Permission to install downloaded APK updates directly -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
 
     <application
         android:label="Prism Music"
@@ -159,6 +161,17 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/prism_playback_widget_info" />
         </receiver>
+
+        <!-- FileProvider for secure in-app APK installation -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
