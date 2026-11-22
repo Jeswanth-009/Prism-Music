@@ -170,6 +170,7 @@ class SettingsService {
   static const String _sleepTimerBedtimeModeKey = 'sleep_timer_bedtime_mode';
   static const String _cellularDataSaverKey = 'cellular_data_saver';
   static const String _offlineArtworkPersistenceKey = 'offline_artwork_persistence';
+  static const String _offlineLyricsPersistenceKey = 'offline_lyrics_persistence';
   static const String _reducedMotionModeKey = 'reduced_motion_mode';
   static const String _telemetryConsentKey = 'telemetry_consent';
   static const String _crashReportingEnabledKey = 'crash_reporting_enabled';
@@ -1038,6 +1039,20 @@ class SettingsService {
   /// Persist offline artwork persistence setting.
   Future<void> setOfflineArtworkPersistence(bool value) async {
     await _settingsBox?.put(_offlineArtworkPersistenceKey, value);
+  }
+
+  /// Whether to download and persist synchronized lyrics alongside audio files (default: true).
+  bool get offlineLyricsPersistence {
+    try {
+      return _settingsBox?.get(_offlineLyricsPersistenceKey, defaultValue: true) as bool? ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// Persist offline lyrics persistence setting.
+  Future<void> setOfflineLyricsPersistence(bool value) async {
+    await _settingsBox?.put(_offlineLyricsPersistenceKey, value);
   }
 
   /// Whether reduced motion is enabled to minimize animations (default: false).

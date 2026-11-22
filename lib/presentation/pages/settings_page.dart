@@ -20,6 +20,7 @@ import '../../core/services/audio_player_service.dart';
 import '../../core/services/queue_persistence_service.dart';
 import '../../core/services/user_profile_service.dart';
 import '../../core/services/crash_reporting_service.dart';
+import '../../core/services/kids_mode_service.dart';
 import '../widgets/profile/profile_switcher_sheet.dart';
 import '../../core/localization/prism_localizations.dart';
 import '../../core/utils/formatters.dart';
@@ -70,6 +71,28 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _isCheckingUpdate = false;
   BackupSnapshotInfo? _latestBackupInfo;
   String? _cacheUsageSubtitle;
+
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  String _selectedCategory = 'All';
+
+  static const List<String> _categories = [
+    'All',
+    'Audio & DSP',
+    'App Experience',
+    'Downloads & Storage',
+    'Kids & Safety',
+    'Account & Services',
+    'Connected Devices',
+    'Backup & Privacy',
+    'About',
+  ];
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -503,6 +526,197 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  bool _shouldShowSection(String categoryName, List<String> keywords) {
+    if (_searchQuery.isNotEmpty) {
+      if (categoryName.toLowerCase().contains(_searchQuery)) return true;
+      for (final kw in keywords) {
+        if (kw.toLowerCase().contains(_searchQuery)) return true;
+      }
+      return false;
+    }
+    if (_selectedCategory == 'All') return true;
+    return _selectedCategory == categoryName;
+  }
+
+  Future<void> _toggleKidsMode(bool enable) async {
+    final kids = KidsModeService.instance;
+    if (enable) {
+      if (!kids.hasPin) {
+        await _showKidsPinDialog(onSuccess: () {
+          setState(() {});
+          showPrismToast(context, 'Kids Mode enabled');
+        });
+      } else {
+        await kids.setKidsModeEnabled(true);
+        setState(() {});
+        if (mounted) showPrismToast(context, 'Kids Mode enabled');
+      }
+    } else {
+      if (kids.hasPin) {
+        final pinController = TextEditingController();
+        final success = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Enter Parent PIN'),
+            content: TextField(
+              controller: pinController,
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              maxLength: 4,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: '4-digit PIN',
+                counterText: '',
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final ok = await kids.verifyPinAndDisable(pinController.text.trim());
+                  if (ctx.mounted) Navigator.pop(ctx, ok);
+                },
+                child: const Text('Unlock'),
+              ),
+            ],
+          ),
+        );
+        if (success == true) {
+          setState(() {});
+          if (mounted) showPrismToast(context, 'Kids Mode disabled');
+        } else if (success == false) {
+          if (mounted) showPrismToast(context, 'Incorrect PIN');
+        }
+      } else {
+        await kids.setKidsModeEnabled(false);
+        setState(() {});
+        if (mounted) showPrismToast(context, 'Kids Mode disabled');
+      }
+    }
+  }
+
+  Future<void> _showKidsPinDialog({VoidCallback? onSuccess}) async {
+    final kids = KidsModeService.instance;
+    final pinController = TextEditingController();
+    final confirmController = TextEditingController();
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(kids.hasPin ? 'Change Parent PIN' : 'Set 4-Digit Parent PIN'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: pinController,
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              maxLength: 4,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'New 4-digit PIN',
+                counterText: '',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: confirmController,
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              maxLength: 4,
+              decoration: const InputDecoration(
+                labelText: 'Confirm 4-digit PIN',
+                counterText: '',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final pin = pinController.text.trim();
+              final confirm = confirmController.text.trim();
+              if (pin.length != 4 || int.tryParse(pin) == null) {
+                showPrismToast(ctx, 'PIN must be exactly 4 digits');
+                return;
+              }
+              if (pin != confirm) {
+                showPrismToast(ctx, 'PINs do not match');
+                return;
+              }
+              final ok = await kids.setupPinAndEnable(pin);
+              if (ok) {
+                if (ctx.mounted) Navigator.pop(ctx);
+                onSuccess?.call();
+                if (mounted) {
+                  setState(() {});
+                  showPrismToast(context, 'Parent PIN set & Kids Mode active');
+                }
+              }
+            },
+            child: const Text('Save PIN'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKidsSafetySection() {
+    final kids = KidsModeService.instance;
+    return SettingSectionCard(
+      title: 'Kids Mode & Safety',
+      subtitle: 'Child-safe listening environment with PIN protection',
+      icon: Icons.child_care_rounded,
+      children: [
+        SettingRow(
+          leading: const Icon(Icons.shield_outlined),
+          title: 'Kids Mode',
+          subtitle: kids.isEnabled
+              ? 'Active — explicit tracks blocked & safe catalog only'
+              : 'Inactive — full catalog and explicit content accessible',
+          trailing: Switch.adaptive(
+            value: kids.isEnabled,
+            onChanged: (enabled) => _toggleKidsMode(enabled),
+          ),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.password_rounded),
+          title: kids.hasPin ? 'Change Parent PIN' : 'Set 4-Digit Parent PIN',
+          subtitle: kids.hasPin
+              ? '4-digit PIN is active'
+              : 'Set a PIN to lock Kids Mode against unauthorized exit',
+          trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+          onTap: () => _showKidsPinDialog(),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.explicit_outlined),
+          title: 'Explicit Content Filter',
+          subtitle: 'Exclude tracks marked explicit or containing profanity',
+          trailing: Switch.adaptive(
+            value: kids.isEnabled,
+            onChanged: (enabled) => _toggleKidsMode(enabled),
+          ),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.subtitles_off_outlined),
+          title: 'Clean Lyrics & Titles',
+          subtitle: 'Automatically mask explicit words in lyrics and song titles',
+          trailing: Switch.adaptive(
+            value: kids.isEnabled,
+            onChanged: (enabled) => _toggleKidsMode(enabled),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_isInitialized && _initError != null) {
@@ -534,15 +748,83 @@ class _SettingsPageState extends State<SettingsPage> {
               top: false,
               child: Column(
                 children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search settings...',
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear_rounded),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() => _searchQuery = '');
+                                },
+                              )
+                            : null,
+                        filled: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                      ),
+                      onChanged: (query) => setState(() => _searchQuery = query.trim().toLowerCase()),
+                    ),
+                  ),
+                  SizedBox(
+                    height: 38,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemCount: _categories.length,
+                      itemBuilder: (context, i) {
+                        final cat = _categories[i];
+                        final isSelected = _selectedCategory == cat;
+                        return ChoiceChip(
+                          label: Text(cat),
+                          selected: isSelected,
+                          onSelected: (_) => setState(() => _selectedCategory = cat),
+                        );
+                      },
+                    ),
+                  ),
                   const SizedBox(height: 12),
-                  _buildAccountSection(),
-                  const SizedBox(height: 16),
-                  _buildAppExperienceSection(),
-                  _buildAudioPlaybackSection(),
-                  _buildConnectedDevicesSection(),
-                  _buildDataStorageSection(),
-                  _buildBackupPrivacySection(),
-                  _buildAboutSection(),
+                  if (_shouldShowSection('Account & Services', ['account', 'profile', 'lastfm', 'last.fm', 'scrobble', 'login'])) ...[
+                    _buildAccountSection(),
+                    const SizedBox(height: 16),
+                  ],
+                  if (_shouldShowSection('App Experience', ['appearance', 'theme', 'dark', 'light', 'layout', 'player', 'accent', 'motion', 'region', 'recommendation'])) ...[
+                    _buildAppExperienceSection(),
+                    const SizedBox(height: 16),
+                  ],
+                  if (_shouldShowSection('Audio & DSP', ['audio', 'quality', 'equalizer', 'eq', 'normalization', 'lufs', 'volume', 'fast start', 'prefetch'])) ...[
+                    _buildAudioPlaybackSection(),
+                    const SizedBox(height: 16),
+                  ],
+                  if (_shouldShowSection('Downloads & Storage', ['downloads', 'storage', 'wifi', 'wi-fi', 'cellular', 'data saver', 'artwork', 'lyrics', 'quota', 'cache'])) ...[
+                    _buildDataStorageSection(),
+                    const SizedBox(height: 16),
+                  ],
+                  if (_shouldShowSection('Kids & Safety', ['kids', 'safety', 'pin', 'explicit', 'parent', 'profanity', 'child'])) ...[
+                    _buildKidsSafetySection(),
+                    const SizedBox(height: 16),
+                  ],
+                  if (_shouldShowSection('Connected Devices', ['connected', 'devices', 'wear os', 'watch', 'companion'])) ...[
+                    _buildConnectedDevicesSection(),
+                    const SizedBox(height: 16),
+                  ],
+                  if (_shouldShowSection('Backup & Privacy', ['backup', 'privacy', 'export', 'import', 'restore', 'crash', 'logs'])) ...[
+                    _buildBackupPrivacySection(),
+                    const SizedBox(height: 16),
+                  ],
+                  if (_shouldShowSection('About', ['about', 'version', 'update', 'license', 'github', 'diagnostics'])) ...[
+                    _buildAboutSection(),
+                    const SizedBox(height: 16),
+                  ],
                   const SizedBox(height: 48),
                 ],
               ),
@@ -1186,6 +1468,20 @@ class _SettingsPageState extends State<SettingsPage> {
             value: _settingsService.offlineArtworkPersistence,
             onChanged: (val) async {
               await _settingsService.setOfflineArtworkPersistence(val);
+              if (mounted) setState(() {});
+            },
+          ),
+        ),
+        SettingRow(
+          leading: const Icon(Icons.lyrics_outlined),
+          title: 'Save Synced Lyrics',
+          subtitle: _settingsService.offlineLyricsPersistence
+              ? 'Save word-by-word synchronized lyrics alongside audio downloads'
+              : 'Download audio file only without local lyrics',
+          trailing: Switch.adaptive(
+            value: _settingsService.offlineLyricsPersistence,
+            onChanged: (val) async {
+              await _settingsService.setOfflineLyricsPersistence(val);
               if (mounted) setState(() {});
             },
           ),

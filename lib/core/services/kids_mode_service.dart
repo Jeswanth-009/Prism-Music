@@ -88,6 +88,16 @@ class KidsModeService extends ChangeNotifier {
     return true;
   }
 
+  /// Sets Kids Mode enabled state directly (e.g. initial setup or test)
+  Future<void> setKidsModeEnabled(bool enabled) async {
+    _isEnabled = enabled;
+    await _box?.put(_kEnabledKey, enabled);
+    notifyListeners();
+  }
+
+  /// Alias for setKidsModeEnabled
+  Future<void> setEnabledWithoutPin(bool enabled) => setKidsModeEnabled(enabled);
+
   /// Verifies entered PIN against stored cryptographic hash
   bool verifyPin(String pin) {
     if (_pinHash == null || _salt == null) return true; // No PIN set
