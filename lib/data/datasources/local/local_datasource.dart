@@ -157,6 +157,7 @@ class LocalDataSourceImpl implements LocalDataSource {
   static const String _cacheBoxName = 'song_cache';
   static const String _favoriteArtistsBoxName = 'favorite_artists';
   static const String _metaBoxName = 'app_metadata';
+  static const String _settingsBoxName = 'local_settings';
   static const String _schemaVersionKey = 'schema_version';
   static const int currentSchemaVersion = 2;
 
@@ -167,6 +168,7 @@ class LocalDataSourceImpl implements LocalDataSource {
   Box? _downloadsBox;
   Box? _playlistsBox;
   Box? _cacheBox;
+  Box? _settingsBox;
   Box? _metaBox;
 
   final Map<String, Future<void>> _playlistLocks = {};
@@ -967,8 +969,9 @@ class LocalDataSourceImpl implements LocalDataSource {
   }
 
   Future<Box> _getSettingsBox() async {
-    // Reuse the cache box for settings as well, or create a dedicated one
-    return _getCacheBox();
+    if (_settingsBox != null && _settingsBox!.isOpen) return _settingsBox!;
+    _settingsBox = await Hive.openBox(_settingsBoxName);
+    return _settingsBox!;
   }
 
   // ============ SEARCH HISTORY ============
