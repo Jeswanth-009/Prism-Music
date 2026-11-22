@@ -165,10 +165,9 @@ class ArtifactVerificationService {
   /// Provides instructions and certificate fingerprint information for official releases.
   Map<String, String> getSigningCertificateMetadata() {
     return const {
-      'fingerprintSha256': 'VERIFIED_GITHUB_ACTIONS_ATTESTATION_KEY',
       'signingAlgorithm': 'SHA256withRSA',
-      'issuer': 'CN=Prism Music, O=Open Source Community, C=US',
-      'buildPipeline': 'Public GitHub Actions (Automated, Zero Human Access, Auditable)',
+      'buildPipeline': 'GitHub Actions SLSA Provenance Attested',
+      'verificationMethod': 'SHA-256 Checksum & SLSA Provenance Verification',
       'sbomUrl': 'https://github.com/Jeswanth-009/Prism-Music/releases',
     };
   }

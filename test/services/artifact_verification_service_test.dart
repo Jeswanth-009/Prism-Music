@@ -46,8 +46,8 @@ void main() {
 
     test('getSigningCertificateMetadata contains required security verification fields', () {
       final cert = service.getSigningCertificateMetadata();
-      expect(cert.containsKey('fingerprintSha256'), isTrue);
       expect(cert.containsKey('signingAlgorithm'), isTrue);
+      expect(cert.containsKey('verificationMethod'), isTrue);
       expect(cert.containsKey('buildPipeline'), isTrue);
       expect(cert.containsKey('sbomUrl'), isTrue);
     });
