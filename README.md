@@ -44,8 +44,10 @@ Search and stream millions of songs from YouTube Music and JioSaavn with line-sy
 | Method | Description | Link |
 |---|---|---|
 | **Direct APK** | Recommended universal ARM APK for Android 7.0+ | [Download Latest APK](https://github.com/Jeswanth-009/Prism-Music/releases/latest) |
-| **Obtainium** | One-click install & automatic background updates | [![Get it on Obtainium](https://img.shields.io/badge/Get_it_on-Obtainium-8a2be2?style=for-the-badge)](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/Jeswanth-009/Prism-Music) |
+| **Obtainium** | One-click install & automatic background updates *(Android only — requires [Obtainium](https://github.com/ImranR98/Obtainium))* | [![Get it on Obtainium](https://img.shields.io/badge/Get_it_on-Obtainium-8a2be2?style=for-the-badge)](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/Jeswanth-009/Prism-Music) |
 | **Desktop** | Windows x64 zip & Linux x64 tarball binaries | [GitHub Releases](https://github.com/Jeswanth-009/Prism-Music/releases/latest) |
+
+> 💡 **Obtainium Tip:** Obtainium is an Android app manager. If clicking the badge on a PC/Mac, it will show a redirect page because desktop browsers do not have the `obtainium://` protocol handler. Open the badge on your **Android device** or manually paste `https://github.com/Jeswanth-009/Prism-Music` into the Obtainium app's **Add App** tab.
 
 ---
 
