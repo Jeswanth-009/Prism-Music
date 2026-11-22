@@ -26,7 +26,13 @@ class PrismUpdateDialog extends StatelessWidget {
     );
   }
 
-  Future<void> _handleUpdate(BuildContext context, {bool preferReleasePage = true}) async {
+  Future<void> _handleUpdate(BuildContext context, {bool preferReleasePage = false}) async {
+    if (!preferReleasePage && info.apkDownloadUrl != null) {
+      Navigator.of(context).pop();
+      AppUpdateService.instance.startDownload(info);
+      return;
+    }
+
     final targetUrl = preferReleasePage
         ? info.releaseUrl
         : (info.apkDownloadUrl ?? info.releaseUrl);

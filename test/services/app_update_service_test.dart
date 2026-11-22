@@ -201,5 +201,28 @@ void main() {
       expect(info.latestVersion, '1.0.5');
       expect(info.currentVersion, '1.0.4');
     });
+
+    test('UpdateDownloadState properly calculates progress percentages and MB', () {
+      const state = UpdateDownloadState(
+        status: UpdateStatus.downloading,
+        progress: 0.5,
+        bytesReceived: 10 * 1024 * 1024,
+        totalBytes: 20 * 1024 * 1024,
+      );
+
+      expect(state.percent, 50);
+      expect(state.receivedMb, '10.0');
+      expect(state.totalMb, '20.0');
+      expect(state.isDownloading, isTrue);
+      expect(state.isReady, isFalse);
+
+      final readyState = state.copyWith(
+        status: UpdateStatus.readyToInstall,
+        progress: 1.0,
+        localApkPath: '/path/to/apk',
+      );
+      expect(readyState.isReady, isTrue);
+      expect(readyState.localApkPath, '/path/to/apk');
+    });
   });
 }
