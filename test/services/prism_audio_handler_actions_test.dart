@@ -100,6 +100,31 @@ void main() {
       await handler.setRepeatMode(AudioServiceRepeatMode.all);
       expect(repeatCycled, isTrue);
     });
+
+    test('defensive error handling catches underlying player exceptions silently', () async {
+      when(() => mockPlayer.play()).thenThrow(Exception('Simulated native play crash'));
+      when(() => mockPlayer.pause()).thenThrow(Exception('Simulated native pause crash'));
+      when(() => mockPlayer.seek(any())).thenThrow(Exception('Simulated native seek crash'));
+
+      // None of these should throw or crash the handler
+      await expectLater(handler.play(), completes);
+      await expectLater(handler.pause(), completes);
+      await expectLater(handler.seek(const Duration(seconds: 10)), completes);
+      await expectLater(handler.fastForward(), completes);
+      await expectLater(handler.rewind(), completes);
+    });
+
+    test('defensive error handling catches media browsing exceptions safely', () async {
+      final children = await handler.getChildren('corrupted_unknown_id');
+      expect(children, isEmpty);
+
+      final item = await handler.getMediaItem('corrupted_unknown_id');
+      expect(item, isNull);
+
+      await expectLater(handler.playFromMediaId('corrupted_unknown_id'), completes);
+      await expectLater(handler.search(''), completes);
+      await expectLater(handler.playFromSearch(''), completes);
+    });
   });
 
   group('WidgetService', () {
