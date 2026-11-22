@@ -10,3 +10,4 @@ export 'user_profile.dart';
 export 'podcast.dart';
 export 'search_category.dart';
 export 'search_results_bundle.dart';
+export 'lyrics_source_descriptor.dart';

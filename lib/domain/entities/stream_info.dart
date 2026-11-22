@@ -72,6 +72,34 @@ class StreamInfo extends Equatable {
       ];
 }
 
+/// Represents the synchronization accuracy of a lyrics payload.
+enum LyricsSyncType {
+  plain,
+  lineSynced,
+  wordSynced, // Karaoke · lights up word by word
+}
+
+/// Represents a single word or syllable in a synced lyric line with exact millisecond timings.
+class LyricWord extends Equatable {
+  final int startTimeMs;
+  final int endTimeMs;
+  final String text;
+  final bool isBackground;
+
+  const LyricWord({
+    required this.startTimeMs,
+    required this.endTimeMs,
+    required this.text,
+    this.isBackground = false,
+  });
+
+  Duration get startTime => Duration(milliseconds: startTimeMs);
+  Duration get endTime => Duration(milliseconds: endTimeMs);
+
+  @override
+  List<Object?> get props => [startTimeMs, endTimeMs, text, isBackground];
+}
+
 /// Represents lyrics for a song
 class Lyrics extends Equatable {
   /// Song ID this lyrics belong to
@@ -83,21 +111,44 @@ class Lyrics extends Equatable {
   /// Synced lyrics with timestamps
   final List<LyricLine>? syncedLyrics;
   
-  /// Source of lyrics (Musixmatch, LRCLIB, etc.)
+  /// Source of lyrics (Better Lyrics, QQ Music, LRCLIB, etc.)
   final String source;
+
+  /// Synchronization tier (plain, lineSynced, wordSynced)
+  final LyricsSyncType syncType;
+
+  /// Identifier of the specific provider that served this payload
+  final String? providerId;
   
-  /// Whether lyrics are synced
+  /// Whether lyrics are synced to lines
   bool get isSynced => syncedLyrics != null && syncedLyrics!.isNotEmpty;
+
+  /// Whether lyrics have syllable/word-by-word karaoke timing
+  bool get isKaraoke =>
+      syncType == LyricsSyncType.wordSynced ||
+      (syncedLyrics?.any((l) => l.isWordSynced) ?? false);
+
+  /// Alias for word-synchronized karaoke capability
+  bool get isWordSynced => isKaraoke;
 
   const Lyrics({
     required this.songId,
     this.plainLyrics,
     this.syncedLyrics,
     required this.source,
+    this.syncType = LyricsSyncType.lineSynced,
+    this.providerId,
   });
 
   @override
-  List<Object?> get props => [songId, plainLyrics, syncedLyrics, source];
+  List<Object?> get props => [
+        songId,
+        plainLyrics,
+        syncedLyrics,
+        source,
+        syncType,
+        providerId,
+      ];
 }
 
 /// Represents a single line of synced lyrics
@@ -111,10 +162,14 @@ class LyricLine extends Equatable {
   /// Lyric text
   final String text;
 
+  /// Word-level or syllable-level timing (for word-by-word karaoke)
+  final List<LyricWord>? words;
+
   const LyricLine({
     required this.startTimeMs,
     this.endTimeMs,
     required this.text,
+    this.words,
   });
 
   /// Get start time as Duration
@@ -124,8 +179,11 @@ class LyricLine extends Equatable {
   Duration? get endTime =>
       endTimeMs != null ? Duration(milliseconds: endTimeMs!) : null;
 
+  /// Whether this line contains word-level karaoke timing
+  bool get isWordSynced => words != null && words!.isNotEmpty;
+
   @override
-  List<Object?> get props => [startTimeMs, endTimeMs, text];
+  List<Object?> get props => [startTimeMs, endTimeMs, text, words];
 }
 
 /// Represents chart/trending data

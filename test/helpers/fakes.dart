@@ -270,6 +270,8 @@ class FakeMusicRepository implements MusicRepository {
     String artistName, {
     Duration? duration,
     bool forceRefresh = false,
+    String? preferredProviderId,
+    String? songId,
   }) async {
     getLyricsCallCount++;
     lastLyricsDurationSeconds = duration?.inSeconds;
@@ -278,6 +280,16 @@ class FakeMusicRepository implements MusicRepository {
       await Future<void>.delayed(lyricsDelay);
     }
     return lyricsResult;
+  }
+
+  @override
+  Future<Either<Failure, List<LyricsSourceDescriptor>>> getAvailableLyricsSources(
+    String songTitle,
+    String artistName, {
+    Duration? duration,
+    String? songId,
+  }) async {
+    return const Right([]);
   }
 
   @override

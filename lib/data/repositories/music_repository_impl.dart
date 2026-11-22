@@ -1234,6 +1234,8 @@ class MusicRepositoryImpl implements MusicRepository {
     String artistName, {
     Duration? duration,
     bool forceRefresh = false,
+    String? preferredProviderId,
+    String? songId,
   }) async {
     try {
       final lyrics = await _lyricsDataSource.getSyncedLyrics(
@@ -1241,6 +1243,8 @@ class MusicRepositoryImpl implements MusicRepository {
         artistName,
         duration: duration,
         forceRefresh: forceRefresh,
+        preferredProviderId: preferredProviderId,
+        songId: songId,
       );
 
       if (lyrics == null) {
@@ -1250,6 +1254,26 @@ class MusicRepositoryImpl implements MusicRepository {
       return Right(lyrics);
     } on LyricsOutageException catch (e) {
       return Left(ServerFailure(message: e.message));
+    } catch (e) {
+      return Left(UnknownFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<LyricsSourceDescriptor>>> getAvailableLyricsSources(
+    String songTitle,
+    String artistName, {
+    Duration? duration,
+    String? songId,
+  }) async {
+    try {
+      final sources = await _lyricsDataSource.getAvailableSources(
+        songTitle,
+        artistName,
+        duration: duration,
+        songId: songId,
+      );
+      return Right(sources);
     } catch (e) {
       return Left(UnknownFailure(message: e.toString()));
     }

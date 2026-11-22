@@ -147,11 +147,22 @@ abstract class MusicRepository {
   // ============ LYRICS ============
 
   /// Get lyrics for a song. Set [forceRefresh] to bypass the local cache.
+  /// When [preferredProviderId] is specified, requests that provider specifically.
   Future<Either<Failure, Lyrics>> getLyrics(
     String songTitle,
     String artistName, {
     Duration? duration,
     bool forceRefresh = false,
+    String? preferredProviderId,
+    String? songId,
+  });
+
+  /// Retrieve available lyrics sources and their status for a song.
+  Future<Either<Failure, List<LyricsSourceDescriptor>>> getAvailableLyricsSources(
+    String songTitle,
+    String artistName, {
+    Duration? duration,
+    String? songId,
   });
 
   /// Save user-corrected or custom lyrics locally.
