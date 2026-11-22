@@ -139,6 +139,7 @@ class PrismAppWidgetProvider : AppWidgetProvider() {
             // Previous intent
             val prevIntent = Intent(context, PrismAppWidgetProvider::class.java).apply {
                 action = ACTION_PREVIOUS
+                setPackage(context.packageName)
             }
             val pendingPrev = PendingIntent.getBroadcast(
                 context,
@@ -151,6 +152,7 @@ class PrismAppWidgetProvider : AppWidgetProvider() {
             // Play/Pause intent
             val playPauseIntent = Intent(context, PrismAppWidgetProvider::class.java).apply {
                 action = ACTION_PLAY_PAUSE
+                setPackage(context.packageName)
             }
             val pendingPlayPause = PendingIntent.getBroadcast(
                 context,
@@ -163,6 +165,7 @@ class PrismAppWidgetProvider : AppWidgetProvider() {
             // Next intent
             val nextIntent = Intent(context, PrismAppWidgetProvider::class.java).apply {
                 action = ACTION_NEXT
+                setPackage(context.packageName)
             }
             val pendingNext = PendingIntent.getBroadcast(
                 context,
@@ -190,16 +193,27 @@ class PrismAppWidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         when (intent.action) {
-            ACTION_PREVIOUS -> {
-                sendMediaKeyEvent(context, KeyEvent.KEYCODE_MEDIA_PREVIOUS)
-            }
-            ACTION_PLAY_PAUSE -> {
-                sendMediaKeyEvent(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
-            }
-            ACTION_NEXT -> {
-                sendMediaKeyEvent(context, KeyEvent.KEYCODE_MEDIA_NEXT)
+            ACTION_PREVIOUS, ACTION_PLAY_PAUSE, ACTION_NEXT -> {
+                // Verify intent sender holds CONTROL signature permission or is from our package (SEC-05)
+                val isSelf = intent.component?.packageName == context.packageName || intent.`package` == context.packageName
+                val hasPermission = context.checkCallingOrSelfPermission("com.prismmusic.prism_music.permission.CONTROL") == android.content.pm.PackageManager.PERMISSION_GRANTED
+                if (!isSelf && !hasPermission) {
+                    return
+                }
+
+                when (intent.action) {
+                    ACTION_PREVIOUS -> sendMediaKeyEvent(context, KeyEvent.KEYCODE_MEDIA_PREVIOUS)
+                    ACTION_PLAY_PAUSE -> sendMediaKeyEvent(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
+                    ACTION_NEXT -> sendMediaKeyEvent(context, KeyEvent.KEYCODE_MEDIA_NEXT)
+                }
             }
         }
+    }
+
+    override fun onDisabled(context: Context) {
+        super.onDisabled(context)
+        lastArtworkBitmap?.recycle()
+        lastArtworkBitmap = null
     }
 
     private fun sendMediaKeyEvent(context: Context, keyCode: Int) {

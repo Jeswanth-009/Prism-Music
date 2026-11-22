@@ -1,61 +1,9 @@
 import 'dart:io';
-import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 
 /// Service for handling runtime permissions
 class PermissionService {
-   /// Request all required permissions for the app
-   static Future<Map<Permission, PermissionStatus>> requestAllPermissions() async {
-     final results = <Permission, PermissionStatus>{};
-
-     if (Platform.isAndroid) {
-       // Check Android version for appropriate permissions
-       final androidInfo = await _getAndroidVersion();
-
-       // The notification permission MUST be requested on its own: bundling
-       // it with special permissions (battery optimization) makes some OEM
-       // skins silently drop the dialog, after which Android 13+ hides the
-       // media notification forever with no error anywhere.
-       if (androidInfo >= 33) {
-         results[Permission.notification] =
-             await Permission.notification.request();
-       }
-
-       final permissions = <Permission>[];
-       if (androidInfo >= 33) {
-         // Android 13+ uses granular media permissions
-         permissions.add(Permission.audio);
-       } else if (androidInfo >= 30) {
-         // Android 11-12
-         permissions.add(Permission.storage);
-       } else {
-         // Android 10 and below
-         permissions.add(Permission.storage);
-       }
-
-       // Request ignore battery optimizations for background audio playback
-       permissions.add(Permission.ignoreBatteryOptimizations);
-
-       if (permissions.isNotEmpty) {
-         try {
-           results.addAll(await permissions.request());
-         } on PlatformException catch (e) {
-           if (!(e.message?.contains('already running') ?? false)) {
-             rethrow;
-           }
-         }
-       }
-     } else if (Platform.isIOS) {
-       results.addAll(await [
-         Permission.mediaLibrary,
-         Permission.notification,
-       ].request());
-     }
-
-     return results;
-   }
-  
   static bool _notificationRequested = false;
 
   /// Request notification permission once on initial playback without blocking startup

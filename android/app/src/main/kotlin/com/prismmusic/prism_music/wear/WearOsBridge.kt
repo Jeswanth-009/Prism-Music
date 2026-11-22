@@ -70,10 +70,11 @@ class WearOsBridge(private val context: Context, messenger: BinaryMessenger) : M
                 addAction(ACTION_SEEK)
                 addAction(ACTION_SET_VOLUME)
             }
+            val controlPermission = "com.prismmusic.prism_music.permission.CONTROL"
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+                context.registerReceiver(receiver, filter, controlPermission, null, Context.RECEIVER_EXPORTED)
             } else {
-                context.registerReceiver(receiver, filter)
+                context.registerReceiver(receiver, filter, controlPermission, null)
             }
             isReceiverRegistered = true
         }
