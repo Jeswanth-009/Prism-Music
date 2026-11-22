@@ -706,8 +706,60 @@ class FakeAudioPlayerService implements AudioPlayerService {
 
   @override
   bool get playing => isPlayingFlag;
+  bool queueModeFlag = false;
   @override
-  bool get isQueueMode => false;
+  bool get isQueueMode => queueModeFlag;
+
+  final List<Map<String, dynamic>> loadedQueueSongs = [];
+  final List<Map<String, dynamic>> appendedQueuePayloads = [];
+  int currentQueueIndex = 0;
+
+  @override
+  bool get hasNext => isQueueMode && currentQueueIndex < loadedQueueSongs.length - 1;
+
+  @override
+  bool get hasPrevious => isQueueMode && currentQueueIndex > 0;
+
+  @override
+  Future<Duration?> loadQueue(
+    List<Map<String, dynamic>> songs, {
+    int initialIndex = 0,
+    int prewarmLookahead = 2,
+  }) async {
+    queueModeFlag = true;
+    loadedQueueSongs.clear();
+    loadedQueueSongs.addAll(songs);
+    currentQueueIndex = initialIndex;
+    isPlayingFlag = true;
+    _idxCtrl.add(currentQueueIndex);
+    return const Duration(seconds: 180);
+  }
+
+  @override
+  Future<void> appendToQueue(List<Map<String, dynamic>> songs) async {
+    loadedQueueSongs.addAll(songs);
+    appendedQueuePayloads.addAll(songs);
+  }
+
+  @override
+  Future<void> skipToNext() async {
+    if (hasNext) {
+      currentQueueIndex++;
+      _idxCtrl.add(currentQueueIndex);
+    }
+  }
+
+  Future<void> seekToNext() => skipToNext();
+
+  @override
+  Future<void> skipToPrevious() async {
+    if (hasPrevious) {
+      currentQueueIndex--;
+      _idxCtrl.add(currentQueueIndex);
+    }
+  }
+
+  Future<void> seekToPrevious() => skipToPrevious();
 
   @override
   Future<Duration?> setUrl(
@@ -780,12 +832,26 @@ class FakeAudioFocusOrchestrator implements AudioFocusOrchestratorService {
 }
 
 class FakeMediaResolver implements MediaResolverService {
+  final DownloadService? downloadService;
+
+  FakeMediaResolver({this.downloadService});
+
   @override
   Future<ResolvedMediaSource> resolveForPlayback(
     Song song, {
     AudioQuality preferredQuality = AudioQuality.high,
     String? preferredResolverName,
   }) async {
+    if (downloadService != null && downloadService!.isSongDownloaded(song)) {
+      final localPath = downloadService!.getLocalPathForSong(song);
+      if (localPath != null) {
+        return ResolvedMediaSource(
+          uri: localPath,
+          isOffline: true,
+          videoId: song.playableId,
+        );
+      }
+    }
     return ResolvedMediaSource(
       uri: 'https://stream.example.com/${song.id}',
       isOffline: false,
@@ -933,15 +999,16 @@ PlayerBloc buildTestPlayerBloc({
   DownloadService? downloadService,
 }) {
   ensureWidgetTestHive();
+  final ds = downloadService ?? FakeDownloadService();
   return PlayerBloc(
       musicRepository: musicRepository ?? FakeMusicRepository(),
       libraryRepository: libraryRepository ?? FakeLibraryRepository(),
       audioPlayerService: audioPlayerService ?? FakeAudioPlayerService(),
       audioFocus: FakeAudioFocusOrchestrator(),
-      mediaResolver: mediaResolver ?? FakeMediaResolver(),
+      mediaResolver: mediaResolver ?? FakeMediaResolver(downloadService: ds),
       reliability: PlaybackReliabilityService(),
       streamLoader: FakeStreamLoader(),
-      downloadService: downloadService ?? FakeDownloadService(),
+      downloadService: ds,
       recommendationService: recommendationService,
     );
 }

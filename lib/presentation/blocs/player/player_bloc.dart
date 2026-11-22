@@ -232,7 +232,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     on<PlayerErrorEvent>(_onPlayerError);
     on<_BufferingChangedEvent>(_onBufferingChanged);
     on<_CompletedEvent>(_onCompleted);
-    on<_AddRecommendationsEvent>(_onAddRecommendations);
+    on<AddRecommendationsEvent>(_onAddRecommendations);
     on<_IndexChangedEvent>(_onIndexChanged);
     on<_TrackStalledEvent>(_onTrackStalled);
     on<ToggleAutoPlayEvent>(_onToggleAutoPlay);
@@ -2347,10 +2347,14 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
   /// Local file path of [song] when it has been downloaded, otherwise null.
   String? _downloadedPathFor(Song song) {
-    final id = song.playableId;
-    if (!_downloadService.isDownloaded(id)) return null;
-    final path = _downloadService.getLocalPath(id);
-    return (path != null && path.isNotEmpty) ? path : null;
+    try {
+      final id = song.playableId;
+      if (!_downloadService.isDownloaded(id)) return null;
+      final path = _downloadService.getLocalPath(id);
+      return (path != null && path.isNotEmpty) ? path : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<Duration?> _loadAudioQueueSafe(
@@ -2687,15 +2691,8 @@ class _CompletedEvent extends PlayerEvent {
   List<Object?> get props => [];
 }
 
-/// Internal event to batch-add recommendation songs to the queue
-class _AddRecommendationsEvent extends PlayerEvent {
-  final List<Song> songs;
-
-  const _AddRecommendationsEvent(this.songs);
-
-  @override
-  List<Object?> get props => [songs];
-}
+/// Alias for backwards compatibility with internal calls
+typedef _AddRecommendationsEvent = AddRecommendationsEvent;
 
 /// Internal event for track index changes (from auto-advance in background)
 class _IndexChangedEvent extends PlayerEvent {

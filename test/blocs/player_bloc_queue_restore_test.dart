@@ -124,6 +124,12 @@ class _FakeStreamLoader implements StreamLoaderService {
 
 class _FakeDownloadService implements DownloadService {
   @override
+  bool isDownloaded(String songId) => false;
+
+  @override
+  String? getLocalPath(String songId) => null;
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 

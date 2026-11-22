@@ -47,6 +47,15 @@ class StartSongRadioEvent extends PlayerEvent {
   @override
   List<Object?> get props => [seedSong];
 }
+/// Add recommendation songs to the playback queue
+class AddRecommendationsEvent extends PlayerEvent {
+  final List<Song> songs;
+  const AddRecommendationsEvent(this.songs);
+
+  @override
+  List<Object?> get props => [songs];
+}
+
 /// Play/Resume current song
 class ResumeEvent extends PlayerEvent {
   const ResumeEvent();

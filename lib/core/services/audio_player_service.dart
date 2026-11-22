@@ -82,6 +82,8 @@ class AudioPlayerService {
   bool get isQueueMode => _playlist != null;
   @visibleForTesting
   int get queueSourcesLength => _queueSources.length;
+  @visibleForTesting
+  List<AudioSource> get queueSources => List.unmodifiable(_queueSources);
 
   // Equalizer access
   EqualizerService get equalizer => _equalizerService;
@@ -651,7 +653,13 @@ class AudioPlayerService {
     if (url == null || url.isEmpty) return false;
     if (url.startsWith('file://')) return true;
     if (url.startsWith('http://') || url.startsWith('https://')) return false;
-    return File(url).existsSync();
+    if (url.startsWith('/')) return true;
+    if (url.length >= 3 && url[1] == ':' && (url[2] == '\\' || url[2] == '/')) return true;
+    try {
+      return File(url).existsSync();
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Whether a track should be routed through [YouTubeAudioSource].
