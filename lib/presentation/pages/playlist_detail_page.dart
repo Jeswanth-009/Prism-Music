@@ -490,6 +490,9 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
               itemBuilder: (context, index) {
                 final song = displaySongs[index];
                 final tile = BlocBuilder<PlayerBloc, PlayerState>(
+                  buildWhen: (prev, curr) =>
+                      (prev.currentSong?.id == song.id) != (curr.currentSong?.id == song.id) ||
+                      (prev.isPlaying != curr.isPlaying && curr.currentSong?.id == song.id),
                   builder: (context, playerState) => PrismSongTile(
                     song: song,
                     isPlaying: playerState.currentSong?.id == song.id,

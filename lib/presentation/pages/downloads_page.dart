@@ -337,6 +337,9 @@ class _DownloadsPageState extends State<DownloadsPage> {
     final size = songData['fileSize'] as int?;
 
     return BlocBuilder<PlayerBloc, PlayerState>(
+      buildWhen: (prev, curr) =>
+          (prev.currentSong?.id == song.id) != (curr.currentSong?.id == song.id) ||
+          (prev.isPlaying != curr.isPlaying && curr.currentSong?.id == song.id),
       builder: (context, playerState) {
         return PrismSongTile(
           song: song,

@@ -239,6 +239,9 @@ class _AlbumPageState extends State<AlbumPage> {
                 itemBuilder: (context, index) {
                   final song = songs[index];
                   return BlocBuilder<PlayerBloc, PlayerState>(
+                    buildWhen: (prev, curr) =>
+                        (prev.currentSong?.id == song.id) != (curr.currentSong?.id == song.id) ||
+                        (prev.isPlaying != curr.isPlaying && curr.currentSong?.id == song.id),
                     builder: (context, playerState) => PrismSongTile(
                       song: song,
                       index: index,

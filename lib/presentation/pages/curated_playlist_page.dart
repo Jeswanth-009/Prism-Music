@@ -342,6 +342,9 @@ class _CuratedPlaylistPageState extends State<CuratedPlaylistPage> {
                               itemBuilder: (context, index) {
                                 final song = _songs[index];
                                 return BlocBuilder<PlayerBloc, PlayerState>(
+                                  buildWhen: (prev, curr) =>
+                                      (prev.currentSong?.id == song.id) != (curr.currentSong?.id == song.id) ||
+                                      (prev.isPlaying != curr.isPlaying && curr.currentSong?.id == song.id),
                                   builder: (context, playerState) =>
                                       PrismSongTile(
                                     song: song,

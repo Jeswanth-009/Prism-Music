@@ -382,6 +382,9 @@ class _ArtistPageState extends State<ArtistPage> {
         ),
         const SizedBox(height: 10),
         BlocBuilder<PlayerBloc, PlayerState>(
+          buildWhen: (prev, curr) =>
+              prev.currentSong?.id != curr.currentSong?.id ||
+              prev.isPlaying != curr.isPlaying,
           builder: (context, playerState) => Column(
             children: _topSongs.asMap().entries.map((entry) {
               final song = entry.value;
