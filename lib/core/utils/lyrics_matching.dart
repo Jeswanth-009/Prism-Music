@@ -246,6 +246,161 @@ List<LyricLine> parseLrc(String lrc) {
   return lines;
 }
 
+/// Convert TTML time string ("27.395", "1:25.620", "02:30.100", "12.5s", "500ms") into milliseconds.
+int parseTtmlTimeMs(String timeStr) {
+  var clean = timeStr.trim().toLowerCase();
+  if (clean.isEmpty) return 0;
+  try {
+    if (clean.endsWith('ms')) {
+      final val = double.tryParse(clean.replaceAll('ms', '').trim()) ?? 0.0;
+      return val.round();
+    }
+    if (clean.endsWith('s')) {
+      clean = clean.substring(0, clean.length - 1).trim();
+    }
+    if (clean.contains(':')) {
+      final parts = clean.split(':');
+      if (parts.length == 2) {
+        final minutes = int.tryParse(parts[0]) ?? 0;
+        final seconds = double.tryParse(parts[1]) ?? 0.0;
+        return (minutes * 60 * 1000 + seconds * 1000).round();
+      } else if (parts.length == 3) {
+        final hours = int.tryParse(parts[0]) ?? 0;
+        final minutes = int.tryParse(parts[1]) ?? 0;
+        final seconds = double.tryParse(parts[2]) ?? 0.0;
+        return (hours * 3600 * 1000 + minutes * 60 * 1000 + seconds * 1000).round();
+      }
+    }
+    final secs = double.tryParse(clean) ?? 0.0;
+    return (secs * 1000).round();
+  } catch (_) {
+    return 0;
+  }
+}
+
+/// Parse a TTML XML document (used by Apple Music and Better Lyrics) into
+/// word-by-word synced `LyricLine`s with `LyricWord` timestamps.
+List<LyricLine> parseTtmlLyrics(String ttml) {
+  final lines = <LyricLine>[];
+  if (ttml.trim().isEmpty) return lines;
+
+  // Match <p ...begin="..." end="...">...</p>
+  final pTagRegex = RegExp(r'<p\b([^>]*)>(.*?)</p>', dotAll: true, caseSensitive: false);
+  final beginRegex = RegExp(r'begin="([^"]+)"', caseSensitive: false);
+  final endRegex = RegExp(r'end="([^"]+)"', caseSensitive: false);
+  final spanRegex = RegExp(r'<span\b([^>]*)>(.*?)</span>', dotAll: true, caseSensitive: false);
+
+  for (final pMatch in pTagRegex.allMatches(ttml)) {
+    final pAttrs = pMatch.group(1) ?? '';
+    final pBody = pMatch.group(2) ?? '';
+
+    final beginAttr = beginRegex.firstMatch(pAttrs)?.group(1);
+    final endAttr = endRegex.firstMatch(pAttrs)?.group(1);
+
+    final lineStartMs = beginAttr != null ? parseTtmlTimeMs(beginAttr) : 0;
+    final lineEndMs = endAttr != null ? parseTtmlTimeMs(endAttr) : null;
+
+    final words = <LyricWord>[];
+    final wordSpans = spanRegex.allMatches(pBody).toList();
+
+    for (final spanMatch in wordSpans) {
+      final spanAttrs = spanMatch.group(1) ?? '';
+      var spanText = spanMatch.group(2) ?? '';
+
+      // Strip any nested tags if present
+      spanText = spanText.replaceAll(RegExp(r'<[^>]*>'), '');
+      if (spanText.isEmpty) continue;
+
+      final sBegin = beginRegex.firstMatch(spanAttrs)?.group(1);
+      final sEnd = endRegex.firstMatch(spanAttrs)?.group(1);
+
+      final wStartMs = sBegin != null ? parseTtmlTimeMs(sBegin) : lineStartMs;
+      final wEndMs = sEnd != null ? parseTtmlTimeMs(sEnd) : (lineEndMs ?? wStartMs + 300);
+
+      words.add(LyricWord(
+        startTimeMs: wStartMs,
+        endTimeMs: wEndMs,
+        text: spanText.trim(),
+      ));
+    }
+
+    // Strip HTML entities (&apos;, &quot;, &amp;, etc.) and tags
+    String lineText = pBody.replaceAll(RegExp(r'<[^>]*>'), '');
+    lineText = lineText
+        .replaceAll('&apos;', "'")
+        .replaceAll('&quot;', '"')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+
+    if (lineText.isEmpty && words.isEmpty) continue;
+
+    lines.add(LyricLine(
+      startTimeMs: lineStartMs,
+      endTimeMs: lineEndMs,
+      text: lineText.isNotEmpty ? lineText : words.map((w) => w.text).join(' ').trim(),
+      words: words.isNotEmpty ? words : null,
+    ));
+  }
+
+  lines.sort((a, b) => a.startTimeMs.compareTo(b.startTimeMs));
+  return lines;
+}
+
+/// Parse LyricsPlus JSON payload (syllabus word-timing format) into `LyricLine`s with `LyricWord`s.
+List<LyricLine> parseLyricsPlusJson(Map<String, dynamic> data) {
+  final lines = <LyricLine>[];
+  final rawLyrics = data['lyrics'] ?? data['lines'];
+  if (rawLyrics is! List) return lines;
+
+  for (final item in rawLyrics) {
+    if (item is! Map<String, dynamic>) continue;
+
+    final timeMs = (item['time'] as num?)?.toInt() ?? 0;
+    final durMs = (item['duration'] as num?)?.toInt();
+    var lineText = (item['text'] ?? '').toString().trim();
+    final syllabus = item['syllabus'] ?? item['words'];
+
+    final words = <LyricWord>[];
+    if (syllabus is List) {
+      for (final s in syllabus) {
+        if (s is! Map<String, dynamic>) continue;
+        final sTime = (s['time'] as num?)?.toInt() ?? timeMs;
+        final sDur = (s['duration'] as num?)?.toInt() ?? 200;
+        final sText = (s['text'] ?? '').toString().trim();
+        final isBg = (s['isBackground'] as bool?) ?? false;
+
+        if (sText.isNotEmpty) {
+          words.add(LyricWord(
+            startTimeMs: sTime,
+            endTimeMs: sTime + sDur,
+            text: sText,
+            isBackground: isBg,
+          ));
+        }
+      }
+    }
+
+    if (lineText.isEmpty && words.isNotEmpty) {
+      lineText = words.map((w) => w.text).join(' ').trim();
+    }
+
+    if (lineText.isEmpty && words.isEmpty) continue;
+
+    lines.add(LyricLine(
+      startTimeMs: timeMs,
+      endTimeMs: durMs != null ? timeMs + durMs : null,
+      text: lineText.isNotEmpty ? lineText : words.map((w) => w.text).join(),
+      words: words.isNotEmpty ? words : null,
+    ));
+  }
+
+  lines.sort((a, b) => a.startTimeMs.compareTo(b.startTimeMs));
+  return lines;
+}
+
 /// A lyrics candidate as returned by LRCLIB's search endpoint, reduced to
 /// the fields the scorer needs.
 class LyricsCandidate {
