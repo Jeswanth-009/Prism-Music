@@ -8,6 +8,7 @@ import '../../domain/repositories/library_repository.dart';
 import '../di/injection.dart';
 import '../utils/logger.dart';
 import 'download_service.dart';
+import 'local_audio_service.dart';
 import 'media_session_coordinator.dart';
 import 'wear_os_service.dart';
 
@@ -21,13 +22,18 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
   final AudioPlayer player;
   final DownloadService? _downloadService;
   final LibraryRepository? _libraryRepository;
+  final LocalAudioService? _localAudioService;
+
+  LocalAudioService get _localAudio => _localAudioService ?? LocalAudioService.instance;
 
   PrismAudioHandler(
     this.player, {
     DownloadService? downloadService,
     LibraryRepository? libraryRepository,
+    LocalAudioService? localAudioService,
   })  : _downloadService = downloadService,
-        _libraryRepository = libraryRepository {
+        _libraryRepository = libraryRepository,
+        _localAudioService = localAudioService {
     // Broadcast player state to the system notification
     player.playbackEventStream.listen(
       _broadcastState,
@@ -402,6 +408,13 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
             playable: false,
             extras: {'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 1},
           ),
+          MediaItem(
+            id: 'local',
+            title: 'Device Storage',
+            album: 'Prism Music',
+            playable: false,
+            extras: {'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 1},
+          ),
         ];
       }
 
@@ -484,6 +497,11 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
         return artistSongs
             .map((s) => _songToMediaItem(s, prefix: 'artist_${artistId}_'))
             .toList();
+      }
+
+      if (parentMediaId == 'local') {
+        final localSongs = await _localAudio.scanLocalAudio();
+        return localSongs.map((s) => _songToMediaItem(s, prefix: 'local_')).toList();
       }
 
       return const [];
@@ -668,6 +686,7 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
         final allSongs = <Song>[
           ...(_downloads?.getDownloadedSongsList() ?? []),
           ...((await _library?.getLikedSongs())?.fold((l) => <Song>[], (r) => r) ?? []),
+          ..._localAudio.cachedSongs,
         ];
         if (remaining.contains('_')) {
           final parts = remaining.split('_');
@@ -690,11 +709,32 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
         }
       }
 
+      // 9. Play local device audio folder
+      if (mediaId == 'local') {
+        final songs = await _localAudio.scanLocalAudio();
+        if (songs.isNotEmpty) {
+          MediaSessionCoordinator.instance.playFromMedia(songs.first, songs, 0);
+        }
+        return;
+      }
+
+      // 10. Play song inside local storage (local_<songId>)
+      if (mediaId.startsWith('local_')) {
+        final songId = mediaId.substring('local_'.length);
+        final songs = await _localAudio.scanLocalAudio();
+        final idx = songs.indexWhere((s) => s.id == mediaId || s.id == 'local_$songId' || s.id == songId);
+        if (idx != -1) {
+          MediaSessionCoordinator.instance.playFromMedia(songs[idx], songs, idx);
+          return;
+        }
+      }
+
       // Fallback: look for song by bare mediaId
       final allSongs = <Song>[
         ...(_downloads?.getDownloadedSongsList() ?? []),
         ...((await _library?.getLikedSongs())?.fold((l) => <Song>[], (r) => r) ?? []),
         ...((await _library?.getListeningHistory(limit: 30))?.fold((l) => <Song>[], (r) => r) ?? []),
+        ..._localAudio.cachedSongs,
       ];
       final matchIdx = allSongs.indexWhere((s) => s.id == mediaId);
       if (matchIdx != -1) {
@@ -734,6 +774,17 @@ class PrismAudioHandler extends BaseAudioHandler with SeekHandler {
           .toList();
       if (matchedLiked.isNotEmpty) {
         return matchedLiked.map((s) => _songToMediaItem(s, prefix: 'fav_')).toList();
+      }
+
+      final localMatches = _localAudio.cachedSongs
+          .where(
+            (s) =>
+                s.title.toLowerCase().contains(trimmed) ||
+                s.artist.toLowerCase().contains(trimmed),
+          )
+          .toList();
+      if (localMatches.isNotEmpty) {
+        return localMatches.map((s) => _songToMediaItem(s, prefix: 'local_')).toList();
       }
 
       return const [];

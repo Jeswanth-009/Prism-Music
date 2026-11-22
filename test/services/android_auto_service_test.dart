@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:prism_music/core/services/download_service.dart';
+import 'package:prism_music/core/services/local_audio_service.dart';
 import 'package:prism_music/core/services/media_session_coordinator.dart';
 import 'package:prism_music/core/services/prism_audio_handler.dart';
 import 'package:prism_music/domain/entities/entities.dart';
@@ -12,6 +13,7 @@ import 'package:prism_music/domain/repositories/repositories.dart';
 class MockAudioPlayer extends Mock implements AudioPlayer {}
 class MockDownloadService extends Mock implements DownloadService {}
 class MockLibraryRepository extends Mock implements LibraryRepository {}
+class MockLocalAudioService extends Mock implements LocalAudioService {}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +21,7 @@ void main() {
   late MockAudioPlayer mockPlayer;
   late MockDownloadService mockDownloads;
   late MockLibraryRepository mockLibrary;
+  late MockLocalAudioService mockLocalAudio;
   late PrismAudioHandler handler;
 
   const testSong1 = Song(
@@ -48,6 +51,7 @@ void main() {
     mockPlayer = MockAudioPlayer();
     mockDownloads = MockDownloadService();
     mockLibrary = MockLibraryRepository();
+    mockLocalAudio = MockLocalAudioService();
 
     when(() => mockPlayer.playbackEventStream).thenAnswer((_) => const Stream.empty());
     when(() => mockPlayer.durationStream).thenAnswer((_) => const Stream.empty());
@@ -61,19 +65,31 @@ void main() {
     when(() => mockPlayer.processingState).thenReturn(ProcessingState.idle);
     when(() => mockPlayer.playbackEvent).thenReturn(PlaybackEvent());
 
+    when(() => mockLocalAudio.scanLocalAudio(force: any(named: 'force'))).thenAnswer((_) async => [testSong1]);
+    when(() => mockLocalAudio.cachedSongs).thenReturn([testSong1]);
+
     handler = PrismAudioHandler(
       mockPlayer,
       downloadService: mockDownloads,
       libraryRepository: mockLibrary,
+      localAudioService: mockLocalAudio,
     );
   });
 
   group('PrismAudioHandler - Android Auto MediaBrowser Tree', () {
-    test('getChildren at root returns 5 browsable categories', () async {
+    test('getChildren at root returns 6 browsable categories', () async {
       final children = await handler.getChildren(AudioService.MEDIA_ROOT_ID);
-      expect(children.length, 5);
-      expect(children.map((c) => c.id).toList(), ['downloads', 'favorites', 'playlists', 'recent', 'artists']);
+      expect(children.length, 6);
+      expect(children.map((c) => c.id).toList(), ['downloads', 'favorites', 'playlists', 'recent', 'artists', 'local']);
       expect(children.every((c) => c.playable == false), isTrue);
+    });
+
+    test('getChildren for local returns scanned on-device playable songs', () async {
+      final children = await handler.getChildren('local');
+      expect(children.length, 1);
+      expect(children[0].id, 'local_song1');
+      expect(children[0].title, 'Song One');
+      expect(children[0].playable, isTrue);
     });
 
     test('getChildren for downloads returns downloaded playable songs', () async {
