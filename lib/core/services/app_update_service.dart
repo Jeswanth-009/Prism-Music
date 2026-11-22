@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../utils/logger.dart';
+import 'settings_service.dart';
 
 /// Data model representing an app update check outcome.
 class AppUpdateInfo {
@@ -43,9 +44,10 @@ class AppUpdateInfo {
 /// caches recent results, and parses clean changelog release notes.
 class AppUpdateService {
   static const String _defaultApiUrl =
-      'https://api.github.com/repos/Jeswanth-009/Prism-Music/releases?per_page=1';
+      'https://api.github.com/repos/Jeswanth-009/Prism-Music/releases/latest';
   static const Duration _timeout = Duration(seconds: 4);
   static const Duration _cacheDuration = Duration(minutes: 15);
+  static const Duration _throttleDuration = Duration(hours: 24);
 
   final http.Client _client;
   final String _apiUrl;
@@ -79,12 +81,23 @@ class AppUpdateService {
     bool force = false,
     PackageInfo? overridePackageInfo,
   }) async {
-    // 1. Check in-memory cache if not forced
-    if (!force &&
-        _cachedInfo != null &&
-        _lastCheckTime != null &&
-        DateTime.now().difference(_lastCheckTime!) < _cacheDuration) {
-      return _cachedInfo;
+    // 1. Persistent 24-hour rate limit check (bypass if force is true)
+    if (!force) {
+      if (_cachedInfo != null &&
+          _lastCheckTime != null &&
+          DateTime.now().difference(_lastCheckTime!) < _cacheDuration) {
+        return _cachedInfo;
+      }
+      try {
+        final lastCheck = SettingsService.instance.lastUpdateCheckTime ?? _lastCheckTime;
+        if (lastCheck != null &&
+            DateTime.now().difference(lastCheck) < _throttleDuration) {
+          logDebug('AppUpdateService: Update check skipped (throttled to 24 hours)');
+          return _cachedInfo;
+        }
+      } catch (_) {
+        // Fall back gracefully if Hive/settings box not yet ready
+      }
     }
 
     try {
@@ -109,12 +122,19 @@ class AppUpdateService {
       }
 
       final decoded = json.decode(response.body);
-      if (decoded is! List || decoded.isEmpty) {
-        logDebug('AppUpdateService: No releases returned by GitHub');
+      Map<String, dynamic> latestRelease;
+      if (decoded is List) {
+        if (decoded.isEmpty) {
+          logDebug('AppUpdateService: No releases returned by GitHub');
+          return null;
+        }
+        latestRelease = decoded.first as Map<String, dynamic>;
+      } else if (decoded is Map<String, dynamic>) {
+        latestRelease = decoded;
+      } else {
+        logDebug('AppUpdateService: Unexpected response format from GitHub');
         return null;
       }
-
-      final latestRelease = decoded.first as Map<String, dynamic>;
       final tagName = (latestRelease['tag_name'] as String?) ?? '';
       final releaseName = (latestRelease['name'] as String?) ?? tagName;
       final releaseUrl = (latestRelease['html_url'] as String?) ??
@@ -155,6 +175,9 @@ class AppUpdateService {
 
       _cachedInfo = updateInfo;
       _lastCheckTime = DateTime.now();
+      try {
+        await SettingsService.instance.setLastUpdateCheckTime(_lastCheckTime!);
+      } catch (_) {}
 
       return updateInfo;
     } catch (e, stack) {

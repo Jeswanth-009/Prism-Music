@@ -168,6 +168,9 @@ class SettingsService {
   static const String _audioNormalizationPreampDbKey = 'audio_normalization_preamp_db';
   static const String _wearOsCompanionKey = 'wear_os_companion_enabled';
   static const String _visualizerStyleKey = 'visualizer_style';
+  static const String _lastUpdateCheckKey = 'last_update_check_epoch';
+  static const String _excludedAudioFoldersKey = 'excluded_audio_folders';
+  static const String _includedAudioFoldersKey = 'included_audio_folders';
   static SettingsService? _instance;
   
   Box? _settingsBox;
@@ -1085,6 +1088,80 @@ class SettingsService {
   /// Persist visualizer style setting.
   Future<void> setVisualizerStyle(VisualizerStyle style) async {
     await _settingsBox?.put(_visualizerStyleKey, style.name);
+  }
+
+  /// Timestamp of the last successful app update check.
+  DateTime? get lastUpdateCheckTime {
+    try {
+      final epoch = _settingsBox?.get(_lastUpdateCheckKey);
+      if (epoch is int && epoch > 0) {
+        return DateTime.fromMillisecondsSinceEpoch(epoch);
+      }
+    } catch (e, stack) {
+      logError('SettingsService: Error reading lastUpdateCheckTime', e, stack);
+    }
+    return null;
+  }
+
+  /// Persist timestamp of the last app update check.
+  Future<void> setLastUpdateCheckTime(DateTime time) async {
+    try {
+      await _settingsBox?.put(_lastUpdateCheckKey, time.millisecondsSinceEpoch);
+    } catch (e, stack) {
+      logError('SettingsService: Error saving lastUpdateCheckTime', e, stack);
+    }
+  }
+
+  /// Folders excluded from local on-device music scanning.
+  List<String> get excludedAudioFolders {
+    try {
+      final list = _settingsBox?.get(_excludedAudioFoldersKey);
+      if (list is List) {
+        return list.map((e) => e.toString()).toList();
+      }
+    } catch (e, stack) {
+      logError('SettingsService: Error reading excludedAudioFolders', e, stack);
+    }
+    return const [
+      'WhatsApp Audio',
+      'WhatsApp Voice Notes',
+      'CallRecordings',
+      'Recordings',
+      'Ringtones',
+      'Notifications',
+      'Alarms',
+    ];
+  }
+
+  /// Persist excluded folders for local on-device music scanning.
+  Future<void> setExcludedAudioFolders(List<String> folders) async {
+    try {
+      await _settingsBox?.put(_excludedAudioFoldersKey, folders);
+    } catch (e, stack) {
+      logError('SettingsService: Error saving excludedAudioFolders', e, stack);
+    }
+  }
+
+  /// User-specified custom folders to include in local on-device scanning.
+  List<String> get includedAudioFolders {
+    try {
+      final list = _settingsBox?.get(_includedAudioFoldersKey);
+      if (list is List) {
+        return list.map((e) => e.toString()).toList();
+      }
+    } catch (e, stack) {
+      logError('SettingsService: Error reading includedAudioFolders', e, stack);
+    }
+    return const [];
+  }
+
+  /// Persist custom included folders for local on-device music scanning.
+  Future<void> setIncludedAudioFolders(List<String> folders) async {
+    try {
+      await _settingsBox?.put(_includedAudioFoldersKey, folders);
+    } catch (e, stack) {
+      logError('SettingsService: Error saving includedAudioFolders', e, stack);
+    }
   }
 }
 

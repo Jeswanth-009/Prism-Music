@@ -157,5 +157,49 @@ void main() {
       service.dismissVersion('0.2.55');
       expect(service.isDismissed('0.2.55'), isTrue);
     });
+
+    test('supports single-object JSON response from /releases/latest endpoint', () async {
+      const singleObjectJson = '''
+{
+  "tag_name": "v1.0.5",
+  "name": "Prism Music v1.0.5",
+  "html_url": "https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.5",
+  "body": "## What changed\\n\\n### Added\\n- Native stable releases",
+  "assets": [
+    {
+      "name": "prism-music-v1.0.5-android.apk",
+      "browser_download_url": "https://github.com/download/phone.apk"
+    }
+  ]
+}
+''';
+      final mockClient = MockClient((request) async {
+        return http.Response(singleObjectJson, 200, headers: {
+          'content-type': 'application/json; charset=utf-8',
+        });
+      });
+
+      final service = AppUpdateService(
+        client: mockClient,
+        apiUrl: 'https://api.github.com/repos/Jeswanth-009/Prism-Music/releases/latest',
+      );
+
+      final currentPkg = PackageInfo(
+        appName: 'Prism Music',
+        packageName: 'com.prism.music',
+        version: '1.0.4',
+        buildNumber: '137',
+      );
+
+      final info = await service.checkForUpdate(
+        force: true,
+        overridePackageInfo: currentPkg,
+      );
+
+      expect(info, isNotNull);
+      expect(info!.hasUpdate, isTrue);
+      expect(info.latestVersion, '1.0.5');
+      expect(info.currentVersion, '1.0.4');
+    });
   });
 }
