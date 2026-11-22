@@ -416,6 +416,98 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
       padding:
           const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       children: [
+        // 10-Band Graphic Equalizer
+        _ManualSection(
+          icon: Icons.graphic_eq_rounded,
+          title: '10-Band Graphic Equalizer',
+          trailing: TextButton.icon(
+            icon: const Icon(Icons.refresh_rounded, size: 14),
+            label: const Text('Flat'),
+            onPressed: () async {
+              await widget.equalizerService.setAllBandGains(List.filled(10, 0.0));
+              setState(() {});
+              _syncSongEqIfEnabled();
+            },
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: 180,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: List.generate(10, (index) {
+                    final label = EqualizerService.bandLabels[index];
+                    final gain = widget.equalizerService.bandGains[index];
+
+                    return Expanded(
+                      child: Column(
+                        children: [
+                          Text(
+                            '${gain > 0 ? "+" : ""}${gain.toStringAsFixed(0)}',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: gain != 0
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          Expanded(
+                            child: RotatedBox(
+                              quarterTurns: 3,
+                              child: SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  trackHeight: 3,
+                                  thumbShape: const RoundSliderThumbShape(
+                                      enabledThumbRadius: 6),
+                                  overlayShape: const RoundSliderOverlayShape(
+                                      overlayRadius: 10),
+                                ),
+                                child: Slider(
+                                  value: gain,
+                                  min: -12.0,
+                                  max: 12.0,
+                                  onChanged: (val) {
+                                    setState(() {
+                                      widget.equalizerService
+                                          .setBandGain(index, val);
+                                    });
+                                  },
+                                  onChangeEnd: (_) => _syncSongEqIfEnabled(),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            label,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontSize: 8,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Center(
+                child: Text(
+                  '-12 dB to +12 dB biquad peaking filters',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontSize: 10,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 14),
+
         // Bass Boost
         _ManualSection(
           icon: Icons.speaker_rounded,

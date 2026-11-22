@@ -63,6 +63,18 @@ class AudioEffectsChannel {
     }
   }
 
+  /// Set 10-band equalizer band gains in dB (-12.0 to +12.0)
+  static Future<void> setBandGains(List<double> gainsDb) async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod('setBandGains', {
+        'gains': gainsDb,
+      });
+    } catch (e) {
+      debugPrint('AudioEffectsChannel: Failed to set band gains: $e');
+    }
+  }
+
   /// Release all audio effects
   static Future<void> release() async {
     if (kIsWeb || !Platform.isAndroid) return;

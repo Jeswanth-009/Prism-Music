@@ -16,6 +16,9 @@ class SongScanData {
   final double bestPartEndSeconds;
   final DateTime scannedAt;
 
+  /// Estimated energy level from 0.0 (quiet/ambient) to 1.0 (loud/intense)
+  double get energy => ((integratedLufs + 24.0) / 18.0).clamp(0.0, 1.0);
+
   const SongScanData({
     required this.songId,
     required this.integratedLufs,

@@ -416,6 +416,10 @@ class SettingsService {
     await _settingsBox?.put('bass_boost', enabled);
   }
 
+  Future<void> setBassBoostEnabled(bool enabled) async {
+    await setBassBoost(enabled);
+  }
+
   /// Get active equalizer preset name (default: Normal)
   String get equalizerPreset {
     try {
@@ -483,6 +487,11 @@ class SettingsService {
     } catch (_) {
       return {};
     }
+  }
+
+  /// Persist all custom user equalizer presets
+  Future<void> setCustomEqualizerPresets(Map<String, Map<String, dynamic>> presets) async {
+    await _settingsBox?.put(_customEqPresetsKey, presets);
   }
 
   /// Persist a custom user equalizer preset

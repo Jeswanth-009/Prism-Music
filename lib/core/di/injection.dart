@@ -33,8 +33,11 @@ import '../services/spotify_auth_service.dart';
 import '../services/storage_service.dart';
 import '../services/smart_playlist_service.dart';
 import '../services/app_update_service.dart';
-import '../services/music_video_service.dart';
+import '../services/audio_recognition_service.dart';
 import '../services/deep_link_service.dart';
+import '../services/dj_sequencer_service.dart';
+import '../services/kids_mode_service.dart';
+import '../services/music_video_service.dart';
 
 /// Global service locator instance
 final GetIt getIt = GetIt.instance;
@@ -230,6 +233,21 @@ getIt.registerLazySingleton<LibraryRepository>(
     // App Update Service
     getIt.registerLazySingleton<AppUpdateService>(
       () => AppUpdateService.instance,
+    );
+
+    // Kids Mode Service
+    getIt.registerLazySingleton<KidsModeService>(
+      () => KidsModeService.instance,
+    );
+
+    // DJ Sequencer Service
+    getIt.registerLazySingleton<DjSequencerService>(
+      () => DjSequencerService(),
+    );
+
+    // Audio Recognition Service
+    getIt.registerLazySingleton<AudioRecognitionService>(
+      () => AudioRecognitionService.instance,
     );
 
     // ============ BLOCS ============
