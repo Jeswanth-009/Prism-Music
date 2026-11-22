@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter/services.dart';
@@ -75,10 +76,41 @@ void main() async {
     // mode is available to ThemeBloc on first frame.
     await SettingsService.instance.initialize().timeout(const Duration(seconds: 5));
 
-    // 2. Get the AudioPlayerService instance
-    final audioPlayerService = getIt<AudioPlayerService>();
+    // Set preferred orientations: allow all orientations on tablets/large screens,
+    // while defaulting to portrait on compact phone devices.
+    final view = WidgetsBinding.instance.platformDispatcher.views.firstOrNull;
+    final isTabletDevice = view != null &&
+        (view.physicalSize.shortestSide / (view.devicePixelRatio > 0 ? view.devicePixelRatio : 1)) >= 600.0;
 
-    // 3. Initialize AudioService with our custom handler, passing the existing player.
+    if (isTabletDevice) {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+    }
+
+    runApp(const PrismMusicApp());
+
+    // Post-frame non-blocking background initialization (FIX-01)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_initializeBackgroundServices());
+    });
+  } catch (e, stack) {
+    debugPrint('Fatal initialization error: $e\n$stack');
+    runApp(StartupErrorApp(errorMessage: e.toString()));
+  }
+}
+
+Future<void> _initializeBackgroundServices() async {
+  try {
+    final audioPlayerService = getIt<AudioPlayerService>();
     final audioHandler = PrismAudioHandler(audioPlayerService.player);
     try {
       await AudioService.init(
@@ -101,6 +133,7 @@ void main() async {
     } catch (e) {
       debugPrint('AudioService init bypassed or unhandled on this platform: $e');
     }
+
     WearOsService.instance.initialize(playerService: audioPlayerService);
 
     // Restore user library from the on-device backup (survives uninstall).
@@ -109,31 +142,8 @@ void main() async {
     } catch (e) {
       debugPrint('Backup restore skipped due to timeout or error: $e');
     }
-
-    // Set preferred orientations: allow all orientations on tablets/large screens,
-    // while defaulting to portrait on compact phone devices.
-    final view = WidgetsBinding.instance.platformDispatcher.views.firstOrNull;
-    final isTabletDevice = view != null &&
-        (view.physicalSize.shortestSide / (view.devicePixelRatio > 0 ? view.devicePixelRatio : 1)) >= 600.0;
-
-    if (isTabletDevice) {
-      await SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-    } else {
-      await SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
-      ]);
-    }
-
-    runApp(const PrismMusicApp());
-  } catch (e, stack) {
-    debugPrint('Fatal initialization error: $e\n$stack');
-    runApp(StartupErrorApp(errorMessage: e.toString()));
+  } catch (e) {
+    debugPrint('Background services initialization error: $e');
   }
 }
 
@@ -211,7 +221,12 @@ class StartupErrorApp extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: () => main(),
+                    onPressed: () async {
+                      try {
+                        await getIt.reset();
+                      } catch (_) {}
+                      main();
+                    },
                     icon: const Icon(Icons.refresh_rounded),
                     label: const Text('Retry Startup'),
                     style: FilledButton.styleFrom(
@@ -239,7 +254,7 @@ class PrismMusicApp extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider<ThemeBloc>(create: (_) => getIt<ThemeBloc>()),
-        BlocProvider<PlayerBloc>(create: (_) => getIt<PlayerBloc>()),
+        BlocProvider<PlayerBloc>.value(value: getIt<PlayerBloc>()),
         BlocProvider<SearchBloc>(create: (_) => getIt<SearchBloc>()),
         BlocProvider<LibraryBloc>(
           create: (_) => getIt<LibraryBloc>()..add(const LoadLibraryEvent()),
