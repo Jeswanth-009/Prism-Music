@@ -153,18 +153,22 @@ class EqualizerService {
   /// Whether audio effects are supported on this device/platform
   bool get isSupported => _isSupported;
 
+  /// Whether the platform supports hardware/native audio effects
+  bool get isPlatformSupported => DesktopAudioSupport.instance.supportsNativeEffects;
+
   /// Check if equalizer is initialized
   bool get isInitialized => _isInitialized;
 
   /// Bind to a new audio session ID (called when playback starts or changes session)
   Future<bool> bindAudioSession(int sessionId) async {
-    _audioSessionId = sessionId;
-
-    if (!DesktopAudioSupport.instance.supportsNativeEffects) {
+    if (sessionId <= 0 || !isPlatformSupported) {
+      _audioSessionId = 0;
       _isSupported = false;
-      _isInitialized = true;
-      return true;
+      _isInitialized = false;
+      return false;
     }
+
+    _audioSessionId = sessionId;
 
     try {
       final success = await AudioEffectsChannel.initialize(sessionId);
