@@ -9,8 +9,9 @@
 Search and stream millions of songs from YouTube Music and JioSaavn with line-synced lyrics, lossless audio, smart radio recommendations, and native equalizer — completely free, open-source, and on-device. No accounts. No subscriptions. No ads. No telemetry.
 
 [![CI](https://github.com/Jeswanth-009/Prism-Music/actions/workflows/ci.yml/badge.svg)](https://github.com/Jeswanth-009/Prism-Music/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/Jeswanth-009/Prism-Music?include_prereleases&label=release&color=7C6CFF)](https://github.com/Jeswanth-009/Prism-Music/releases)
-[![Platform](https://img.shields.io/badge/platform-Android%207.0%2B-3DDC84?logo=android&logoColor=white)](https://github.com/Jeswanth-009/Prism-Music/releases)
+[![Release](https://img.shields.io/github/v/release/Jeswanth-009/Prism-Music?label=release&color=7C6CFF)](https://github.com/Jeswanth-009/Prism-Music/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-Android%20%7C%20Windows%20%7C%20Linux-3DDC84?logo=android&logoColor=white)](https://github.com/Jeswanth-009/Prism-Music/releases/latest)
+[![Get it on Obtainium](https://img.shields.io/badge/Get_it_on-Obtainium-8a2be2?style=flat&logo=android)](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/Jeswanth-009/Prism-Music)
 [![Made with Flutter](https://img.shields.io/badge/made%20with-Flutter%203.38-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
 [![License](https://img.shields.io/badge/license-MIT-35D0B4)](LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-21A366)](CONTRIBUTING.md)
@@ -35,6 +36,16 @@ Search and stream millions of songs from YouTube Music and JioSaavn with line-sy
 | <img src="docs/media/screenshots/framed-charts.png" width="240" alt="Charts Screen"> | <img src="docs/media/screenshots/framed-stats.png" width="240" alt="Listening Stats Screen"> | |
 
 </div>
+
+---
+
+## ⬇️ Download & Install
+
+| Method | Description | Link |
+|---|---|---|
+| **Direct APK** | Recommended universal ARM APK for Android 7.0+ | [Download Latest APK](https://github.com/Jeswanth-009/Prism-Music/releases/latest) |
+| **Obtainium** | One-click install & automatic background updates | [![Get it on Obtainium](https://img.shields.io/badge/Get_it_on-Obtainium-8a2be2?style=for-the-badge)](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/Jeswanth-009/Prism-Music) |
+| **Desktop** | Windows x64 zip & Linux x64 tarball binaries | [GitHub Releases](https://github.com/Jeswanth-009/Prism-Music/releases/latest) |
 
 ---
 
