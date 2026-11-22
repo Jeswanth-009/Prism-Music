@@ -844,6 +844,7 @@
       <div class="arch-filter-bar mono" role="tablist" aria-label="Target Architecture">
         <button class="arch-pill active" data-arch="all" type="button" role="tab" aria-selected="true">All Artifacts</button>
         <button class="arch-pill" data-arch="arm64" type="button" role="tab" aria-selected="false">Phone &amp; Tablet (ARM64)</button>
+        <button class="arch-pill" data-arch="desktop" type="button" role="tab" aria-selected="false">Desktop (Win / Linux)</button>
         <button class="arch-pill" data-arch="x86_64" type="button" role="tab" aria-selected="false">Emulator &amp; PC (x86_64)</button>
         <button class="arch-pill" data-arch="source" type="button" role="tab" aria-selected="false">Build from Source</button>
       </div>
@@ -1008,6 +1009,42 @@
               </div>
             </div>
           </details>
+        </div>
+
+        <!-- Card 5: Windows Desktop -->
+        <div class="artifact-card" data-arch-item="desktop">
+          <div class="art-badge-row">
+            <span class="art-badge mono">Desktop Native</span>
+            <span class="art-arch mono">Windows x64</span>
+          </div>
+          <h3 class="art-title">Windows Desktop (64-bit)</h3>
+          <p class="art-desc">Native Windows x64 desktop binary. Standalone portable archive with hardware-accelerated UI, system media control integration, and lossless streaming.</p>
+          <div class="art-meta mono">
+            <span class="art-size">~15 MB</span>
+            <span class="art-tag">Windows 10/11</span>
+          </div>
+          <a class="btn btn-ghost btn-block" href="https://github.com/Jeswanth-009/Prism-Music/releases/latest">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg>
+            Download Windows ZIP
+          </a>
+        </div>
+
+        <!-- Card 6: Linux Desktop -->
+        <div class="artifact-card" data-arch-item="desktop">
+          <div class="art-badge-row">
+            <span class="art-badge mono">Desktop Native</span>
+            <span class="art-arch mono">Linux x64</span>
+          </div>
+          <h3 class="art-title">Linux Desktop (64-bit)</h3>
+          <p class="art-desc">Native Linux GTK bundle compiled for Ubuntu, Debian, Fedora, and Arch. Native PulseAudio/ALSA streaming with MPRIS lock-screen controls.</p>
+          <div class="art-meta mono">
+            <span class="art-size">~16 MB</span>
+            <span class="art-tag">Linux x64</span>
+          </div>
+          <a class="btn btn-ghost btn-block" href="https://github.com/Jeswanth-009/Prism-Music/releases/latest">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg>
+            Download Linux TAR.GZ
+          </a>
         </div>
       </div>
 
