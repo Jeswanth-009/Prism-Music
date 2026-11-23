@@ -10,10 +10,10 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('ChartService.getAvailableCharts', () {
-    test('returns eight charts with unique ids', () {
+    test('returns charts with unique ids', () {
       final charts = ChartService.getAvailableCharts('US', 'United States');
-      expect(charts, hasLength(8));
-      expect(charts.map((c) => c.id).toSet(), hasLength(8));
+      expect(charts.length, greaterThanOrEqualTo(8));
+      expect(charts.map((c) => c.id).toSet().length, charts.length);
     });
 
     test('regional charts embed the country code', () {

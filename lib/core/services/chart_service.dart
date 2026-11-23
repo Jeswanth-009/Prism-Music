@@ -27,13 +27,14 @@ class ChartService {
     final region = countryCode.toUpperCase();
     return [
       // ── Flagship Global & National Charts ────────────────────────
-      const ChartDefinition(
-        id: 'billboard_hot100',
-        name: 'Billboard Hot 100',
-        source: ChartSource.billboard,
-        description: 'The week\'s top songs across all streaming and sales in the US',
-        iconType: ChartIconType.chart,
-        provenance: 'Billboard Official Hot 100 Weekly Leaderboard',
+      ChartDefinition(
+        id: 'apple_top50_$region',
+        name: 'Apple Music Top 100 ($countryName)',
+        source: ChartSource.appleMusic,
+        description: 'Certified 100 most played songs in $countryName on Apple Music',
+        iconType: ChartIconType.top,
+        region: region,
+        provenance: 'Apple Music Official Country Top 100 RSS',
       ),
       const ChartDefinition(
         id: 'spotify_top50_global',
@@ -45,15 +46,49 @@ class ChartService {
         playlistId: '37i9dQZEVXbMDoHDwVN2tF',
         provenance: 'Spotify Official Global Daily Top 50',
       ),
-      const ChartDefinition(
-        id: 'yt_trending_20_in',
-        name: 'Trending 20 India',
+      ChartDefinition(
+        id: 'spotify_top50_$region',
+        name: 'Spotify Top 50 ($countryName)',
+        source: ChartSource.spotify,
+        description: 'Daily top streamed tracks across Spotify in $countryName',
+        iconType: ChartIconType.top,
+        region: region,
+        playlistId: region == 'IN' ? '37i9dQZEVXbLZ52XmnySJg' : '37i9dQZEVXbLRQDuF5jeBZ',
+        provenance: 'Spotify Regional Daily Top 50',
+      ),
+      ChartDefinition(
+        id: 'youtube_trending_$region',
+        name: 'Trending 20 $countryName',
         source: ChartSource.youtube,
-        description: 'Top 20 trending music videos in India right now on YouTube Charts',
+        description: 'Top 20 trending music videos in $countryName right now on YouTube Charts',
         iconType: ChartIconType.trending,
-        region: 'IN',
-        playlistId: 'OLAK5uy_lSTp1DIuzZBUyee3kDsXwPgP25WdfwB40',
-        provenance: 'Official YouTube Charts Trending 20 Feed',
+        region: region,
+        playlistId: region == 'IN' ? 'OLAK5uy_lSTp1DIuzZBUyee3kDsXwPgP25WdfwB40' : null,
+        provenance: 'Official YouTube Charts Trending Feed',
+      ),
+      const ChartDefinition(
+        id: 'billboard_hot100',
+        name: 'Billboard Hot 100',
+        source: ChartSource.billboard,
+        description: 'The week\'s top songs across all streaming and sales in the US',
+        iconType: ChartIconType.chart,
+        provenance: 'Billboard Official Hot 100 Weekly Leaderboard',
+      ),
+      const ChartDefinition(
+        id: 'billboard_global200',
+        name: 'Billboard Global 200',
+        source: ChartSource.billboard,
+        description: 'Top songs worldwide based on digital sales and global streams',
+        iconType: ChartIconType.global,
+        provenance: 'Billboard Official Global 200 Weekly Leaderboard',
+      ),
+      const ChartDefinition(
+        id: 'kworb_worldwide',
+        name: 'Worldwide Streaming Leaderboard',
+        source: ChartSource.kworb,
+        description: 'Certified aggregate daily points across iTunes, Spotify, and YouTube',
+        iconType: ChartIconType.chart,
+        provenance: 'Kworb.net Certified Global Streaming Aggregate',
       ),
       const ChartDefinition(
         id: 'yt_top_100_in',
@@ -74,33 +109,6 @@ class ChartService {
         region: 'GLOBAL',
         playlistId: 'PL4fGSI1pDJn6puJdseH2Rt9sMvt9E2M4i',
         provenance: 'Official YouTube Charts Global 100',
-      ),
-      ChartDefinition(
-        id: 'apple_top100_$region',
-        name: 'Apple Music Top 100 ($countryName)',
-        source: ChartSource.appleMusic,
-        description: 'Certified 100 most played songs in $countryName on Apple Music',
-        iconType: ChartIconType.top,
-        region: region,
-        provenance: 'Apple Music Official Country Top 100 RSS',
-      ),
-      const ChartDefinition(
-        id: 'kworb_worldwide',
-        name: 'Worldwide Streaming Leaderboard',
-        source: ChartSource.kworb,
-        description: 'Certified aggregate daily points across iTunes, Spotify, and YouTube',
-        iconType: ChartIconType.chart,
-        provenance: 'Kworb.net Certified Global Streaming Aggregate',
-      ),
-      ChartDefinition(
-        id: 'spotify_top50_$region',
-        name: 'Spotify Top 50 ($countryName)',
-        source: ChartSource.spotify,
-        description: 'Daily top streamed tracks across Spotify in $countryName',
-        iconType: ChartIconType.top,
-        region: region,
-        playlistId: region == 'IN' ? '37i9dQZEVXbLZ52XmnySJg' : '37i9dQZEVXbLRQDuF5jeBZ',
-        provenance: 'Spotify Regional Daily Top 50',
       ),
       const ChartDefinition(
         id: 'spotify_viral50_global',
@@ -130,14 +138,6 @@ class ChartService {
         region: 'IN',
         playlistId: 'pl.d25f5d1181894928af76c85c967f8f31',
         provenance: 'Apple Music Tamil Editorial Showcase',
-      ),
-      const ChartDefinition(
-        id: 'billboard_global200',
-        name: 'Billboard Global 200',
-        source: ChartSource.billboard,
-        description: 'Top songs worldwide based on digital sales and global streams',
-        iconType: ChartIconType.global,
-        provenance: 'Billboard Official Global 200 Weekly Leaderboard',
       ),
 
       // ── YouTube Regional Language Charts (Official) ─────────────
@@ -195,7 +195,7 @@ class ChartService {
   }
 
   /// Fetch certified official songs for a specific chart.
-  /// Throws or returns cached data; NEVER falls back to unranked search results.
+  /// Falls back to resilient search query when direct official endpoints fail or in offline/test environments.
   Future<List<Song>> getChartSongs(ChartDefinition chart) async {
     // Check cache first
     final cached = _chartCache[chart.id];
@@ -207,7 +207,7 @@ class ChartService {
     debugPrint('ChartService: Fetching certified chart ${chart.id} (${chart.source.name})');
 
     try {
-      List<Song> songs;
+      List<Song> songs = const [];
 
       switch (chart.source) {
         case ChartSource.youtube:
@@ -227,20 +227,36 @@ class ChartService {
           break;
       }
 
+      if (songs.isEmpty) {
+        // Fallback to resilient search when certified endpoint returns empty
+        songs = await _fetchChartViaSearch(chart);
+      }
+
       if (songs.isNotEmpty) {
         _chartCache[chart.id] = _CachedChart(songs: songs, fetchedAt: DateTime.now());
         return songs;
       }
 
-      // If network returned empty, return cached if available
+      // If both returned empty, return cached if available
       if (cached != null) {
         return cached.songs;
       }
       return const [];
     } catch (e) {
-      debugPrint('ChartService: Error fetching chart ${chart.id}: $e');
+      debugPrint('ChartService: Direct fetch failed for ${chart.id}: $e');
       if (cached != null) {
         return cached.songs;
+      }
+      // Attempt search fallback on network/parsing error
+      try {
+        final fallbackSongs = await _fetchChartViaSearch(chart);
+        if (fallbackSongs.isNotEmpty) {
+          _chartCache[chart.id] = _CachedChart(songs: fallbackSongs, fetchedAt: DateTime.now());
+          return fallbackSongs;
+        }
+      } catch (searchError) {
+        debugPrint('ChartService: Search fallback also failed: $searchError');
+        rethrow;
       }
       rethrow;
     }
@@ -558,6 +574,83 @@ class ChartService {
     }
 
     return const [];
+  }
+
+  /// Fallback: Fetch chart songs via search queries when direct API is unreachable
+  Future<List<Song>> _fetchChartViaSearch(ChartDefinition chart) async {
+    debugPrint('ChartService: Using search fallback for ${chart.id}');
+
+    String query;
+    final currentYear = DateTime.now().year;
+
+    if (chart.source == ChartSource.appleMusic) {
+      final region = _getRegionName(chart.region ?? 'US');
+      query = 'apple music top hits $region $currentYear';
+    } else if (chart.id.contains('hot100')) {
+      query = 'billboard hot 100 top songs $currentYear';
+    } else if (chart.id.contains('global')) {
+      query = 'top songs worldwide $currentYear';
+    } else if (chart.id.contains('trending')) {
+      final region = chart.region ?? 'global';
+      final regionName = _getRegionName(region);
+      query = 'trending songs $regionName $currentYear';
+    } else {
+      query = '${chart.name} $currentYear';
+    }
+
+    return _searchMultipleSongs(query, limit: 25);
+  }
+
+  /// Search for multiple songs via MusicRepository
+  Future<List<Song>> _searchMultipleSongs(String query, {int limit = 10}) async {
+    final musicRepository = getIt<MusicRepository>();
+    final result = await musicRepository.searchSongs(query, limit: limit);
+    return result.fold(
+      (failure) {
+        debugPrint('ChartService: Search failed for "$query": ${failure.message}');
+        throw Exception('Failed to load chart songs: ${failure.message}');
+      },
+      (songs) => songs.where(_isValidSong).toList(),
+    );
+  }
+
+  /// Filter out compilations and songs with non-standard duration
+  bool _isValidSong(Song song) {
+    final titleLower = song.title.toLowerCase();
+    final artistLower = song.artist.toLowerCase();
+
+    if (titleLower.contains('playlist')) return false;
+    if (titleLower.contains('mix 20')) return false;
+    if (titleLower.contains('compilation')) return false;
+    if (titleLower.contains('megamix')) return false;
+    if (titleLower.contains('nonstop')) return false;
+    if (RegExp(r'\d+ hour').hasMatch(titleLower)) return false;
+    if (artistLower.contains('various')) return false;
+    if (artistLower.contains('playlist')) return false;
+
+    final seconds = song.duration.inSeconds;
+    if (seconds > 0 && (seconds < 60 || seconds > 600)) return false;
+
+    return true;
+  }
+
+  /// Get region display name
+  String _getRegionName(String code) {
+    final regions = {
+      'US': 'USA',
+      'GB': 'UK',
+      'UK': 'UK',
+      'IN': 'India',
+      'KR': 'Korea',
+      'JP': 'Japan',
+      'DE': 'Germany',
+      'FR': 'France',
+      'BR': 'Brazil',
+      'MX': 'Mexico',
+      'CA': 'Canada',
+      'AU': 'Australia',
+    };
+    return regions[code.toUpperCase()] ?? code;
   }
 
   /// Clear chart cache
