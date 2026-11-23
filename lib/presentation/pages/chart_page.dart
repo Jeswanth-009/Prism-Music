@@ -324,7 +324,7 @@ class _ChartPageState extends State<ChartPage> {
                                     return Row(
                                       children: [
                                         _buildRankBadge(
-                                            theme, rank, platformAccent),
+                                            theme, rank, platformAccent, song),
                                         Expanded(
                                           child: PrismSongTile(
                                             song: song,
@@ -351,7 +351,8 @@ class _ChartPageState extends State<ChartPage> {
     );
   }
 
-  Widget _buildRankBadge(ThemeData theme, int rank, Color accent) {
+  Widget _buildRankBadge(
+      ThemeData theme, int rank, Color accent, Song song) {
     Color badgeColor;
     Color textColor;
 
@@ -369,44 +370,104 @@ class _ChartPageState extends State<ChartPage> {
       textColor = theme.colorScheme.onSurfaceVariant;
     }
 
+    // Parse movement delta from recommendationReason
+    Widget? deltaWidget;
+    final reason = song.recommendationReason ?? '';
+    if (reason.contains('▲')) {
+      final delta = RegExp(r'▲\s*(\d*)').firstMatch(reason)?.group(1);
+      deltaWidget = Text(
+        '▲${delta != null && delta.isNotEmpty ? ' $delta' : ''}',
+        style: const TextStyle(
+          color: Color(0xFF4CAF50),
+          fontSize: 9,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    } else if (reason.contains('▼')) {
+      final delta = RegExp(r'▼\s*(\d*)').firstMatch(reason)?.group(1);
+      deltaWidget = Text(
+        '▼${delta != null && delta.isNotEmpty ? ' $delta' : ''}',
+        style: const TextStyle(
+          color: Color(0xFFE53935),
+          fontSize: 9,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    } else if (reason.contains('● NEW')) {
+      deltaWidget = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+        decoration: BoxDecoration(
+          color: const Color(0xFF8E24AA).withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: const Text(
+          'NEW',
+          style: TextStyle(
+            color: Color(0xFFBA68C8),
+            fontSize: 7.5,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      );
+    } else if (reason.contains('→')) {
+      deltaWidget = const Text(
+        '→',
+        style: TextStyle(
+          color: Colors.grey,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    }
+
     return Container(
-      width: 38,
-      padding: const EdgeInsets.only(left: 8),
-      child: rank <= 3
-          ? Container(
-              width: 26,
-              height: 26,
-              decoration: BoxDecoration(
-                color: badgeColor,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: badgeColor.withValues(alpha: 0.35),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
+      width: 44,
+      padding: const EdgeInsets.only(left: 4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          rank <= 3
+              ? Container(
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(
+                    color: badgeColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: badgeColor.withValues(alpha: 0.35),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: Center(
-                child: Text(
+                  child: Center(
+                    child: Text(
+                      '$rank',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        color: textColor,
+                      ),
+                    ),
+                  ),
+                )
+              : Text(
                   '$rank',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
                     color: textColor,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
-              ),
-            )
-          : Text(
-              '$rank',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.labelMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: textColor,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
+          if (deltaWidget != null) ...[
+            const SizedBox(height: 2),
+            deltaWidget,
+          ],
+        ],
+      ),
     );
   }
 }

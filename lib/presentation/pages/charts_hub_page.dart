@@ -86,31 +86,41 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
                     spacing: 8,
                     runSpacing: 6,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: spec.accentSoft,
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: spec.hairline),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              _settings.selectedCountry.flag,
-                              style: theme.textTheme.labelLarge,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              _settings.selectedCountry.name,
-                              style: theme.textTheme.labelLarge?.copyWith(
-                                fontWeight: FontWeight.w600,
+                      InkWell(
+                        onTap: () => _showCountryPicker(context),
+                        borderRadius: BorderRadius.circular(999),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: spec.accentSoft,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: spec.hairline),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _settings.selectedCountry.flag,
+                                style: theme.textTheme.labelLarge,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 6),
+                              Text(
+                                _settings.selectedCountry.name,
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                size: 16,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       Container(
@@ -361,6 +371,115 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
       ),
       bottomNavigationBar: const PrismPersistentMiniPlayer(),
       body: body,
+    );
+  }
+
+  void _showCountryPicker(BuildContext context) {
+    final theme = Theme.of(context);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: theme.colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        String query = '';
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filtered = supportedCountries
+                .where((c) =>
+                    c.name.toLowerCase().contains(query.toLowerCase()) ||
+                    c.code.toLowerCase().contains(query.toLowerCase()))
+                .toList();
+
+            return DraggableScrollableSheet(
+              initialChildSize: 0.65,
+              minChildSize: 0.4,
+              maxChildSize: 0.9,
+              expand: false,
+              builder: (_, scrollController) {
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Center(
+                            child: Container(
+                              width: 36,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.outlineVariant,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Select Music Region',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            decoration: InputDecoration(
+                              hintText: 'Search countries...',
+                              prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                              isDense: true,
+                              filled: true,
+                              fillColor: theme.colorScheme.surfaceContainerHigh,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                            onChanged: (val) {
+                              setModalState(() {
+                                query = val;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: scrollController,
+                        itemCount: filtered.length,
+                        itemBuilder: (context, idx) {
+                          final c = filtered[idx];
+                          final isSelected = c.code == _settings.countryCode;
+                          return ListTile(
+                            leading: Text(c.flag, style: const TextStyle(fontSize: 24)),
+                            title: Text(
+                              c.name,
+                              style: TextStyle(
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                color: isSelected ? theme.colorScheme.primary : null,
+                              ),
+                            ),
+                            trailing: isSelected
+                                ? Icon(Icons.check_rounded, color: theme.colorScheme.primary)
+                                : null,
+                            onTap: () async {
+                              await _settings.setCountryCode(c.code);
+                              if (context.mounted) Navigator.of(context).pop();
+                              if (mounted) setState(() {});
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 
