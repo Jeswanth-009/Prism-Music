@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:crypto/crypto.dart' as crypto;
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -149,10 +150,32 @@ class AppUpdateService {
   /// Whether the user previously chose 'Later' for this version.
   bool isDismissed(String version) => _dismissedVersion == version;
 
+  /// Discovers the primary hardware ABI of the Android device (e.g. 'arm64-v8a', 'armeabi-v7a', 'x86_64').
+  /// Returns 'universal' for non-Android platforms or if detection fails.
+  Future<String> getDevicePrimaryAbi({DeviceInfoPlugin? deviceInfoOverride}) async {
+    if (kIsWeb || !Platform.isAndroid) return 'universal';
+    try {
+      final plugin = deviceInfoOverride ?? DeviceInfoPlugin();
+      final androidInfo = await plugin.androidInfo;
+      final supportedAbis = androidInfo.supportedAbis;
+      for (final abi in supportedAbis) {
+        final lower = abi.toLowerCase();
+        if (lower.contains('arm64')) return 'arm64-v8a';
+        if (lower.contains('v7') || lower.contains('armeabi')) return 'armeabi-v7a';
+        if (lower.contains('x86_64')) return 'x86_64';
+      }
+      return supportedAbis.isNotEmpty ? supportedAbis.first : 'universal';
+    } catch (e) {
+      logDebug('AppUpdateService: Error detecting device ABI: $e');
+      return 'universal';
+    }
+  }
+
   /// Check for application updates.
   Future<AppUpdateInfo?> checkForUpdate({
     bool force = false,
     PackageInfo? overridePackageInfo,
+    String? overrideDeviceAbi,
   }) async {
     // 1. In-memory and persistent throttle check.
     // If cached info already exists and was checked recently, return it immediately.
@@ -258,8 +281,11 @@ class AppUpdateService {
         latestBuild: latestBuildNumber,
       );
 
-      // Extract ARM phone release APK asset if available
-      final apkDownloadUrl = _extractApkDownloadUrl(assets);
+      // Discover device ABI on Android to choose the smallest APK slice (saving 55%+ bandwidth)
+      final deviceAbi = overrideDeviceAbi ?? await getDevicePrimaryAbi();
+
+      // Extract matching release APK asset for this device architecture
+      final apkDownloadUrl = _extractApkDownloadUrl(assets, preferredAbi: deviceAbi);
 
       // Extract matching SHA-256 asset URL for APK integrity verification (SEC-13 / FIX-16)
       final apkSha256DownloadUrl =
@@ -522,9 +548,11 @@ class AppUpdateService {
     return 0;
   }
 
-  String? _extractApkDownloadUrl(List assets) {
-    String? universalApk;
+  String? _extractApkDownloadUrl(List assets, {String preferredAbi = 'universal'}) {
     String? arm64Apk;
+    String? armv7Apk;
+    String? x86_64Apk;
+    String? universalApk;
     String? fallbackApk;
 
     for (final asset in assets) {
@@ -532,28 +560,53 @@ class AppUpdateService {
       final name = (asset['name'] as String?)?.toLowerCase() ?? '';
       final url = asset['browser_download_url'] as String?;
 
-      if (url == null) continue;
-      if (!name.endsWith('.apk')) continue;
-      if (name.contains('emulator')) continue;
+      if (url == null || !name.endsWith('.apk')) continue;
 
-      if (name.endsWith('-android.apk') ||
+      if (name.contains('arm64-v8a') || name.contains('arm64')) {
+        arm64Apk ??= url;
+      } else if (name.contains('armeabi-v7a') || name.contains('armv7') || name.contains('armeabi')) {
+        armv7Apk ??= url;
+      } else if (name.contains('x86_64') || name.contains('emulator')) {
+        x86_64Apk ??= url;
+      } else if (name.endsWith('-android.apk') ||
           name.contains('universal') ||
           name.contains('-phone-')) {
-        universalApk = url;
-      } else if (name.contains('arm64')) {
-        arm64Apk ??= url;
+        universalApk ??= url;
       } else {
         fallbackApk ??= url;
       }
     }
 
-    return universalApk ?? arm64Apk ?? fallbackApk;
+    // Prioritize device's matching ABI slice to save 55%+ bandwidth (~19 MB arm64 vs 44 MB universal)
+    if (preferredAbi == 'arm64-v8a' && arm64Apk != null) {
+      return arm64Apk;
+    }
+    if (preferredAbi == 'armeabi-v7a' && armv7Apk != null) {
+      return armv7Apk;
+    }
+    if (preferredAbi == 'x86_64' && x86_64Apk != null) {
+      return x86_64Apk;
+    }
+
+    return universalApk ?? arm64Apk ?? armv7Apk ?? fallbackApk;
   }
 
   String? _extractSha256DownloadUrl(List assets, String? apkUrl) {
     if (apkUrl == null) return null;
-    final apkName = Uri.parse(apkUrl).pathSegments.last.toLowerCase();
-    final expectedShaName = '$apkName.sha256';
+
+    // 1. Locate the exact asset matching the chosen APK URL to get its authentic name
+    String? matchedApkName;
+    for (final asset in assets) {
+      if (asset is! Map<String, dynamic>) continue;
+      if (asset['browser_download_url'] == apkUrl) {
+        matchedApkName = (asset['name'] as String?)?.toLowerCase();
+        break;
+      }
+    }
+
+    final urlFileName = Uri.parse(apkUrl).pathSegments.last.toLowerCase();
+    final expectedSha1 = matchedApkName != null ? '$matchedApkName.sha256' : null;
+    final expectedSha2 = '$urlFileName.sha256';
 
     for (final asset in assets) {
       if (asset is! Map<String, dynamic>) continue;
@@ -561,8 +614,18 @@ class AppUpdateService {
       final url = asset['browser_download_url'] as String?;
       if (url == null) continue;
 
-      if (name == expectedShaName ||
-          (name.endsWith('.sha256') && name.contains('android.apk'))) {
+      if ((expectedSha1 != null && name == expectedSha1) || name == expectedSha2) {
+        return url;
+      }
+    }
+
+    // Fallback if specific slice sha256 not found:
+    for (final asset in assets) {
+      if (asset is! Map<String, dynamic>) continue;
+      final name = (asset['name'] as String?)?.toLowerCase() ?? '';
+      final url = asset['browser_download_url'] as String?;
+      if (url == null) continue;
+      if (name.endsWith('.sha256') && name.contains('android.apk')) {
         return url;
       }
     }
