@@ -8,6 +8,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [1.0.10] - 2026-11-23
+
+### Added
+
+- Revamp album detail hero, 4-pill transport sheet, and branded share modal
+- Implement dynamic 6-phase living scheduler and on-device Daily Mix 1..6 clustering
+- Complete charts hub overhaul with platform tabs, country switcher, and rank movement badges
+- Implement 100% certified official ingestion for Apple Music, YouTube Charts, Billboard, Spotify, and Kworb
+- Detect device ABI and download smallest slice APK
+
+### Fixed
+
+- Resolve chart service test regressions and update goldens for charts hub
+
+### Changed
+
+- Document living time scheduler, daily mixes, and 100% certified official charts
+
 ## [1.0.9] - 2026-11-23
 
 ### Fixed
@@ -1414,3 +1432,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [1.0.7]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.7
 [1.0.8]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.8
 [1.0.9]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.9
+[1.0.10]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.10
