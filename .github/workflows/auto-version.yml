@@ -193,7 +193,13 @@ jobs:
         env:
           NEXT_VERSION: ${{ steps.next_version.outputs.next_version }}
         run: |
-          LAST_TAG="$(git describe --tags --abbrev=0 --match 'alpha-v*' 2>/dev/null || true)"
+          # Determine the last released tag to calculate commits since then.
+          # If HEAD itself is tagged (e.g. re-running on an existing tag), find the tag before HEAD.
+          if git describe --tags --exact-match HEAD >/dev/null 2>&1; then
+            LAST_TAG="$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)"
+          else
+            LAST_TAG="$(git describe --tags --abbrev=0 HEAD 2>/dev/null || true)"
+          fi
           if [[ -n "$LAST_TAG" ]]; then
             RANGE="$LAST_TAG..HEAD"
           else
@@ -203,19 +209,23 @@ jobs:
 
           group() {
             git log --format='%s' $RANGE \
+              | grep -v -E '^Merge ' \
               | grep -E "$1" \
               | sed -E 's/^[a-z]+(\([^)]*\))?:[[:space:]]*//' \
               | awk '{print toupper(substr($0,1,1)) substr($0,2)}' \
+              | awk '!seen[$0]++' \
               || true
           }
           ADDED="$(group '^feat(\(|:)')"
           FIXED="$(group '^fix(\(|:)')"
           CHANGED="$(git log --format='%s' $RANGE \
+            | grep -v -E '^Merge ' \
             | grep -v -E '^chore(\([^)]*\))?: bump version' \
             | grep -v -E '^feat(\(|:)' \
             | grep -v -E '^fix(\(|:)' \
             | sed -E 's/^[a-z]+(\([^)]*\))?:[[:space:]]*//' \
             | awk '{print toupper(substr($0,1,1)) substr($0,2)}' \
+            | awk '!seen[$0]++' \
             || true)"
 
           if [[ -z "$ADDED" && -z "$FIXED" && -z "$CHANGED" ]]; then
@@ -609,7 +619,7 @@ jobs:
           name:     ${{ steps.tag.outputs.release_name }}
           prerelease: ${{ contains(steps.tag.outputs.tag, 'alpha') || contains(steps.tag.outputs.tag, 'beta') }}
           make_latest: ${{ !(contains(steps.tag.outputs.tag, 'alpha') || contains(steps.tag.outputs.tag, 'beta')) }}
-          generate_release_notes: true
+          generate_release_notes: false
           body_path: release_body.md
           files: |
             ${{ steps.assets.outputs.apk }}

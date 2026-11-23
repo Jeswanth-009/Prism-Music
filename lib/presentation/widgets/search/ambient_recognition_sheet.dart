@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/services/audio_recognition_service.dart';
@@ -35,6 +36,8 @@ class _AmbientRecognitionSheetState extends State<AmbientRecognitionSheet>
   _ListenState _state = _ListenState.listening;
   String? _recognizedTitle;
   bool _isManualQuery = false;
+  Timer? _listeningTimer;
+  Timer? _matchPopTimer;
 
   @override
   void initState() {
@@ -49,7 +52,8 @@ class _AmbientRecognitionSheetState extends State<AmbientRecognitionSheet>
 
   void _startListeningTimer() {
     // Acoustic listening timeout: transition to prompt user for humming/lyrics
-    Future.delayed(const Duration(seconds: 4), () {
+    _listeningTimer?.cancel();
+    _listeningTimer = Timer(const Duration(seconds: 4), () {
       if (mounted && _state == _ListenState.listening && !_isManualQuery) {
         setState(() => _state = _ListenState.noMatch);
       }
@@ -68,7 +72,8 @@ class _AmbientRecognitionSheetState extends State<AmbientRecognitionSheet>
         _state = _ListenState.matchFound;
         _recognizedTitle = '${result.song.title} - ${result.song.artist}';
       });
-      Future.delayed(const Duration(milliseconds: 900), () {
+      _matchPopTimer?.cancel();
+      _matchPopTimer = Timer(const Duration(milliseconds: 900), () {
         if (mounted) {
           Navigator.of(context).pop();
           widget.onRecognized(result.song.title);
@@ -81,6 +86,8 @@ class _AmbientRecognitionSheetState extends State<AmbientRecognitionSheet>
 
   @override
   void dispose() {
+    _listeningTimer?.cancel();
+    _matchPopTimer?.cancel();
     _controller.dispose();
     _queryController.dispose();
     super.dispose();

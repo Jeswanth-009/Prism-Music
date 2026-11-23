@@ -81,7 +81,9 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -110,7 +112,6 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
