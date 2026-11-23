@@ -35,7 +35,7 @@ void main() {
 
     expect(find.text('Billboard Hot 100'), findsOneWidget);
     expect(find.text('Spotify Global Top 50'), findsOneWidget);
-    expect(find.text('Apple Music Top 50 (United States)'), findsOneWidget);
+    expect(find.text('Apple Music Top 100 (United States)'), findsOneWidget);
     // Source labels appear per card.
     expect(find.text('Billboard'), findsWidgets);
     expect(find.text('Spotify'), findsWidgets);
@@ -113,7 +113,7 @@ void main() {
     expect(find.text('Chart Topper'), findsOneWidget);
     expect(find.text('Runner Up'), findsOneWidget);
     expect(find.text('Play all'), findsOneWidget);
-    expect(find.textContaining('Curated Discovery Mix'), findsOneWidget);
+    expect(find.textContaining('Certified Official Rankings'), findsOneWidget);
   });
 
   testWidgets('Play all button is present above the numbered queue',
@@ -139,7 +139,7 @@ void main() {
     expect(find.text('Chart Topper'), findsOneWidget);
   });
 
-  testWidgets('chart detail explicitly labels search-based charts as discovery mixes with provenance',
+  testWidgets('chart detail explicitly labels official charts with certified provenance badge',
       (tester) async {
     final chart = ChartService.getAvailableCharts('US', 'United States')
         .firstWhere((c) => c.source == ChartSource.youtube);
@@ -153,7 +153,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.textContaining('Not Certified Official Ranks'), findsOneWidget);
-    expect(find.textContaining('Curated via YouTube search'), findsOneWidget);
+    expect(find.textContaining('Certified Official Rankings'), findsOneWidget);
+    expect(find.textContaining('YouTube Charts'), findsWidgets);
   });
 }

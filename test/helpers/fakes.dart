@@ -106,6 +106,9 @@ class FakeMusicRepository implements MusicRepository {
   Either<Failure, List<Album>> albumsResult = const Right([]);
   Either<Failure, List<Playlist>> playlistsResult = const Right([]);
   Either<Failure, SearchResults> searchAllResult = const Right(SearchResults());
+  Either<Failure, Playlist> playlistDetailsResult = const Right(
+    Playlist(id: 'fake_pl', name: 'Fake Playlist', songs: []),
+  );
 
   // importSpotifyPlaylist / importYouTubePlaylist
   String? lastImportUrl;
@@ -262,6 +265,22 @@ class FakeMusicRepository implements MusicRepository {
     onProgress?.call(0.5);
     onProgress?.call(1.0);
     return importResult;
+  }
+
+  @override
+  Future<Either<Failure, Playlist>> getPlaylistDetails(
+    String playlistId, {
+    int page = 1,
+  }) async {
+    if (throwOnSearch) throw Exception('network down');
+    final p = playlistDetailsResult.getOrElse((_) => const Playlist(id: '', name: ''));
+    if ((p.songs?.isEmpty ?? true) && searchResult.isRight()) {
+      final s = searchResult.getOrElse((_) => []);
+      if (s.isNotEmpty) {
+        return Right(Playlist(id: playlistId, name: 'Chart Playlist', songs: s));
+      }
+    }
+    return playlistDetailsResult;
   }
 
   @override

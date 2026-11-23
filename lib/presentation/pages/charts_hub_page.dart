@@ -30,6 +30,7 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
       ChartSource.spotify => const Color(0xFF1DB954), // Spotify Green
       ChartSource.youtube => const Color(0xFFFF0033), // YouTube Red
       ChartSource.billboard => const Color(0xFFD4AF37), // Billboard Gold
+      ChartSource.kworb => const Color(0xFF00ADB5), // Kworb Cyan
     };
   }
 
@@ -190,6 +191,15 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
                           isSelected: _selectedPlatform == ChartSource.billboard,
                           onTap: () => setState(() =>
                               _selectedPlatform = ChartSource.billboard),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildFilterPill(
+                          theme: theme,
+                          label: 'Kworb WW',
+                          accentColor: const Color(0xFF00ADB5),
+                          isSelected: _selectedPlatform == ChartSource.kworb,
+                          onTap: () => setState(() =>
+                              _selectedPlatform = ChartSource.kworb),
                         ),
                       ],
                     ),

@@ -32,6 +32,7 @@ class _ChartPageState extends State<ChartPage> {
       ChartSource.spotify => const Color(0xFF1DB954),
       ChartSource.youtube => const Color(0xFFFF0033),
       ChartSource.billboard => const Color(0xFFD4AF37),
+      ChartSource.kworb => const Color(0xFF00ADB5),
     };
   }
 
@@ -219,64 +220,62 @@ class _ChartPageState extends State<ChartPage> {
                                             theme.colorScheme.onSurfaceVariant,
                                       ),
                                     ),
-                                    if (widget.chart.isDiscoveryMix) ...[
-                                      const SizedBox(height: 10),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
+                                    const SizedBox(height: 10),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: platformAccent
+                                            .withValues(alpha: 0.08),
+                                        borderRadius: BorderRadius.circular(
+                                            PrismRadius.sm),
+                                        border: Border.all(
                                           color: platformAccent
-                                              .withValues(alpha: 0.08),
-                                          borderRadius: BorderRadius.circular(
-                                              PrismRadius.sm),
-                                          border: Border.all(
-                                            color: platformAccent
-                                              .withValues(alpha: 0.2),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.info_outline_rounded,
-                                              size: 14,
-                                              color: platformAccent,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    'Curated Discovery Mix — Not Certified Official Ranks',
-                                                    style: theme
-                                                        .textTheme.labelSmall
-                                                        ?.copyWith(
-                                                      fontWeight: FontWeight.w700,
-                                                      color: platformAccent,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 2),
-                                                  Text(
-                                                    widget.chart.provenance ??
-                                                        'Curated via YouTube search popularity. Track order reflects discovery search results, not certified official ranks.',
-                                                    style: theme
-                                                        .textTheme.labelSmall
-                                                        ?.copyWith(
-                                                      color: theme
-                                                          .colorScheme.onSurface,
-                                                      height: 1.3,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
+                                            .withValues(alpha: 0.2),
                                         ),
                                       ),
-                                    ],
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.verified_rounded,
+                                            size: 15,
+                                            color: platformAccent,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Certified Official Rankings',
+                                                  style: theme
+                                                      .textTheme.labelSmall
+                                                      ?.copyWith(
+                                                    fontWeight: FontWeight.w700,
+                                                    color: platformAccent,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  widget.chart.provenance ??
+                                                      'Verified official rankings from primary chart and streaming provider feeds.',
+                                                  style: theme
+                                                      .textTheme.labelSmall
+                                                      ?.copyWith(
+                                                    color: theme
+                                                        .colorScheme.onSurface,
+                                                    height: 1.3,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                     const SizedBox(height: 16),
                                     Row(
                                       children: [

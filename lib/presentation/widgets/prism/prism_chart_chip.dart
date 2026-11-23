@@ -27,6 +27,7 @@ String chartSourceLabel(ChartSource source) => switch (source) {
   ChartSource.youtube => 'YouTube Music',
   ChartSource.spotify => 'Spotify',
   ChartSource.appleMusic => 'Apple Music',
+  ChartSource.kworb => 'Kworb WW',
 };
 
 /// Rounded accent chip carrying a chart's icon, shared by the charts hub
