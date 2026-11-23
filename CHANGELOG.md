@@ -8,6 +8,43 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [1.0.8] - 2026-11-23
+
+### Added
+
+- Modular 9-section settings hub and documentation overhaul
+- 10-band biquad equalizer, dj sequencer, zero-key audio recognition, and kids mode
+- Multi-platform streaming charts, leaderboards, and core surfaces revamp
+- Bundle cover art and word lyrics with offline downloads and add verification tags
+- Implement dedicated player layouts (glass, full bleed, studio, karaoke) and integrate settings
+- Add interactive 48-bar waveform scrubber with best-part climax chip
+- Add word-by-word lyric parser and real-time syllable sweep view
+- Implement dual-player equal-power crossfade engine
+- Implement InnerTube client ladder and network resolver memory
+- Add disk LRU audio byte cache service with quota enforcement
+- Add song scan data model and song analysis cache service
+- Implement spectral flux onset detector, key estimator, and silence detector
+- Implement pure-Dart audio math, EBU R128 loudness meter, and 10-band biquad EQ
+- Replace fabricated signing metadata with honest attestation metadata
+- Enforce signature permissions on Wear OS and widget receivers and drop MANAGE_EXTERNAL_STORAGE
+- Harden party mode with rate limiting, PIN redaction, and XSS sanitization
+
+### Fixed
+
+- Resolve timer leak in ambient sheet, wrap charts hub chips, and fix changelog tag range
+- Add isPlatformSupported getter and graceful desktop session binding
+- Abort active HTTP streams on seek/supersede and harden JioSaavn timeouts and fallback
+- Isolate local_settings box to prevent data loss on cache clear
+
+### Changed
+
+- Adjust cross-platform rasterization tolerance to 2.5% for Linux CI parity
+- Update supported versions table and fix polish defects
+- Add buildWhen to song list tiles to eliminate position rebuild storm
+- Unblock cold start by deferring AudioService and restore to post-frame
+- Rename AudioQuality.lossless to ultra (320 kbps) and add MusicSource.appleMusic
+- Prune dead dependencies and update lockfile
+
 ## [1.0.7] - 2026-11-22
 
 ### Added
@@ -1369,3 +1406,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [1.0.5]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/alpha-v1.0.5-build138
 [1.0.6]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.6
 [1.0.7]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.7
+[1.0.8]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.8
