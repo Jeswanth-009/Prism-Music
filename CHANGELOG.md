@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [1.0.9] - 2026-11-23
+
+### Fixed
+
+- Point update check to releases feed, fix 24h cold-start throttle, and verify sha256
+
 ## [1.0.8] - 2026-11-23
 
 ### Added
@@ -1407,3 +1413,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [1.0.6]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.6
 [1.0.7]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.7
 [1.0.8]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.8
+[1.0.9]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.9
