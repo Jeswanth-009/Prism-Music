@@ -1,4 +1,7 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/services/app_update_service.dart';
 import '../../theme/prism_theme.dart';
 
@@ -187,7 +190,21 @@ class _PrismUpdateCapsuleState extends State<PrismUpdateCapsule> {
                                   borderRadius: BorderRadius.circular(PrismRadius.md),
                                 ),
                               ),
-                              onPressed: () => service.startDownload(widget.updateInfo),
+                              onPressed: () {
+                                if (!kIsWeb &&
+                                    (Platform.isWindows ||
+                                        Platform.isLinux ||
+                                        Platform.isMacOS)) {
+                                  final targetUrl = widget.updateInfo.desktopDownloadUrl ??
+                                      widget.updateInfo.releaseUrl;
+                                  launchUrl(
+                                    Uri.parse(targetUrl),
+                                    mode: LaunchMode.externalApplication,
+                                  );
+                                } else {
+                                  service.startDownload(widget.updateInfo);
+                                }
+                              },
                               child: const Text(
                                 'Update',
                                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),

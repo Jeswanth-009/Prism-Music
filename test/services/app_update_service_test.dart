@@ -224,5 +224,70 @@ void main() {
       expect(readyState.isReady, isTrue);
       expect(readyState.localApkPath, '/path/to/apk');
     });
+
+    test('prefers universal phone APK and extracts SHA-256 and desktop assets', () async {
+      const modernReleaseJson = '''
+[
+  {
+    "tag_name": "v1.0.8",
+    "name": "Prism Music v1.0.8",
+    "html_url": "https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.8",
+    "body": "## Prism Music — Release `v1.0.8`\\n\\n| Field | Value |\\n|---|---|\\n| **Version** | `1.0.8+141` |\\n| **versionCode** | `141` |",
+    "assets": [
+      {
+        "name": "prism-music-v1.0.8-android-emulator-x86_64.apk",
+        "browser_download_url": "https://github.com/download/emulator.apk"
+      },
+      {
+        "name": "prism-music-v1.0.8-arm64-v8a.apk",
+        "browser_download_url": "https://github.com/download/arm64.apk"
+      },
+      {
+        "name": "prism-music-v1.0.8-android.apk",
+        "browser_download_url": "https://github.com/download/prism-music-v1.0.8-android.apk"
+      },
+      {
+        "name": "prism-music-v1.0.8-android.apk.sha256",
+        "browser_download_url": "https://github.com/download/prism-music-v1.0.8-android.apk.sha256"
+      },
+      {
+        "name": "prism-music-v1.0.8-windows-x64.zip",
+        "browser_download_url": "https://github.com/download/windows-x64.zip"
+      }
+    ]
+  }
+]
+''';
+      final mockClient = MockClient((request) async {
+        return http.Response(modernReleaseJson, 200, headers: {
+          'content-type': 'application/json; charset=utf-8',
+        });
+      });
+
+      final service = AppUpdateService(
+        client: mockClient,
+        apiUrl: 'https://api.github.com/repos/Jeswanth-009/Prism-Music/releases?per_page=5',
+      );
+
+      final currentPkg = PackageInfo(
+        appName: 'Prism Music',
+        packageName: 'com.prism.music',
+        version: '1.0.7',
+        buildNumber: '140',
+      );
+
+      final info = await service.checkForUpdate(
+        force: true,
+        overridePackageInfo: currentPkg,
+      );
+
+      expect(info, isNotNull);
+      expect(info!.hasUpdate, isTrue);
+      expect(info.latestVersion, '1.0.8');
+      expect(info.latestBuildNumber, 141);
+      // Confirms universal APK is chosen instead of emulator or arm64 slice
+      expect(info.apkDownloadUrl, 'https://github.com/download/prism-music-v1.0.8-android.apk');
+      expect(info.apkSha256DownloadUrl, 'https://github.com/download/prism-music-v1.0.8-android.apk.sha256');
+    });
   });
 }

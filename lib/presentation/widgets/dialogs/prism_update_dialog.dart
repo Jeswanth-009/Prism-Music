@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -27,15 +29,20 @@ class PrismUpdateDialog extends StatelessWidget {
   }
 
   Future<void> _handleUpdate(BuildContext context, {bool preferReleasePage = false}) async {
-    if (!preferReleasePage && info.apkDownloadUrl != null) {
+    final isDesktop =
+        !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+
+    if (!isDesktop && !preferReleasePage && info.apkDownloadUrl != null) {
       Navigator.of(context).pop();
       AppUpdateService.instance.startDownload(info);
       return;
     }
 
-    final targetUrl = preferReleasePage
-        ? info.releaseUrl
-        : (info.apkDownloadUrl ?? info.releaseUrl);
+    final targetUrl = isDesktop
+        ? (info.desktopDownloadUrl ?? info.releaseUrl)
+        : (preferReleasePage
+            ? info.releaseUrl
+            : (info.apkDownloadUrl ?? info.releaseUrl));
     final uri = Uri.parse(targetUrl);
 
     try {
@@ -307,7 +314,7 @@ class PrismUpdateDialog extends StatelessWidget {
                         ),
                       ),
                     FilledButton.icon(
-                      onPressed: () => _handleUpdate(context, preferReleasePage: true),
+                      onPressed: () => _handleUpdate(context),
                       icon: const Icon(Icons.download_rounded, size: 18),
                       label: const Text('Update Now'),
                       style: FilledButton.styleFrom(

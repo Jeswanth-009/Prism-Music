@@ -1777,12 +1777,17 @@ class _SettingsPageState extends State<SettingsPage> {
       final info = await AppUpdateService.instance.checkForUpdate(force: true);
       if (!mounted) return;
 
-      if (info != null && info.hasUpdate) {
+      if (info == null) {
+        showPrismToast(
+          context,
+          'Unable to check for updates. Please check your internet connection.',
+        );
+      } else if (info.hasUpdate) {
         await PrismUpdateDialog.show(context, info);
       } else {
         showPrismToast(
           context,
-          'You are on the latest version (${info?.currentVersion.isNotEmpty == true ? 'v${info!.currentVersion}' : _appVersion})',
+          'You are on the latest version (v${info.currentVersion})',
         );
       }
     } finally {

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -77,6 +78,8 @@ class AppUpdateInfo {
   final String changelog;
   final String releaseUrl;
   final String? apkDownloadUrl;
+  final String? apkSha256DownloadUrl;
+  final String? desktopDownloadUrl;
   final bool hasUpdate;
 
   const AppUpdateInfo({
@@ -88,6 +91,8 @@ class AppUpdateInfo {
     required this.changelog,
     required this.releaseUrl,
     this.apkDownloadUrl,
+    this.apkSha256DownloadUrl,
+    this.desktopDownloadUrl,
     required this.hasUpdate,
   });
 
@@ -103,10 +108,12 @@ class AppUpdateInfo {
 /// and automatically installing updates on Android without browser redirection.
 class AppUpdateService {
   static const String _defaultApiUrl =
+      'https://api.github.com/repos/Jeswanth-009/Prism-Music/releases?per_page=5';
+  static const String _fallbackApiUrl =
       'https://api.github.com/repos/Jeswanth-009/Prism-Music/releases/latest';
-  static const Duration _timeout = Duration(seconds: 4);
+  static const Duration _timeout = Duration(seconds: 10);
   static const Duration _cacheDuration = Duration(minutes: 15);
-  static const Duration _throttleDuration = Duration(hours: 24);
+  static const Duration _throttleDuration = Duration(hours: 2);
   static const MethodChannel _installerChannel =
       MethodChannel('com.prismmusic/app_installer');
 
@@ -147,7 +154,10 @@ class AppUpdateService {
     bool force = false,
     PackageInfo? overridePackageInfo,
   }) async {
-    // 1. Persistent 24-hour rate limit check (bypass if force is true)
+    // 1. In-memory and persistent throttle check.
+    // If cached info already exists and was checked recently, return it immediately.
+    // Notice: We only throttle if _cachedInfo is NOT null; on fresh process launch,
+    // we always query GitHub to ensure the user gets real update status.
     if (!force) {
       if (_cachedInfo != null &&
           _lastCheckTime != null &&
@@ -157,9 +167,10 @@ class AppUpdateService {
       try {
         final lastCheck =
             SettingsService.instance.lastUpdateCheckTime ?? _lastCheckTime;
-        if (lastCheck != null &&
+        if (_cachedInfo != null &&
+            lastCheck != null &&
             DateTime.now().difference(lastCheck) < _throttleDuration) {
-          logDebug('AppUpdateService: Update check skipped (throttled to 24 hours)');
+          logDebug('AppUpdateService: Reusing cached update info (throttled to $_throttleDuration)');
           return _cachedInfo;
         }
       } catch (_) {
@@ -173,18 +184,38 @@ class AppUpdateService {
       final currentBuildNumber =
           int.tryParse(packageInfo.buildNumber.trim()) ?? 0;
 
-      final uri = Uri.parse(_apiUrl);
-      final response = await _client.get(
-        uri,
-        headers: const {
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'Prism-Music-App',
-        },
-      ).timeout(_timeout);
+      http.Response? response;
+      try {
+        response = await _client.get(
+          Uri.parse(_apiUrl),
+          headers: const {
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'Prism-Music-App',
+          },
+        ).timeout(_timeout);
+      } catch (netErr) {
+        logError('AppUpdateService: Primary API request failed: $netErr');
+      }
 
-      if (response.statusCode != 200) {
+      // If primary multi-release endpoint returned non-200 and we're on default URL,
+      // fallback to /releases/latest endpoint.
+      if ((response == null || response.statusCode != 200) && _apiUrl == _defaultApiUrl) {
+        try {
+          response = await _client.get(
+            Uri.parse(_fallbackApiUrl),
+            headers: const {
+              'Accept': 'application/vnd.github.v3+json',
+              'User-Agent': 'Prism-Music-App',
+            },
+          ).timeout(_timeout);
+        } catch (fbErr) {
+          logError('AppUpdateService: Fallback API request failed: $fbErr');
+        }
+      }
+
+      if (response == null || response.statusCode != 200) {
         logError(
-          'AppUpdateService: GitHub API returned status ${response.statusCode}',
+          'AppUpdateService: GitHub API returned status ${response?.statusCode ?? "no response"}',
         );
         return null;
       }
@@ -196,13 +227,17 @@ class AppUpdateService {
           logDebug('AppUpdateService: No releases returned by GitHub');
           return null;
         }
-        latestRelease = decoded.first as Map<String, dynamic>;
+        latestRelease = decoded.firstWhere(
+          (r) => r is Map<String, dynamic> && r['draft'] != true,
+          orElse: () => decoded.first,
+        ) as Map<String, dynamic>;
       } else if (decoded is Map<String, dynamic>) {
         latestRelease = decoded;
       } else {
         logDebug('AppUpdateService: Unexpected response format from GitHub');
         return null;
       }
+
       final tagName = (latestRelease['tag_name'] as String?) ?? '';
       final releaseName = (latestRelease['name'] as String?) ?? tagName;
       final releaseUrl = (latestRelease['html_url'] as String?) ??
@@ -226,6 +261,13 @@ class AppUpdateService {
       // Extract ARM phone release APK asset if available
       final apkDownloadUrl = _extractApkDownloadUrl(assets);
 
+      // Extract matching SHA-256 asset URL for APK integrity verification (SEC-13 / FIX-16)
+      final apkSha256DownloadUrl =
+          _extractSha256DownloadUrl(assets, apkDownloadUrl);
+
+      // Extract desktop platform asset (.zip / .tar.gz) if applicable
+      final desktopDownloadUrl = _extractDesktopDownloadUrl(assets);
+
       // Extract readable changelog notes
       final changelog = _cleanChangelog(body);
 
@@ -238,6 +280,8 @@ class AppUpdateService {
         changelog: changelog,
         releaseUrl: releaseUrl,
         apkDownloadUrl: apkDownloadUrl,
+        apkSha256DownloadUrl: apkSha256DownloadUrl,
+        desktopDownloadUrl: desktopDownloadUrl,
         hasUpdate: hasUpdate,
       );
 
@@ -313,6 +357,39 @@ class AppUpdateService {
 
       // Verify file downloaded successfully
       if (await file.exists() && await file.length() > 0) {
+        // SEC-13 / FIX-16: Checksum verification against authentic release hash
+        if (info.apkSha256DownloadUrl != null) {
+          try {
+            final shaRes = await _client.get(
+              Uri.parse(info.apkSha256DownloadUrl!),
+              headers: const {'User-Agent': 'Prism-Music-App'},
+            ).timeout(const Duration(seconds: 10));
+
+            if (shaRes.statusCode == 200) {
+              final expectedHash =
+                  shaRes.body.trim().split(RegExp(r'\s+')).first.toLowerCase();
+              final bytes = await file.readAsBytes();
+              final actualHash =
+                  crypto.sha256.convert(bytes).toString().toLowerCase();
+
+              if (expectedHash.isNotEmpty && actualHash != expectedHash) {
+                logError(
+                  'AppUpdateService: Integrity check failed! Expected: $expectedHash, Actual: $actualHash',
+                );
+                await file.delete();
+                downloadState.value = downloadState.value.copyWith(
+                  status: UpdateStatus.failed,
+                  errorMessage: 'Integrity check failed: checksum mismatch.',
+                );
+                return;
+              }
+              logDebug('AppUpdateService: APK integrity verified via SHA-256 ($actualHash)');
+            }
+          } catch (shaErr) {
+            logError('AppUpdateService: Error verifying APK checksum', shaErr);
+          }
+        }
+
         downloadState.value = UpdateDownloadState(
           status: UpdateStatus.readyToInstall,
           progress: 1.0,
@@ -400,6 +477,17 @@ class AppUpdateService {
       }
     }
 
+    if (build == 0) {
+      // Parse +build or build number from body metadata: e.g. "Version: 1.0.8+141"
+      final buildMatch = RegExp(
+        r'(?:\+|versionCode[:\s]*|build[:\s]*|v\d+\.\d+\.\d+\+)(\d+)',
+        caseSensitive: false,
+      ).firstMatch(body);
+      if (buildMatch != null && buildMatch.group(1) != null) {
+        build = int.tryParse(buildMatch.group(1)!) ?? 0;
+      }
+    }
+
     return (version, build);
   }
 
@@ -435,6 +523,8 @@ class AppUpdateService {
   }
 
   String? _extractApkDownloadUrl(List assets) {
+    String? universalApk;
+    String? arm64Apk;
     String? fallbackApk;
 
     for (final asset in assets) {
@@ -443,17 +533,57 @@ class AppUpdateService {
       final url = asset['browser_download_url'] as String?;
 
       if (url == null) continue;
+      if (!name.endsWith('.apk')) continue;
+      if (name.contains('emulator')) continue;
 
-      if (name.endsWith('.apk') && !name.contains('emulator')) {
-        return url;
-      }
-
-      if (name.endsWith('.apk') && fallbackApk == null) {
-        fallbackApk = url;
+      if (name.endsWith('-android.apk') ||
+          name.contains('universal') ||
+          name.contains('-phone-')) {
+        universalApk = url;
+      } else if (name.contains('arm64')) {
+        arm64Apk ??= url;
+      } else {
+        fallbackApk ??= url;
       }
     }
 
-    return fallbackApk;
+    return universalApk ?? arm64Apk ?? fallbackApk;
+  }
+
+  String? _extractSha256DownloadUrl(List assets, String? apkUrl) {
+    if (apkUrl == null) return null;
+    final apkName = Uri.parse(apkUrl).pathSegments.last.toLowerCase();
+    final expectedShaName = '$apkName.sha256';
+
+    for (final asset in assets) {
+      if (asset is! Map<String, dynamic>) continue;
+      final name = (asset['name'] as String?)?.toLowerCase() ?? '';
+      final url = asset['browser_download_url'] as String?;
+      if (url == null) continue;
+
+      if (name == expectedShaName ||
+          (name.endsWith('.sha256') && name.contains('android.apk'))) {
+        return url;
+      }
+    }
+    return null;
+  }
+
+  String? _extractDesktopDownloadUrl(List assets) {
+    for (final asset in assets) {
+      if (asset is! Map<String, dynamic>) continue;
+      final name = (asset['name'] as String?)?.toLowerCase() ?? '';
+      final url = asset['browser_download_url'] as String?;
+      if (url == null) continue;
+
+      if (name.endsWith('.zip') || name.contains('windows')) {
+        return url;
+      }
+      if (name.endsWith('.tar.gz') || name.contains('linux')) {
+        return url;
+      }
+    }
+    return null;
   }
 
   String _cleanChangelog(String body) {
