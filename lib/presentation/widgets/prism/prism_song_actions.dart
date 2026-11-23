@@ -9,6 +9,7 @@ import '../../../domain/repositories/library_repository.dart';
 import '../../blocs/library/library.dart';
 import '../../blocs/player/player.dart' hide DownloadSongEvent;
 import '../../theme/prism_theme.dart';
+import '../dialogs/media_share_modal.dart';
 import 'prism_sheet.dart';
 
 /// Standard context menu for a song: play next, queue, playlists, like,
@@ -93,9 +94,79 @@ class _SongActionsSheet extends StatelessWidget {
                         ],
                       ),
                     ),
+                    IconButton(
+                      icon: const Icon(Icons.share_rounded, size: 20),
+                      tooltip: 'Share Card',
+                      onPressed: () {
+                        Navigator.pop(context);
+                        showMediaShareModal(context, song);
+                      },
+                    ),
                   ],
                 ),
               ),
+              const SizedBox(height: 8),
+              // 4-Pill Colored Transport Row
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildTransportPill(
+                      context: context,
+                      icon: Icons.play_arrow_rounded,
+                      label: 'Play',
+                      color: const Color(0xFFFF5722),
+                      onTap: () {
+                        Navigator.pop(context);
+                        context
+                            .read<PlayerBloc>()
+                            .add(PlaySongEvent(song: song, queue: [song]));
+                      },
+                    ),
+                    _buildTransportPill(
+                      context: context,
+                      icon: Icons.shuffle_rounded,
+                      label: 'Shuffle',
+                      color: const Color(0xFFFFB300),
+                      onTap: () {
+                        Navigator.pop(context);
+                        context
+                            .read<PlayerBloc>()
+                            .add(PlaySongEvent(song: song, queue: [song]));
+                      },
+                    ),
+                    _buildTransportPill(
+                      context: context,
+                      icon: Icons.low_priority_rounded,
+                      label: 'Play Next',
+                      color: const Color(0xFF00ADB5),
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.read<PlayerBloc>().add(
+                              AddToQueueEvent(song: song, playNext: true),
+                            );
+                        showPrismToast(context, 'Playing next');
+                      },
+                    ),
+                    _buildTransportPill(
+                      context: context,
+                      icon: Icons.queue_music_rounded,
+                      label: 'Add Queue',
+                      color: const Color(0xFF8A2BE2),
+                      onTap: () {
+                        Navigator.pop(context);
+                        context
+                            .read<PlayerBloc>()
+                            .add(AddToQueueEvent(song: song));
+                        showPrismToast(context, 'Added to queue');
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Divider(height: 1, indent: 16, endIndent: 16),
               const SizedBox(height: 4),
               PrismSheetAction(
                 icon: Icons.play_arrow_rounded,
@@ -185,16 +256,59 @@ class _SongActionsSheet extends StatelessWidget {
               ),
               PrismSheetAction(
                 icon: Icons.share_rounded,
-                label: 'Share',
+                label: 'Share song & card',
                 onTap: () {
                   Navigator.pop(context);
-                  ShareSong.shareSong(song);
+                  showMediaShareModal(context, song);
                 },
               ),
               const SizedBox(height: 6),
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildTransportPill({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: color.withValues(alpha: 0.35),
+                  width: 1,
+                ),
+              ),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
