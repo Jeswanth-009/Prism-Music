@@ -59,7 +59,10 @@ Search and stream millions of songs from YouTube Music, JioSaavn, Apple Music & 
 - 🎛️ **Pure-Dart DSP Signal Core**: Studio-grade audio processing without platform latency — EBU R128 loudness normalization (-14 LUFS), true-peak limiting (-1.0 dBTP), 10-band biquad graphic equalizer, silence trimming, and Camelot harmonic key detection.
 - 🎧 **Honest Audio Quality**: Transparent bitrate labeling ("Ultra 320 kbps Opus/AAC") with live stream format badging (`320 kbps · AAC`, `160 kbps · OPUS`, `OFFLINE`). No deceptive lossless marketing claims.
 - 📦 **3-in-1 Atomic Offline Bundler**: Download songs with high-resolution artwork and word-by-word synced LRC lyrics packaged together with atomic integrity checks and a real-time storage breakdown meter.
-- 📈 **Multi-Platform Streaming Charts**: Real-time aggregated leaderboards across Apple Music Top 50, Spotify Top 50, YouTube Music Trending, and Billboard Hot 100 with Gold, Silver, Bronze badges and movement indicators.
+- 📱 **Smart ABI-Aware APK Downloads**: Automatically detects your device architecture (`arm64-v8a`, `armeabi-v7a`, `x86_64`) to download lightweight slice APKs (~17–19 MB), saving over 55% data compared to universal bundles.
+- 📈 **100% Certified Official Streaming Charts**: Zero search-generated or synthetic ranks. Strictly certified official countdowns across Apple Music Top 100 (115+ countries), YouTube Charts (Trending 20, Tamil, Telugu, Hindi, Punjabi, Bhojpuri, Global), Billboard Hot 100 (with authentic LW, Peak, and Weeks on Chart), Spotify Official Top 50, and Kworb Worldwide points.
+- 🌅 **Dynamic 6-Phase Living Soundscape**: An app that breathes with your day. Automated time scheduler dynamically curates greetings, taglines, and acoustic themes tailored to Dawn, Mid-Morning Focus, Afternoon Groove, Sunset Sessions, Late Night Lounge, and Midnight Dreamscapes.
+- 💿 **On-Device Daily Mix 1..6 Engine**: Mathematically clusters your local listening history and likes into 6 customized Daily Mixes with 2x2 collage artwork and artist subtitles.
 - 🎛️ **Smart DJ Sequencer**: Algorithmic set ordering using Camelot wheel harmonic distance, octave-free tempo matching, and 2-opt trajectory optimization.
 - 🔍 **Zero-Key Audio Recognition**: On-device SongRec-style Hann FFT spectral peak fingerprinting that matches songs without requiring private or paid API keys.
 - 🛡️ **Kids Mode & Content Safety**: 4-digit salted SHA-256 parent PIN gate with automatic explicit content filtering and lyric profanity masking.
@@ -92,13 +95,19 @@ Offline playback is no longer just a raw audio file:
 - **Storage Breakdown Meter**: Visually displays offline storage consumption split across Audio files, Artwork caches, and Lyrics data.
 - **Verification Badging**: Verified tags (`[Ultra 320 kbps]`, `[ART OK]`, `[LYRICS OK]`) guarantee full offline completeness.
 
-### 📈 Multi-Platform Streaming Charts
-Browse what the world is listening to without leaving the app:
-- **Apple Music Top 50**: Official real-time RSS chart feed.
-- **Spotify Top 50**: Global and regional hit rankings.
-- **YouTube Music Trending**: Live viral music video and audio stream leaderboards.
-- **Billboard Hot 100**: Definitive industry singles chart with mirror fallback.
-- **Honest Discovery Mixes**: Clear transparency disclosures distinguishing verified official rankings from curated algorithmic discovery mixes.
+### 📈 100% Certified Official Streaming Charts
+Browse authoritative music countdowns with verified positions (#1..#100) and movement indicators (`▲`, `▼`, `→`, `● NEW`):
+- **Apple Music Top 100**: Direct official RSS feeds covering 115+ countries and regional editorial highlights.
+- **Spotify Official Charts Hub**: Global Top 50, Regional Top 50, and Viral 50 ingested with verified rankings.
+- **YouTube Charts Browse Engine**: Official video and language leaderboards (Trending 20, Tamil, Telugu, Hindi, Punjabi, Bhojpuri, Haryanvi, International, Global).
+- **Billboard Hot 100**: Certified weekly singles countdown complete with Last Week (LW), Peak Position, and Weeks on Chart metadata.
+- **Kworb.net Worldwide**: Aggregated global digital and streaming points across platforms.
+- **Strict Anti-Search Standard**: Elimination of all synthetic or approximate unranked search fallbacks.
+
+### 🌅 Dynamic Living Scheduler & On-Device Daily Mixes
+- **Living Time Experience**: Soundscapes, greetings, and theme highlights dynamically morph every few hours to match your circadian rhythm (Dawn, Focus, Afternoon, Sunset, Prime Night, Midnight).
+- **Daily Mix 1..6**: Mathematical clustering over your local listening history and liked songs generates 6 personalized genre and artist mixes complete with dynamic 2x2 artwork quad collages and vibrant color aura indicators.
+- **Hero Single / Album View**: Full-bleed backdrop artwork with soft blur gradient fade, library save capsules, dual rounded transport pills (`▶ Play` & `🔀 Shuffle`), 4-pill transport sheet, and branded preview card image sharing.
 
 ### 🎛️ DJ Sequencer & Harmonic Mixing
 - Orders playlist tracks to minimize key clashes along the Camelot wheel.
