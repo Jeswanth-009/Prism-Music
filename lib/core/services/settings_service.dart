@@ -116,6 +116,8 @@ extension VisualizerStyleX on VisualizerStyle {
 enum HomeSectionId {
   hero('Quick Play & Greeting', 'Quick play hero banner at top'),
   moodChips('Quick Mood Filter', 'Instant in-feed genre and energy filter bar'),
+  dailyMixes('Made For You', 'Algorithmic Daily Mix 1..6 clustered on your device'),
+  livingPhase('Living Time Soundscape', 'Contextual soundscape and taglines tailored to time of day'),
   pinnedPlaylists('Pinned Playlists', 'Favorite playlists pinned to Home'),
   jumpBackIn('Jump Back In', 'Continue from recently played tracks'),
   recommended('Recommended For You', 'Personalized algorithm picks'),
@@ -792,6 +794,12 @@ class SettingsService {
 
   /// Whether a specific home section is enabled.
   bool isHomeSectionEnabled(HomeSectionId section) {
+    if (section == HomeSectionId.dailyMixes || section == HomeSectionId.livingPhase) {
+      final raw = _settingsBox?.get(_homeSectionsConfigKey);
+      if (raw is List && !raw.cast<String>().contains(section.name)) {
+        return true;
+      }
+    }
     return enabledHomeSections.contains(section.name);
   }
 

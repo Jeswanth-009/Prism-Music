@@ -36,6 +36,10 @@ import '../widgets/home/home_pinned_playlists_rail.dart';
 import '../widgets/home/home_smart_rules_rail.dart';
 import '../widgets/home/prism_update_capsule.dart';
 import '../../core/services/app_update_service.dart';
+import '../../core/services/daily_mix_service.dart';
+import '../../core/services/living_time_service.dart';
+import '../widgets/prism/prism_daily_mix_card.dart';
+import 'daily_mix_page.dart';
 
 /// Artwork-led Home surface: calm chrome, artwork carries the colour.
 class HomeTab extends StatefulWidget {
@@ -154,10 +158,7 @@ class _HomeTabState extends State<HomeTab>
   }
 
   String get _greeting {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
+    return LivingTimeService.instance.getSoundscape().greeting;
   }
 
   String get _recommendationSubtitle =>
@@ -324,6 +325,110 @@ class _HomeTabState extends State<HomeTab>
                         _play(shuffled.first, queue: shuffled, index: 0);
                       },
               ),
+            ),
+          ),
+        );
+
+      case HomeSectionId.livingPhase:
+        final soundscape = LivingTimeService.instance.getSoundscape();
+        return SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    soundscape.primaryAccent.withValues(alpha: 0.18),
+                    Theme.of(context).colorScheme.surfaceContainer,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(PrismRadius.lg),
+                border: Border.all(
+                  color: soundscape.primaryAccent.withValues(alpha: 0.28),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        soundscape.icon,
+                        size: 15,
+                        color: soundscape.primaryAccent,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          soundscape.uppercaseTagline,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.6,
+                            color: soundscape.primaryAccent,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    soundscape.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    soundscape.subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+
+      case HomeSectionId.dailyMixes:
+        final mixes = DailyMixService.instance.generateDailyMixes(
+          history: library.recentlyPlayed,
+          likedSongs: library.likedSongs,
+          seedTracks: _songs,
+        );
+        if (mixes.isEmpty) return null;
+        return _sliverSection(
+          title: 'Made for you',
+          subtitle: 'Made on your phone from what you play',
+          child: SizedBox(
+            height: 224,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              scrollDirection: Axis.horizontal,
+              itemCount: mixes.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 14),
+              itemBuilder: (context, index) {
+                final mix = mixes[index];
+                return PrismDailyMixCard(
+                  mix: mix,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => DailyMixPage(mix: mix),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         );
