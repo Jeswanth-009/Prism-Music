@@ -8,6 +8,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [1.0.11] - 2026-11-24
+
+### Fixed
+
+- Keep native playback queue in sync with bloc queue
+- Retry stream resolution failures instead of failing fatally
+- Reject stale stream URLs and invalidated prefetch results
+
+### Changed
+
+- Refresh dependencies to latest compatible versions
+
 ## [1.0.10] - 2026-11-23
 
 ### Added
@@ -1433,3 +1445,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [1.0.8]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.8
 [1.0.9]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.9
 [1.0.10]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.10
+[1.0.11]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.11
