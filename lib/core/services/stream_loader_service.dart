@@ -147,12 +147,22 @@ class StreamLoaderService {
       try {
         final result = await existingPrefetch;
         if (result != null) {
-          overallStopwatch.stop();
-          debugPrint(
-            'StreamLoader: Using prefetched stream for ${song.title} '
-            '(${overallStopwatch.elapsedMilliseconds}ms)',
-          );
-          return result;
+          // The stream may have been invalidated (e.g. a 403 expiry recovery)
+          // while the prefetch was in flight; serving that result here would
+          // hand back exactly the stale URL the invalidation tried to drop.
+          if (_invalidatedVideoIds.contains(videoId)) {
+            debugPrint(
+              'StreamLoader: Prefetch result for ${song.title} was '
+              'invalidated while waiting; fetching fresh',
+            );
+          } else {
+            overallStopwatch.stop();
+            debugPrint(
+              'StreamLoader: Using prefetched stream for ${song.title} '
+              '(${overallStopwatch.elapsedMilliseconds}ms)',
+            );
+            return result;
+          }
         }
       } catch (e) {
         debugPrint('StreamLoader: Prefetch failed, fetching fresh: $e');

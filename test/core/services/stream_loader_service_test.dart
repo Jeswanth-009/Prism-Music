@@ -424,24 +424,63 @@ void main() {
       await loader.loadStream(testSong, useCache: false);
       expect(slowPrimary.calls, equals(callsBefore));
     });
+
+    test('never returns a prefetch result invalidated while waiting', () async {
+      // The in-flight prefetch resolves to a URL that is invalidated (e.g.
+      // by a 403 expiry recovery) before the awaiting load can consume it.
+      final staleStream = StreamInfo(
+        url: 'https://stale.cdn.example/videoplayback',
+        codec: 'opus',
+        bitrate: 160,
+        container: 'webm',
+        quality: AudioQuality.high,
+        streamProvenance: 'youtube_explode',
+      );
+      final fallback = _ScriptedResolver(
+        'youtube_explode',
+        delay: const Duration(milliseconds: 120),
+        results: [staleStream, ytStream],
+      );
+      final primary = _ScriptedResolver('jiosaavn'); // never matches
+      final loader = buildLoader([primary, fallback]);
+
+      // Warm the song in the background.
+      loader.prefetch(testSong);
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      // A real load attaches to the in-flight prefetch...
+      final loadFuture = loader.loadStream(testSong, useCache: false);
+      // ...and the song is invalidated while that load is waiting on it.
+      loader.invalidateCache(testSong.playableId);
+
+      final result = await loadFuture;
+
+      // The stale prefetch result must be discarded, not served.
+      expect(result.url, equals(ytStream.url));
+      expect(fallback.calls, equals(2));
+    });
   });
 }
 
 /// Scripted [AudioStreamResolver]: optionally waits [delay], then either
-/// throws, or resolves to [result] (null means "no match").
+/// throws, or resolves to [result] (null means "no match"). A [results]
+/// queue hands out one entry per call, falling back to [result] once empty.
 class _ScriptedResolver implements AudioStreamResolver {
   _ScriptedResolver(
     this.resolverName, {
     this.delay = Duration.zero,
     this.result,
     this.shouldThrow = false,
-  });
+    List<StreamInfo?>? results,
+  }) : _results = results;
 
   @override
   final String resolverName;
   final Duration delay;
   final StreamInfo? result;
   final bool shouldThrow;
+  final List<StreamInfo?>? _results;
+  int _resultIndex = 0;
   int calls = 0;
 
   @override
@@ -458,6 +497,10 @@ class _ScriptedResolver implements AudioStreamResolver {
     }
     if (shouldThrow) {
       throw Exception('$resolverName failed');
+    }
+    final queue = _results;
+    if (queue != null && _resultIndex < queue.length) {
+      return queue[_resultIndex++];
     }
     return result;
   }

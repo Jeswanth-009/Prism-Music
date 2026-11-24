@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../domain/entities/entities.dart';
 import 'download_service.dart';
 import 'offline_mode_service.dart';
+import 'stream_cache_service.dart';
 import 'stream_loader_service.dart';
 import 'youtube_audio_source.dart';
 
@@ -25,11 +26,30 @@ class ResolvedMediaSource {
   });
 }
 
+/// A pre-resolved source plus the moment it was resolved, so a warm entry
+/// that has been sitting around (or whose URL has since expired) is never
+/// handed to the player as if it were fresh.
+class _PreResolvedEntry {
+  static const maxAge = Duration(minutes: 30);
+
+  final ResolvedMediaSource source;
+  final DateTime resolvedAt;
+
+  _PreResolvedEntry(this.source) : resolvedAt = DateTime.now();
+
+  bool get isStale {
+    if (DateTime.now().difference(resolvedAt) > maxAge) return true;
+    // Local files never go stale over time.
+    if (source.isOffline) return false;
+    return StreamCacheService.isUrlExpired(source.uri);
+  }
+}
+
 /// Central resolver that keeps PlayerBloc backend-agnostic.
 class MediaResolverService {
   final StreamLoaderService _streamLoader;
   final DownloadService _downloadService;
-  final Map<String, ResolvedMediaSource> _preResolved = {};
+  final Map<String, _PreResolvedEntry> _preResolved = {};
   final Set<String> _inflightPreResolve = {};
 
   void _log(String message) {
@@ -111,7 +131,7 @@ class MediaResolverService {
     _inflightPreResolve.add(songId);
     resolveForPlayback(song, preferredQuality: preferredQuality)
         .then((resolved) {
-          _preResolved[songId] = resolved;
+          _preResolved[songId] = _PreResolvedEntry(resolved);
         })
         .catchError((_) {
           // Keep preloading failures non-fatal.
@@ -122,7 +142,14 @@ class MediaResolverService {
   }
 
   ResolvedMediaSource? takePreResolved(String songId) {
-    return _preResolved.remove(songId);
+    final entry = _preResolved.remove(songId);
+    if (entry == null) return null;
+    if (entry.isStale) {
+      _log('MediaResolver: Discarding stale pre-resolved source for $songId');
+      _streamLoader.invalidateCache(songId);
+      return null;
+    }
+    return entry.source;
   }
 
   void invalidate(String songId) {
@@ -135,6 +162,10 @@ class MediaResolverService {
     final url = song.streamUrl?.trim();
     if (url == null || url.isEmpty) return false;
     if (!url.startsWith('http://') && !url.startsWith('https://')) return false;
+
+    // A URL that carries an `expire` timestamp in the past (minus the usual
+    // safety buffer) would only produce a 403/decode failure downstream.
+    if (StreamCacheService.isUrlExpired(url)) return false;
 
     final uri = Uri.tryParse(url);
     if (uri == null) return false;
