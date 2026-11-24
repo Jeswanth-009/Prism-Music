@@ -98,6 +98,12 @@ class FakeAudioPlayerService implements AudioPlayerService {
   Future<void> stop() async {}
 
   @override
+  String? mediaIdAt(int index) => null;
+
+  @override
+  List<String?> get queueMediaIds => const [];
+
+  @override
   Future<void> applySongNormalization(Song? song) async {}
 
   @override

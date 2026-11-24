@@ -829,6 +829,17 @@ class FakeAudioPlayerService implements AudioPlayerService {
   int seekCalls = 0;
 
   @override
+  String? mediaIdAt(int index) {
+    if (index < 0 || index >= loadedQueueSongs.length) return null;
+    final song = loadedQueueSongs[index];
+    return (song['videoId'] as String?) ?? (song['url'] as String?);
+  }
+
+  @override
+  List<String?> get queueMediaIds =>
+      loadedQueueSongs.map((s) => (s['videoId'] as String?) ?? (s['url'] as String?)).toList();
+
+  @override
   Future<void> seek(Duration position) async {
     seekCalls++;
     lastSeekPosition = position;

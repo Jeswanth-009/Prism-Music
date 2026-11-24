@@ -85,6 +85,27 @@ class AudioPlayerService {
   @visibleForTesting
   List<AudioSource> get queueSources => List.unmodifiable(_queueSources);
 
+  /// Song identity of the native queue entry at [index], or null when the
+  /// entry carries no tag id or [index] is out of range. The player bloc uses
+  /// this to map a native queue position back to the right bloc queue entry
+  /// when the two queues have drifted apart (skipped entries, add/remove/
+  /// reorder while playing).
+  String? mediaIdAt(int index) {
+    if (index < 0 || index >= _queueSources.length) return null;
+    return _mediaIdOf(_queueSources[index]);
+  }
+
+  /// Ids of every native queue entry, in native order (null for untagged
+  /// entries). Compared against the bloc queue before trusting native
+  /// auto-advance order for manual skips.
+  List<String?> get queueMediaIds =>
+      _queueSources.map(_mediaIdOf).toList();
+
+  String? _mediaIdOf(AudioSource source) {
+    final tag = source is IndexedAudioSource ? source.tag : null;
+    return tag is MediaItem ? tag.id : null;
+  }
+
   // Equalizer access
   EqualizerService get equalizer => _equalizerService;
 
@@ -689,8 +710,13 @@ class AudioPlayerService {
       return false;
     }
 
-    // Has a videoId (and no conflicting non-YouTube direct URL)
-    return videoId != null && videoId.isNotEmpty;
+    // Has a shape-valid YouTube videoId (11 URL-safe chars) and no conflicting
+    // non-YouTube direct URL. A bare non-YouTube id (e.g. a JioSaavn track id)
+    // must never enter the YouTube manifest chain: the whole client fallback
+    // walk would burn its timeout budget and fail the track.
+    return videoId != null &&
+        videoId.isNotEmpty &&
+        _youtubeVideoIdPattern.hasMatch(videoId);
   }
 
   /// Builds the correct [Uri] for [url]: [Uri.file] for local paths,

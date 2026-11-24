@@ -58,6 +58,30 @@ void main() {
       );
     });
 
+    test('isYouTubeTrack requires a shape-valid YouTube id when there is no URL', () {
+      // 11 URL-safe chars: a real YouTube video id.
+      expect(
+        AudioPlayerService.isYouTubeTrack(url: '', videoId: 'dQw4w9WgXcQ'),
+        isTrue,
+      );
+
+      // Non-YouTube ids (e.g. a JioSaavn track id) must never enter the
+      // YouTube manifest chain - it would burn the whole client fallback
+      // walk and fail the track when its queue turn comes.
+      expect(
+        AudioPlayerService.isYouTubeTrack(url: '', videoId: 'jiosaavn_track_456'),
+        isFalse,
+      );
+      expect(
+        AudioPlayerService.isYouTubeTrack(url: null, videoId: 'short_id'),
+        isFalse,
+      );
+      expect(
+        AudioPlayerService.isYouTubeTrack(url: '', videoId: ''),
+        isFalse,
+      );
+    });
+
     test('uriForUrl converts local paths and web URIs correctly', () {
       final fileUri = AudioPlayerService.uriForUrl('file:///storage/track.mp3');
       expect(fileUri.scheme, equals('file'));

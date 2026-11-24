@@ -1140,7 +1140,12 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       emit(state.copyWith(clearSleepTimer: true, sleepTimerEndOfTrack: false));
     }
 
-    if (_audioPlayer.isQueueMode && _audioPlayer.hasNext) {
+    // Only trust the native order for a manual skip while it still matches
+    // the bloc queue; after add/remove/reorder drift the bloc path below
+    // rebuilds the native queue in the correct order.
+    if (_audioPlayer.isQueueMode &&
+        _audioPlayer.hasNext &&
+        _isNativeQueueInSync) {
       _reliability.resetCircuitBreaker();
       _lastNearEndPrefetchIndex = -1;
       await _audioPlayer.skipToNext();
@@ -1211,7 +1216,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       emit(state.copyWith(clearSleepTimer: true, sleepTimerEndOfTrack: false));
     }
 
-    if (_audioPlayer.isQueueMode && _audioPlayer.hasPrevious) {
+    if (_audioPlayer.isQueueMode &&
+        _audioPlayer.hasPrevious &&
+        _isNativeQueueInSync) {
       _reliability.resetCircuitBreaker();
       _lastNearEndPrefetchIndex = -1;
       await _audioPlayer.skipToPrevious();
@@ -1384,9 +1391,19 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       updatedOriginal.add(event.song);
     }
 
+    // The native queue only supports appending (no insert API), so "Play
+    // Next" inserts and already-diverged queues leave the native side alone;
+    // the identity mapping in _onIndexChanged keeps those consistent.
+    final canAppendNatively =
+        !event.playNext && _audioPlayer.isQueueMode && _isNativeQueueInSync;
+
     emit(state.copyWith(queue: updatedQueue, originalQueue: updatedOriginal));
     MediaSessionCoordinator.instance.notifyQueueChanged();
     _persistCurrentSession();
+
+    if (canAppendNatively) {
+      await _audioPlayer.appendToQueue([_queueEntryFor(event.song)]);
+    }
 
     _safePrefetchSongArtwork(event.song);
     final preferredQuality = _startupQuality(state.audioQuality);
@@ -2213,24 +2230,30 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       return;
     }
 
-    final newIndex = event.index;
+    final nativeIndex = event.index;
     _log(
-      'PlayerBloc: Index changed to $newIndex (current state index: ${state.queueIndex})',
+      'PlayerBloc: Index changed to $nativeIndex (current state index: ${state.queueIndex})',
     );
 
-    if (newIndex == null) {
+    if (nativeIndex == null) {
       return;
     }
 
-    if (state.queue.isEmpty || newIndex < 0 || newIndex >= state.queue.length) {
+    // The native queue and the bloc queue can drift apart (entries skipped at
+    // build time, add/remove/reorder while playing). Map the native position
+    // back to the right bloc entry by song identity instead of trusting a
+    // 1:1 positional match.
+    final blocIndex = _blocIndexForNativeIndex(nativeIndex);
+    if (blocIndex == null || blocIndex < 0 || blocIndex >= state.queue.length) {
       _log(
-        'PlayerBloc: Ignoring out-of-range index $newIndex for queue size ${state.queue.length}',
+        'PlayerBloc: Ignoring native index $nativeIndex - no matching entry '
+        'in bloc queue of size ${state.queue.length}',
       );
       return;
     }
 
-    final newSong = state.queue[newIndex];
-    final indexChanged = newIndex != state.queueIndex;
+    final newSong = state.queue[blocIndex];
+    final indexChanged = blocIndex != state.queueIndex;
     final songChanged = state.currentSong?.playableId != newSong.playableId;
     if (!indexChanged && !songChanged) {
       return;
@@ -2262,20 +2285,20 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     emit(
       state.copyWith(
         currentSong: newSong,
-        queueIndex: newIndex,
+        queueIndex: blocIndex,
         position: indexChanged ? Duration.zero : state.position,
         status: _audioPlayer.playing ? PlayerStatus.playing : state.status,
       ),
     );
 
     // The native queue moved on by itself: make sure this track really starts.
-    _armTrackStartWatchdog(newSong, newIndex);
+    _armTrackStartWatchdog(newSong, blocIndex);
 
     // Update now playing and prefetch ahead.
     resetScrobbleState();
     updateNowPlaying(newSong);
-    _safePrefetchUpcomingArtwork(state.queue, newIndex);
-    _prefetchAhead(state.queue, newIndex);
+    _safePrefetchUpcomingArtwork(state.queue, blocIndex);
+    _prefetchAhead(state.queue, blocIndex);
     MediaSessionCoordinator.instance.notifyQueueChanged();
     // Add to history in background.
     _libraryRepository.addToHistory(newSong);
@@ -2283,6 +2306,53 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
     // Check if we need more recommendations.
     _checkAndAddRecommendations();
+  }
+
+  /// Maps a native queue position to the bloc queue index of the same song.
+  ///
+  /// Returns null when the song cannot be identified at all, in which case
+  /// the index change is ignored rather than applied to the wrong entry.
+  int? _blocIndexForNativeIndex(int nativeIndex) {
+    final mediaId = _audioPlayer.mediaIdAt(nativeIndex);
+
+    if (mediaId == null) {
+      // No identity available: positional mapping is all we have.
+      return (nativeIndex < state.queue.length) ? nativeIndex : null;
+    }
+
+    // Positional hit first - the common, in-sync case.
+    if (nativeIndex < state.queue.length &&
+        state.queue[nativeIndex].playableId == mediaId) {
+      return nativeIndex;
+    }
+
+    // The queues have drifted: take the nearest identity match, forward then
+    // backward, so duplicate ids resolve to the closest position.
+    for (var offset = 1; offset < state.queue.length; offset++) {
+      final forward = nativeIndex + offset;
+      if (forward < state.queue.length &&
+          state.queue[forward].playableId == mediaId) {
+        return forward;
+      }
+      final backward = nativeIndex - offset;
+      if (backward >= 0 && state.queue[backward].playableId == mediaId) {
+        return backward;
+      }
+    }
+    return null;
+  }
+
+  /// Whether the native playback queue currently matches the bloc queue's
+  /// order (same length, same song sequence). Only then can the native
+  /// auto-advance order be trusted for manual skips and extended by appends.
+  bool get _isNativeQueueInSync {
+    final nativeIds = _audioPlayer.queueMediaIds;
+    final queue = state.queue;
+    if (nativeIds.length != queue.length) return false;
+    for (var i = 0; i < queue.length; i++) {
+      if (nativeIds[i] != queue[i].playableId) return false;
+    }
+    return true;
   }
 
   /// Arms a one-shot timer for a track the native queue advanced to on its
@@ -2359,6 +2429,20 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       return null;
     }
   }
+
+  /// Payload map for one song, in the shape [AudioPlayerService.appendToQueue]
+  /// expects. Entries without a usable URL and without a valid YouTube id are
+  /// resolved lazily by the player when their turn comes.
+  Map<String, dynamic> _queueEntryFor(Song s) => <String, dynamic>{
+        'videoId': s.playableId,
+        'url': _downloadedPathFor(s) ?? s.streamUrl ?? '',
+        'headers': null,
+        'quality': _mapAudioQuality(state.audioQuality),
+        'title': s.title,
+        'artist': s.artist,
+        'artUri': s.thumbnails.medium ?? s.thumbnailUrl,
+        'album': s.album,
+      };
 
   Future<Duration?> _loadAudioQueueSafe(
     List<Song> queue,

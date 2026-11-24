@@ -94,6 +94,12 @@ class _FakeAudioPlayerService implements AudioPlayerService {
   }
 
   @override
+  String? mediaIdAt(int index) => null;
+
+  @override
+  List<String?> get queueMediaIds => const [];
+
+  @override
   Future<void> setVolume(double volume) async {}
 
   @override

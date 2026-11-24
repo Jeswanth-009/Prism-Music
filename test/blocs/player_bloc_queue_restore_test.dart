@@ -79,6 +79,12 @@ class _FakeAudioPlayerService implements AudioPlayerService {
   }
 
   @override
+  String? mediaIdAt(int index) => null;
+
+  @override
+  List<String?> get queueMediaIds => const [];
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 
   @override

@@ -97,6 +97,12 @@ class _FakeAudioPlayerService implements AudioPlayerService {
     _playCtrl.add(false);
   }
 
+  @override
+  String? mediaIdAt(int index) => null;
+
+  @override
+  List<String?> get queueMediaIds => const [];
+
   void emitNativeError(String error) {
     _errCtrl.add(error);
   }
@@ -364,11 +370,11 @@ void main() {
       await playingFuture;
 
       final errorFuture = bloc.stream.firstWhere((s) => s.status == PlayerStatus.error);
-      // Mid-stream native error occurs (fatal decoder error)
-      audioPlayer.emitNativeError('Unable to decode selected audio source');
+      // Mid-stream native error occurs (fatal 404 error)
+      audioPlayer.emitNativeError('Media source not found (404)');
       await errorFuture;
 
-      expect(bloc.state.errorMessage, contains('Unable to decode'));
+      expect(bloc.state.errorMessage, contains('not found'));
     });
   });
 

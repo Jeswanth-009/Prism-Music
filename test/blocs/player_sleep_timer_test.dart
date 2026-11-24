@@ -60,6 +60,12 @@ class _FakeAudioPlayerService implements AudioPlayerService {
   bool get isQueueMode => _isQueueMode;
 
   @override
+  String? mediaIdAt(int index) => null;
+
+  @override
+  List<String?> get queueMediaIds => const [];
+
+  @override
   Future<void> applySongNormalization(Song? song) async {}
 
   @override
