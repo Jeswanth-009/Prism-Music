@@ -1986,13 +1986,16 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
   bool _isFatalPlaybackError(Object error) {
     final message = error.toString().toLowerCase();
+    // 403/404/forbidden mean the source is (currently) gone for good; a
+    // transient resolution outage or a decode failure of a stale URL is not:
+    // those flow through the bounded retry path below (PlaybackReliabilityService
+    // caps attempts per song, the circuit breaker caps consecutive failures,
+    // and auto-advance is capped separately), which recovers playback instead
+    // of failing the song on the first transient resolver hiccup.
     if (message.contains('403') ||
         message.contains('404') ||
         message.contains('forbidden') ||
-        message.contains('not found') ||
-        message.contains('unable to decode') ||
-        message.contains('no valid audio source') ||
-        message.contains('all stream sources failed')) {
+        message.contains('not found')) {
       return true;
     }
     return _isVideoStream403(error);

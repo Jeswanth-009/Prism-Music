@@ -126,6 +126,10 @@ class FakeMediaResolverService implements MediaResolverService {
   /// 503) before succeeding. Exercises the retry path end to end.
   final Map<String, int> failTimes = {};
 
+  /// songId -> exception message thrown by the first [failTimes] attempts,
+  /// so a test can script a specific failure classification.
+  final Map<String, String> failMessages = {};
+
   /// songIds whose resolution throws TimeoutException (non-fatal) forever.
   final Set<String> timeoutSongIds = {};
 
@@ -133,6 +137,8 @@ class FakeMediaResolverService implements MediaResolverService {
   final Map<String, Completer<ResolvedMediaSource>> gates = {};
 
   final _attemptCounts = <String, int>{};
+
+  int attemptsFor(String songId) => _attemptCounts[songId] ?? 0;
 
   @override
   Future<ResolvedMediaSource> resolveForPlayback(
@@ -149,8 +155,9 @@ class FakeMediaResolverService implements MediaResolverService {
     final attempt = (_attemptCounts[song.id] ?? 0) + 1;
     _attemptCounts[song.id] = attempt;
     if (attempt <= failures) {
-      // 503: not in the fatal-error list, so the bloc should retry.
-      throw Exception('Stream resolution failed: 503 Service Unavailable');
+      final message = failMessages[song.id] ??
+          'Stream resolution failed: 503 Service Unavailable';
+      throw Exception(message);
     }
     if (timeoutSongIds.contains(song.id)) {
       throw TimeoutException('Stream resolution timed out');
@@ -521,5 +528,115 @@ void main() {
     expect(playerBloc.state.currentSong?.id, 'valid_song_2');
     expect(playerBloc.state.queueIndex, 1);
     expect(playerBloc.state.status, PlayerStatus.playing);
+  });
+
+  test('Resolver exhaustion is retried instead of failing the song outright',
+      () async {
+    const song1 = Song(
+      id: 'exhausted_song',
+      title: 'Exhausted Track',
+      artist: 'Artist A',
+      duration: Duration(seconds: 180),
+      thumbnails: Thumbnails(),
+    );
+
+    // First attempt exhausts every stream source (e.g. a transient outage of
+    // all resolvers); the second succeeds. Previously classified as fatal.
+    mediaResolver.failTimes['exhausted_song'] = 1;
+    mediaResolver.failMessages['exhausted_song'] =
+        'Exception: All stream sources failed to fetch exhausted_song';
+
+    playerBloc.add(
+      PlaySongEvent(song: song1, queue: [song1], queueIndex: 0),
+    );
+
+    await expectLater(
+      playerBloc.stream,
+      emitsThrough(
+        predicate<PlayerState>(
+          (s) =>
+              s.currentSong?.id == 'exhausted_song' &&
+              s.status == PlayerStatus.playing,
+        ),
+      ),
+    );
+
+    expect(playerBloc.state.status, PlayerStatus.playing);
+    expect(mediaResolver.attemptsFor('exhausted_song'), 2);
+  });
+
+  test('Decode failure gets a bounded fresh-resolution retry', () async {
+    const song1 = Song(
+      id: 'decode_recover',
+      title: 'Decode Track',
+      artist: 'Artist A',
+      duration: Duration(seconds: 180),
+      thumbnails: Thumbnails(),
+    );
+
+    // A stale/unplayable source fails to decode once; the fresh re-resolve
+    // that the retry triggers recovers playback.
+    mediaResolver.failTimes['decode_recover'] = 1;
+    mediaResolver.failMessages['decode_recover'] =
+        'Unable to decode audio stream';
+
+    playerBloc.add(
+      PlaySongEvent(song: song1, queue: [song1], queueIndex: 0),
+    );
+
+    await expectLater(
+      playerBloc.stream,
+      emitsThrough(
+        predicate<PlayerState>(
+          (s) =>
+              s.currentSong?.id == 'decode_recover' &&
+              s.status == PlayerStatus.playing,
+        ),
+      ),
+    );
+
+    expect(playerBloc.state.status, PlayerStatus.playing);
+    expect(mediaResolver.attemptsFor('decode_recover'), 2);
+  });
+
+  test('Missing source (404) stays fatal and skips without retrying',
+      () async {
+    const song1 = Song(
+      id: 'missing_song',
+      title: 'Missing Track',
+      artist: 'Artist A',
+      duration: Duration(seconds: 180),
+      thumbnails: Thumbnails(),
+    );
+    const song2 = Song(
+      id: 'valid_song_2',
+      title: 'Good Track',
+      artist: 'Artist B',
+      duration: Duration(seconds: 200),
+      thumbnails: Thumbnails(),
+    );
+
+    // A genuinely gone video never resolves: fatal classification means the
+    // bloc advances straight to the next track instead of burning retries.
+    mediaResolver.failTimes['missing_song'] = 99;
+    mediaResolver.failMessages['missing_song'] = 'Video not found (404)';
+
+    playerBloc.add(
+      PlaySongEvent(song: song1, queue: [song1, song2], queueIndex: 0),
+    );
+
+    await expectLater(
+      playerBloc.stream,
+      emitsThrough(
+        predicate<PlayerState>(
+          (s) =>
+              s.currentSong?.id == 'valid_song_2' &&
+              s.status == PlayerStatus.playing,
+        ),
+      ),
+    );
+
+    expect(playerBloc.state.currentSong?.id, 'valid_song_2');
+    expect(mediaResolver.attemptsFor('missing_song'), 1);
   });
 }
