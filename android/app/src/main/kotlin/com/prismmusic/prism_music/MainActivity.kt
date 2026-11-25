@@ -1,6 +1,9 @@
 package com.prismmusic.prism_music
 
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.PresetReverb
@@ -104,6 +107,23 @@ class MainActivity : AudioServiceActivity() {
                         val file = java.io.File(filePath)
                         if (!file.exists()) {
                             result.error("FILE_NOT_FOUND", "APK file does not exist", null)
+                            return@setMethodCallHandler
+                        }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                            !packageManager.canRequestPackageInstalls()
+                        ) {
+                            val settingsIntent = Intent(
+                                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                Uri.parse("package:${applicationContext.packageName}")
+                            ).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            startActivity(settingsIntent)
+                            result.error(
+                                "PERMISSION_REQUIRED",
+                                "Allow Prism Music to install unknown apps in Settings, then tap Install again.",
+                                null
+                            )
                             return@setMethodCallHandler
                         }
                         val contentUri = androidx.core.content.FileProvider.getUriForFile(

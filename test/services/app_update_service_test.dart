@@ -1,8 +1,10 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:prism_music/core/services/app_update_service.dart';
+import 'package:prism_music/presentation/widgets/dialogs/prism_update_dialog.dart';
 
 void main() {
   group('AppUpdateService Tests', () {
@@ -327,6 +329,156 @@ void main() {
       // Confirms arm64 slice APK is chosen (~19 MB instead of 44 MB universal)
       expect(info.apkDownloadUrl, 'https://github.com/download/arm64.apk');
       expect(info.apkSha256DownloadUrl, 'https://github.com/download/arm64.apk.sha256');
+    });
+
+    test('prioritizes semver over buildNumber and filters out draft and prerelease entries', () async {
+      const mixedFeed = '''
+[
+  {
+    "tag_name": "v1.0.15",
+    "draft": true,
+    "prerelease": false,
+    "html_url": "https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.15",
+    "body": "versionCode: 200",
+    "assets": []
+  },
+  {
+    "tag_name": "v1.0.14-beta.1",
+    "draft": false,
+    "prerelease": true,
+    "html_url": "https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.14",
+    "body": "versionCode: 199",
+    "assets": []
+  },
+  {
+    "tag_name": "v1.0.12",
+    "draft": false,
+    "prerelease": false,
+    "html_url": "https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.12",
+    "body": "| **versionCode** | 140 |",
+    "assets": [
+      {
+        "name": "prism-music-v1.0.12-android.apk",
+        "browser_download_url": "https://github.com/download/v1.0.12.apk"
+      },
+      {
+        "name": "prism-music-v1.0.12-windows-x64.zip",
+        "browser_download_url": "https://github.com/download/v1.0.12-win.zip"
+      }
+    ]
+  }
+]
+''';
+      final mockClient = MockClient((_) async => http.Response(mixedFeed, 200));
+      final service = AppUpdateService(
+        client: mockClient,
+        apiUrl: 'https://api.github.com/test/releases',
+      );
+
+      // Even if current buildNumber (144) > 140, higher semver (1.0.12 > 1.0.11) is detected.
+      final info = await service.checkForUpdate(
+        force: true,
+        overridePackageInfo: PackageInfo(
+          appName: 'Prism Music',
+          packageName: 'com.prism.music',
+          version: '1.0.11',
+          buildNumber: '144',
+        ),
+        overrideDeviceAbi: 'universal',
+      );
+
+      expect(info, isNotNull);
+      expect(info!.latestVersion, '1.0.12');
+      expect(info.hasUpdate, isTrue);
+      expect(service.latestUpdate.value?.latestVersion, '1.0.12');
+
+      // Higher current semver (1.0.13+100) must NOT see v1.0.12+140 as an update.
+      final newerLocal = await service.checkForUpdate(
+        force: true,
+        overridePackageInfo: PackageInfo(
+          appName: 'Prism Music',
+          packageName: 'com.prism.music',
+          version: '1.0.13',
+          buildNumber: '100',
+        ),
+        overrideDeviceAbi: 'universal',
+      );
+      expect(newerLocal, isNotNull);
+      expect(newerLocal!.hasUpdate, isFalse);
+    });
+
+    test('sets rate-limit lastCheckError on 429 and resets stuck installing state on resume', () async {
+      final mockClient = MockClient((_) async => http.Response('Rate limited', 429));
+      final service = AppUpdateService(
+        client: mockClient,
+        apiUrl: 'https://api.github.com/test/releases',
+      );
+
+      final info = await service.checkForUpdate(
+        force: true,
+        overridePackageInfo: PackageInfo(
+          appName: 'Prism Music',
+          packageName: 'com.prism.music',
+          version: '1.0.11',
+          buildNumber: '144',
+        ),
+      );
+      expect(info, isNull);
+      expect(service.lastCheckError, contains('rate limit'));
+
+      service.downloadState.value = const UpdateDownloadState(
+        status: UpdateStatus.installing,
+        progress: 1.0,
+        localApkPath: '/tmp/update.apk',
+      );
+      service.onAppResumedAfterInstall();
+      expect(service.downloadState.value.status, UpdateStatus.readyToInstall);
+    });
+
+    testWidgets('PrismUpdateDialog displays reactive download progress and Direct APK fallback button', (tester) async {
+      const info = AppUpdateInfo(
+        latestVersion: '1.0.12',
+        latestBuildNumber: 145,
+        currentVersion: '1.0.11',
+        currentBuildNumber: 144,
+        title: 'Prism Music v1.0.12',
+        changelog: '- Fixed streaming and auto-updates',
+        releaseUrl: 'https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.12',
+        apkDownloadUrl: 'https://github.com/download/app.apk',
+        hasUpdate: true,
+      );
+
+      AppUpdateService.instance.downloadState.value = const UpdateDownloadState(
+        status: UpdateStatus.idle,
+      );
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: PrismUpdateDialog(info: info),
+          ),
+        ),
+      );
+
+      expect(find.text('Update Now'), findsOneWidget);
+      expect(find.text('Direct APK'), findsOneWidget);
+
+      AppUpdateService.instance.downloadState.value = const UpdateDownloadState(
+        status: UpdateStatus.downloading,
+        progress: 0.45,
+        bytesReceived: 9 * 1024 * 1024,
+        totalBytes: 20 * 1024 * 1024,
+      );
+      await tester.pump();
+
+      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+      expect(find.textContaining('45%'), findsOneWidget);
+      expect(find.text('Cancel'), findsOneWidget);
+      expect(find.text('Hide'), findsOneWidget);
+
+      AppUpdateService.instance.downloadState.value = const UpdateDownloadState(
+        status: UpdateStatus.idle,
+      );
     });
   });
 }

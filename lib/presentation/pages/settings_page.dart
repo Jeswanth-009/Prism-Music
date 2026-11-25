@@ -1780,14 +1780,17 @@ class _SettingsPageState extends State<SettingsPage> {
       if (info == null) {
         showPrismToast(
           context,
-          'Unable to check for updates. Please check your internet connection.',
+          AppUpdateService.instance.lastCheckError ??
+              'Unable to check for updates. Please check your internet connection.',
         );
       } else if (info.hasUpdate) {
         await PrismUpdateDialog.show(context, info);
       } else {
+        final buildSuffix =
+            info.currentBuildNumber > 0 ? '+${info.currentBuildNumber}' : '';
         showPrismToast(
           context,
-          'You are on the latest version (v${info.currentVersion})',
+          'You are on the latest version (v${info.currentVersion}$buildSuffix)',
         );
       }
     } finally {

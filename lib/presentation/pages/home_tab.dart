@@ -73,20 +73,27 @@ class _HomeTabState extends State<HomeTab>
     _checkAppUpdate();
   }
 
-  Future<void> _checkAppUpdate() async {
+  Future<void> _checkAppUpdate({bool force = false}) async {
     try {
-      final info = await AppUpdateService.instance.checkForUpdate();
-      if (mounted &&
-          info != null &&
-          info.hasUpdate &&
-          !AppUpdateService.instance.isDismissed(info.latestVersion)) {
-        setState(() => _updateInfo = info);
+      final info = await AppUpdateService.instance.checkForUpdate(force: force);
+      if (mounted) {
+        setState(() {
+          _updateInfo = (info != null &&
+                  info.hasUpdate &&
+                  !AppUpdateService.instance.isDismissed(info.latestVersion))
+              ? info
+              : null;
+        });
       }
     } catch (_) {}
   }
 
-  Future<void> _refreshAll() =>
-      Future.wait([_load(), _loadRecommendations(), _loadNewAlbums()]);
+  Future<void> _refreshAll() => Future.wait([
+        _load(),
+        _loadRecommendations(),
+        _loadNewAlbums(),
+        _checkAppUpdate(force: true),
+      ]);
 
   Future<void> _load() async {
     setState(() {
@@ -248,16 +255,30 @@ class _HomeTabState extends State<HomeTab>
                 }
 
                 final sectionSlivers = <Widget>[];
-                if (_updateInfo != null) {
-                  sectionSlivers.add(
-                    SliverToBoxAdapter(
-                      child: PrismUpdateCapsule(
-                        updateInfo: _updateInfo!,
-                        onDismiss: () => setState(() => _updateInfo = null),
-                      ),
+                sectionSlivers.add(
+                  SliverToBoxAdapter(
+                    child: ValueListenableBuilder<AppUpdateInfo?>(
+                      valueListenable: AppUpdateService.instance.latestUpdate,
+                      builder: (context, notifierInfo, _) {
+                        final effectiveUpdate = notifierInfo ?? _updateInfo;
+                        if (effectiveUpdate == null ||
+                            !effectiveUpdate.hasUpdate ||
+                            AppUpdateService.instance
+                                .isDismissed(effectiveUpdate.latestVersion)) {
+                          return const SizedBox.shrink();
+                        }
+                        return PrismUpdateCapsule(
+                          updateInfo: effectiveUpdate,
+                          onDismiss: () {
+                            AppUpdateService.instance
+                                .dismissVersion(effectiveUpdate.latestVersion);
+                            setState(() => _updateInfo = null);
+                          },
+                        );
+                      },
                     ),
-                  );
-                }
+                  ),
+                );
                 for (final sectionId in _settings.homeSectionsOrder) {
                   if (!_settings.isHomeSectionEnabled(sectionId)) continue;
                   final sliver = _buildSectionSliver(sectionId, library);

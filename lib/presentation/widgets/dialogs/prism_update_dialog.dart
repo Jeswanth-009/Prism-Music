@@ -33,8 +33,7 @@ class PrismUpdateDialog extends StatelessWidget {
         !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
 
     if (!isDesktop && !preferReleasePage && info.apkDownloadUrl != null) {
-      Navigator.of(context).pop();
-      AppUpdateService.instance.startDownload(info);
+      await AppUpdateService.instance.startDownload(info);
       return;
     }
 
@@ -259,7 +258,7 @@ class PrismUpdateDialog extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'If direct APK download stalls at 100% in your browser, tap "Update Now" to download directly from the GitHub Release page.',
+                          'Tap "Update Now" to download and install in-app, or "Direct APK" to download directly in your browser.',
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                             fontSize: 11,
@@ -271,65 +270,138 @@ class PrismUpdateDialog extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
-                // Action buttons
-                Wrap(
-                  alignment: WrapAlignment.end,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    TextButton(
-                      onPressed: () => _handleDismiss(context),
-                      style: TextButton.styleFrom(
-                        foregroundColor: theme.colorScheme.onSurfaceVariant,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Text('Later'),
-                    ),
-                    if (info.apkDownloadUrl != null)
-                      OutlinedButton.icon(
-                        onPressed: () => _handleUpdate(context, preferReleasePage: false),
-                        icon: const Icon(Icons.file_download_outlined, size: 16),
-                        label: const Text('Direct APK'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: theme.colorScheme.onSurface,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
+                // Live download/install state + action buttons
+                ValueListenableBuilder<UpdateDownloadState>(
+                  valueListenable: AppUpdateService.instance.downloadState,
+                  builder: (context, dlState, _) {
+                    final isDownloading = dlState.isDownloading;
+                    final isReady = dlState.isReady ||
+                        dlState.status == UpdateStatus.installing;
+                    final isFailed = dlState.isFailed;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (isDownloading) ...[
+                          LinearProgressIndicator(
+                            value: dlState.totalBytes > 0 ? dlState.progress : null,
+                            borderRadius: BorderRadius.circular(4),
                           ),
-                          side: BorderSide(
-                            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+                          const SizedBox(height: 6),
+                          Text(
+                            dlState.totalBytes > 0
+                                ? 'Downloading: ${dlState.receivedMb} / ${dlState.totalMb} MB (${dlState.percent}%)'
+                                : 'Downloading: ${dlState.receivedMb} MB...',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: primary,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                          const SizedBox(height: 10),
+                        ] else if (dlState.errorMessage != null) ...[
+                          Text(
+                            dlState.errorMessage!,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.error,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
+                          const SizedBox(height: 10),
+                        ],
+                        Wrap(
+                          alignment: WrapAlignment.end,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            if (isDownloading) ...[
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                child: const Text('Hide'),
+                              ),
+                              OutlinedButton(
+                                onPressed: AppUpdateService.instance.cancelDownload,
+                                child: const Text('Cancel'),
+                              ),
+                            ] else ...[
+                              TextButton(
+                                onPressed: () => _handleDismiss(context),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: theme.colorScheme.onSurfaceVariant,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 10,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: const Text('Later'),
+                              ),
+                              if (info.apkDownloadUrl != null)
+                                OutlinedButton.icon(
+                                  onPressed: () =>
+                                      _handleUpdate(context, preferReleasePage: true),
+                                  icon: const Icon(Icons.file_download_outlined, size: 16),
+                                  label: const Text('Direct APK'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: theme.colorScheme.onSurface,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    side: BorderSide(
+                                      color: theme.colorScheme.outlineVariant
+                                          .withValues(alpha: 0.4),
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                ),
+                              FilledButton.icon(
+                                onPressed: () {
+                                  if (isReady && dlState.localApkPath != null) {
+                                    AppUpdateService.instance.installDownloadedApk(
+                                      dlState.localApkPath!,
+                                    );
+                                  } else {
+                                    _handleUpdate(context);
+                                  }
+                                },
+                                icon: Icon(
+                                  isReady
+                                      ? Icons.install_mobile_rounded
+                                      : (isFailed
+                                          ? Icons.refresh_rounded
+                                          : Icons.download_rounded),
+                                  size: 18,
+                                ),
+                                label: Text(
+                                  isReady
+                                      ? 'Install Update'
+                                      : (isFailed ? 'Retry Download' : 'Update Now'),
+                                ),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: primary,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 10,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                      ),
-                    FilledButton.icon(
-                      onPressed: () => _handleUpdate(context),
-                      icon: const Icon(Icons.download_rounded, size: 18),
-                      label: const Text('Update Now'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
               ],
             ),

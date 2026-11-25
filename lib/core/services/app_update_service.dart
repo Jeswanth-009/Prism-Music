@@ -57,6 +57,7 @@ class UpdateDownloadState {
     int? totalBytes,
     String? localApkPath,
     String? errorMessage,
+    bool clearErrorMessage = false,
   }) {
     return UpdateDownloadState(
       status: status ?? this.status,
@@ -64,7 +65,7 @@ class UpdateDownloadState {
       bytesReceived: bytesReceived ?? this.bytesReceived,
       totalBytes: totalBytes ?? this.totalBytes,
       localApkPath: localApkPath ?? this.localApkPath,
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
     );
   }
 }
@@ -112,6 +113,8 @@ class AppUpdateService {
       'https://api.github.com/repos/Jeswanth-009/Prism-Music/releases?per_page=5';
   static const String _fallbackApiUrl =
       'https://api.github.com/repos/Jeswanth-009/Prism-Music/releases/latest';
+  static const String _webLatestReleaseUrl =
+      'https://github.com/Jeswanth-009/Prism-Music/releases/latest';
   static const Duration _timeout = Duration(seconds: 10);
   static const Duration _cacheDuration = Duration(minutes: 15);
   static const Duration _throttleDuration = Duration(hours: 2);
@@ -125,11 +128,19 @@ class AppUpdateService {
   AppUpdateInfo? _cachedInfo;
   DateTime? _lastCheckTime;
   String? _dismissedVersion;
+  String? _lastCheckError;
+  Future<AppUpdateInfo?>? _inFlightCheck;
   CancelToken? _downloadCancelToken;
+
+  /// Most recent human-readable failure reason from the last network update check.
+  String? get lastCheckError => _lastCheckError;
 
   /// Reactive download progress notifier for UI binding.
   final ValueNotifier<UpdateDownloadState> downloadState =
       ValueNotifier(const UpdateDownloadState());
+
+  /// Reactive latest check result so Home surfaces update cleanly without duplicate calls.
+  final ValueNotifier<AppUpdateInfo?> latestUpdate = ValueNotifier(null);
 
   static AppUpdateService? _instance;
   static AppUpdateService get instance => _instance ??= AppUpdateService();
@@ -145,6 +156,19 @@ class AppUpdateService {
   /// Mark a version as dismissed for the active app session.
   void dismissVersion(String version) {
     _dismissedVersion = version;
+    if (latestUpdate.value?.latestVersion == version) {
+      latestUpdate.value = null;
+    }
+  }
+
+  /// Resets stuck `installing` status when returning from the Android package installer.
+  void onAppResumedAfterInstall() {
+    if (downloadState.value.status == UpdateStatus.installing) {
+      downloadState.value = downloadState.value.copyWith(
+        status: UpdateStatus.readyToInstall,
+        clearErrorMessage: true,
+      );
+    }
   }
 
   /// Whether the user previously chose 'Later' for this version.
@@ -177,10 +201,6 @@ class AppUpdateService {
     PackageInfo? overridePackageInfo,
     String? overrideDeviceAbi,
   }) async {
-    // 1. In-memory and persistent throttle check.
-    // If cached info already exists and was checked recently, return it immediately.
-    // Notice: We only throttle if _cachedInfo is NOT null; on fresh process launch,
-    // we always query GitHub to ensure the user gets real update status.
     if (!force) {
       if (_cachedInfo != null &&
           _lastCheckTime != null &&
@@ -199,7 +219,43 @@ class AppUpdateService {
       } catch (_) {
         // Fall back gracefully if Hive/settings box not yet ready
       }
+
+      if (overridePackageInfo == null &&
+          overrideDeviceAbi == null &&
+          _inFlightCheck != null) {
+        return _inFlightCheck;
+      }
     }
+
+    final future = _performCheckForUpdate(
+      overridePackageInfo: overridePackageInfo,
+      overrideDeviceAbi: overrideDeviceAbi,
+    );
+    if (!force && overridePackageInfo == null && overrideDeviceAbi == null) {
+      _inFlightCheck = future;
+      try {
+        return await future;
+      } finally {
+        if (identical(_inFlightCheck, future)) {
+          _inFlightCheck = null;
+        }
+      }
+    }
+    return future;
+  }
+
+  static const Map<String, String> _githubApiHeaders = {
+    'Accept': 'application/vnd.github.v3+json',
+    'User-Agent': 'Prism-Music-App',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache',
+  };
+
+  Future<AppUpdateInfo?> _performCheckForUpdate({
+    PackageInfo? overridePackageInfo,
+    String? overrideDeviceAbi,
+  }) async {
+    _lastCheckError = null;
 
     try {
       final packageInfo = overridePackageInfo ?? await PackageInfo.fromPlatform();
@@ -209,13 +265,9 @@ class AppUpdateService {
 
       http.Response? response;
       try {
-        response = await _client.get(
-          Uri.parse(_apiUrl),
-          headers: const {
-            'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': 'Prism-Music-App',
-          },
-        ).timeout(_timeout);
+        response = await _client
+            .get(Uri.parse(_apiUrl), headers: _githubApiHeaders)
+            .timeout(_timeout);
       } catch (netErr) {
         logError('AppUpdateService: Primary API request failed: $netErr');
       }
@@ -224,41 +276,53 @@ class AppUpdateService {
       // fallback to /releases/latest endpoint.
       if ((response == null || response.statusCode != 200) && _apiUrl == _defaultApiUrl) {
         try {
-          response = await _client.get(
-            Uri.parse(_fallbackApiUrl),
-            headers: const {
-              'Accept': 'application/vnd.github.v3+json',
-              'User-Agent': 'Prism-Music-App',
-            },
-          ).timeout(_timeout);
+          response = await _client
+              .get(Uri.parse(_fallbackApiUrl), headers: _githubApiHeaders)
+              .timeout(_timeout);
         } catch (fbErr) {
           logError('AppUpdateService: Fallback API request failed: $fbErr');
         }
       }
 
+      Map<String, dynamic>? latestRelease;
       if (response == null || response.statusCode != 200) {
-        logError(
-          'AppUpdateService: GitHub API returned status ${response?.statusCode ?? "no response"}',
-        );
-        return null;
-      }
-
-      final decoded = json.decode(response.body);
-      Map<String, dynamic> latestRelease;
-      if (decoded is List) {
-        if (decoded.isEmpty) {
-          logDebug('AppUpdateService: No releases returned by GitHub');
+        final statusCode = response?.statusCode;
+        // On GitHub REST API rate-limit (403/429) on production endpoint, fall back to
+        // GitHub's public web release redirect & expanded_assets HTML fragment.
+        if (_apiUrl == _defaultApiUrl && (statusCode == 403 || statusCode == 429)) {
+          latestRelease = await _fetchLatestReleaseViaWeb();
+        }
+        if (latestRelease == null) {
+          _lastCheckError = (statusCode == 403 || statusCode == 429)
+              ? 'GitHub rate limit reached. Please try again in a few minutes.'
+              : 'Unable to check for updates. Please check your internet connection.';
+          logError(
+            'AppUpdateService: GitHub API returned status ${statusCode ?? "no response"}',
+          );
           return null;
         }
-        latestRelease = decoded.firstWhere(
-          (r) => r is Map<String, dynamic> && r['draft'] != true,
-          orElse: () => decoded.first,
-        ) as Map<String, dynamic>;
-      } else if (decoded is Map<String, dynamic>) {
-        latestRelease = decoded;
       } else {
-        logDebug('AppUpdateService: Unexpected response format from GitHub');
-        return null;
+        final decoded = json.decode(response.body);
+        if (decoded is List) {
+          if (decoded.isEmpty) {
+            logDebug('AppUpdateService: No releases returned by GitHub');
+            return null;
+          }
+          latestRelease = _selectBestReleaseFromList(
+            decoded.whereType<Map<String, dynamic>>().toList(),
+            currentVersion: currentVersion,
+            allowApkFallbackOnly: overrideDeviceAbi != null,
+          );
+          if (latestRelease == null) {
+            logDebug('AppUpdateService: No eligible non-draft release found');
+            return null;
+          }
+        } else if (decoded is Map<String, dynamic>) {
+          latestRelease = decoded;
+        } else {
+          logDebug('AppUpdateService: Unexpected response format from GitHub');
+          return null;
+        }
       }
 
       final tagName = (latestRelease['tag_name'] as String?) ?? '';
@@ -313,13 +377,133 @@ class AppUpdateService {
 
       _cachedInfo = updateInfo;
       _lastCheckTime = DateTime.now();
+      _lastCheckError = null;
+      latestUpdate.value =
+          (updateInfo.hasUpdate && !isDismissed(updateInfo.latestVersion))
+              ? updateInfo
+              : null;
       try {
         await SettingsService.instance.setLastUpdateCheckTime(_lastCheckTime!);
       } catch (_) {}
 
       return updateInfo;
     } catch (e, stack) {
+      _lastCheckError = 'Unable to check for updates. Please check your internet connection.';
       logError('AppUpdateService: Error checking for update', e, stack);
+      return null;
+    }
+  }
+
+  /// Selects the newest non-draft release from GitHub's release feed, filtering
+  /// out prereleases (unless running an alpha/prerelease build) and preferring
+  /// releases whose matching platform asset is already attached.
+  Map<String, dynamic>? _selectBestReleaseFromList(
+    List<Map<String, dynamic>> releases, {
+    required String currentVersion,
+    required bool allowApkFallbackOnly,
+  }) {
+    final published = releases.where((r) => r['draft'] != true).toList();
+    if (published.isEmpty) return null;
+
+    final runningPrerelease = currentVersion.contains('-') ||
+        _compareSemver(_normalizeSemver(currentVersion), '1.0.0') < 0;
+    final stable = published.where((r) => r['prerelease'] != true).toList();
+    final pool = (stable.isNotEmpty && !runningPrerelease) ? stable : published;
+
+    // Sort descending by (semver, buildNumber) so newest release wins even if feed isn't ordered.
+    final sorted = List<Map<String, dynamic>>.from(pool);
+    sorted.sort((a, b) {
+      final pa = _parseVersionFromTag(
+        (a['tag_name'] as String?) ?? '',
+        (a['body'] as String?) ?? '',
+      );
+      final pb = _parseVersionFromTag(
+        (b['tag_name'] as String?) ?? '',
+        (b['body'] as String?) ?? '',
+      );
+      final semCmp = _compareSemver(pb.$1, pa.$1);
+      if (semCmp != 0) return semCmp;
+      return pb.$2.compareTo(pa.$2);
+    });
+
+    if (!kIsWeb && !allowApkFallbackOnly && (Platform.isWindows || Platform.isLinux)) {
+      final desktopReady = sorted.where((r) {
+        final assets = (r['assets'] as List?) ?? const [];
+        return _extractDesktopDownloadUrl(assets) != null;
+      }).toList();
+      if (desktopReady.isNotEmpty) {
+        return desktopReady.first;
+      }
+    } else if (!kIsWeb && Platform.isAndroid) {
+      final androidReady = sorted.where((r) {
+        final assets = (r['assets'] as List?) ?? const [];
+        return _extractApkDownloadUrl(assets) != null;
+      }).toList();
+      if (androidReady.isNotEmpty) {
+        return androidReady.first;
+      }
+    }
+
+    return sorted.first;
+  }
+
+  /// Unauthenticated fallback used only when GitHub REST API returns 403/429.
+  Future<Map<String, dynamic>?> _fetchLatestReleaseViaWeb() async {
+    try {
+      final res = await _client
+          .get(
+            Uri.parse(_webLatestReleaseUrl),
+            headers: const {
+              'User-Agent': 'Prism-Music-App',
+              'Cache-Control': 'no-cache',
+            },
+          )
+          .timeout(_timeout);
+      if (res.statusCode != 200) return null;
+
+      final tagMatch = RegExp(
+        r'/Jeswanth-009/Prism-Music/releases/(?:tag|expanded_assets)/([^/"?\s]+)',
+      ).firstMatch(res.body);
+      final tagName = tagMatch?.group(1);
+      if (tagName == null || tagName.isEmpty) return null;
+
+      final assets = <Map<String, dynamic>>[];
+      try {
+        final assetsRes = await _client
+            .get(
+              Uri.parse(
+                'https://github.com/Jeswanth-009/Prism-Music/releases/expanded_assets/$tagName',
+              ),
+              headers: const {
+                'User-Agent': 'Prism-Music-App',
+                'Cache-Control': 'no-cache',
+              },
+            )
+            .timeout(_timeout);
+        if (assetsRes.statusCode == 200) {
+          final hrefRegex = RegExp(
+            r'href="(/Jeswanth-009/Prism-Music/releases/download/[^"]+)"',
+          );
+          for (final m in hrefRegex.allMatches(assetsRes.body)) {
+            final path = m.group(1)!;
+            final name = path.split('/').last;
+            assets.add({
+              'name': name,
+              'browser_download_url': 'https://github.com$path',
+            });
+          }
+        }
+      } catch (_) {}
+
+      return {
+        'tag_name': tagName,
+        'name': 'Prism Music $tagName',
+        'html_url': 'https://github.com/Jeswanth-009/Prism-Music/releases/tag/$tagName',
+        'body': '',
+        'assets': assets,
+      };
+    } catch (e) {
+      logDebug('AppUpdateService: Web fallback release lookup failed: $e');
       return null;
     }
   }
@@ -376,6 +560,13 @@ class AppUpdateService {
               progress: progress,
               bytesReceived: received,
               totalBytes: total,
+            );
+          } else {
+            downloadState.value = UpdateDownloadState(
+              status: UpdateStatus.downloading,
+              progress: 0.0,
+              bytesReceived: received,
+              totalBytes: 0,
             );
           }
         },
@@ -460,12 +651,20 @@ class AppUpdateService {
     try {
       downloadState.value = downloadState.value.copyWith(
         status: UpdateStatus.installing,
+        clearErrorMessage: true,
       );
       final result = await _installerChannel.invokeMethod<bool>(
         'installApk',
         {'filePath': filePath},
       );
-      return result ?? false;
+      final ok = result ?? false;
+      if (!ok) {
+        downloadState.value = downloadState.value.copyWith(
+          status: UpdateStatus.readyToInstall,
+          errorMessage: 'Unable to launch Android installer. Tap Install again.',
+        );
+      }
+      return ok;
     } on PlatformException catch (e) {
       logError('AppUpdateService: Failed to launch installer', e);
       downloadState.value = downloadState.value.copyWith(
@@ -517,17 +716,26 @@ class AppUpdateService {
     return (version, build);
   }
 
+  String _normalizeSemver(String raw) {
+    final m = RegExp(r'(\d+\.\d+\.\d+)').firstMatch(raw.trim());
+    return m?.group(1) ?? raw.trim().split(RegExp(r'[+-]')).first;
+  }
+
   bool _isUpdateAvailable({
     required String currentVersion,
     required int currentBuild,
     required String latestVersion,
     required int latestBuild,
   }) {
+    final normLatest = _normalizeSemver(latestVersion);
+    final normCurrent = _normalizeSemver(currentVersion);
+    final semverCmp = _compareSemver(normLatest, normCurrent);
+    if (semverCmp > 0) return true;
+    if (semverCmp < 0) return false;
     if (latestBuild > 0 && currentBuild > 0) {
-      if (latestBuild > currentBuild) return true;
-      if (latestBuild < currentBuild) return false;
+      return latestBuild > currentBuild;
     }
-    return _compareSemver(latestVersion, currentVersion) > 0;
+    return false;
   }
 
   int _compareSemver(String v1, String v2) {

@@ -55,11 +55,12 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   late int _currentIndex;
   late final Set<int> _visitedTabs;
   final Map<int, Widget> _cachedTabWidgets = {};
   Timer? _updateCheckTimer;
+  bool _isUpdateDialogShowing = false;
   StreamSubscription<void>? _offlineTransitionSub;
   StreamSubscription<GeoRestrictionException>? _geoRestrictionSub;
   StreamSubscription<ParsedDeepLink>? _deepLinkSub;
@@ -70,6 +71,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _currentIndex = widget.initialIndex;
     _visitedTabs = {widget.initialIndex};
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -128,6 +130,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _deepLinkSub?.cancel();
     _offlineTransitionSub?.cancel();
     _geoRestrictionSub?.cancel();
@@ -135,19 +138,34 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  void _checkUpdateOnLaunch() {
-    if (!mounted || !_shouldCheckUpdates) return;
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _shouldCheckUpdates) {
+      AppUpdateService.instance.onAppResumedAfterInstall();
+      _checkUpdateOnLaunch(delay: const Duration(milliseconds: 600));
+    }
+  }
+
+  void _checkUpdateOnLaunch({Duration delay = const Duration(milliseconds: 1500)}) {
+    if (!mounted || !_shouldCheckUpdates || _isUpdateDialogShowing) return;
     _updateCheckTimer?.cancel();
-    _updateCheckTimer = Timer(const Duration(milliseconds: 1500), () async {
-      if (!mounted) return;
+    _updateCheckTimer = Timer(delay, () async {
+      if (!mounted || _isUpdateDialogShowing) return;
 
       final info = await AppUpdateService.instance.checkForUpdate();
-      if (!mounted || info == null || !info.hasUpdate) return;
+      if (!mounted || info == null || !info.hasUpdate || _isUpdateDialogShowing) {
+        return;
+      }
 
       // Do not show if dismissed in this app session
       if (AppUpdateService.instance.isDismissed(info.latestVersion)) return;
 
-      await PrismUpdateDialog.show(context, info);
+      _isUpdateDialogShowing = true;
+      try {
+        await PrismUpdateDialog.show(context, info);
+      } finally {
+        _isUpdateDialogShowing = false;
+      }
     });
   }
 
