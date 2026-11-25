@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio_platform_interface/just_audio_platform_interface.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:prism_music/core/services/audio_player_service.dart';
+import 'package:prism_music/core/services/media_resolver_service.dart';
 import 'package:prism_music/core/services/settings_service.dart';
 import 'package:prism_music/core/services/youtube_audio_source.dart';
 import 'package:prism_music/presentation/blocs/player/player_bloc.dart';
@@ -154,6 +155,57 @@ void main() {
 
       // 4. Remote YouTube track -> YouTubeAudioSource
       expect(sources[3], isA<YouTubeAudioSource>());
+    });
+
+    test('loadQueue preserves unresolved non-YouTube tracks via DeferredStreamAudioSource and setUrl supports late appends', () async {
+      final playerService = AudioPlayerService();
+      playerService.configureQueueResolvers(
+        deferredResolver: (id, title, artist, quality) async =>
+            ResolvedMediaSource(
+          uri: 'https://cdn.example/$id.m4a',
+          isOffline: false,
+          videoId: id,
+        ),
+      );
+
+      final queuePayload = <Map<String, dynamic>>[
+        {
+          'videoId': 'jiosaavn_track_1',
+          'url': '',
+          'title': 'Saavn Track 1',
+          'artist': 'Artist',
+          'durationMs': 185000,
+        },
+        {
+          'videoId': 'dQw4w9WgXcQ',
+          'url': null,
+          'title': 'YouTube Track 2',
+          'artist': 'Artist 2',
+        },
+      ];
+
+      final duration = await playerService.loadQueue(queuePayload, initialIndex: 0);
+      expect(duration, isNotNull);
+      expect(playerService.queueSourcesLength, 2);
+      expect(playerService.queueSources[0], isA<DeferredStreamAudioSource>());
+      expect(playerService.queueSources[1], isA<YouTubeAudioSource>());
+
+      // Single-song setUrl also enters queue mode so late recommendations append seamlessly.
+      await playerService.setUrl(
+        'https://cdn.example/single.m4a',
+        videoId: 'single_1',
+        mediaDuration: const Duration(seconds: 200),
+      );
+      expect(playerService.isQueueMode, isTrue);
+      await playerService.appendToQueue([
+        {
+          'videoId': 'rec_next_1',
+          'url': '',
+          'title': 'Late Recommendation',
+          'artist': 'Artist',
+        },
+      ]);
+      expect(playerService.queueSourcesLength, 2);
     });
   });
 

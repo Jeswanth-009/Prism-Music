@@ -221,6 +221,14 @@ class FakeQueueAudioPlayerService implements AudioPlayerService {
     _idxCtrl.add(index);
   }
 
+  void emitBuffering(bool isBuffering) {
+    _bufferingCtrl.add(isBuffering);
+  }
+
+  void emitError(String message) {
+    _errCtrl.add(message);
+  }
+
   @override
   Future<void> play() async {}
   @override
@@ -441,5 +449,40 @@ void main() {
 
     expect(audioPlayer.appendedIds, isEmpty);
     expect(audioPlayer.nativeIds, [songA.id, songC.id]);
+  });
+
+  test('handles native error while loading during auto-advance instead of deadlocking', () async {
+    await playThreeSongQueue();
+
+    // Native player auto-advances to songB and begins buffering (PlayerStatus.loading).
+    audioPlayer.nativeAdvancesTo(1);
+    audioPlayer.emitBuffering(true);
+    await expectLater(
+      playerBloc.stream,
+      emitsThrough(
+        predicate<PlayerState>(
+          (s) =>
+              s.currentSong?.id == songB.id &&
+              s.status == PlayerStatus.loading,
+        ),
+      ),
+    );
+
+    // songB fails with fatal 404 while in PlayerStatus.loading; PlayerBloc must
+    // recover and skip forward to songC instead of dropping the error event.
+    audioPlayer.emitError('Media source not found (404)');
+
+    await expectLater(
+      playerBloc.stream,
+      emitsThrough(
+        predicate<PlayerState>(
+          (s) =>
+              s.currentSong?.id == songC.id &&
+              s.status == PlayerStatus.playing,
+        ),
+      ),
+    );
+
+    expect(playerBloc.state.queueIndex, 2);
   });
 }

@@ -78,7 +78,11 @@ class MediaResolverService {
       final localPath = _downloadService.getLocalPath(songId);
       if (localPath != null && File(localPath).existsSync()) {
         _log('MediaResolver: Offline HIT for ${song.title}');
-        return ResolvedMediaSource(uri: localPath, isOffline: true);
+        return ResolvedMediaSource(
+          uri: localPath,
+          isOffline: true,
+          videoId: songId,
+        );
       }
     }
 

@@ -561,6 +561,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   /// elsewhere) and must abandon silently instead of emitting error states
   /// or scheduling retries/auto-advances that hijack newer playback.
   int _playbackGeneration = 0;
+  bool _isNativeQueueTransitionLoading = false;
 
   /// Upper bounds for network-bound playback stages. Without these a dead
   /// source (e.g. a hung stream manifest fetch) leaves the UI in `loading`
@@ -628,6 +629,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     // attempts (bloc handlers run concurrently, so an old hung _onPlaySong
     // may still be awaiting its resolution right now).
     final generation = ++_playbackGeneration;
+    _isNativeQueueTransitionLoading = false;
     // This attempt has its own timeouts and error handling; a watchdog armed
     // for an earlier native auto-advance no longer applies.
     _cancelTrackStartWatchdog();
@@ -1093,6 +1095,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
   Future<void> _onPause(PauseEvent event, Emitter<PlayerState> emit) async {
     _playbackGeneration++;
+    _isNativeQueueTransitionLoading = false;
     _audioFocus.notifyUserPaused(true);
     await _audioPlayer.pause();
     await _audioFocus.deactivate();
@@ -1148,6 +1151,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         _isNativeQueueInSync) {
       _reliability.resetCircuitBreaker();
       _lastNearEndPrefetchIndex = -1;
+      _isNativeQueueTransitionLoading = true;
       await _audioPlayer.skipToNext();
       return;
     }
@@ -1221,6 +1225,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         _isNativeQueueInSync) {
       _reliability.resetCircuitBreaker();
       _lastNearEndPrefetchIndex = -1;
+      _isNativeQueueTransitionLoading = true;
       await _audioPlayer.skipToPrevious();
       return;
     }
@@ -1611,6 +1616,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
   Future<void> _onStop(StopEvent event, Emitter<PlayerState> emit) async {
     _playbackGeneration++;
+    _isNativeQueueTransitionLoading = false;
     _cancelTrackStartWatchdog();
     cancelSleepTimer();
     await _audioPlayer.stop();
@@ -1687,6 +1693,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     // While video mode is active the video surface is the playback source; the
     // paused audio engine must not overwrite the shown play/pause state.
     if (state.isVideoMode) return;
+    if (event.isPlaying) {
+      _isNativeQueueTransitionLoading = false;
+    }
     emit(
       state.copyWith(
         status: event.isPlaying ? PlayerStatus.playing : PlayerStatus.paused,
@@ -1790,14 +1799,17 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   }
 
   void _onPlayerError(PlayerErrorEvent event, Emitter<PlayerState> emit) {
-    // If player is actively in loading state, _onPlaySong is already handling resolution,
-    // retries, and error recovery. Avoid duplicate concurrent retries and infinite loops!
-    if (state.status == PlayerStatus.loading) {
+    // Ignore PlayerErrorEvent during loading ONLY while _onPlaySong owns the
+    // transition (it catches resolution/setUrl errors and schedules retries).
+    // Errors occurring during passive native auto-advance/skip loading must still
+    // flow to _handlePlaybackError so the next track does not deadlock!
+    if (state.status == PlayerStatus.loading && !_isNativeQueueTransitionLoading) {
       _log(
         'PlayerBloc: Ignoring PlayerErrorEvent during loading (handled by _onPlaySong): ${event.message}',
       );
       return;
     }
+    _isNativeQueueTransitionLoading = false;
     // If we already surfaced a terminal error for this attempt, ignore any
     // follow-up error events: re-handling them would double-count failures
     // (accelerating the circuit breaker) and schedule "resurrection" retries
@@ -2170,21 +2182,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       // has to rebuild the whole queue from scratch, and playback stalls or
       // jumps instead of simply advancing to the next track.
       if (_audioPlayer.isQueueMode) {
-        final quality = _mapAudioQuality(state.audioQuality);
-        final payload = uniqueSongs
-            .map(
-              (s) => <String, dynamic>{
-                'videoId': s.playableId,
-                'url': _downloadedPathFor(s) ?? s.streamUrl ?? '',
-                'headers': null,
-                'quality': quality,
-                'title': s.title,
-                'artist': s.artist,
-                'artUri': s.thumbnails.medium ?? s.thumbnailUrl,
-                'album': s.album,
-              },
-            )
-            .toList();
+        final payload = uniqueSongs.map((s) => _queueEntryFor(s)).toList();
         unawaited(_audioPlayer.appendToQueue(payload));
       }
       // Next button in the media notification may now be usable.
@@ -2282,6 +2280,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     _lastNearEndPrefetchIndex = -1;
 
     // Update state to reflect new song/index.
+    _isNativeQueueTransitionLoading = !_audioPlayer.playing;
     emit(
       state.copyWith(
         currentSong: newSong,
@@ -2391,8 +2390,14 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         return;
       }
 
-      // Paused (by the user, a sleep timer or video mode): nothing is stuck.
-      if (!_audioPlayer.playing) return;
+      // Paused (by the user, a sleep timer, or video mode): nothing is stuck.
+      // However, if native auto-advance stalled/stopped mid-load, _audioPlayer.playing
+      // drops to false while state.status remains loading — allow recovery.
+      if (state.status == PlayerStatus.paused ||
+          state.isVideoMode ||
+          (!_audioPlayer.playing && state.status != PlayerStatus.loading)) {
+        return;
+      }
 
       // Audio is flowing: the track started fine.
       if (state.position >= _trackStartMinProgress) return;
@@ -2430,19 +2435,32 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     }
   }
 
-  /// Payload map for one song, in the shape [AudioPlayerService.appendToQueue]
-  /// expects. Entries without a usable URL and without a valid YouTube id are
-  /// resolved lazily by the player when their turn comes.
-  Map<String, dynamic> _queueEntryFor(Song s) => <String, dynamic>{
-        'videoId': s.playableId,
-        'url': _downloadedPathFor(s) ?? s.streamUrl ?? '',
-        'headers': null,
-        'quality': _mapAudioQuality(state.audioQuality),
-        'title': s.title,
-        'artist': s.artist,
-        'artUri': s.thumbnails.medium ?? s.thumbnailUrl,
-        'album': s.album,
-      };
+  /// Payload map for one song, in the shape [AudioPlayerService.loadQueue]
+  /// and [AudioPlayerService.appendToQueue] expect.
+  Map<String, dynamic> _queueEntryFor(
+    Song s, {
+    ResolvedMediaSource? resolvedSource,
+    bool isCurrent = false,
+  }) {
+    final url = isCurrent && resolvedSource != null
+        ? resolvedSource.uri
+        : (_downloadedPathFor(s) ?? s.streamUrl ?? '');
+    final streamInfo = isCurrent ? resolvedSource?.streamInfo : null;
+    return <String, dynamic>{
+      'videoId': s.playableId,
+      'url': url,
+      'headers': isCurrent ? resolvedSource?.headers : null,
+      'contentLength': streamInfo?.contentLength,
+      'contentType':
+          streamInfo != null ? 'audio/${streamInfo.container}' : null,
+      'durationMs': s.duration.inMilliseconds,
+      'quality': _mapAudioQuality(state.audioQuality),
+      'title': s.title,
+      'artist': s.artist,
+      'artUri': s.thumbnails.medium ?? s.thumbnailUrl,
+      'album': s.album,
+    };
+  }
 
   Future<Duration?> _loadAudioQueueSafe(
     List<Song> queue,
@@ -2453,26 +2471,15 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     bool isYouTubeSong,
   ) async {
     try {
-      final songsPayload = queue.map((s) {
-        final isCurrent = s.playableId == songToPlay.playableId;
-        // Downloaded entries carry their local file path so the player loads
-        // them from disk instead of resolving a network stream (which cannot
-        // work offline). Other entries keep their stream URL, or are
-        // resolved lazily when their turn comes.
-        final url = isCurrent
-            ? resolvedSource.uri
-            : (_downloadedPathFor(s) ?? s.streamUrl ?? '');
-        return <String, dynamic>{
-          'videoId': s.playableId,
-          'url': url,
-          'headers': isCurrent ? resolvedSource.headers : null,
-          'quality': _mapAudioQuality(state.audioQuality),
-          'title': s.title,
-          'artist': s.artist,
-          'artUri': s.thumbnails.medium ?? s.thumbnailUrl,
-          'album': s.album,
-        };
-      }).toList();
+      final songsPayload = queue
+          .map(
+            (s) => _queueEntryFor(
+              s,
+              resolvedSource: resolvedSource,
+              isCurrent: s.playableId == songToPlay.playableId,
+            ),
+          )
+          .toList();
 
       // The user's prefetch setting also controls how many upcoming tracks
       // get their stream manifests warmed while the current one plays.

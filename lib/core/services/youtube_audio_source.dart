@@ -5,39 +5,229 @@ import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:http/http.dart' as http;
+import 'stream_cache_service.dart';
 import 'youtube_manifest_resolver.dart';
+
+/// Metadata for an external fallback audio stream resolved outside [YouTubeManifestResolver].
+class ResolvedExternalAudioStream {
+  final String url;
+  final int? contentLength;
+  final String? contentType;
+  final Map<String, String>? headers;
+
+  const ResolvedExternalAudioStream({
+    required this.url,
+    this.contentLength,
+    this.contentType,
+    this.headers,
+  });
+}
+
+/// Callback type for resolving streams when [YouTubeManifestResolver] cannot.
+typedef ExternalAudioStreamResolver =
+    Future<ResolvedExternalAudioStream?> Function(String videoId, String quality);
+
+const String _defaultStreamUserAgent =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+/// Parses the total byte length from an HTTP `Content-Range` header value.
+int? parseTotalBytesFromContentRange(String? contentRange) {
+  if (contentRange == null) return null;
+  final slashIdx = contentRange.lastIndexOf('/');
+  if (slashIdx == -1) return null;
+  return int.tryParse(contentRange.substring(slashIdx + 1).trim());
+}
+
+/// Parses the chunk byte length (`end - start + 1`) from a `Content-Range` header value.
+int? parseRangeSpanFromContentRange(String? contentRange) {
+  if (contentRange == null) return null;
+  final match = RegExp(r'bytes\s+(\d+)-(\d+)/').firstMatch(contentRange);
+  if (match == null) return null;
+  final start = int.tryParse(match.group(1)!);
+  final end = int.tryParse(match.group(2)!);
+  if (start == null || end == null || end < start) return null;
+  return end - start + 1;
+}
+
+/// Opens an upstream HTTP byte-range stream for `just_audio`'s local proxy without
+/// aborting concurrent sibling range requests and ensuring socket cleanup on cancel.
+Future<StreamAudioResponse> openHttpRangeAudioStream({
+  required String streamUrl,
+  required int start,
+  int? end,
+  required int totalBytes,
+  required String fallbackContentType,
+  Map<String, String>? headers,
+  required Set<http.Client> activeClients,
+}) async {
+  final clampedEnd = (totalBytes > 0 && end != null && end > totalBytes) ? totalBytes : end;
+  final rangeEnd = clampedEnd ?? (totalBytes > 0 ? totalBytes : null);
+
+  final request = http.Request('GET', Uri.parse(streamUrl));
+  if (rangeEnd != null && rangeEnd > start) {
+    request.headers['range'] = 'bytes=$start-${rangeEnd - 1}';
+  } else {
+    request.headers['range'] = 'bytes=$start-';
+  }
+  if (headers != null && headers.isNotEmpty) {
+    headers.forEach((key, value) {
+      final lower = key.toLowerCase();
+      if (lower == 'range' || lower == 'connection' || lower == 'host') return;
+      request.headers[key] = value;
+    });
+  }
+  if (!request.headers.keys.any((k) => k.toLowerCase() == 'user-agent')) {
+    request.headers['User-Agent'] = _defaultStreamUserAgent;
+  }
+
+  final client = http.Client();
+  activeClients.add(client);
+
+  void closeClient() {
+    if (activeClients.remove(client)) {
+      client.close();
+    }
+  }
+
+  try {
+    final response = await client.send(request).timeout(
+      const Duration(seconds: 15),
+      onTimeout: () {
+        closeClient();
+        throw TimeoutException('HTTP stream request timed out');
+      },
+    );
+
+    if (response.statusCode != 206 && response.statusCode != 200) {
+      closeClient();
+      throw Exception('HTTP ${response.statusCode}: Failed to get stream');
+    }
+
+    int resolvedSourceLength = totalBytes;
+    final contentRange = response.headers['content-range'];
+    if (resolvedSourceLength <= 0 && contentRange != null) {
+      resolvedSourceLength = parseTotalBytesFromContentRange(contentRange) ?? 0;
+    }
+
+    int? resolvedContentLength = response.contentLength ??
+        parseRangeSpanFromContentRange(contentRange) ??
+        (rangeEnd != null && rangeEnd > start ? rangeEnd - start : null) ??
+        (resolvedSourceLength > start ? resolvedSourceLength - start : null);
+
+    // just_audio's proxy computes `offset! + contentLength! - 1` whenever a
+    // Range header is present and offset != null. A null contentLength causes an
+    // unhandled Null check crash (HTTP 500). If length is unknown, read-buffer
+    // small responses or fail so caller can re-resolve a size-known stream.
+    List<int>? bufferedBytes;
+    if (resolvedContentLength == null) {
+      if (response.statusCode == 200 && start == 0 && clampedEnd == null) {
+        final bytes = await response.stream.toBytes().timeout(
+          const Duration(seconds: 15),
+        );
+        closeClient();
+        resolvedContentLength = bytes.length;
+        if (resolvedSourceLength <= 0) {
+          resolvedSourceLength = bytes.length;
+        }
+        bufferedBytes = bytes;
+      } else {
+        closeClient();
+        throw Exception('Upstream omitted content-length on range response');
+      }
+    }
+
+    final Stream<List<int>> byteStream;
+    if (bufferedBytes != null) {
+      byteStream = Stream<List<int>>.value(bufferedBytes);
+    } else {
+      late final StreamController<List<int>> controller;
+      StreamSubscription<List<int>>? subscription;
+      controller = StreamController<List<int>>(
+        onListen: () {
+          subscription = response.stream.listen(
+            controller.add,
+            onError: (Object error, StackTrace stack) {
+              closeClient();
+              if (!controller.isClosed) {
+                controller.addError(error, stack);
+              }
+            },
+            onDone: () {
+              closeClient();
+              if (!controller.isClosed) {
+                controller.close();
+              }
+            },
+            cancelOnError: false,
+          );
+        },
+        onPause: () => subscription?.pause(),
+        onResume: () => subscription?.resume(),
+        onCancel: () async {
+          await subscription?.cancel();
+          closeClient();
+        },
+      );
+      byteStream = controller.stream;
+    }
+
+    return StreamAudioResponse(
+      sourceLength: resolvedSourceLength > 0 ? resolvedSourceLength : resolvedContentLength,
+      contentLength: resolvedContentLength,
+      offset: start,
+      stream: byteStream,
+      contentType: response.headers['content-type'] ?? fallbackContentType,
+    );
+  } catch (_) {
+    closeClient();
+    rethrow;
+  }
+}
 
 /// Cached stream info with expiration tracking
 class _CachedStream {
-  final AudioOnlyStreamInfo streamInfo;
+  final String url;
+  final int totalBytes;
+  final String contentType;
+  final Map<String, String>? headers;
   final DateTime cachedAt;
-  
-  _CachedStream(this.streamInfo) : cachedAt = DateTime.now();
-  
-  bool get isExpired => DateTime.now().difference(cachedAt) > const Duration(minutes: 45);
+
+  _CachedStream({
+    required this.url,
+    required this.totalBytes,
+    required this.contentType,
+    this.headers,
+  }) : cachedAt = DateTime.now();
+
+  bool get isExpired =>
+      DateTime.now().difference(cachedAt) > const Duration(minutes: 45) ||
+      StreamCacheService.isUrlExpired(url);
 }
 
 /// Custom audio source that streams YouTube audio directly in Flutter
-/// Custom audio source that streams YouTube audio directly in Flutter
-/// Inspired by BloomeeTunes implementation - no external proxy needed
 class YouTubeAudioSource extends StreamAudioSource {
   final String videoId;
   final String quality;
   final String? initialStreamUrl;
   final int? initialContentLength;
   final String? initialContentType;
+  final Map<String, String>? initialHeaders;
 
   static final _ytExplode = YoutubeExplode();
-  
+
+  /// Optional fallback resolver wired at app startup so queued YouTube tracks
+  /// can fall back cleanly to InnerTube/StreamLoader if YouTubeExplode fails.
+  static ExternalAudioStreamResolver? streamFallbackResolver;
+
   /// Global cache shared across all instances - avoids re-fetching for same video
   static final Map<String, _CachedStream> _globalCache = {};
   static const _maxCacheSize = 50; // Limit memory usage
-  
-  AudioOnlyStreamInfo? _cachedStreamInfo;
+
+  _CachedStream? _cachedStreamInfo;
   DateTime? _cacheTime;
   int? _lastRequestPosition;
-  http.Client? _activeClient;
-  
+  final Set<http.Client> _activeClients = {};
+
   // YouTube stream URLs can expire, cache for 45 minutes (conservative)
   static const _cacheExpirationDuration = Duration(minutes: 45);
   static const _maxRetries = 3;
@@ -48,8 +238,33 @@ class YouTubeAudioSource extends StreamAudioSource {
     this.initialStreamUrl,
     this.initialContentLength,
     this.initialContentType,
+    this.initialHeaders,
     super.tag,
   });
+
+  /// Selects the stream matching [quality] from bitrate-descending sorted [streams].
+  static AudioOnlyStreamInfo? selectStreamForQuality(
+    List<AudioOnlyStreamInfo> sortedDescStreams,
+    String quality,
+  ) {
+    if (sortedDescStreams.isEmpty) return null;
+    switch (quality.toLowerCase()) {
+      case 'low':
+        return sortedDescStreams.lastOrNull;
+      case 'medium':
+        final midStreams = sortedDescStreams.where((s) {
+          final kbps = s.bitrate.kiloBitsPerSecond;
+          return kbps >= 96 && kbps <= 160;
+        }).toList();
+        if (midStreams.isNotEmpty) return midStreams.first;
+        return sortedDescStreams[sortedDescStreams.length ~/ 2];
+      case 'high':
+      case 'lossless':
+      default:
+        // youtube_explode_dart 3.1.0 sortByBitrate() sorts descending (highest first).
+        return sortedDescStreams.firstOrNull;
+    }
+  }
 
   /// Clear cached stream manifests globally for a videoId
   static void invalidate(String videoId) {
@@ -59,29 +274,30 @@ class YouTubeAudioSource extends StreamAudioSource {
   }
 
   /// Get stream info with global + instance caching
-  Future<AudioOnlyStreamInfo> _getStreamInfo({bool forceRefresh = false}) async {
+  Future<_CachedStream> _getStreamInfo({bool forceRefresh = false}) async {
     final cacheKey = '${videoId}_$quality';
-    // Check global cache first (shared across all instances)
-    final globalCached = _globalCache[cacheKey];
-    if (!forceRefresh && globalCached != null && !globalCached.isExpired) {
-      debugPrint('YouTubeAudioSource: Global cache HIT for $cacheKey');
-      _cachedStreamInfo = globalCached.streamInfo;
-      _cacheTime = globalCached.cachedAt;
-      return globalCached.streamInfo;
+    if (!forceRefresh) {
+      final globalCached = _globalCache[cacheKey];
+      if (globalCached != null && !globalCached.isExpired) {
+        debugPrint('YouTubeAudioSource: Global cache HIT for $cacheKey');
+        _cachedStreamInfo = globalCached;
+        _cacheTime = globalCached.cachedAt;
+        return globalCached;
+      }
     }
-    
+
     // Check instance cache
     final now = DateTime.now();
-    final isCacheValid = _cachedStreamInfo != null && 
-                        _cacheTime != null && 
-                        now.difference(_cacheTime!) < _cacheExpirationDuration;
-    
-    // Clear cache if force refresh or if expired
+    final isCacheValid = _cachedStreamInfo != null &&
+        !_cachedStreamInfo!.isExpired &&
+        _cacheTime != null &&
+        now.difference(_cacheTime!) < _cacheExpirationDuration;
+
     if (forceRefresh || !isCacheValid) {
       _cachedStreamInfo = null;
       _cacheTime = null;
     }
-    
+
     if (_cachedStreamInfo != null) {
       debugPrint('YouTubeAudioSource: Instance cache HIT for $videoId');
       return _cachedStreamInfo!;
@@ -89,48 +305,60 @@ class YouTubeAudioSource extends StreamAudioSource {
 
     try {
       debugPrint('YouTubeAudioSource: Fetching fresh manifest for $videoId');
+      _CachedStream? resolved;
 
-      // getManifest uses package:http with no internal timeout; without this
-      // bound a dead/unreachable endpoint hangs playback setup indefinitely
-      // (the player stays in "loading" with no error to recover from).
-      final manifest = await YouTubeManifestResolver.fetchAudioManifest(
-        _ytExplode,
-        videoId,
-      );
+      try {
+        final manifest = await YouTubeManifestResolver.fetchAudioManifest(
+          _ytExplode,
+          videoId,
+        );
+        final supportedStreams = manifest.audioOnly.sortByBitrate();
+        final audioStream = selectStreamForQuality(supportedStreams, quality);
+        if (audioStream != null) {
+          resolved = _CachedStream(
+            url: audioStream.url.toString(),
+            totalBytes: audioStream.size.totalBytes,
+            contentType: audioStream.codec.mimeType,
+          );
+          debugPrint(
+            'YouTubeAudioSource: Selected stream - ${audioStream.codec.subtype} ${audioStream.bitrate.kiloBitsPerSecond}kbps',
+          );
+        }
+      } catch (e) {
+        dev.log(
+          'YouTubeManifestResolver failed for $videoId: $e; trying fallback resolver',
+          name: 'YouTubeAudioSource',
+        );
+      }
 
-      final supportedStreams = manifest.audioOnly.sortByBitrate();
-      
-      if (supportedStreams.isEmpty) {
+      if (resolved == null && streamFallbackResolver != null) {
+        final fallback = await streamFallbackResolver!(videoId, quality);
+        if (fallback != null && fallback.url.isNotEmpty) {
+          resolved = _CachedStream(
+            url: fallback.url,
+            totalBytes: fallback.contentLength ?? 0,
+            contentType: fallback.contentType ?? 'audio/mp4',
+            headers: fallback.headers,
+          );
+        }
+      }
+
+      if (resolved == null) {
         throw Exception('No audio streams available for video: $videoId');
       }
 
-      // Select stream based on quality
-      final audioStream = quality == 'high'
-          ? supportedStreams.lastOrNull
-          : supportedStreams.firstOrNull;
-
-      if (audioStream == null) {
-        throw Exception('No suitable audio stream found');
-      }
-
-      debugPrint('YouTubeAudioSource: Selected stream - ${audioStream.codec.subtype} ${audioStream.bitrate.kiloBitsPerSecond}kbps');
-      
-      // Store in instance cache
-      _cachedStreamInfo = audioStream;
+      _cachedStreamInfo = resolved;
       _cacheTime = DateTime.now();
-      
-      // Store in global cache (with size limit)
+
       if (_globalCache.length >= _maxCacheSize) {
-        // Remove oldest expired entries first, then oldest entries
         _globalCache.removeWhere((_, v) => v.isExpired);
         if (_globalCache.length >= _maxCacheSize) {
-          final oldestKey = _globalCache.keys.first;
-          _globalCache.remove(oldestKey);
+          _globalCache.remove(_globalCache.keys.first);
         }
       }
-      _globalCache[cacheKey] = _CachedStream(audioStream);
-      
-      return audioStream;
+      _globalCache[cacheKey] = resolved;
+
+      return resolved;
     } catch (e) {
       dev.log('Failed to get stream info: $e', name: 'YouTubeAudioSource');
       rethrow;
@@ -142,9 +370,8 @@ class YouTubeAudioSource extends StreamAudioSource {
     debugPrint('YouTubeAudioSource: request(start: $start, end: $end)');
     start ??= 0;
 
-    // Detect backward seeking (seeking to earlier position than last request)
     final isSeekingBackward = _lastRequestPosition != null &&
-        start < _lastRequestPosition! - 1024 * 1024; // Only reset if seeking back more than 1MB
+        start < _lastRequestPosition! - 1024 * 1024;
     if (isSeekingBackward) {
       debugPrint(
         'YouTubeAudioSource: Detected significant backward seek from $_lastRequestPosition to $start',
@@ -152,102 +379,40 @@ class YouTubeAudioSource extends StreamAudioSource {
     }
     _lastRequestPosition = start;
 
-    // Try up to 3 times with fresh URLs
     for (int attempt = 0; attempt < _maxRetries; attempt++) {
       try {
         String streamUrl;
         int totalBytes;
         String contentType;
+        Map<String, String>? headers;
 
         final useInitialUrl = attempt == 0 &&
             initialStreamUrl != null &&
-            initialStreamUrl!.isNotEmpty;
+            initialStreamUrl!.isNotEmpty &&
+            !StreamCacheService.isUrlExpired(initialStreamUrl!);
 
         if (useInitialUrl) {
           streamUrl = initialStreamUrl!;
           totalBytes = initialContentLength ?? 0;
           contentType = initialContentType ?? 'audio/mp4';
+          headers = initialHeaders;
         } else {
           final forceRefresh = attempt > 0 || initialStreamUrl != null;
-          final audioStream = await _getStreamInfo(forceRefresh: forceRefresh);
-          totalBytes = audioStream.size.totalBytes;
-          streamUrl = audioStream.url.toString();
-          contentType = audioStream.codec.mimeType;
+          final resolved = await _getStreamInfo(forceRefresh: forceRefresh);
+          streamUrl = resolved.url;
+          totalBytes = resolved.totalBytes;
+          contentType = resolved.contentType;
+          headers = resolved.headers;
         }
 
-        if (totalBytes > 0 && end != null && end > totalBytes) {
-          end = totalBytes;
-        }
-
-        final rangeEnd = end ?? (totalBytes > 0 ? totalBytes : null);
-
-        debugPrint(
-          'YouTubeAudioSource: Requesting bytes $start-${rangeEnd ?? 'end'}/${totalBytes > 0 ? totalBytes : 'unknown'} (attempt ${attempt + 1}/$_maxRetries)',
-        );
-
-        final request = http.Request('GET', Uri.parse(streamUrl));
-
-        if (rangeEnd != null) {
-          request.headers['range'] = 'bytes=$start-${rangeEnd - 1}';
-        } else {
-          request.headers['range'] = 'bytes=$start-';
-        }
-        request.headers['User-Agent'] =
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-
-        // Abort in-flight previous connection before opening a new stream (FIX-11)
-        _activeClient?.close();
-        final client = http.Client();
-        _activeClient = client;
-
-        final response = await client.send(request).timeout(
-          const Duration(seconds: 15),
-          onTimeout: () {
-            client.close();
-            throw Exception('HTTP stream request timed out');
-          },
-        );
-        debugPrint('YouTubeAudioSource: Response status: ${response.statusCode}');
-
-        if (response.statusCode != 206 && response.statusCode != 200) {
-          client.close();
-          throw Exception('HTTP ${response.statusCode}: Failed to get stream');
-        }
-
-        int resolvedSourceLength = totalBytes;
-        final contentRange = response.headers['content-range'];
-        if (resolvedSourceLength <= 0 && contentRange != null) {
-          final slashIdx = contentRange.lastIndexOf('/');
-          if (slashIdx != -1) {
-            resolvedSourceLength =
-                int.tryParse(contentRange.substring(slashIdx + 1).trim()) ?? 0;
-          }
-        }
-
-        final contentLength = response.contentLength ??
-            (rangeEnd != null ? rangeEnd - start : null);
-
-        // Ensure HTTP connection is closed when the stream completes or errors (FIX-11)
-        final safeStream = response.stream.transform(
-          StreamTransformer<List<int>, List<int>>.fromHandlers(
-            handleData: (data, sink) => sink.add(data),
-            handleError: (error, stack, sink) {
-              client.close();
-              sink.addError(error, stack);
-            },
-            handleDone: (sink) {
-              client.close();
-              sink.close();
-            },
-          ),
-        );
-
-        return StreamAudioResponse(
-          sourceLength: resolvedSourceLength > 0 ? resolvedSourceLength : null,
-          contentLength: contentLength,
-          offset: start,
-          stream: safeStream,
-          contentType: response.headers['content-type'] ?? contentType,
+        return await openHttpRangeAudioStream(
+          streamUrl: streamUrl,
+          start: start,
+          end: end,
+          totalBytes: totalBytes,
+          fallbackContentType: contentType,
+          headers: headers,
+          activeClients: _activeClients,
         );
       } catch (e) {
         debugPrint(
@@ -274,11 +439,14 @@ class YouTubeAudioSource extends StreamAudioSource {
 
   /// Clear cached stream info (useful when stream expires)
   void clearCache() {
-    _activeClient?.close();
-    _activeClient = null;
+    for (final client in _activeClients.toList()) {
+      client.close();
+    }
+    _activeClients.clear();
     _cachedStreamInfo = null;
     _cacheTime = null;
     _lastRequestPosition = null;
+    invalidate(videoId);
   }
 
   /// Check if stream info is cached and valid for a video ID
@@ -291,45 +459,54 @@ class YouTubeAudioSource extends StreamAudioSource {
   /// Pre-warm the global cache for a video ID (call from prefetch logic)
   static Future<void> prewarmCache(String videoId, {String quality = 'high'}) async {
     final cacheKey = '${videoId}_$quality';
-    // Check if already cached
     final cached = _globalCache[cacheKey];
     if (cached != null && !cached.isExpired) {
       debugPrint('YouTubeAudioSource.prewarmCache: Already cached for $cacheKey');
       return;
     }
-    
+
     try {
       debugPrint('YouTubeAudioSource.prewarmCache: Pre-warming cache for $cacheKey');
-      
-      StreamManifest? manifest;
+
+      _CachedStream? resolved;
       try {
-        manifest = await YouTubeManifestResolver.fetchAudioManifest(
+        final manifest = await YouTubeManifestResolver.fetchAudioManifest(
           _ytExplode,
           videoId,
         );
+        final supportedStreams = manifest.audioOnly.sortByBitrate();
+        final audioStream = selectStreamForQuality(supportedStreams, quality);
+        if (audioStream != null) {
+          resolved = _CachedStream(
+            url: audioStream.url.toString(),
+            totalBytes: audioStream.size.totalBytes,
+            contentType: audioStream.codec.mimeType,
+          );
+        }
       } catch (e) {
-        debugPrint('YouTubeAudioSource.prewarmCache: Resolver failed for $videoId ($e)');
+        debugPrint('YouTubeAudioSource.prewarmCache: Manifest resolver failed for $videoId ($e)');
       }
 
-      if (manifest == null) return;
+      if (resolved == null && streamFallbackResolver != null) {
+        final fallback = await streamFallbackResolver!(videoId, quality);
+        if (fallback != null && fallback.url.isNotEmpty) {
+          resolved = _CachedStream(
+            url: fallback.url,
+            totalBytes: fallback.contentLength ?? 0,
+            contentType: fallback.contentType ?? 'audio/mp4',
+            headers: fallback.headers,
+          );
+        }
+      }
 
-      final supportedStreams = manifest.audioOnly.sortByBitrate();
-      if (supportedStreams.isEmpty) return;
-
-      final audioStream = quality == 'high'
-          ? supportedStreams.lastOrNull
-          : supportedStreams.firstOrNull;
-
-      if (audioStream != null) {
-        // Store in global cache
+      if (resolved != null) {
         if (_globalCache.length >= _maxCacheSize) {
           _globalCache.removeWhere((_, v) => v.isExpired);
           if (_globalCache.length >= _maxCacheSize) {
-            final oldestKey = _globalCache.keys.first;
-            _globalCache.remove(oldestKey);
+            _globalCache.remove(_globalCache.keys.first);
           }
         }
-        _globalCache[cacheKey] = _CachedStream(audioStream);
+        _globalCache[cacheKey] = resolved;
         debugPrint('YouTubeAudioSource.prewarmCache: Cached stream for $cacheKey');
       }
     } catch (e) {

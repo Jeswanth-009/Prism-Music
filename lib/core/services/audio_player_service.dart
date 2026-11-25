@@ -3,15 +3,84 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import '../utils/logger.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../domain/entities/song.dart';
 import '../../domain/entities/stream_info.dart';
+import 'media_resolver_service.dart';
+import 'stream_cache_service.dart';
 import 'youtube_audio_source.dart';
 import 'equalizer_service.dart';
 import 'audio_normalization_service.dart';
 import 'desktop_audio_support.dart';
 import 'offline_mode_service.dart';
+
+/// Lazy stream source for non-YouTube tracks whose stream URL is resolved when played.
+// ignore: experimental_member_use
+class DeferredStreamAudioSource extends StreamAudioSource {
+  final String songId;
+  final String title;
+  final String artist;
+  final AudioQuality quality;
+  final Future<ResolvedMediaSource?> Function(
+    String songId,
+    String title,
+    String artist,
+    AudioQuality quality,
+  ) resolver;
+
+  ResolvedMediaSource? _resolved;
+  final Set<http.Client> _activeClients = {};
+
+  DeferredStreamAudioSource({
+    required this.songId,
+    required this.title,
+    required this.artist,
+    required this.quality,
+    required this.resolver,
+    super.tag,
+  });
+
+  @override
+  Future<StreamAudioResponse> request([int? start, int? end]) async {
+    start ??= 0;
+    _resolved ??= await resolver(songId, title, artist, quality);
+    final source = _resolved;
+    if (source == null || source.uri.isEmpty) {
+      throw Exception('Failed to resolve deferred stream for $songId');
+    }
+
+    if (AudioPlayerService.isLocalPath(source.uri)) {
+      final file = File(
+        source.uri.startsWith('file://')
+            ? Uri.parse(source.uri).toFilePath()
+            : source.uri,
+      );
+      final total = await file.length();
+      final actualEnd = end != null ? math.min(end, total) : total;
+      return StreamAudioResponse(
+        sourceLength: total,
+        contentLength: math.max(0, actualEnd - start),
+        offset: start,
+        stream: file.openRead(start, actualEnd),
+        contentType: 'audio/mp4',
+      );
+    }
+
+    final info = source.streamInfo;
+    return openHttpRangeAudioStream(
+      streamUrl: source.uri,
+      start: start,
+      end: end,
+      totalBytes: info?.contentLength ?? 0,
+      fallbackContentType:
+          info != null ? 'audio/${info.container}' : 'audio/mp4',
+      headers: source.headers,
+      activeClients: _activeClients,
+    );
+  }
+}
 
 /// Audio player service using just_audio with direct YouTube streaming
 class AudioPlayerService {
@@ -35,6 +104,29 @@ class AudioPlayerService {
 
   /// `videoId|quality` keys whose manifest warm-up is currently in flight.
   final Set<String> _prewarmInflight = <String>{};
+
+  StreamCacheService? _streamCache;
+  Future<ResolvedMediaSource?> Function(
+    String songId,
+    String title,
+    String artist,
+    AudioQuality quality,
+  )? _deferredResolver;
+  bool _completedEmittedForCurrentTrack = false;
+
+  /// Wires optional shared cache and deferred resolver after DI registration.
+  void configureQueueResolvers({
+    StreamCacheService? streamCache,
+    Future<ResolvedMediaSource?> Function(
+      String songId,
+      String title,
+      String artist,
+      AudioQuality quality,
+    )? deferredResolver,
+  }) {
+    _streamCache = streamCache;
+    _deferredResolver = deferredResolver;
+  }
 
   /// Shape of a YouTube video id (11 URL-safe characters).
   static final RegExp _youtubeVideoIdPattern = RegExp(r'^[A-Za-z0-9_-]{11}$');
@@ -195,10 +287,11 @@ class AudioPlayerService {
               state == ProcessingState.loading;
           _bufferingController.add(isBuffering);
 
-          // Emit completed state - but only for single-track mode
-          // When using queue (ConcatenatingAudioSource), auto-advance handles this
           final isCompleted = state == ProcessingState.completed;
-          if (isCompleted && _playlist == null) {
+          if (!isCompleted) {
+            _completedEmittedForCurrentTrack = false;
+          } else if (_playlist == null && !_completedEmittedForCurrentTrack) {
+            _completedEmittedForCurrentTrack = true;
             _completedController.add(true);
           }
         },
@@ -213,6 +306,7 @@ class AudioPlayerService {
           if (_playlist == null) {
             return;
           }
+          _completedEmittedForCurrentTrack = false;
           _currentIndexController.add(index);
           // Keep the next few tracks' stream manifests warm as playback
           // moves through the queue.
@@ -232,9 +326,14 @@ class AudioPlayerService {
           if (state.processingState == ProcessingState.completed) {
             if (kDebugMode) debugPrint('AudioPlayerService: Playback completed');
             // In queue mode, check if we're at the last song
-            if (_playlist != null && !_player.hasNext) {
+            if (_playlist != null &&
+                !_player.hasNext &&
+                !_completedEmittedForCurrentTrack) {
+              _completedEmittedForCurrentTrack = true;
               _completedController.add(true);
             }
+          } else {
+            _completedEmittedForCurrentTrack = false;
           }
         },
         onError: (e) => _handleNativeError('playerStateStream', e),
@@ -272,7 +371,9 @@ class AudioPlayerService {
       );
     }
 
-    // Single-track mode should not keep stale queue metadata from older sessions.
+    // Single-track mode initializes a 1-item ConcatenatingAudioSource so late
+    // recommendations or Add-to-Queue actions can append seamlessly without
+    // restarting the current track. Clear any prior queue before setup.
     _playlist = null;
     _queueSources.clear();
 
@@ -281,12 +382,28 @@ class AudioPlayerService {
     final isLocal = isLocalPath(url);
     final isGoogleVideo = url.contains('googlevideo.com');
     final isYouTube = !isLocal && isYouTubeTrack(url: url, videoId: videoId);
+    final cachedStream = (videoId != null && videoId.isNotEmpty)
+        ? _streamCache?.getCached(videoId, _parseAudioQuality(quality))
+        : null;
+    final effectiveHeaders = sanitizedHeaders ?? cachedStream?.headers;
+    final effectiveContentLength = cachedStream?.contentLength;
+    final effectiveContentType =
+        cachedStream != null ? 'audio/${cachedStream.container}' : null;
 
     PlayerException? lastDirectException;
     Object? lastDirectError;
 
     Future<Duration?> setSource(AudioSource source, String label) async {
-      await _player.setAudioSource(source);
+      _queueSources
+        ..clear()
+        ..add(source);
+      _playlist = ConcatenatingAudioSource(
+        useLazyPreparation: true,
+        shuffleOrder: DefaultShuffleOrder(),
+        children: [source],
+      );
+      _completedEmittedForCurrentTrack = false;
+      await _player.setAudioSource(_playlist!);
       if (kDebugMode) {
         debugPrint(
           'AudioPlayerService: $label source ready, duration: ${_player.duration}',
@@ -307,6 +424,9 @@ class AudioPlayerService {
               : (isGoogleVideo ? 'direct' : ''),
           quality: quality,
           initialStreamUrl: hasDirectUrl ? url : null,
+          initialContentLength: effectiveContentLength,
+          initialContentType: effectiveContentType,
+          initialHeaders: effectiveHeaders,
           tag: MediaItem(
             id: videoId ?? url,
             title: title ?? 'Unknown Title',
@@ -320,11 +440,15 @@ class AudioPlayerService {
         final dur = await setSource(ytSource, 'YouTube');
         if (dur != null) return dur;
       } on PlayerException catch (e, st) {
+        _playlist = null;
+        _queueSources.clear();
         lastDirectException = e;
         if (kDebugMode) {
           debugPrint('AudioPlayerService: YouTube source failed: $e\n$st');
         }
       } catch (e, st) {
+        _playlist = null;
+        _queueSources.clear();
         lastDirectError = e;
         if (kDebugMode) {
           debugPrint('AudioPlayerService: YouTube source threw: $e\n$st');
@@ -339,7 +463,7 @@ class AudioPlayerService {
           final sourceUri = uriForUrl(url);
           final directSource = AudioSource.uri(
             sourceUri,
-            headers: isLocal ? null : sanitizedHeaders,
+            headers: isLocal ? null : effectiveHeaders,
             tag: MediaItem(
               id: videoId ?? url,
               title: title ?? 'Unknown Title',
@@ -353,6 +477,8 @@ class AudioPlayerService {
           final dur = await setSource(directSource, 'Direct URL');
           if (dur != null) return dur;
         } on PlayerException catch (e, st) {
+          _playlist = null;
+          _queueSources.clear();
           lastDirectException = e;
           if (kDebugMode) {
             debugPrint('AudioPlayerService: Direct URL failed: $e\n$st');
@@ -364,6 +490,8 @@ class AudioPlayerService {
             return null;
           }
         } catch (e, st) {
+          _playlist = null;
+          _queueSources.clear();
           lastDirectError = e;
           if (kDebugMode) {
             debugPrint('AudioPlayerService: Direct URL threw: $e\n$st');
@@ -400,6 +528,8 @@ class AudioPlayerService {
         final dur = await setSource(ytSource, 'YouTube (Fallback)');
         if (dur != null) return dur;
       } catch (e, st) {
+        _playlist = null;
+        _queueSources.clear();
         if (kDebugMode) {
           debugPrint('AudioPlayerService: Fallback YouTube source failed: $e\n$st');
         }
@@ -490,6 +620,7 @@ class AudioPlayerService {
           initialStreamUrl: targetStream.url,
           initialContentLength: targetStream.contentLength,
           initialContentType: 'audio/${targetStream.container}',
+          initialHeaders: targetStream.headers,
           tag: MediaItem(
             id: song.playableId,
             title: song.title,
@@ -800,6 +931,105 @@ class AudioPlayerService {
     }
   }
 
+  AudioQuality _parseAudioQuality(String quality) {
+    switch (quality.toLowerCase()) {
+      case 'low':
+        return AudioQuality.low;
+      case 'medium':
+        return AudioQuality.medium;
+      case 'lossless':
+        return AudioQuality.lossless;
+      case 'high':
+      default:
+        return AudioQuality.high;
+    }
+  }
+
+  /// Builds an [AudioSource] from a serialized queue entry without dropping tracks.
+  AudioSource? _buildQueueAudioSource(Map<String, dynamic> songData) {
+    final videoId = songData['videoId'] as String?;
+    final url = songData['url'] as String?;
+
+    Map<String, String> headers = {};
+    final rawHeaders = songData['headers'];
+    if (rawHeaders != null && rawHeaders is Map) {
+      headers = rawHeaders.map(
+        (key, value) => MapEntry(key.toString(), value.toString()),
+      );
+    }
+    final sanitizedHeaders = _prepareHeaders(headers);
+    final quality = songData['quality'] as String? ?? 'high';
+    final parsedQuality = _parseAudioQuality(quality);
+
+    final title = songData['title'] as String? ?? 'Unknown Title';
+    final artist = songData['artist'] as String? ?? 'Unknown Artist';
+    final artUri = songData['artUri'] as String?;
+    final album = songData['album'] as String? ?? 'Prism Music';
+    final durationMs = songData['durationMs'] as int?;
+    final mediaDuration =
+        (durationMs != null && durationMs > 0) ? Duration(milliseconds: durationMs) : null;
+
+    final cached = (videoId != null && videoId.isNotEmpty)
+        ? _streamCache?.getCached(videoId, parsedQuality)
+        : null;
+    final effectiveHeaders = sanitizedHeaders ?? cached?.headers;
+    final effectiveLength =
+        (songData['contentLength'] as int?) ?? cached?.contentLength;
+    final effectiveContentType = (songData['contentType'] as String?) ??
+        (cached != null ? 'audio/${cached.container}' : null);
+    final effectiveUrl =
+        (url != null && url.isNotEmpty) ? url : cached?.url;
+
+    final mediaItem = MediaItem(
+      id: (videoId != null && videoId.isNotEmpty)
+          ? videoId
+          : (effectiveUrl ?? DateTime.now().toString()),
+      title: title,
+      artist: artist,
+      album: album,
+      artUri: artUri != null ? Uri.tryParse(artUri) : null,
+      duration: mediaDuration,
+    );
+
+    final isLocal = effectiveUrl != null && isLocalPath(effectiveUrl);
+    final isYouTube = !isLocal && isYouTubeTrack(url: effectiveUrl, videoId: videoId);
+
+    if (isLocal) {
+      return AudioSource.uri(uriForUrl(effectiveUrl), tag: mediaItem);
+    }
+    if (isYouTube) {
+      return YouTubeAudioSource(
+        videoId: (videoId != null && videoId.isNotEmpty) ? videoId : 'direct',
+        quality: quality,
+        initialStreamUrl: effectiveUrl,
+        initialContentLength: effectiveLength,
+        initialContentType: effectiveContentType,
+        initialHeaders: effectiveHeaders,
+        tag: mediaItem,
+      );
+    }
+    if (effectiveUrl != null && effectiveUrl.isNotEmpty) {
+      return AudioSource.uri(
+        uriForUrl(effectiveUrl),
+        headers: effectiveHeaders,
+        tag: mediaItem,
+      );
+    }
+    if (_deferredResolver != null && videoId != null && videoId.isNotEmpty) {
+      return DeferredStreamAudioSource(
+        songId: videoId,
+        title: title,
+        artist: artist,
+        quality: parsedQuality,
+        resolver: _deferredResolver!,
+        tag: mediaItem,
+      );
+    }
+
+    logDebug('AudioPlayerService: ERROR - No URL or videoId provided!');
+    return null;
+  }
+
   /// Load and start playing a queue of songs using ConcatenatingAudioSource
   /// This enables auto-advance between songs even when app is in background
   ///
@@ -822,63 +1052,10 @@ class AudioPlayerService {
       final sources = <AudioSource>[];
 
       for (final songData in songs) {
-        final videoId = songData['videoId'] as String?;
-        final url = songData['url'] as String?;
-        // Handle headers - could be Map<String, String>, Map<String, dynamic>, or null
-        Map<String, String> headers = {};
-        final rawHeaders = songData['headers'];
-        if (rawHeaders != null && rawHeaders is Map) {
-          headers = rawHeaders.map(
-            (key, value) => MapEntry(key.toString(), value.toString()),
-          );
+        final source = _buildQueueAudioSource(songData);
+        if (source != null) {
+          sources.add(source);
         }
-        final sanitizedHeaders = _prepareHeaders(headers);
-        final quality = songData['quality'] as String? ?? 'high';
-
-        // Extract metadata for MediaItem
-        final title = songData['title'] as String? ?? 'Unknown Title';
-        final artist = songData['artist'] as String? ?? 'Unknown Artist';
-        final artUri = songData['artUri'] as String?;
-        final album = songData['album'] as String? ?? 'Prism Music';
-
-        final mediaItem = MediaItem(
-          id: videoId ?? url ?? DateTime.now().toString(),
-          title: title,
-          artist: artist,
-          album: album,
-          artUri: artUri != null ? Uri.tryParse(artUri) : null,
-        );
-
-        logDebug('AudioPlayerService: Processing song - videoId: $videoId, hasUrl: ${url != null}, urlLength: ${url?.length ?? 0}');
-
-        AudioSource source;
-
-        final isLocal = url != null && isLocalPath(url);
-        final isYouTube = !isLocal && isYouTubeTrack(url: url, videoId: videoId);
-
-        if (isLocal) {
-          logDebug('AudioPlayerService: Using local file for queued track');
-          source = AudioSource.uri(uriForUrl(url), tag: mediaItem);
-        } else if (isYouTube) {
-          logDebug('AudioPlayerService: Using YouTubeAudioSource for queued track');
-          source = YouTubeAudioSource(
-            videoId: (videoId != null && videoId.isNotEmpty) ? videoId : 'direct',
-            quality: quality,
-            initialStreamUrl: (url != null && url.isNotEmpty) ? url : null,
-            tag: mediaItem,
-          );
-        } else if (url != null && url.isNotEmpty) {
-          logDebug('AudioPlayerService: Using pre-loaded URL directly');
-          source = AudioSource.uri(
-            uriForUrl(url),
-            headers: sanitizedHeaders,
-            tag: mediaItem,
-          );
-        } else {
-          logDebug('AudioPlayerService: ERROR - No URL or videoId provided!');
-          continue; // Skip this song
-        }
-        sources.add(source);
       }
 
       if (sources.isEmpty) {
@@ -902,6 +1079,7 @@ class AudioPlayerService {
         shuffleOrder: DefaultShuffleOrder(),
         children: sources,
       );
+      _completedEmittedForCurrentTrack = false;
 
       logDebug('AudioPlayerService: Setting ConcatenatingAudioSource with ${sources.length} items (gapless preloading active)...');
       await _player.setAudioSource(
@@ -918,7 +1096,15 @@ class AudioPlayerService {
         _maxQueuePrewarm,
       );
       _prewarmUpcomingQueue(fromIndex: startIndex);
-      return _player.duration;
+
+      final fallbackDurationMs =
+          (startIndex >= 0 && startIndex < songs.length)
+              ? songs[startIndex]['durationMs'] as int?
+              : null;
+      final fallbackDuration = (fallbackDurationMs != null && fallbackDurationMs > 0)
+          ? Duration(milliseconds: fallbackDurationMs)
+          : Duration.zero;
+      return _player.duration ?? fallbackDuration;
     } catch (e, st) {
       logError('AudioPlayerService: ✗ Failed to load queue', e, st);
       _errorController.add('Failed to load queue: $e');
@@ -927,14 +1113,6 @@ class AudioPlayerService {
   }
 
   /// Warms the stream manifests of the next few queue entries.
-  ///
-  /// Queue entries that carry no stream URL are [YouTubeAudioSource]s, which
-  /// only fetch their manifest when the player first asks for the track.
-  /// Walking the client fallback chain at that moment can take many seconds,
-  /// which is what makes a track change feel slow (or never arrive). Fetching
-  /// the manifests while the current track plays turns that into a cache hit.
-  /// Local files and entries that already carry a URL are skipped, as is
-  /// everything while the app is offline.
   void _prewarmUpcomingQueue({int? fromIndex}) {
     final lookahead = _queuePrewarmLookahead;
     if (lookahead <= 0 || _playlist == null) return;
@@ -953,7 +1131,10 @@ class AudioPlayerService {
       // (e.g. a JioSaavn id) would just burn a full client fallback walk.
       if (!_youtubeVideoIdPattern.hasMatch(id)) continue;
       final quality = source.quality;
-      if (YouTubeAudioSource.isStreamCached(id, quality: quality)) continue;
+      if (_streamCache?.isCached(id, _parseAudioQuality(quality)) == true ||
+          YouTubeAudioSource.isStreamCached(id, quality: quality)) {
+        continue;
+      }
       final key = '$id|$quality';
       if (!_prewarmInflight.add(key)) continue;
       unawaited(
@@ -973,59 +1154,19 @@ class AudioPlayerService {
     try {
       final sources = <AudioSource>[];
       for (final songData in songs) {
-        final videoId = songData['videoId'] as String?;
-        final url = songData['url'] as String?;
-        Map<String, String> headers = {};
-        final rawHeaders = songData['headers'];
-        if (rawHeaders != null && rawHeaders is Map) {
-          headers = rawHeaders.map(
-            (key, value) => MapEntry(key.toString(), value.toString()),
-          );
+        final source = _buildQueueAudioSource(songData);
+        if (source != null) {
+          sources.add(source);
         }
-        final sanitizedHeaders = _prepareHeaders(headers);
-        final quality = songData['quality'] as String? ?? 'high';
-
-        final title = songData['title'] as String? ?? 'Unknown Title';
-        final artist = songData['artist'] as String? ?? 'Unknown Artist';
-        final artUri = songData['artUri'] as String?;
-        final album = songData['album'] as String? ?? 'Prism Music';
-
-        final mediaItem = MediaItem(
-          id: videoId ?? url ?? DateTime.now().toString(),
-          title: title,
-          artist: artist,
-          album: album,
-          artUri: artUri != null ? Uri.tryParse(artUri) : null,
-        );
-
-        AudioSource source;
-        final isLocal = url != null && isLocalPath(url);
-        final isYouTube = !isLocal && isYouTubeTrack(url: url, videoId: videoId);
-
-        if (isLocal) {
-          source = AudioSource.uri(uriForUrl(url), tag: mediaItem);
-        } else if (isYouTube) {
-          source = YouTubeAudioSource(
-            videoId: (videoId != null && videoId.isNotEmpty) ? videoId : 'direct',
-            quality: quality,
-            initialStreamUrl: (url != null && url.isNotEmpty) ? url : null,
-            tag: mediaItem,
-          );
-        } else if (url != null && url.isNotEmpty) {
-          source = AudioSource.uri(
-            uriForUrl(url),
-            headers: sanitizedHeaders,
-            tag: mediaItem,
-          );
-        } else {
-          continue;
-        }
-        sources.add(source);
       }
 
       if (sources.isNotEmpty) {
         await _playlist!.addAll(sources);
         _queueSources.addAll(sources);
+        if (_queuePrewarmLookahead == 0) {
+          _queuePrewarmLookahead = _maxQueuePrewarm;
+        }
+        _prewarmUpcomingQueue(fromIndex: _player.currentIndex ?? 0);
         logDebug('AudioPlayerService: Appended ${sources.length} songs to queue (total: ${_queueSources.length})');
       }
     } catch (e) {

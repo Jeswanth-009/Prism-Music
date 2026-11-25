@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:dio/dio.dart';
 
+import '../../domain/entities/song.dart';
 import '../../domain/repositories/music_repository.dart';
 import '../../domain/repositories/library_repository.dart';
 import '../../data/repositories/music_repository_impl.dart';
@@ -20,6 +21,7 @@ import '../../presentation/blocs/theme/theme_bloc.dart';
 import '../providers/innertube/innertube_stream_resolver.dart';
 import '../providers/stream_resolvers.dart';
 import '../services/audio_player_service.dart';
+import '../services/youtube_audio_source.dart';
 import '../services/audio_focus_orchestrator_service.dart';
 import '../services/settings_service.dart';
 import '../services/stream_cache_service.dart';
@@ -233,12 +235,72 @@ getIt.registerLazySingleton<LibraryRepository>(
     }
 
     // Media Resolver Service - central playback resolver (offline/local/online)
-    getIt.registerLazySingleton<MediaResolverService>(
-      () => MediaResolverService(
-        streamLoader: getIt<StreamLoaderService>(),
-        downloadService: getIt<DownloadService>(),
-      ),
+    final mediaResolverService = MediaResolverService(
+      streamLoader: getIt<StreamLoaderService>(),
+      downloadService: getIt<DownloadService>(),
     );
+    getIt.registerSingleton<MediaResolverService>(mediaResolverService);
+
+    AudioQuality mapQuality(String q) {
+      switch (q.toLowerCase()) {
+        case 'low':
+          return AudioQuality.low;
+        case 'medium':
+          return AudioQuality.medium;
+        case 'lossless':
+          return AudioQuality.lossless;
+        case 'high':
+        default:
+          return AudioQuality.high;
+      }
+    }
+
+    getIt<AudioPlayerService>().configureQueueResolvers(
+      streamCache: getIt<StreamCacheService>(),
+      deferredResolver: (songId, title, artist, quality) async {
+        final pre = mediaResolverService.takePreResolved(songId);
+        if (pre != null) return pre;
+        final placeholder = Song(
+          id: songId,
+          title: title,
+          artist: artist,
+          duration: Duration.zero,
+          thumbnails: const Thumbnails(),
+          youtubeId: RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(songId) ? songId : null,
+        );
+        return mediaResolverService.resolveForPlayback(
+          placeholder,
+          preferredQuality: quality,
+        );
+      },
+    );
+
+    YouTubeAudioSource.streamFallbackResolver = (videoId, quality) async {
+      final placeholder = Song(
+        id: videoId,
+        title: videoId,
+        artist: '',
+        duration: Duration.zero,
+        thumbnails: const Thumbnails(),
+        source: MusicSource.youtube,
+        youtubeId: videoId,
+      );
+      try {
+        final streamInfo = await getIt<StreamLoaderService>().loadStream(
+          placeholder,
+          useCache: false,
+          preferredQuality: mapQuality(quality),
+        );
+        return ResolvedExternalAudioStream(
+          url: streamInfo.url,
+          contentLength: streamInfo.contentLength,
+          contentType: 'audio/${streamInfo.container}',
+          headers: streamInfo.headers,
+        );
+      } catch (_) {
+        return null;
+      }
+    };
 
     // Smart Playlist Service
     getIt.registerLazySingleton<SmartPlaylistService>(
