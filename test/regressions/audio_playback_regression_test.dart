@@ -5,10 +5,18 @@ import 'package:just_audio_platform_interface/just_audio_platform_interface.dart
 import 'package:just_audio/just_audio.dart';
 import 'package:prism_music/core/services/audio_player_service.dart';
 import 'package:prism_music/core/services/media_resolver_service.dart';
+import 'package:prism_music/core/services/playback_reliability_service.dart';
 import 'package:prism_music/core/services/settings_service.dart';
+import 'package:prism_music/core/services/stream_cache_service.dart';
+import 'package:prism_music/core/services/stream_loader_service.dart';
 import 'package:prism_music/core/services/youtube_audio_source.dart';
+import 'package:prism_music/core/providers/audio_stream_resolver.dart';
+import 'package:prism_music/data/datasources/remote/youtube/youtube_music_datasource.dart';
+import 'package:prism_music/domain/entities/song.dart';
+import 'package:prism_music/domain/entities/stream_info.dart';
 import 'package:prism_music/presentation/blocs/player/player_bloc.dart';
 import 'package:prism_music/presentation/blocs/player/player_event.dart';
+import 'package:prism_music/presentation/blocs/player/player_state.dart';
 
 import '../helpers/fakes.dart';
 
@@ -359,4 +367,146 @@ void main() {
       expect(stopwatch.elapsedMilliseconds, lessThan(300));
     });
   });
+
+  group('Regression Test (5): PlayerBloc failover on primary stream playback error', () {
+    late PlayerBloc playerBloc;
+    late _FailingFirstAudioPlayerService failingAudio;
+    late StreamLoaderService streamLoader;
+    late MediaResolverService mediaResolver;
+
+    setUp(() async {
+      initTestHive('failover_test');
+      await SettingsService.instance.initialize();
+      failingAudio = _FailingFirstAudioPlayerService();
+      final cache = StreamCacheService();
+      final reliability = PlaybackReliabilityService();
+      streamLoader = StreamLoaderService(
+        _NoopYouTubeDataSource(),
+        cache,
+        reliability: reliability,
+        resolvers: [
+          _StaticResolver(
+            'jiosaavn',
+            const StreamInfo(
+              url: 'https://jio.broken/track.mp4',
+              codec: 'mp4a',
+              bitrate: 320,
+              container: 'mp4',
+              quality: AudioQuality.high,
+              streamProvenance: 'jiosaavn_matched',
+              matchConfidence: 0.90,
+            ),
+          ),
+          _StaticResolver(
+            'innertube_ladder',
+            const StreamInfo(
+              url: 'https://innertube.healthy/track.mp4',
+              codec: 'mp4a',
+              bitrate: 128,
+              container: 'mp4',
+              quality: AudioQuality.high,
+              streamProvenance: 'innertube_android',
+              matchConfidence: 1.0,
+            ),
+          ),
+        ],
+      );
+      mediaResolver = MediaResolverService(
+        streamLoader: streamLoader,
+        downloadService: FakeDownloadService(),
+      );
+      playerBloc = PlayerBloc(
+        musicRepository: FakeMusicRepository(),
+        libraryRepository: FakeLibraryRepository(),
+        audioPlayerService: failingAudio,
+        audioFocus: FakeAudioFocusOrchestrator(),
+        mediaResolver: mediaResolver,
+        reliability: reliability,
+        streamLoader: streamLoader,
+        downloadService: FakeDownloadService(),
+      );
+    });
+
+    tearDown(() async {
+      await playerBloc.close();
+    });
+
+    test('switches from failing JioSaavn playback to InnerTube instead of tripping circuit breaker', () async {
+      final track = const Song(
+        id: '1F3hm6MfR1k',
+        youtubeId: '1F3hm6MfR1k',
+        title: 'Hukum',
+        artist: 'Anirudh Ravichander',
+        duration: Duration(seconds: 207),
+        thumbnails: Thumbnails(),
+        source: MusicSource.youtube,
+      );
+
+      playerBloc.add(PlaySongEvent(song: track, queue: [track], queueIndex: 0));
+      await waitFor(
+        () =>
+            playerBloc.state.currentStreamInfo?.streamProvenance == 'innertube_android' &&
+            playerBloc.state.isPlaying,
+      );
+
+      expect(playerBloc.state.currentStreamInfo?.streamProvenance, 'innertube_android');
+      expect(playerBloc.state.status, PlayerStatus.playing);
+      expect(failingAudio.urlsTried.first, contains('jio.broken'));
+      expect(failingAudio.urlsTried.last, contains('innertube.healthy'));
+    });
+  });
+}
+
+class _NoopYouTubeDataSource implements YouTubeMusicDataSource {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _StaticResolver implements AudioStreamResolver {
+  @override
+  final String resolverName;
+  final StreamInfo info;
+
+  _StaticResolver(this.resolverName, this.info);
+
+  @override
+  bool get isAvailable => true;
+
+  @override
+  Future<StreamInfo?> resolveStream(
+    Song song, {
+    AudioQuality preferredQuality = AudioQuality.high,
+  }) async =>
+      info;
+}
+
+class _FailingFirstAudioPlayerService extends FakeAudioPlayerService {
+  final List<String> urlsTried = [];
+
+  @override
+  Future<Duration?> setUrl(
+    String url, {
+    Map<String, String>? headers,
+    String? videoId,
+    String quality = 'high',
+    String? title,
+    String? artist,
+    String? album,
+    String? artworkUrl,
+    Duration? mediaDuration,
+    bool allowYouTubeFallbackOnDirectFailure = false,
+  }) async {
+    urlsTried.add(url);
+    return mediaDuration ?? const Duration(seconds: 200);
+  }
+
+  @override
+  Future<void> play() async {
+    playCalls++;
+    if (urlsTried.last.contains('jio.broken')) {
+      emitErrorForTest('ExoPlaybackException: Source error');
+      return;
+    }
+    isPlayingFlag = true;
+  }
 }

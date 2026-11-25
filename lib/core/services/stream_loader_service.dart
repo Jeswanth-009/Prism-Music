@@ -87,6 +87,10 @@ class StreamLoaderService {
   final List<_FetchResult> _recentAttempts = [];
   static const int _maxRecentAttempts = 20;
 
+  // Per-song resolvers that already failed during playback and should be skipped
+  // on failover retries so playback switches to healthy alternatives (e.g. InnerTube).
+  final Map<String, Set<String>> _excludedResolversBySong = {};
+
   StreamLoaderService(
     YouTubeMusicDataSource datasource,
     this._cache, {
@@ -116,6 +120,74 @@ class StreamLoaderService {
   void _recordSourceFailure(StreamSource source) =>
       _reliability.recordSourceFailure(source);
 
+  /// Maps a [StreamInfo.streamProvenance] tag back to its owning resolver name.
+  static String? resolverNameForProvenance(String? provenance) {
+    if (provenance == null || provenance.isEmpty) return null;
+    if (provenance == 'jiosaavn' || provenance.contains('jiosaavn')) {
+      return 'jiosaavn';
+    }
+    if (provenance == 'youtube_explode' || provenance == 'youtube') {
+      return 'youtube_explode';
+    }
+    if (provenance.startsWith('innertube')) {
+      return 'innertube_ladder';
+    }
+    if (provenance == 'piped' || provenance.contains('piped')) {
+      return 'piped';
+    }
+    if (provenance == 'invidious' || provenance.contains('invidious')) {
+      return 'invidious';
+    }
+    return provenance;
+  }
+
+  /// Marks the resolver behind [streamProvenance] as failed for [videoId] at
+  /// playback time, records a source failure, and evicts stale cache/prefetch.
+  void markResolverFailedForPlayback(String videoId, String? streamProvenance) {
+    final resolverName = resolverNameForProvenance(streamProvenance);
+    if (resolverName == null || resolverName.isEmpty) return;
+    (_excludedResolversBySong[videoId] ??= <String>{}).add(resolverName);
+    _recordSourceFailure(_mapResolverToSource(resolverName));
+    invalidateCache(videoId);
+    debugPrint(
+      'StreamLoader: Excluded resolver "$resolverName" for $videoId after playback failure',
+    );
+  }
+
+  /// Clears playback-time resolver exclusions for [videoId].
+  void clearExcludedResolvers(String videoId) {
+    _excludedResolversBySong.remove(videoId);
+  }
+
+  /// Whether at least one enabled resolver remains for [videoId] after
+  /// excluding resolvers that already failed during playback.
+  bool hasUntriedResolvers(String videoId) {
+    final excluded = _excludedResolversBySong[videoId];
+    if (excluded == null || excluded.isEmpty) return true;
+    return _resolvers.any(
+      (r) =>
+          r.isAvailable &&
+          !excluded.contains(r.resolverName) &&
+          !_isCircuitOpen(_mapResolverToSource(r.resolverName)),
+    );
+  }
+
+  /// Resolves a stream while explicitly excluding [excludedResolvers]
+  /// (used e.g. by YouTube fallback so it skips JioSaavn/YouTubeExplode).
+  Future<StreamInfo> loadStreamExcluding(
+    Song song, {
+    required Set<String> excludedResolvers,
+    bool useCache = true,
+    AudioQuality preferredQuality = AudioQuality.high,
+  }) {
+    return _loadStreamInternal(
+      song,
+      useCache: useCache,
+      preferredQuality: preferredQuality,
+      explicitExcludedResolvers: excludedResolvers,
+    );
+  }
+
   /// Resolves the stream URL using cache checks, circuit breakers, and
   /// staggered-race resolution across eligible resolvers (or sequential fallback
   /// when an explicit resolver is preferred).
@@ -124,14 +196,39 @@ class StreamLoaderService {
     bool useCache = true,
     AudioQuality preferredQuality = AudioQuality.high,
     String? preferredResolverName,
+  }) =>
+      _loadStreamInternal(
+        song,
+        useCache: useCache,
+        preferredQuality: preferredQuality,
+        preferredResolverName: preferredResolverName,
+      );
+
+  Future<StreamInfo> _loadStreamInternal(
+    Song song, {
+    bool useCache = true,
+    AudioQuality preferredQuality = AudioQuality.high,
+    String? preferredResolverName,
+    Set<String>? explicitExcludedResolvers,
   }) async {
     final overallStopwatch = Stopwatch()..start();
     final videoId = song.playableId; // Use playableId (youtubeId ?? id)
+    final excluded = <String>{
+      if (preferredResolverName == null)
+        ...?_excludedResolversBySong[videoId],
+      ...?explicitExcludedResolvers,
+    };
+
+    bool isAllowedCached(StreamInfo stream) {
+      if (excluded.isEmpty) return true;
+      final provResolver = resolverNameForProvenance(stream.streamProvenance);
+      return provResolver == null || !excluded.contains(provResolver);
+    }
 
     // Check cache first - instant return if available (unless explicitly requesting a specific resolver)
     if (useCache && preferredResolverName == null) {
       final cached = _cache.getCached(videoId, preferredQuality);
-      if (cached != null) {
+      if (cached != null && isAllowedCached(cached)) {
         overallStopwatch.stop();
         debugPrint(
           'StreamLoader: Cache HIT for ${song.title} '
@@ -148,7 +245,7 @@ class StreamLoaderService {
       debugPrint('StreamLoader: Waiting for prefetch result for ${song.title}');
       try {
         final result = await existingPrefetch;
-        if (result != null) {
+        if (result != null && isAllowedCached(result)) {
           // The stream may have been invalidated (e.g. a 403 expiry recovery)
           // while the prefetch was in flight; serving that result here would
           // hand back exactly the stale URL the invalidation tried to drop.
@@ -172,11 +269,15 @@ class StreamLoaderService {
     }
 
     // Fetch with bounded overall resolution budget
-    debugPrint('StreamLoader: Loading stream for ${song.title} (preferred: $preferredResolverName)');
+    debugPrint(
+      'StreamLoader: Loading stream for ${song.title} '
+      '(preferred: $preferredResolverName, excluded: $excluded)',
+    );
     final streamInfo = await _fetchOptimized(
       song,
       preferredQuality,
       preferredResolverName: preferredResolverName,
+      excludedResolvers: excluded,
     ).timeout(
       _overallResolutionBudget,
       onTimeout: () =>
@@ -205,16 +306,34 @@ class StreamLoaderService {
     Song song,
     AudioQuality preferredQuality, {
     String? preferredResolverName,
+    Set<String> excludedResolvers = const {},
   }) async {
     final videoId = song.playableId;
     final stopwatch = Stopwatch()..start();
 
-    final candidateResolvers = preferredResolverName != null
-        ? [
-            ..._resolvers.where((r) => r.resolverName == preferredResolverName),
-            ..._resolvers.where((r) => r.resolverName != preferredResolverName),
-          ]
-        : _resolvers;
+    final List<AudioStreamResolver> orderedResolvers;
+    if (preferredResolverName != null) {
+      final preferred = _resolvers.where((r) => r.resolverName == preferredResolverName);
+      final nonPreferred = _resolvers.where((r) => r.resolverName != preferredResolverName);
+      // When explicitly switching to a YouTube-family resolver, try the rest of
+      // the YouTube/relay ladder before circling back to JioSaavn.
+      final isExplicitYouTube = preferredResolverName != 'jiosaavn';
+      orderedResolvers = isExplicitYouTube
+          ? [
+              ...preferred,
+              ...nonPreferred.where((r) => r.resolverName != 'jiosaavn'),
+              ...nonPreferred.where((r) => r.resolverName == 'jiosaavn'),
+            ]
+          : [...preferred, ...nonPreferred];
+    } else {
+      orderedResolvers = _resolvers;
+    }
+
+    final candidateResolvers = excludedResolvers.isEmpty
+        ? orderedResolvers
+        : orderedResolvers
+            .where((r) => !excludedResolvers.contains(r.resolverName))
+            .toList();
 
     if (preferredResolverName == null) {
       final eligible = <AudioStreamResolver>[];

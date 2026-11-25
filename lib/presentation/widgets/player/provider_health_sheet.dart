@@ -420,6 +420,7 @@ class _ProviderHealthSheetContentState
     if (activeProvenance.startsWith(resolverName)) return true;
     if (resolverName == 'jiosaavn' && activeProvenance.contains('jiosaavn')) return true;
     if (resolverName == 'youtube_explode' && activeProvenance.contains('youtube')) return true;
+    if (resolverName == 'innertube_ladder' && activeProvenance.contains('innertube')) return true;
     if (resolverName == 'piped' && activeProvenance.contains('piped')) return true;
     if (resolverName == 'invidious' && activeProvenance.contains('invidious')) return true;
     return false;
@@ -428,6 +429,7 @@ class _ProviderHealthSheetContentState
   String _formatProvenanceName(String? prov) {
     if (prov == null) return 'Default YouTube';
     if (prov.contains('jiosaavn')) return 'JioSaavn 320kbps High-Fi';
+    if (prov.contains('innertube')) return 'YouTube InnerTube Direct';
     if (prov.contains('youtube')) return 'YouTube Direct DASH';
     if (prov.contains('piped')) return 'Piped Audio Proxy';
     if (prov.contains('invidious')) return 'Invidious Network Instance';

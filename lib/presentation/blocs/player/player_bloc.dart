@@ -562,6 +562,7 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   /// or scheduling retries/auto-advances that hijack newer playback.
   int _playbackGeneration = 0;
   bool _isNativeQueueTransitionLoading = false;
+  bool _isSettingAudioSource = false;
 
   /// Upper bounds for network-bound playback stages. Without these a dead
   /// source (e.g. a hung stream manifest fetch) leaves the UI in `loading`
@@ -710,6 +711,20 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
     if (event.userInitiated) {
       _attemptedFreshResolutions.remove(songToPlay.playableId);
+      final isSameFailedSong =
+          state.currentSong?.playableId == songToPlay.playableId &&
+          state.status == PlayerStatus.error;
+      if (!isSameFailedSong) {
+        try {
+          _streamLoader.clearExcludedResolvers(songToPlay.playableId);
+        } catch (_) {}
+      } else {
+        try {
+          if (!_streamLoader.hasUntriedResolvers(songToPlay.playableId)) {
+            _streamLoader.clearExcludedResolvers(songToPlay.playableId);
+          }
+        } catch (_) {}
+      }
     }
 
     final Song? previousSong = state.currentSong;
@@ -725,6 +740,10 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         queue: initialQueue,
         originalQueue: List<Song>.from(initialQueue),
         queueIndex: initialQueueIndex,
+        clearCurrentStreamInfo:
+            event.preferredResolver != null ||
+            previousSong?.playableId != songToPlay.playableId ||
+            state.status == PlayerStatus.error,
         clearVideoStreamInfo: true,
         clearPlaybackNotification: true,
       ),
@@ -821,49 +840,55 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
           ),
         );
 
-        final duration = shouldCrossfade
-            ? await _audioPlayer
-                  .crossfadeTo(
-                    resolvedSource.uri,
-                    headers: resolvedSource.headers,
-                    videoId: resolvedSource.videoId,
-                    quality: _mapAudioQuality(state.audioQuality),
-                    title: songToPlay.title,
-                    artist: songToPlay.artist,
-                    album: songToPlay.album,
-                    artworkUrl: notificationArtwork,
-                    mediaDuration: songToPlay.duration,
-                    duration: Duration(
-                      milliseconds: (_crossfadeDurationSeconds * 1000)
-                          .round()
-                          .clamp(0, 10000),
-                    ),
-                    allowYouTubeFallbackOnDirectFailure: isYouTubeSong,
-                  )
-                  .timeout(_setSourceTimeout)
-            : (initialQueue.length > 1)
-                ? await _loadAudioQueueSafe(
-                    initialQueue,
-                    queueIndex,
-                    songToPlay,
-                    resolvedSource,
-                    notificationArtwork,
-                    isYouTubeSong,
-                  )
-                : await _audioPlayer
-                      .setUrl(
-                        resolvedSource.uri,
-                        headers: resolvedSource.headers,
-                        videoId: resolvedSource.videoId,
-                        quality: _mapAudioQuality(state.audioQuality),
-                        title: songToPlay.title,
-                        artist: songToPlay.artist,
-                        album: songToPlay.album,
-                        artworkUrl: notificationArtwork,
-                        mediaDuration: songToPlay.duration,
-                        allowYouTubeFallbackOnDirectFailure: isYouTubeSong,
-                      )
-                      .timeout(_setSourceTimeout);
+        _isSettingAudioSource = true;
+        final Duration? duration;
+        try {
+          duration = shouldCrossfade
+              ? await _audioPlayer
+                    .crossfadeTo(
+                      resolvedSource.uri,
+                      headers: resolvedSource.headers,
+                      videoId: resolvedSource.videoId,
+                      quality: _mapAudioQuality(state.audioQuality),
+                      title: songToPlay.title,
+                      artist: songToPlay.artist,
+                      album: songToPlay.album,
+                      artworkUrl: notificationArtwork,
+                      mediaDuration: songToPlay.duration,
+                      duration: Duration(
+                        milliseconds: (_crossfadeDurationSeconds * 1000)
+                            .round()
+                            .clamp(0, 10000),
+                      ),
+                      allowYouTubeFallbackOnDirectFailure: isYouTubeSong,
+                    )
+                    .timeout(_setSourceTimeout)
+              : (initialQueue.length > 1)
+                  ? await _loadAudioQueueSafe(
+                      initialQueue,
+                      queueIndex,
+                      songToPlay,
+                      resolvedSource,
+                      notificationArtwork,
+                      isYouTubeSong,
+                    )
+                  : await _audioPlayer
+                        .setUrl(
+                          resolvedSource.uri,
+                          headers: resolvedSource.headers,
+                          videoId: resolvedSource.videoId,
+                          quality: _mapAudioQuality(state.audioQuality),
+                          title: songToPlay.title,
+                          artist: songToPlay.artist,
+                          album: songToPlay.album,
+                          artworkUrl: notificationArtwork,
+                          mediaDuration: songToPlay.duration,
+                          allowYouTubeFallbackOnDirectFailure: isYouTubeSong,
+                        )
+                        .timeout(_setSourceTimeout);
+        } finally {
+          _isSettingAudioSource = false;
+        }
         if (generation != _playbackGeneration) return; // user moved on
         setSourceStopwatch.stop();
 
@@ -907,6 +932,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         _recommendationService?.recordPlay(songToPlay);
         _reliability.registerSuccess(songToPlay.playableId);
         _attemptedFreshResolutions.remove(songToPlay.playableId);
+        try {
+          _streamLoader.clearExcludedResolvers(songToPlay.playableId);
+        } catch (_) {}
         _consecutiveFailureSkips = 0;
         updateNowPlaying(songToPlay);
         try {
@@ -1799,13 +1827,13 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   }
 
   void _onPlayerError(PlayerErrorEvent event, Emitter<PlayerState> emit) {
-    // Ignore PlayerErrorEvent during loading ONLY while _onPlaySong owns the
-    // transition (it catches resolution/setUrl errors and schedules retries).
-    // Errors occurring during passive native auto-advance/skip loading must still
-    // flow to _handlePlaybackError so the next track does not deadlock!
-    if (state.status == PlayerStatus.loading && !_isNativeQueueTransitionLoading) {
+    // Ignore PlayerErrorEvent ONLY while _onPlaySong is awaiting source setup
+    // (it catches resolution/setUrl errors and schedules retries). Once setup
+    // returns and async play()/buffering begins, native player errors must
+    // flow to _handlePlaybackError even if buffering flips status to loading.
+    if (_isSettingAudioSource && !_isNativeQueueTransitionLoading) {
       _log(
-        'PlayerBloc: Ignoring PlayerErrorEvent during loading (handled by _onPlaySong): ${event.message}',
+        'PlayerBloc: Ignoring PlayerErrorEvent during source setup (handled by _onPlaySong): ${event.message}',
       );
       return;
     }
@@ -1867,24 +1895,49 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     bool isStale() => generation != null && generation != _playbackGeneration;
 
     final songId = failedSong.playableId;
+    final failedProvenance = (state.currentSong?.playableId == songId)
+        ? state.currentStreamInfo?.streamProvenance
+        : null;
+    bool canFailoverToAlternateResolver = false;
+    if (!isOffline && failedProvenance != null && failedProvenance.isNotEmpty) {
+      try {
+        _streamLoader.markResolverFailedForPlayback(songId, failedProvenance);
+        canFailoverToAlternateResolver = _streamLoader.hasUntriedResolvers(songId);
+      } catch (_) {
+        // Fake/mock StreamLoader implementations in tests may omit failover helpers.
+      }
+    }
+
     final is403 = _is403OrForbidden(error);
     final hasAttemptedFresh = _attemptedFreshResolutions.contains(songId);
 
-    // Stale/expired stream recovery: if a cached or pre-resolved stream URL returns 403 Forbidden,
-    // invalidate the cache and attempt exactly one fresh URL resolution before giving up.
-    if (is403 && !isOffline && !hasAttemptedFresh && !isStale()) {
-      _attemptedFreshResolutions.add(songId);
+    // Source failover or stale/expired stream recovery:
+    // If playback failed on a specific provider (e.g. JioSaavn stream rejected
+    // by ExoPlayer) and untried resolvers remain (e.g. YouTube/InnerTube),
+    // immediately fail over to them instead of retrying the same failing source.
+    if ((canFailoverToAlternateResolver || is403) &&
+        !isOffline &&
+        (canFailoverToAlternateResolver || !hasAttemptedFresh) &&
+        !isStale() &&
+        (!_reliability.isCircuitOpen || canFailoverToAlternateResolver)) {
+      if (!canFailoverToAlternateResolver) {
+        _attemptedFreshResolutions.add(songId);
+      } else {
+        _reliability.registerRetry(songId);
+      }
       _log(
-        'PlayerBloc: Stale/Expired stream (403 Forbidden) detected for "${failedSong.title}". '
-        'Invalidating cache and attempting fresh URL resolution.',
+        'PlayerBloc: Failing over stream for "${failedSong.title}" '
+        '(failedProvenance=$failedProvenance, canFailover=$canFailoverToAlternateResolver).',
       );
       emit(
         state.copyWith(
           status: PlayerStatus.loading,
-          errorMessage: 'Refreshing expired stream...',
+          errorMessage: canFailoverToAlternateResolver
+              ? 'Switching audio source...'
+              : 'Refreshing expired stream...',
         ),
       );
-      Future.delayed(const Duration(milliseconds: 100), () {
+      Future.delayed(const Duration(milliseconds: 120), () {
         if (isClosed || isStale()) return;
         add(
           PlaySongEvent(

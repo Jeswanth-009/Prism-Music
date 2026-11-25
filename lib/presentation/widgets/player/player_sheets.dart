@@ -481,6 +481,9 @@ String formatAudioProvenance(String? provenance, Song song) {
     case 'invidious_instance':
       return 'Invidious Community Node';
     default:
+      if (provenance != null && provenance.startsWith('innertube')) {
+        return 'YouTube InnerTube Direct';
+      }
       return 'Direct Stream Provider';
   }
 }

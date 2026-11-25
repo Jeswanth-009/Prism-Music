@@ -233,6 +233,59 @@ void main() {
       );
       expect(forcedResult.streamProvenance, equals('youtube_explode'));
     });
+
+    test('markResolverFailedForPlayback excludes failing provenance on subsequent loadStream', () async {
+      mockJio.streamResult = const StreamInfo(
+        url: 'https://jio.stream/broken.mp4',
+        codec: 'mp4a',
+        bitrate: 320,
+        container: 'mp4',
+        quality: AudioQuality.high,
+        streamProvenance: 'jiosaavn_matched',
+      );
+      mockYt.streamResult = const StreamInfo(
+        url: 'https://innertube.stream/audio.mp4',
+        codec: 'mp4a',
+        bitrate: 128,
+        container: 'mp4',
+        quality: AudioQuality.high,
+        streamProvenance: 'innertube_android',
+      );
+
+      final first = await loader.loadStream(testSong);
+      expect(first.streamProvenance, equals('jiosaavn_matched'));
+      expect(loader.hasUntriedResolvers(testSong.playableId), isTrue);
+
+      // Simulate ExoPlayer failing to play the JioSaavn stream.
+      loader.markResolverFailedForPlayback(
+        testSong.playableId,
+        first.streamProvenance,
+      );
+      expect(loader.hasUntriedResolvers(testSong.playableId), isTrue);
+
+      // Subsequent resolution must skip jiosaavn & cache and fail over to YT/InnerTube.
+      final second = await loader.loadStream(testSong);
+      expect(second.streamProvenance, equals('innertube_android'));
+      expect(mockJio.getStreamUrlCalls, equals(1));
+      expect(mockYt.getStreamUrlCalls, equals(1));
+
+      // loadStreamExcluding also honors explicit exclusions.
+      mockYt.streamResult = const StreamInfo(
+        url: 'https://direct.example/fallback.mp4',
+        codec: 'mp4a',
+        bitrate: 128,
+        container: 'mp4',
+        quality: AudioQuality.high,
+        streamProvenance: 'youtube_explode',
+      );
+      final excl = await loader.loadStreamExcluding(
+        testSong,
+        excludedResolvers: const {'jiosaavn'},
+        useCache: false,
+      );
+      expect(excl.streamProvenance, equals('youtube_explode'));
+      expect(mockJio.getStreamUrlCalls, equals(1));
+    });
   });
 
   group('StreamLoaderService resolver racing', () {
