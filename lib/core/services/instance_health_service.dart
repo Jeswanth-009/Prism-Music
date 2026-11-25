@@ -47,6 +47,13 @@ class InstanceHealthService {
   List<String> get pipedProxyPool => List.unmodifiable(_pipedProxyInstances);
   List<String> get invidiousPool => List.unmodifiable(_invidiousInstances);
 
+  /// Whether at least one instance in [pool] is currently unquarantined.
+  bool hasHealthyHost(List<String> pool) => pool.any((h) => !isHostQuarantined(h));
+
+  bool get hasHealthyPipedApi => hasHealthyHost(_pipedApiInstances);
+  bool get hasHealthyPipedProxy => hasHealthyHost(_pipedProxyInstances);
+  bool get hasHealthyInvidious => hasHealthyHost(_invidiousInstances);
+
   /// Quarantined until timestamp per host
   final Map<String, DateTime> _quarantineUntil = {};
 

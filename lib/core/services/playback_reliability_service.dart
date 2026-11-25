@@ -1,5 +1,5 @@
 /// Audio stream source types tracked for circuit breaking.
-enum StreamSource { jioSaavn, youtubeExplode, invidious, alternative }
+enum StreamSource { jioSaavn, youtubeExplode, innerTube, invidious, alternative }
 
 /// Circuit-breaker + retry policy for playback errors and provider sources.
 class PlaybackReliabilityService {

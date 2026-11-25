@@ -941,18 +941,8 @@ class YouTubeMusicDataSourceImpl implements YouTubeMusicDataSource {
     return false;
   }
 
-  DateTime? _extractExpiryFromUrl(String url) {
-    try {
-      final uri = Uri.parse(url);
-      final expires = uri.queryParameters['expire'];
-      if (expires == null) return null;
-      final epochSeconds = int.tryParse(expires);
-      if (epochSeconds == null) return null;
-      return DateTime.fromMillisecondsSinceEpoch(epochSeconds * 1000);
-    } catch (_) {
-      return null;
-    }
-  }
+  DateTime? _extractExpiryFromUrl(String url) =>
+      StreamCacheService.extractExpiryFromUrl(url);
 
   void dispose() {
     _youtube.close();

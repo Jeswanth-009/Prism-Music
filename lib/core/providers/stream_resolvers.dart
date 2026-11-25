@@ -4,6 +4,8 @@ import '../../data/datasources/remote/jiosaavn/jiosaavn_datasource.dart';
 import '../../data/datasources/remote/youtube/youtube_music_datasource.dart';
 import '../../data/datasources/remote/youtube/piped_datasource.dart';
 import '../../data/datasources/remote/youtube/invidious_datasource.dart';
+import '../error/exceptions.dart';
+import '../services/instance_health_service.dart';
 import 'audio_stream_resolver.dart';
 
 /// Audio stream resolver backed by JioSaavn catalog with match confidence evaluation.
@@ -67,6 +69,8 @@ class YouTubeExplodeAudioStreamResolver implements AudioStreamResolver {
         );
       }
       return raw;
+    } on GeoRestrictionException {
+      rethrow;
     } catch (_) {
       return null;
     }
@@ -76,15 +80,19 @@ class YouTubeExplodeAudioStreamResolver implements AudioStreamResolver {
 /// Audio stream resolver backed by Piped proxy with instance health management.
 class PipedAudioStreamResolver implements AudioStreamResolver {
   final PipedDataSource _dataSource;
+  final InstanceHealthService _healthService;
 
-  PipedAudioStreamResolver({PipedDataSource? dataSource})
-      : _dataSource = dataSource ?? PipedDataSource();
+  PipedAudioStreamResolver({
+    PipedDataSource? dataSource,
+    InstanceHealthService? healthService,
+  })  : _dataSource = dataSource ?? PipedDataSource(healthService: healthService),
+        _healthService = healthService ?? InstanceHealthService();
 
   @override
   String get resolverName => 'piped';
 
   @override
-  bool get isAvailable => true;
+  bool get isAvailable => _healthService.hasHealthyPipedApi;
 
   @override
   Future<StreamInfo?> resolveStream(
@@ -118,15 +126,20 @@ class PipedAudioStreamResolver implements AudioStreamResolver {
 /// Audio stream resolver backed by Invidious with instance health management.
 class InvidiousAudioStreamResolver implements AudioStreamResolver {
   final InvidiousDataSource _dataSource;
+  final InstanceHealthService _healthService;
 
-  InvidiousAudioStreamResolver({InvidiousDataSource? dataSource})
-      : _dataSource = dataSource ?? InvidiousDataSource();
+  InvidiousAudioStreamResolver({
+    InvidiousDataSource? dataSource,
+    InstanceHealthService? healthService,
+  })  : _dataSource =
+            dataSource ?? InvidiousDataSource(healthService: healthService),
+        _healthService = healthService ?? InstanceHealthService();
 
   @override
   String get resolverName => 'invidious';
 
   @override
-  bool get isAvailable => true;
+  bool get isAvailable => _healthService.hasHealthyInvidious;
 
   @override
   Future<StreamInfo?> resolveStream(

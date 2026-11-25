@@ -56,11 +56,18 @@ class InvidiousDataSource {
   
   /// Get PROXIED stream URL using Invidious API with health tracking and quarantine
   Future<StreamInfo?> getStreamUrl(String videoId) async {
+    if (!_healthService.hasHealthyInvidious) {
+      debugPrint('InvidiousDataSource: All Invidious instances quarantined; skipping $videoId');
+      return null;
+    }
     debugPrint('InvidiousDataSource: Getting stream for $videoId');
-    
-    // Try up to 2 healthy instances with fast timeouts
+
+    final tried = <String>{};
+    // Try up to 2 distinct healthy instances with fast timeouts
     for (int attempt = 0; attempt < 2; attempt++) {
+      if (!_healthService.hasHealthyInvidious) break;
       final instance = _healthService.getHealthyInvidious();
+      if (!tried.add(instance)) break;
       final stopwatch = Stopwatch()..start();
       try {
         debugPrint('InvidiousDataSource: Trying healthy instance $instance (attempt $attempt)');

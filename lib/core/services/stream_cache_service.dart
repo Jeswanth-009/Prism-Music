@@ -25,20 +25,25 @@ class StreamCacheService {
   // Conservative baseline TTL
   static const Duration _defaultTTL = Duration(minutes: 45);
 
-  /// Checks whether a stream URL with an embedded `expire` parameter is expired or expiring soon.
-  static bool isUrlExpired(String url, {Duration safetyBuffer = const Duration(minutes: 5)}) {
+  /// Extracts the expiration [DateTime] embedded in a stream URL's `expire` query parameter.
+  static DateTime? extractExpiryFromUrl(String url) {
     try {
       final uri = Uri.tryParse(url);
-      if (uri != null && uri.queryParameters.containsKey('expire')) {
-        final expireSeconds = int.tryParse(uri.queryParameters['expire']!);
-        if (expireSeconds != null) {
-          final expireDate =
-              DateTime.fromMillisecondsSinceEpoch(expireSeconds * 1000);
-          return DateTime.now().add(safetyBuffer).isAfter(expireDate);
-        }
-      }
-    } catch (_) {}
-    return false;
+      final expireParam = uri?.queryParameters['expire'];
+      if (expireParam == null) return null;
+      final expireSeconds = int.tryParse(expireParam);
+      if (expireSeconds == null) return null;
+      return DateTime.fromMillisecondsSinceEpoch(expireSeconds * 1000);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Checks whether a stream URL with an embedded `expire` parameter is expired or expiring soon.
+  static bool isUrlExpired(String url, {Duration safetyBuffer = const Duration(minutes: 5)}) {
+    final expireDate = extractExpiryFromUrl(url);
+    if (expireDate == null) return false;
+    return DateTime.now().add(safetyBuffer).isAfter(expireDate);
   }
 
   String _buildKey(String videoId, [AudioQuality? quality]) =>

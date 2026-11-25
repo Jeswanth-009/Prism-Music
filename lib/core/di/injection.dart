@@ -17,6 +17,8 @@ import '../../presentation/blocs/player/player.dart';
 import '../../presentation/blocs/search/search_bloc.dart';
 import '../../presentation/blocs/library/library_bloc.dart';
 import '../../presentation/blocs/theme/theme_bloc.dart';
+import '../providers/innertube/innertube_stream_resolver.dart';
+import '../providers/stream_resolvers.dart';
 import '../services/audio_player_service.dart';
 import '../services/audio_focus_orchestrator_service.dart';
 import '../services/settings_service.dart';
@@ -148,11 +150,27 @@ Future<void> initializeDependencies() async {
     () => LocalDataSourceImpl(),
   );
   
-  // Stream Loader Service - depends on datasource, cache, and reliability policy
+  // Stream Loader Service - depends on datasources, cache, and reliability policy
   getIt.registerLazySingleton<StreamLoaderService>(
     () => StreamLoaderService(
       getIt<YouTubeMusicDataSource>(),
       getIt<StreamCacheService>(),
+      jioSaavn: getIt<JioSaavnDataSource>(),
+      resolvers: [
+        JioSaavnAudioStreamResolver(
+          dataSource: getIt<JioSaavnDataSource>(),
+        ),
+        YouTubeExplodeAudioStreamResolver(
+          dataSource: getIt<YouTubeMusicDataSource>(),
+        ),
+        InnerTubeStreamResolver(),
+        PipedAudioStreamResolver(
+          healthService: getIt<InstanceHealthService>(),
+        ),
+        InvidiousAudioStreamResolver(
+          healthService: getIt<InstanceHealthService>(),
+        ),
+      ],
       reliability: getIt<PlaybackReliabilityService>(),
     ),
   );

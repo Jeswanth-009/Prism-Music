@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_music/core/providers/stream_resolvers.dart';
 import 'package:prism_music/core/services/instance_health_service.dart';
 
 class _MockDioAdapter implements HttpClientAdapter {
@@ -164,6 +165,25 @@ void main() {
 
       await Future<void>.delayed(const Duration(milliseconds: 100));
       expect(service.isProbingInProgress, isFalse);
+    });
+
+    test('quarantining all pool hosts marks Piped & Invidious resolvers unavailable', () {
+      for (final host in service.pipedApiPool) {
+        service.recordFailure(host, 'HTTP 525');
+        service.recordFailure(host, 'HTTP 525');
+      }
+      for (final host in service.invidiousPool) {
+        service.recordFailure(host, 'HTTP 403');
+        service.recordFailure(host, 'HTTP 403');
+      }
+
+      expect(service.hasHealthyPipedApi, isFalse);
+      expect(service.hasHealthyInvidious, isFalse);
+
+      final pipedResolver = PipedAudioStreamResolver(healthService: service);
+      final invidiousResolver = InvidiousAudioStreamResolver(healthService: service);
+      expect(pipedResolver.isAvailable, isFalse);
+      expect(invidiousResolver.isAvailable, isFalse);
     });
   });
 }

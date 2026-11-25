@@ -3,6 +3,35 @@ import 'package:http/http.dart' as http;
 
 /// Client persona context for InnerTube player requests.
 enum InnerTubeClientContext {
+  android(
+    clientName: 'ANDROID',
+    clientVersion: '20.10.38',
+    userAgent:
+        'com.google.android.youtube/20.10.38 (Linux; U; Android 14) gzip',
+    isMobile: true,
+    extraClientFields: {
+      'androidSdkVersion': 34,
+    },
+  ),
+  ios(
+    clientName: 'IOS',
+    clientVersion: '20.10.4',
+    userAgent:
+        'com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X)',
+    isMobile: true,
+    extraClientFields: {
+      'deviceMake': 'Apple',
+      'deviceModel': 'iPhone16,2',
+      'osName': 'iOS',
+      'osVersion': '18.2.1.22C161',
+    },
+  ),
+  webRemix(
+    clientName: 'WEB_REMIX',
+    clientVersion: '1.20240101.01.00',
+    userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  ),
   visionOS(
     clientName: 'APPLE_VISION_PRO',
     clientVersion: '1.0.0',
@@ -12,22 +41,24 @@ enum InnerTubeClientContext {
     clientName: 'TV_SAMSUNG',
     clientVersion: '2.1.2',
     userAgent: 'Mozilla/5.0 (SMART-TV; Linux; Tizen 5.0) AppleWebKit/538.1',
-  ),
-  webRemix(
-    clientName: 'WEB_REMIX',
-    clientVersion: '1.20240101.01.00',
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   );
 
   final String clientName;
   final String clientVersion;
   final String userAgent;
+  final bool isMobile;
+  final Map<String, Object> extraClientFields;
 
   const InnerTubeClientContext({
     required this.clientName,
     required this.clientVersion,
     required this.userAgent,
+    this.isMobile = false,
+    this.extraClientFields = const {},
   });
+
+  /// HTTP headers matching this InnerTube client for downstream media range requests.
+  Map<String, String> get playbackHeaders => {'User-Agent': userAgent};
 }
 
 /// Extracted audio format from InnerTube response.
@@ -72,39 +103,47 @@ class InnerTubeClient {
   /// Requests playback stream formats for a video ID using specified [context].
   Future<List<InnerTubeAudioFormat>> fetchAudioFormats(
     String videoId, {
-    InnerTubeClientContext context = InnerTubeClientContext.tvSamsung,
+    InnerTubeClientContext context = InnerTubeClientContext.android,
   }) async {
-    final payload = {
+    final payload = <String, dynamic>{
       'context': {
         'client': {
           'clientName': context.clientName,
           'clientVersion': context.clientVersion,
           'hl': 'en',
           'gl': 'US',
+          ...context.extraClientFields,
         },
       },
       'videoId': videoId,
-      'playbackContext': {
-        'contentPlaybackContext': {
-          'html5Preference': 'HTML5_PREF_WANTS',
-          'signatureTimestamp': 19800,
+      'contentCheckOk': true,
+      'racyCheckOk': true,
+      if (!context.isMobile)
+        'playbackContext': {
+          'contentPlaybackContext': {
+            'html5Preference': 'HTML5_PREF_WANTS',
+            'signatureTimestamp': 19800,
+          },
         },
-      },
     };
 
     final uri = Uri.parse(_playerEndpoint);
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'User-Agent': context.userAgent,
+      if (!context.isMobile) ...{
+        'Origin': 'https://www.youtube.com',
+        'Referer': 'https://www.youtube.com/',
+      },
+    };
+
     final response = await _httpClient
         .post(
           uri,
-          headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': context.userAgent,
-            'Origin': 'https://www.youtube.com',
-            'Referer': 'https://www.youtube.com/',
-          },
+          headers: headers,
           body: json.encode(payload),
         )
-        .timeout(const Duration(seconds: 12));
+        .timeout(const Duration(seconds: 6));
 
     if (response.statusCode != 200) {
       throw Exception(

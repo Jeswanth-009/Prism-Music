@@ -93,7 +93,42 @@ void main() {
       expect(result!.url, equals('https://googlevideo.com/videoplayback?id=123'));
       expect(result.bitrate, equals(320));
       expect(result.quality, equals(AudioQuality.ultra));
-      expect(result.streamProvenance, contains('tvSamsung'));
+      expect(result.streamProvenance, contains('android'));
+      expect(result.headers?['User-Agent'], isNotEmpty);
+    });
+
+    test('uses mobile contexts before web and parses stream expiry', () async {
+      final expiryEpoch =
+          DateTime.now().add(const Duration(hours: 4)).millisecondsSinceEpoch ~/
+              1000;
+      final fakeFormats = [
+        InnerTubeAudioFormat(
+          itag: 140,
+          url: 'https://googlevideo.com/videoplayback?id=123&expire=$expiryEpoch',
+          mimeType: 'audio/mp4; codecs="mp4a.40.2"',
+          bitrate: 192000,
+          contentLength: 3200000,
+          clientContextName: 'ANDROID',
+        ),
+      ];
+
+      expect(
+        InnerTubeStreamResolver.defaultContexts,
+        equals([
+          InnerTubeClientContext.android,
+          InnerTubeClientContext.ios,
+          InnerTubeClientContext.webRemix,
+        ]),
+      );
+
+      final resolver = InnerTubeStreamResolver(
+        client: _FakeInnerTubeClient(formats: fakeFormats),
+      );
+      final result = await resolver.resolveStream(testSong);
+
+      expect(result, isNotNull);
+      expect(result!.expiresAt, isNotNull);
+      expect(result.headers?['User-Agent'], InnerTubeClientContext.android.userAgent);
     });
 
     test('falls back to secondary resolver when InnerTube fails', () async {

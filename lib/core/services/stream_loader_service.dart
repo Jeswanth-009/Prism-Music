@@ -5,6 +5,7 @@ import '../../domain/entities/song.dart';
 import '../../data/datasources/remote/youtube/youtube_music_datasource.dart';
 import '../../data/datasources/remote/jiosaavn/jiosaavn_datasource.dart';
 import '../providers/audio_stream_resolver.dart';
+import '../providers/innertube/innertube_stream_resolver.dart';
 import '../providers/stream_resolvers.dart';
 import '../error/exceptions.dart';
 import 'instance_health_service.dart';
@@ -99,6 +100,7 @@ class StreamLoaderService {
            [
              JioSaavnAudioStreamResolver(dataSource: jioSaavn ?? JioSaavnDataSourceImpl()),
              YouTubeExplodeAudioStreamResolver(dataSource: datasource),
+             InnerTubeStreamResolver(),
              PipedAudioStreamResolver(),
              InvidiousAudioStreamResolver(),
            ];
@@ -379,6 +381,8 @@ class StreamLoaderService {
         return StreamSource.jioSaavn;
       case 'youtube_explode':
         return StreamSource.youtubeExplode;
+      case 'innertube_ladder':
+        return StreamSource.innerTube;
       case 'piped':
         return StreamSource.alternative;
       case 'invidious':
@@ -577,13 +581,16 @@ class StreamLoaderService {
         case 'youtube_explode':
           displayName = 'YouTube Direct DASH';
           break;
+        case 'innertube_ladder':
+          displayName = 'YouTube InnerTube Direct';
+          break;
         case 'piped':
           displayName = 'Piped Audio Proxy Pool';
-          isQuarantined = healthService.pipedProxyPool.any(healthService.isHostQuarantined);
+          isQuarantined = !healthService.hasHealthyPipedApi;
           break;
         case 'invidious':
           displayName = 'Invidious Instance Network';
-          isQuarantined = healthService.invidiousPool.any(healthService.isHostQuarantined);
+          isQuarantined = !healthService.hasHealthyInvidious;
           break;
         default:
           displayName = name;

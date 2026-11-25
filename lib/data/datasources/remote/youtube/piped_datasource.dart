@@ -65,11 +65,18 @@ class PipedDataSource {
   
   /// Get proxied stream URL using Piped API with per-instance health and quarantine
   Future<StreamInfo?> getStreamUrl(String videoId) async {
+    if (!_healthService.hasHealthyPipedApi) {
+      debugPrint('PipedDataSource: All Piped instances quarantined; skipping $videoId');
+      return null;
+    }
     debugPrint('PipedDataSource: Getting stream for $videoId');
-    
-    // Try up to 2 healthy instances with fast timeouts
+
+    final tried = <String>{};
+    // Try up to 2 distinct healthy instances with fast timeouts
     for (int attempt = 0; attempt < 2; attempt++) {
+      if (!_healthService.hasHealthyPipedApi) break;
       final instance = _healthService.getHealthyPipedApi();
+      if (!tried.add(instance)) break;
       final stopwatch = Stopwatch()..start();
       try {
         debugPrint('PipedDataSource: Trying healthy instance $instance (attempt $attempt)');
