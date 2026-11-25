@@ -68,8 +68,8 @@ void main() {
       artist: 'Arijit Singh',
       duration: const Duration(seconds: 240),
       thumbnails: const Thumbnails(),
-      source: MusicSource.youtube,
-      youtubeId: 'test_123',
+      source: MusicSource.jiosaavn,
+      jioSaavnId: 'test_123',
     );
 
     setUp(() {
