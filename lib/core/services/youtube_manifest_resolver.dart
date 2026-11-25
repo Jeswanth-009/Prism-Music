@@ -7,7 +7,7 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt;
 /// Races clients with a staggered delay (Android SDK-less -> Android -> iOS -> Mobile Web)
 /// with per-client timeouts so slow or rate-limited clients never starve later fallbacks.
 class YouTubeManifestResolver {
-  static const Duration defaultStaggerDelay = Duration(milliseconds: 1800);
+  static const Duration defaultStaggerDelay = Duration(milliseconds: 350);
 
   static final List<({String name, yt.YoutubeApiClient client, Duration timeout})>
       candidateClients = [
