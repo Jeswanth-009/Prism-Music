@@ -292,11 +292,11 @@ void main() {
           );
         }
         if (request.method == 'HEAD') {
-          // Fail the primary aac host, let jiotune succeed
+          // Fail the primary aac host, let jiosaavn.cdn.jio.com succeed
           if (request.url.host == 'aac.saavncdn.com') {
             return http.Response('', 500);
           }
-          if (request.url.host == 'jiotune.saavncdn.com') {
+          if (request.url.host == 'jiosaavn.cdn.jio.com') {
             return http.Response('', 200);
           }
         }
@@ -319,7 +319,7 @@ void main() {
       );
 
       expect(streamInfo, isNotNull);
-      expect(streamInfo!.url, contains('jiotune.saavncdn.com'));
+      expect(streamInfo!.url, contains('jiosaavn.cdn.jio.com'));
     });
   });
 }

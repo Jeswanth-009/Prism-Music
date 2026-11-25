@@ -293,6 +293,36 @@ void main() {
         );
         expect(durationVariationMatch.score, equals(0.96)); // 1.0*0.45 + 1.0*0.35 + 0.8*0.20 = 0.96
       });
+
+      test('parses nested official JioSaavn artistMap primary_artists and music credits', () {
+        final target = createSong(
+          title: 'Kalapakkaara',
+          artist: 'Jakes Bejoy',
+          duration: const Duration(seconds: 250),
+        );
+
+        final result = MatchConfidenceEngine.evaluateMap(
+          target: target,
+          candidateMap: {
+            'id': 'aMtPGCzZ',
+            'title': 'Kalapakkaara',
+            'more_info': {
+              'music': 'Jakes Bejoy',
+              'duration': '250',
+              'artistMap': {
+                'primary_artists': [
+                  {'id': '546740', 'name': 'Jakes Bejoy'},
+                  {'id': '455130', 'name': 'Shreya Ghoshal'},
+                ],
+              },
+            },
+          },
+          provenance: 'jiosaavn_matched',
+        );
+
+        expect(result.isAcceptable, isTrue);
+        expect(result.score, greaterThan(0.95));
+      });
     });
   });
 }

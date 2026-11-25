@@ -44,51 +44,20 @@ abstract class JioSaavnDataSource {
   });
 }
 
-/// Implementation of JioSaavn data source using HTTP API
+/// Implementation of JioSaavn data source using JioSaavn's official HTTP API
 class JioSaavnDataSourceImpl implements JioSaavnDataSource {
-  // Using working JioSaavn API endpoint
-  static const String _baseUrl = 'https://jiosaavn-api-privatecvc2.vercel.app';
-
   final http.Client _client;
 
   JioSaavnDataSourceImpl({http.Client? client}) : _client = client ?? http.Client();
 
   Future<Map<String, dynamic>?> _makeRequest(String endpoint, {Map<String, String>? params}) async {
     try {
-      final uri = Uri.parse('$_baseUrl$endpoint').replace(queryParameters: params);
-      debugPrint('JioSaavn: Requesting $uri');
-
-      final response = await _client.get(
-        uri,
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        },
-      ).timeout(const Duration(seconds: 15));
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body) as Map<String, dynamic>;
-        // This API uses "status": "SUCCESS" format
-        if (data['status'] == 'SUCCESS') {
-          return data['data'] as Map<String, dynamic>?;
-        }
-      }
-      if (response.statusCode == 451 ||
-          (response.statusCode == 403 &&
-              response.body.toLowerCase().contains('geo'))) {
-        throw const GeoRestrictionException(
-          provider: 'JioSaavn',
-          statusCode: 403,
-          message: 'JioSaavn API is restricted in your region.',
-        );
-      }
-      debugPrint('JioSaavn: Request failed with status ${response.statusCode}');
       return await _fallbackOfficial(endpoint, params);
     } on GeoRestrictionException {
       rethrow;
     } catch (e) {
-      debugPrint('JioSaavn: Request error: $e');
-      return await _fallbackOfficial(endpoint, params);
+      debugPrint('JioSaavn: Official request error: $e');
+      return null;
     }
   }
 
@@ -116,13 +85,30 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
         },
       ).timeout(const Duration(seconds: 15));
 
+      if (response.statusCode == 451 ||
+          (response.statusCode == 403 &&
+              response.body.toLowerCase().contains('geo'))) {
+        throw const GeoRestrictionException(
+          provider: 'JioSaavn',
+          statusCode: 403,
+          message: 'JioSaavn API is restricted in your region.',
+        );
+      }
       if (response.statusCode == 200 && response.body.isNotEmpty) {
-        final decoded = json.decode(response.body.trim());
-        if (decoded is Map<String, dynamic>) {
-          return decoded;
+        final trimmed = response.body.trim();
+        if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+          final decoded = json.decode(trimmed);
+          if (decoded is Map<String, dynamic>) {
+            return decoded;
+          }
+          if (decoded is List) {
+            return {'results': decoded};
+          }
         }
       }
       return null;
+    } on GeoRestrictionException {
+      rethrow;
     } catch (e) {
       debugPrint('JioSaavn: Official fallback error: $e');
       return null;
@@ -142,6 +128,17 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
         if (data != null && data.containsKey(params['id'])) {
           return {'results': [data[params['id']]]};
         }
+        if (data != null && data['songs'] is List) {
+          return {'results': data['songs']};
+        }
+      } else if (endpoint == '/song/recommend' && params?['id'] != null) {
+        return await _makeOfficialRequest(
+          'reco.getreco',
+          params: {
+            'pid': params!['id']!,
+            if (params['limit'] != null) 'n': params['limit']!,
+          },
+        );
       } else if (endpoint == '/album' && params?['id'] != null) {
         return await _makeOfficialRequest(
           'content.getAlbumDetails',
@@ -158,6 +155,8 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
           params: {'artistId': params!['id']!},
         );
       }
+    } on GeoRestrictionException {
+      rethrow;
     } catch (_) {}
     return null;
   }
@@ -250,10 +249,8 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
   static String? _workingCdnHost;
   
   static const List<String> _cdnHosts = [
-    'jiosaavn.cdn.jio.com',
     'aac.saavncdn.com',
-    'jiotune.saavncdn.com',
-    'snz.saavncdn.com',
+    'jiosaavn.cdn.jio.com',
   ];
 
   static const double _confidenceThreshold = 0.65;
@@ -525,14 +522,34 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
       final id = data['id']?.toString();
       if (id == null) return null;
 
+      final moreInfo = data['more_info'] as Map<String, dynamic>?;
       final name = data['name']?.toString() ?? data['title']?.toString() ?? 'Unknown';
 
-      // Parse primary artists
-      final artistName = data['primaryArtists']?.toString() ?? 'Unknown Artist';
+      // Parse primary artists (Vercel format + official JioSaavn api.php format)
+      final artistMapPrimary =
+          (moreInfo?['artistMap']?['primary_artists'] as List?)
+              ?.whereType<Map>()
+              .map((a) => a['name']?.toString().trim() ?? '')
+              .where((n) => n.isNotEmpty)
+              .join(', ');
+      final rawArtist = data['primaryArtists']?.toString() ??
+          moreInfo?['primary_artists']?.toString() ??
+          (artistMapPrimary != null && artistMapPrimary.isNotEmpty
+              ? artistMapPrimary
+              : null) ??
+          moreInfo?['singers']?.toString() ??
+          moreInfo?['music']?.toString();
+      final artistName =
+          (rawArtist != null && rawArtist.trim().isNotEmpty)
+              ? rawArtist.trim()
+              : 'Unknown Artist';
       final artists = artistName.split(', ').where((a) => a.isNotEmpty).toList();
 
       // Parse duration (in seconds as string)
-      final durationSec = int.tryParse(data['duration']?.toString() ?? '0') ?? 0;
+      final durationSec = int.tryParse(
+            (data['duration'] ?? moreInfo?['duration'])?.toString() ?? '0',
+          ) ??
+          0;
 
       // Parse thumbnails from image array
       final thumbnails = _parseThumbnails(data['image']);
@@ -544,6 +561,9 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
       if (albumData is Map) {
         albumName = albumData['name']?.toString();
         albumId = albumData['id']?.toString();
+      } else {
+        albumName = albumData?.toString() ?? moreInfo?['album']?.toString();
+        albumId = moreInfo?['album_id']?.toString();
       }
 
       // Get the best quality download URL
@@ -567,6 +587,9 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
             downloadUrl = last['link']?.toString();
           }
         }
+      } else if (moreInfo?['encrypted_media_url'] != null) {
+        downloadUrl = _decryptUrl(moreInfo!['encrypted_media_url'].toString())
+            .replaceAll('_96.mp4', '_320.mp4');
       }
 
       // Parse year

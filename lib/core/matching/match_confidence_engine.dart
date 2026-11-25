@@ -347,6 +347,13 @@ class MatchConfidenceEngine {
     final primaryArtists = moreInfo?['primary_artists']?.toString() ??
         candidateMap['primaryArtists']?.toString() ??
         candidateMap['primary_artists']?.toString();
+    final artistMap = moreInfo?['artistMap'] as Map<String, dynamic>?;
+    final artistMapPrimary = (artistMap?['primary_artists'] as List?)
+        ?.whereType<Map>()
+        .map((a) => a['name']?.toString().trim() ?? '')
+        .where((n) => n.isNotEmpty)
+        .join(', ');
+    final musicCredit = moreInfo?['music']?.toString();
     final singers = moreInfo?['singers']?.toString() ??
         candidateMap['singers']?.toString();
     final directArtist = candidateMap['artist']?.toString();
@@ -355,8 +362,12 @@ class MatchConfidenceEngine {
     final String artist;
     if (primaryArtists != null && primaryArtists.trim().isNotEmpty) {
       artist = primaryArtists.trim();
+    } else if (artistMapPrimary != null && artistMapPrimary.isNotEmpty) {
+      artist = artistMapPrimary;
     } else if (singers != null && singers.trim().isNotEmpty) {
       artist = singers.trim();
+    } else if (musicCredit != null && musicCredit.trim().isNotEmpty) {
+      artist = musicCredit.trim();
     } else if (directArtist != null && directArtist.trim().isNotEmpty) {
       artist = directArtist.trim();
     } else if (subtitle != null && subtitle.trim().isNotEmpty) {
