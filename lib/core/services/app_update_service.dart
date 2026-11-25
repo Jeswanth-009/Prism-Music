@@ -287,9 +287,9 @@ class AppUpdateService {
       Map<String, dynamic>? latestRelease;
       if (response == null || response.statusCode != 200) {
         final statusCode = response?.statusCode;
-        // On GitHub REST API rate-limit (403/429) on production endpoint, fall back to
-        // GitHub's public web release redirect & expanded_assets HTML fragment.
-        if (_apiUrl == _defaultApiUrl && (statusCode == 403 || statusCode == 429)) {
+        // Fall back to GitHub's public web release redirect & expanded_assets HTML fragment
+        // whenever api.github.com fails (rate-limit 403/429, network block, or 5xx).
+        if (_apiUrl == _defaultApiUrl) {
           latestRelease = await _fetchLatestReleaseViaWeb();
         }
         if (latestRelease == null) {
