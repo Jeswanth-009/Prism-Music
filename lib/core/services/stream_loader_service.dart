@@ -58,6 +58,7 @@ class _FetchResult {
 class StreamLoaderService {
   final StreamCacheService _cache;
   final List<AudioStreamResolver> _resolvers;
+  final bool _usingDefaultResolvers;
 
   static const Duration _streamFetchTimeout = Duration(milliseconds: 6000);
   static const Duration _overallResolutionBudget = Duration(seconds: 12);
@@ -101,6 +102,7 @@ class StreamLoaderService {
     Duration hedgeDelay = defaultHedgeDelay,
   }) : _reliability = reliability ?? PlaybackReliabilityService(),
        _hedgeDelay = hedgeDelay,
+       _usingDefaultResolvers = resolvers == null,
        _resolvers = resolvers ??
            [
              JioSaavnAudioStreamResolver(dataSource: jioSaavn ?? JioSaavnDataSourceImpl()),
@@ -335,6 +337,9 @@ class StreamLoaderService {
               ...nonPreferred.where((r) => r.resolverName == 'jiosaavn'),
             ]
           : [...preferred, ...nonPreferred];
+    } else if (!_usingDefaultResolvers) {
+      // Custom resolver pipelines (tests, special cases) keep their given order.
+      orderedResolvers = _resolvers;
     } else if (isYouTubeNative) {
       // For YouTube-sourced songs, prefer direct YouTube resolvers first.
       // InnerTube is a lightweight HTTP API call (fast); YouTubeExplode is the

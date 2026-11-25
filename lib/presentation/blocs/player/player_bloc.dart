@@ -784,10 +784,14 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       final focusFuture = _audioFocus.activateForPlayback();
 
       final focusGranted = await focusFuture;
-      if (generation != _playbackGeneration) return; // user moved on
+      if (generation != _playbackGeneration) {
+        // Prevent unhandled rejection from the parallel resolve.
+        unawaited(resolveFuture.then<void>((_) {}, onError: (_) {}));
+        return; // user moved on
+      }
       if (!focusGranted) {
         // Prevent unhandled rejection from the parallel resolve.
-        resolveFuture.then<void>((_) {}, onError: (_) {});
+        unawaited(resolveFuture.then<void>((_) {}, onError: (_) {}));
         emit(
           state.copyWith(
             status: PlayerStatus.error,
