@@ -273,8 +273,16 @@ class YouTubeAudioSource extends StreamAudioSource {
     );
   }
 
-  /// Get stream info with global + instance caching
-  Future<_CachedStream> _getStreamInfo({bool forceRefresh = false}) async {
+  /// Get stream info with global + instance caching.
+  ///
+  /// When [preferFallback] is `true` (e.g. a previously resolved manifest stream
+  /// returned HTTP 403/network failure during streaming), [streamFallbackResolver]
+  /// is attempted before retrying [YouTubeManifestResolver] so retries fail over
+  /// cleanly to InnerTube/Piped/Invidious instead of looping on the same client.
+  Future<_CachedStream> _getStreamInfo({
+    bool forceRefresh = false,
+    bool preferFallback = false,
+  }) async {
     final cacheKey = '${videoId}_$quality';
     if (!forceRefresh) {
       final globalCached = _globalCache[cacheKey];
@@ -304,44 +312,57 @@ class YouTubeAudioSource extends StreamAudioSource {
     }
 
     try {
-      debugPrint('YouTubeAudioSource: Fetching fresh manifest for $videoId');
+      debugPrint(
+        'YouTubeAudioSource: Fetching fresh manifest for $videoId '
+        '(preferFallback=$preferFallback)',
+      );
       _CachedStream? resolved;
 
-      try {
-        final manifest = await YouTubeManifestResolver.fetchAudioManifest(
-          _ytExplode,
-          videoId,
-        );
-        final supportedStreams = manifest.audioOnly.sortByBitrate();
-        final audioStream = selectStreamForQuality(supportedStreams, quality);
-        if (audioStream != null) {
-          resolved = _CachedStream(
-            url: audioStream.url.toString(),
-            totalBytes: audioStream.size.totalBytes,
-            contentType: audioStream.codec.mimeType,
-          );
-          debugPrint(
-            'YouTubeAudioSource: Selected stream - ${audioStream.codec.subtype} ${audioStream.bitrate.kiloBitsPerSecond}kbps',
-          );
-        }
-      } catch (e) {
-        dev.log(
-          'YouTubeManifestResolver failed for $videoId: $e; trying fallback resolver',
-          name: 'YouTubeAudioSource',
-        );
-      }
-
-      if (resolved == null && streamFallbackResolver != null) {
+      Future<_CachedStream?> tryFallback() async {
+        if (streamFallbackResolver == null) return null;
         final fallback = await streamFallbackResolver!(videoId, quality);
         if (fallback != null && fallback.url.isNotEmpty) {
-          resolved = _CachedStream(
+          return _CachedStream(
             url: fallback.url,
             totalBytes: fallback.contentLength ?? 0,
             contentType: fallback.contentType ?? 'audio/mp4',
             headers: fallback.headers,
           );
         }
+        return null;
       }
+
+      if (preferFallback) {
+        resolved = await tryFallback();
+      }
+
+      if (resolved == null) {
+        try {
+          final manifest = await YouTubeManifestResolver.fetchAudioManifest(
+            _ytExplode,
+            videoId,
+          );
+          final supportedStreams = manifest.audioOnly.sortByBitrate();
+          final audioStream = selectStreamForQuality(supportedStreams, quality);
+          if (audioStream != null) {
+            resolved = _CachedStream(
+              url: audioStream.url.toString(),
+              totalBytes: audioStream.size.totalBytes,
+              contentType: audioStream.codec.mimeType,
+            );
+            debugPrint(
+              'YouTubeAudioSource: Selected stream - ${audioStream.codec.subtype} ${audioStream.bitrate.kiloBitsPerSecond}kbps',
+            );
+          }
+        } catch (e) {
+          dev.log(
+            'YouTubeManifestResolver failed for $videoId: $e; trying fallback resolver',
+            name: 'YouTubeAudioSource',
+          );
+        }
+      }
+
+      resolved ??= await tryFallback();
 
       if (resolved == null) {
         throw Exception('No audio streams available for video: $videoId');
@@ -398,7 +419,10 @@ class YouTubeAudioSource extends StreamAudioSource {
           headers = initialHeaders;
         } else {
           final forceRefresh = attempt > 0 || initialStreamUrl != null;
-          final resolved = await _getStreamInfo(forceRefresh: forceRefresh);
+          final resolved = await _getStreamInfo(
+            forceRefresh: forceRefresh,
+            preferFallback: attempt > 0,
+          );
           streamUrl = resolved.url;
           totalBytes = resolved.totalBytes;
           contentType = resolved.contentType;

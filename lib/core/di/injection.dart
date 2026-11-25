@@ -286,8 +286,9 @@ getIt.registerLazySingleton<LibraryRepository>(
         youtubeId: videoId,
       );
       try {
-        final streamInfo = await getIt<StreamLoaderService>().loadStream(
+        final streamInfo = await getIt<StreamLoaderService>().loadStreamExcluding(
           placeholder,
+          excludedResolvers: const {'jiosaavn', 'youtube_explode'},
           useCache: false,
           preferredQuality: mapQuality(quality),
         );

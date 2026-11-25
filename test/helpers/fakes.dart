@@ -819,6 +819,10 @@ class FakeAudioPlayerService implements AudioPlayerService {
     isPlayingFlag = true;
   }
 
+  void emitErrorForTest(String message) {
+    _errCtrl.add(message);
+  }
+
   @override
   Future<void> stop() async {
     stopCalls++;

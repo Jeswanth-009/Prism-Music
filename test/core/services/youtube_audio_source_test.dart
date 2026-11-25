@@ -140,5 +140,47 @@ void main() {
       expect(b1.length, 3);
       expect(b2.length, 3);
     });
+
+    test('retries failing initial URL via streamFallbackResolver instead of failing immediately', () async {
+      server.listen((req) async {
+        if (req.uri.path == '/broken') {
+          req.response.statusCode = HttpStatus.forbidden;
+          await req.response.close();
+          return;
+        }
+        req.response.statusCode = HttpStatus.partialContent;
+        req.response.headers.set('content-range', 'bytes 0-3/4');
+        req.response.headers.set('content-type', 'audio/mp4');
+        req.response.add([9, 8, 7, 6]);
+        await req.response.close();
+      });
+
+      var fallbackCalls = 0;
+      final previousFallback = YouTubeAudioSource.streamFallbackResolver;
+      YouTubeAudioSource.streamFallbackResolver = (videoId, quality) async {
+        fallbackCalls++;
+        return ResolvedExternalAudioStream(
+          url: '$baseUrl/healthy',
+          contentLength: 4,
+          contentType: 'audio/mp4',
+        );
+      };
+      addTearDown(() {
+        YouTubeAudioSource.streamFallbackResolver = previousFallback;
+        YouTubeAudioSource.clearGlobalCache();
+      });
+
+      final source = YouTubeAudioSource(
+        videoId: 'test_retry_vid',
+        initialStreamUrl: '$baseUrl/broken',
+        initialContentLength: 4,
+        initialContentType: 'audio/mp4',
+      );
+      final resp = await source.request(0, 4);
+      final bytes = await resp.stream.expand((e) => e).toList();
+
+      expect(fallbackCalls, greaterThanOrEqualTo(1));
+      expect(bytes, [9, 8, 7, 6]);
+    });
   });
 }

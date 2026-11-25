@@ -89,8 +89,8 @@ class AudioPlayerService {
   double _rawVolume = 1.0;
   Song? _currentNormalizingSong;
 
-  /// Concatenating audio source for queue management
-  ConcatenatingAudioSource? _playlist;
+  /// Whether player holds an active queue managed via [AudioPlayer.setAudioSources]
+  bool _isQueueMode = false;
   final List<AudioSource> _queueSources = [];
   bool _initialized = false;
 
@@ -171,7 +171,7 @@ class AudioPlayerService {
   bool get completed => _initialized
       ? _player.processingState == ProcessingState.completed
       : false;
-  bool get isQueueMode => _playlist != null;
+  bool get isQueueMode => _isQueueMode;
   @visibleForTesting
   int get queueSourcesLength => _queueSources.length;
   @visibleForTesting
@@ -290,7 +290,7 @@ class AudioPlayerService {
           final isCompleted = state == ProcessingState.completed;
           if (!isCompleted) {
             _completedEmittedForCurrentTrack = false;
-          } else if (_playlist == null && !_completedEmittedForCurrentTrack) {
+          } else if (!_isQueueMode && !_completedEmittedForCurrentTrack) {
             _completedEmittedForCurrentTrack = true;
             _completedController.add(true);
           }
@@ -303,7 +303,7 @@ class AudioPlayerService {
     _subscriptions.add(
       _player.currentIndexStream.listen(
         (index) {
-          if (_playlist == null) {
+          if (!_isQueueMode) {
             return;
           }
           _completedEmittedForCurrentTrack = false;
@@ -326,7 +326,7 @@ class AudioPlayerService {
           if (state.processingState == ProcessingState.completed) {
             if (kDebugMode) debugPrint('AudioPlayerService: Playback completed');
             // In queue mode, check if we're at the last song
-            if (_playlist != null &&
+            if (_isQueueMode &&
                 !_player.hasNext &&
                 !_completedEmittedForCurrentTrack) {
               _completedEmittedForCurrentTrack = true;
@@ -371,10 +371,10 @@ class AudioPlayerService {
       );
     }
 
-    // Single-track mode initializes a 1-item ConcatenatingAudioSource so late
-    // recommendations or Add-to-Queue actions can append seamlessly without
-    // restarting the current track. Clear any prior queue before setup.
-    _playlist = null;
+    // Single-track mode initializes a flat 1-item source list via setAudioSources
+    // so late recommendations or Add-to-Queue actions can append seamlessly via
+    // addAudioSources without nesting ConcatenatingAudioSource. Clear prior state.
+    _isQueueMode = false;
     _queueSources.clear();
 
     final sanitizedHeaders = _prepareHeaders(headers);
@@ -397,19 +397,24 @@ class AudioPlayerService {
       _queueSources
         ..clear()
         ..add(source);
-      _playlist = ConcatenatingAudioSource(
-        useLazyPreparation: true,
-        shuffleOrder: DefaultShuffleOrder(),
-        children: [source],
-      );
+      _isQueueMode = true;
       _completedEmittedForCurrentTrack = false;
-      await _player.setAudioSource(_playlist!);
+      final loadedDuration = await _player.setAudioSources(
+        [source],
+        initialIndex: 0,
+        preload: true,
+      );
+      if (_player.processingState == ProcessingState.idle && loadedDuration == null) {
+        _isQueueMode = false;
+        _queueSources.clear();
+        return null;
+      }
       if (kDebugMode) {
         debugPrint(
           'AudioPlayerService: $label source ready, duration: ${_player.duration}',
         );
       }
-      return _player.duration ?? mediaDuration;
+      return loadedDuration ?? _player.duration ?? mediaDuration;
     }
 
     // 1. For YouTube-family tracks, always use YouTubeAudioSource (StreamAudioSource).
@@ -440,14 +445,14 @@ class AudioPlayerService {
         final dur = await setSource(ytSource, 'YouTube');
         if (dur != null) return dur;
       } on PlayerException catch (e, st) {
-        _playlist = null;
+        _isQueueMode = false;
         _queueSources.clear();
         lastDirectException = e;
         if (kDebugMode) {
           debugPrint('AudioPlayerService: YouTube source failed: $e\n$st');
         }
       } catch (e, st) {
-        _playlist = null;
+        _isQueueMode = false;
         _queueSources.clear();
         lastDirectError = e;
         if (kDebugMode) {
@@ -477,7 +482,7 @@ class AudioPlayerService {
           final dur = await setSource(directSource, 'Direct URL');
           if (dur != null) return dur;
         } on PlayerException catch (e, st) {
-          _playlist = null;
+          _isQueueMode = false;
           _queueSources.clear();
           lastDirectException = e;
           if (kDebugMode) {
@@ -490,7 +495,7 @@ class AudioPlayerService {
             return null;
           }
         } catch (e, st) {
-          _playlist = null;
+          _isQueueMode = false;
           _queueSources.clear();
           lastDirectError = e;
           if (kDebugMode) {
@@ -528,7 +533,7 @@ class AudioPlayerService {
         final dur = await setSource(ytSource, 'YouTube (Fallback)');
         if (dur != null) return dur;
       } catch (e, st) {
-        _playlist = null;
+        _isQueueMode = false;
         _queueSources.clear();
         if (kDebugMode) {
           debugPrint('AudioPlayerService: Fallback YouTube source failed: $e\n$st');
@@ -646,9 +651,19 @@ class AudioPlayerService {
         );
       }
 
-      await _player.setAudioSource(source, initialPosition: currentPos);
+      _queueSources
+        ..clear()
+        ..add(source);
+      _isQueueMode = true;
+      _completedEmittedForCurrentTrack = false;
+      await _player.setAudioSources(
+        [source],
+        initialIndex: 0,
+        initialPosition: currentPos,
+        preload: true,
+      );
       if (wasPlaying) {
-        await _player.play();
+        unawaited(play());
       }
       return true;
     } catch (e) {
@@ -908,19 +923,16 @@ class AudioPlayerService {
       final currentIndex = _player.currentIndex;
       final currentPosition = _player.position;
 
-      if (_playlist != null) {
-        await _playlist!.add(source);
+      if (_isQueueMode) {
+        await _player.addAudioSource(source);
       } else {
-        _playlist = ConcatenatingAudioSource(
-          useLazyPreparation: true,
-          shuffleOrder: DefaultShuffleOrder(),
-          children: List<AudioSource>.from(_queueSources),
-        );
-
-        await _player.setAudioSource(
-          _playlist!,
+        _isQueueMode = true;
+        _completedEmittedForCurrentTrack = false;
+        await _player.setAudioSources(
+          List<AudioSource>.from(_queueSources),
           initialIndex: currentIndex ?? (_queueSources.length - 1),
           initialPosition: currentIndex != null ? currentPosition : null,
+          preload: true,
         );
       }
 
@@ -1072,21 +1084,23 @@ class AudioPlayerService {
                 ? _queueSources.length - 1
                 : initialIndex);
 
-      // Use ConcatenatingAudioSource for proper queue management
-      // This is KEY for background playback - just_audio handles auto-advance internally
-      _playlist = ConcatenatingAudioSource(
-        useLazyPreparation: true, // Don't load all songs upfront
-        shuffleOrder: DefaultShuffleOrder(),
-        children: sources,
-      );
+      // Use flat AudioPlayer.setAudioSources so ExoPlayer receives the real track
+      // list directly with exact windowIndex mapping (no nested ConcatenatingAudioSource).
+      _isQueueMode = true;
       _completedEmittedForCurrentTrack = false;
 
-      logDebug('AudioPlayerService: Setting ConcatenatingAudioSource with ${sources.length} items (gapless preloading active)...');
-      await _player.setAudioSource(
-        _playlist!,
+      logDebug('AudioPlayerService: Setting queue with ${sources.length} items at index $startIndex...');
+      final loadedDuration = await _player.setAudioSources(
+        sources,
         initialIndex: startIndex,
-        preload: true, // Enable next-track preloading for seamless gapless playback
+        preload: true,
       );
+
+      if (_player.processingState == ProcessingState.idle && loadedDuration == null) {
+        _isQueueMode = false;
+        _queueSources.clear();
+        return null;
+      }
 
       logDebug('AudioPlayerService: ✓ Queue loaded successfully, duration: ${_player.duration}');
       // The current track is ready, so the network is free to warm the stream
@@ -1104,8 +1118,10 @@ class AudioPlayerService {
       final fallbackDuration = (fallbackDurationMs != null && fallbackDurationMs > 0)
           ? Duration(milliseconds: fallbackDurationMs)
           : Duration.zero;
-      return _player.duration ?? fallbackDuration;
+      return loadedDuration ?? _player.duration ?? fallbackDuration;
     } catch (e, st) {
+      _isQueueMode = false;
+      _queueSources.clear();
       logError('AudioPlayerService: ✗ Failed to load queue', e, st);
       _errorController.add('Failed to load queue: $e');
       return null;
@@ -1115,7 +1131,7 @@ class AudioPlayerService {
   /// Warms the stream manifests of the next few queue entries.
   void _prewarmUpcomingQueue({int? fromIndex}) {
     final lookahead = _queuePrewarmLookahead;
-    if (lookahead <= 0 || _playlist == null) return;
+    if (lookahead <= 0 || !_isQueueMode) return;
     final current = fromIndex ?? _player.currentIndex;
     if (current == null || current < 0) return;
     if (OfflineModeService.instance.isOffline) return;
@@ -1149,7 +1165,7 @@ class AudioPlayerService {
 
   /// Add songs to the existing playlist (for endless queue/recommendations)
   Future<void> appendToQueue(List<Map<String, dynamic>> songs) async {
-    if (!_initialized || _playlist == null) return;
+    if (!_initialized || !_isQueueMode) return;
 
     try {
       final sources = <AudioSource>[];
@@ -1161,7 +1177,7 @@ class AudioPlayerService {
       }
 
       if (sources.isNotEmpty) {
-        await _playlist!.addAll(sources);
+        await _player.addAudioSources(sources);
         _queueSources.addAll(sources);
         if (_queuePrewarmLookahead == 0) {
           _queuePrewarmLookahead = _maxQueuePrewarm;
@@ -1176,7 +1192,7 @@ class AudioPlayerService {
 
   /// Clear the current playlist
   void clearPlaylist() {
-    _playlist = null;
+    _isQueueMode = false;
     _queueSources.clear();
   }
 
@@ -1244,7 +1260,7 @@ class AudioPlayerService {
     _errorController.close();
     _currentIndexController.close();
     _crossfadingController.close();
-    _playlist = null;
+    _isQueueMode = false;
   }
 
   /// Prepare headers for ExoPlayer-friendly requests
