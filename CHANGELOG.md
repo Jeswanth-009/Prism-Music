@@ -8,6 +8,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [1.0.13] - 2026-11-25
+
+### Fixed
+
+- Enable web release fallback on all GitHub API failures
+- Drop dead Vercel endpoint, prioritize primary CDN, and improve matching
+- Exclude failing playback providers and fail over cleanly in PlayerBloc
+- Flatten just_audio queue sources and trigger YouTube fallback on retry
+
 ## [1.0.12] - 2026-11-25
 
 ### Fixed
@@ -1459,3 +1468,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [1.0.10]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.10
 [1.0.11]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.11
 [1.0.12]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.12
+[1.0.13]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.13
