@@ -8,6 +8,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [1.0.14] - 2026-11-25
+
+### Fixed
+
+- Preserve custom resolver order and harden parallel resolve
+- Make stream resolution fast and resilient
+
+### Changed
+
+- Rollback PR #10 playback changes causing CI test failures
+
 ## [1.0.13] - 2026-11-25
 
 ### Fixed
@@ -1469,3 +1480,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [1.0.11]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.11
 [1.0.12]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.12
 [1.0.13]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.13
+[1.0.14]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.14
