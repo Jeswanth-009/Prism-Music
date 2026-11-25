@@ -21,7 +21,7 @@ dependencies:
   # State Management - BLoC
   flutter_bloc: ^9.0.0
   bloc: ^9.0.0
-  equatable: ^2.0.5
+  equatable: ^3.0.0
   rxdart: ^0.28.0
   
   # Audio Player & Background Service
