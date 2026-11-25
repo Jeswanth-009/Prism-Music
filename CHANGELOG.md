@@ -8,6 +8,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [1.0.12] - 2026-11-25
+
+### Fixed
+
+- Harden GitHub release detection, lifecycle checks, and APK installer
+- Harden YouTubeAudioSource range proxy and fix queue recovery
+- Wire InnerTube resolvers, quarantine dead relays, and race manifests
+
+### Changed
+
+- Upgrade compatible dependencies (bloc 9.2.2, equatable 3.0.0)
+
 ## [1.0.11] - 2026-11-24
 
 ### Fixed
@@ -1446,3 +1458,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [1.0.9]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.9
 [1.0.10]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.10
 [1.0.11]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.11
+[1.0.12]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.12
