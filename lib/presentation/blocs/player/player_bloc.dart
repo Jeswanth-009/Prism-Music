@@ -520,9 +520,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
 
     _safePrefetchUpcomingArtwork(queue, currentIndex);
     final preferredQuality = quality ?? _startupQuality(state.audioQuality);
-    // Prefetch the next song quickly so queue transitions feel instant.
+    // Prefetch only the single immediately next song with a slight delay to avoid rate limiting
     final nextSong = queue[currentIndex + 1];
-    Future.delayed(const Duration(milliseconds: 800), () {
+    Future.delayed(const Duration(seconds: 3), () {
       if (state.queueIndex == currentIndex &&
           state.status == PlayerStatus.playing) {
         _mediaResolver.preResolveSong(
@@ -567,8 +567,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
   /// Upper bounds for network-bound playback stages. Without these a dead
   /// source (e.g. a hung stream manifest fetch) leaves the UI in `loading`
   /// forever with no failure to recover from.
-  static const Duration _resolveTimeout = Duration(seconds: 12);
-  static const Duration _setSourceTimeout = Duration(seconds: 15);
+  static const Duration _resolveTimeout = Duration(seconds: 45);
+  static const Duration _setSourceTimeout = Duration(seconds: 45);
 
   /// Watchdog for tracks the native queue advanced to on its own (auto-advance
   /// or skip). Unlike [_onPlaySong] they have no timeout of their own, so a
@@ -766,32 +766,9 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
       // Kick off next-track pre-resolve immediately after queue is known.
       _prefetchAhead(initialQueue, initialQueueIndex, quality: playbackQuality);
 
-      // Resolve and request audio focus in parallel to minimize click-to-play latency.
-      final resolveStopwatch = Stopwatch()..start();
-      final preResolved = event.preferredResolver != null
-          ? null
-          : _mediaResolver.takePreResolved(songToPlay.playableId);
-      final usedPreResolved = preResolved != null;
-      final resolveFuture = preResolved != null
-          ? Future<ResolvedMediaSource>.value(preResolved)
-          : _mediaResolver
-              .resolveForPlayback(
-                songToPlay,
-                preferredQuality: playbackQuality,
-                preferredResolverName: event.preferredResolver,
-              )
-              .timeout(_resolveTimeout);
-      final focusFuture = _audioFocus.activateForPlayback();
-
-      final focusGranted = await focusFuture;
-      if (generation != _playbackGeneration) {
-        // Prevent unhandled rejection from the parallel resolve.
-        unawaited(resolveFuture.then<void>((_) {}, onError: (_) {}));
-        return; // user moved on
-      }
+      final focusGranted = await _audioFocus.activateForPlayback();
+      if (generation != _playbackGeneration) return; // user moved on
       if (!focusGranted) {
-        // Prevent unhandled rejection from the parallel resolve.
-        unawaited(resolveFuture.then<void>((_) {}, onError: (_) {}));
         emit(
           state.copyWith(
             status: PlayerStatus.error,
@@ -801,7 +778,21 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
         return;
       }
 
-      final resolvedSource = await resolveFuture;
+      // Resolve local/offline/online source via centralized resolver.
+      final resolveStopwatch = Stopwatch()..start();
+      final preResolved = event.preferredResolver != null
+          ? null
+          : _mediaResolver.takePreResolved(songToPlay.playableId);
+      final usedPreResolved = preResolved != null;
+      final resolvedSource =
+          preResolved ??
+          await (_mediaResolver
+              .resolveForPlayback(
+                songToPlay,
+                preferredQuality: playbackQuality,
+                preferredResolverName: event.preferredResolver,
+              )
+              .timeout(_resolveTimeout));
       if (generation != _playbackGeneration) return; // user moved on
       resolveStopwatch.stop();
       _log(

@@ -58,15 +58,13 @@ class _FetchResult {
 class StreamLoaderService {
   final StreamCacheService _cache;
   final List<AudioStreamResolver> _resolvers;
-  final bool _usingDefaultResolvers;
 
-  static const Duration _streamFetchTimeout = Duration(milliseconds: 6000);
-  static const Duration _overallResolutionBudget = Duration(seconds: 12);
+  static const Duration _streamFetchTimeout = Duration(milliseconds: 9000);
+  static const Duration _overallResolutionBudget = Duration(seconds: 22);
 
   /// How long the best-ranked resolver runs alone before the next one is
-  /// started alongside it. Kept short so a single slow resolver never stalls
-  /// playback startup. See [_raceResolvers].
-  static const Duration defaultHedgeDelay = Duration(milliseconds: 300);
+  /// started alongside it. See [_raceResolvers].
+  static const Duration defaultHedgeDelay = Duration(seconds: 2);
   final Duration _hedgeDelay;
 
   final PlaybackReliabilityService _reliability;
@@ -102,7 +100,6 @@ class StreamLoaderService {
     Duration hedgeDelay = defaultHedgeDelay,
   }) : _reliability = reliability ?? PlaybackReliabilityService(),
        _hedgeDelay = hedgeDelay,
-       _usingDefaultResolvers = resolvers == null,
        _resolvers = resolvers ??
            [
              JioSaavnAudioStreamResolver(dataSource: jioSaavn ?? JioSaavnDataSourceImpl()),
@@ -300,16 +297,6 @@ class StreamLoaderService {
   }
 
   /// Resolves a stream for [song].
-  bool _isYouTubeNativeSong(Song song) {
-    final sourceName = song.source.name.toLowerCase();
-    if (sourceName == 'jiosaavn') return false;
-    if (sourceName == 'youtube' || sourceName == 'youtubemusic') return true;
-    if (song.youtubeId != null && song.youtubeId!.isNotEmpty) return true;
-    // Fallback: playableId that looks like a YouTube video id (11 chars).
-    final id = song.playableId;
-    return RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(id);
-  }
-
   ///
   /// Resolvers are ranked by priority. Normally they are raced with a stagger
   /// (see [_raceResolvers]): a slow or hung resolver no longer holds playback
@@ -324,11 +311,12 @@ class StreamLoaderService {
     final videoId = song.playableId;
     final stopwatch = Stopwatch()..start();
 
-    final bool isYouTubeNative = _isYouTubeNativeSong(song);
     final List<AudioStreamResolver> orderedResolvers;
     if (preferredResolverName != null) {
       final preferred = _resolvers.where((r) => r.resolverName == preferredResolverName);
       final nonPreferred = _resolvers.where((r) => r.resolverName != preferredResolverName);
+      // When explicitly switching to a YouTube-family resolver, try the rest of
+      // the YouTube/relay ladder before circling back to JioSaavn.
       final isExplicitYouTube = preferredResolverName != 'jiosaavn';
       orderedResolvers = isExplicitYouTube
           ? [
@@ -337,45 +325,8 @@ class StreamLoaderService {
               ...nonPreferred.where((r) => r.resolverName == 'jiosaavn'),
             ]
           : [...preferred, ...nonPreferred];
-    } else if (!_usingDefaultResolvers) {
-      // Custom resolver pipelines (tests, special cases) keep their given order.
-      orderedResolvers = _resolvers;
-    } else if (isYouTubeNative) {
-      // For YouTube-sourced songs, prefer direct YouTube resolvers first.
-      // InnerTube is a lightweight HTTP API call (fast); YouTubeExplode is the
-      // battle-tested fallback. JioSaavn is demoted because it requires a text
-      // search + match and often misses or is slow for international tracks.
-      const ytPriority = [
-        'innertube_ladder',
-        'youtube_explode',
-        'piped',
-        'invidious',
-        'jiosaavn',
-      ];
-      final byName = {for (final r in _resolvers) r.resolverName: r};
-      orderedResolvers = [
-        for (final name in ytPriority)
-          if (byName[name] != null) byName[name]!,
-        for (final r in _resolvers)
-          if (!ytPriority.contains(r.resolverName)) r,
-      ];
     } else {
-      // Non-YouTube (e.g. JioSaavn-native) songs: keep JioSaavn first, then
-      // YouTube resolvers as fallback.
-      const defaultPriority = [
-        'jiosaavn',
-        'innertube_ladder',
-        'youtube_explode',
-        'piped',
-        'invidious',
-      ];
-      final byName = {for (final r in _resolvers) r.resolverName: r};
-      orderedResolvers = [
-        for (final name in defaultPriority)
-          if (byName[name] != null) byName[name]!,
-        for (final r in _resolvers)
-          if (!defaultPriority.contains(r.resolverName)) r,
-      ];
+      orderedResolvers = _resolvers;
     }
 
     final candidateResolvers = excludedResolvers.isEmpty
@@ -394,15 +345,6 @@ class StreamLoaderService {
           continue;
         }
         eligible.add(resolver);
-      }
-      // If every resolver is circuit-broken, reset circuits as a last resort so
-      // playback is never permanently stuck behind stale failure state.
-      if (eligible.isEmpty) {
-        debugPrint('StreamLoader: All resolvers circuit-broken for ${song.title}; resetting circuits.');
-        _reliability.resetSourceCircuitBreaker();
-        for (final resolver in candidateResolvers) {
-          if (resolver.isAvailable) eligible.add(resolver);
-        }
       }
       // With fewer than two usable resolvers there is nothing to race.
       if (eligible.length > 1) {

@@ -48,18 +48,48 @@ class InnerTubeStreamResolver implements AudioStreamResolver {
     bool sawGeoRestriction = false;
     String? geoReason;
 
-    // Race all contexts in parallel - InnerTube is a lightweight HTTP POST and
-    // trying contexts concurrently cuts worst-case latency from N*timeouts to 1.
-    final futures = _contexts.map((ctx) async {
+    for (final ctx in _contexts) {
       try {
-        final formats = await _client
-            .fetchAudioFormats(videoId, context: ctx)
-            .timeout(const Duration(seconds: 5));
-        if (formats.isEmpty) return null;
-        final selected = preferredQuality == AudioQuality.low
-            ? formats.last
-            : formats.first;
-        return (ctx: ctx, selected: selected);
+        final formats = await _client.fetchAudioFormats(videoId, context: ctx);
+        if (formats.isNotEmpty) {
+          // Select format matching quality
+          final selected = preferredQuality == AudioQuality.low
+              ? formats.last
+              : formats.first;
+
+          stopwatch.stop();
+          unawaited(
+            _memory.recordResolution(
+              networkType: 'default',
+              resolverName: 'innertube_${ctx.name}',
+              success: true,
+              latency: stopwatch.elapsed,
+            ),
+          );
+
+          final actualBitrate = selected.bitrateKbps;
+          final quality = actualBitrate >= 320
+              ? AudioQuality.ultra
+              : actualBitrate >= 160
+                  ? AudioQuality.high
+                  : actualBitrate >= 96
+                      ? AudioQuality.medium
+                      : AudioQuality.low;
+
+          return StreamInfo(
+            url: selected.url,
+            codec: selected.mimeType.contains('opus') ? 'opus' : 'mp4a',
+            container: selected.mimeType.contains('webm') ? 'webm' : 'mp4',
+            bitrate: actualBitrate,
+            quality: quality,
+            contentLength: selected.contentLength,
+            expiresAt: StreamCacheService.extractExpiryFromUrl(selected.url),
+            headers: ctx.playbackHeaders,
+            isAudioOnly: true,
+            streamProvenance: 'innertube_${ctx.name}',
+            matchConfidence: 1.0,
+          );
+        }
       } catch (e) {
         final lower = e.toString().toLowerCase();
         if (lower.contains('your country') || lower.contains('geo')) {
@@ -69,64 +99,7 @@ class InnerTubeStreamResolver implements AudioStreamResolver {
         debugPrint(
           'InnerTubeStreamResolver: Context ${ctx.name} failed for $videoId: $e',
         );
-        return null;
       }
-    }).toList();
-
-    // Take the first successful result as they complete.
-    final completer = Completer<({InnerTubeClientContext ctx, InnerTubeAudioFormat selected})?>();
-    var pending = futures.length;
-    for (final f in futures) {
-      f.then((value) {
-        if (value != null && !completer.isCompleted) {
-          completer.complete(value);
-        } else {
-          pending--;
-          if (pending <= 0 && !completer.isCompleted) {
-            completer.complete(null);
-          }
-        }
-      });
-    }
-    final winner = pending == 0 ? null : await completer.future.timeout(
-      const Duration(seconds: 6),
-      onTimeout: () => null,
-    );
-
-    if (winner != null) {
-      stopwatch.stop();
-      unawaited(
-        _memory.recordResolution(
-          networkType: 'default',
-          resolverName: 'innertube_${winner.ctx.name}',
-          success: true,
-          latency: stopwatch.elapsed,
-        ),
-      );
-
-      final selected = winner.selected;
-      final actualBitrate = selected.bitrateKbps;
-      final quality = actualBitrate >= 320
-          ? AudioQuality.ultra
-          : actualBitrate >= 160
-              ? AudioQuality.high
-              : actualBitrate >= 96
-                  ? AudioQuality.medium
-                  : AudioQuality.low;
-
-      return StreamInfo(
-        url: selected.url,
-        codec: selected.mimeType.contains('opus') ? 'opus' : 'mp4a',
-        container: selected.mimeType.contains('webm') ? 'webm' : 'mp4',
-        bitrate: actualBitrate,
-        quality: quality,
-        contentLength: selected.contentLength,
-        expiresAt: StreamCacheService.extractExpiryFromUrl(selected.url),
-        headers: winner.ctx.playbackHeaders,
-        isAudioOnly: true,
-        streamProvenance: 'innertube_${winner.ctx.name}',
-        matchConfidence: 1.0,
-      );
     }
 
     // Attempt fallback resolver if configured
