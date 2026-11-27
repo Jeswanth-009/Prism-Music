@@ -8,6 +8,35 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [1.1.0] - 2026-11-27
+
+### Added
+
+- Design language overhaul — tokens, theme, primitives, charts, home, player [minor]
+- Stage 4 — layouts, lyrics and EQ on the token system
+- Stage 3 — podcasts, stats, downloads, settings, onboarding
+- Rethink charts and home around real artwork
+- Tokenise collection heroes and genre surfaces
+- Hue-tinted smart playlists and tokenised tab
+- Provider tokens, text-code region badge, quiet chart cards
+- Quiet tinted discovery grid and token-styled result chrome
+- Add genre, rank medal and scrim foreground tokens
+- Redesign top bar, hero card and section rhythm
+- Floating navigation capsule and quieter mini player
+- Rebuild shared primitives on the token system
+- Retune type scale, accent toning and component themes
+- Add contrast-safe accent roles, semantic colours and icon tokens
+
+### Fixed
+
+- Normalize line endings in token ratchet and rebase onto main
+
+### Changed
+
+- Final token polish — zero raw hexes in the presentation layer
+- Lower token ratchet to stage 2 counts
+- Add token lint ratchet for raw colours, sizes and radii
+
 ## [1.0.14] - 2026-11-25
 
 ### Fixed
@@ -1481,3 +1510,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [1.0.12]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.12
 [1.0.13]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.13
 [1.0.14]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.14
+[1.1.0]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.1.0
