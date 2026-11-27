@@ -202,6 +202,9 @@ class ThemeState extends Equatable {
     final spec = PrismSpec(
       accent: scheme.primary,
       accentSoft: scheme.primary.withValues(alpha: isDark ? 0.16 : 0.10),
+      onAccent: PrismColors.onColor(scheme.primary),
+      success: isDark ? PrismColors.successDark : PrismColors.successLight,
+      warning: isDark ? PrismColors.warningDark : PrismColors.warningLight,
       skeletonBase: isDark
           ? PrismColors.inkHigh
           : PrismColors.paperHigh,
@@ -209,6 +212,7 @@ class ThemeState extends Equatable {
           ? PrismColors.inkHighest
           : PrismColors.paperHighest,
       hairline: scheme.outlineVariant,
+      scrim: PrismColors.scrim,
     );
 
     return ThemeData(
