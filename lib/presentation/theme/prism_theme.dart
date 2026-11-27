@@ -287,6 +287,36 @@ abstract final class PrismText {
       );
 }
 
+/// Vinyl turntable hardware — physical-object colours that stay fixed
+/// across themes: the disc, platter, tonearm and brass details are what
+/// they are, whatever the chrome looks like.
+abstract final class VinylHardware {
+  static const platter = Color(0xFF161619);
+  static const platterShadow = Color(0x8C000000);
+  static const discCore = Color(0xFF26262C);
+  static const discMid = Color(0xFF141416);
+  static const discInner = Color(0xFF1D1D21);
+  static const discEdge = Color(0xFF0F0F10);
+  static const grooveLight = Color(0xFF6E6E78);
+  static const grooveMid = Color(0xFF323238);
+  static const grooveDeep = Color(0xFF1C1C20);
+  static const grooveSoft = Color(0xFF4E4E56);
+  static const labelLight = Color(0xFFE8E8EE);
+  static const labelMid = Color(0xFFA8A8B2);
+  static const labelDark = Color(0xFF686870);
+  static const labelDeep = Color(0xFF383840);
+  static const spindle = Color(0xFFC0C0C8);
+  static const tonearmBody = Color(0xFF222226);
+  static const tonearmDark = Color(0xFF141416);
+  static const tonearmHub = Color(0xFF1A1A1E);
+  static const needlePost = Color(0xFF121214);
+  static const brass = Color(0xFFD4AF37);
+  static const stopRed = Color(0xFFFF453A);
+  static const sheenLight = Color(0xFF5E5E68);
+  static const sheenMid = Color(0xFF2C2C32);
+  static const sheenDeep = Color(0xFF141416);
+}
+
 /// Standard motion durations + curve with reduced-motion support.
 abstract final class PrismMotion {
   static const fast = Duration(milliseconds: 150);

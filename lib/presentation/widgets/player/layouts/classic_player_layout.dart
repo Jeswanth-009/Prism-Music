@@ -16,6 +16,7 @@ import '../player_slider_widget.dart';
 import '../song_video_toggle.dart';
 import '../music_video_player.dart';
 import '../crossfade_visualizer_badge.dart';
+import '../../../theme/prism_theme.dart';
 
 /// Classic framed player layout with retro 5-button transport controls.
 class ClassicPlayerLayout extends StatelessWidget {
@@ -119,12 +120,12 @@ class ClassicPlayerLayout extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.15),
+                                    color: PrismColors.onScrim.withValues(alpha: 0.15),
                                     width: 1,
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.4),
+                                      color: PrismColors.scrim.withValues(alpha: 0.4),
                                       blurRadius: 18,
                                       offset: const Offset(0, 10),
                                     ),

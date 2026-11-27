@@ -4,6 +4,7 @@ import '../../../../domain/entities/song.dart';
 import '../../../blocs/player/player_state.dart';
 import '../../lyrics/word_synced_lyrics_view.dart';
 import '../player_controls_section.dart';
+import '../../../theme/prism_theme.dart';
 
 /// Dedicated Karaoke "Sing" layout with 85% vertical lyric viewport and real-time syllable sweep.
 class KaraokePlayerLayout extends StatelessWidget {
@@ -85,11 +86,11 @@ class KaraokePlayerLayout extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.5),
+            color: PrismColors.scrim.withValues(alpha: 0.5),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             border: Border(
               top: BorderSide(
-                color: Colors.white.withOpacity(0.1),
+                color: PrismColors.onScrim.withValues(alpha: 0.1),
                 width: 1.0,
               ),
             ),

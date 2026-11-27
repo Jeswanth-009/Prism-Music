@@ -6,6 +6,7 @@ import '../player_action_bar.dart';
 import '../player_controls_section.dart';
 import '../player_metadata_row.dart';
 import '../waveform_scrubber.dart';
+import '../../../theme/prism_theme.dart';
 
 /// Full-bleed player layout displaying edge-to-edge album artwork with gradient scrim.
 class FullBleedPlayerLayout extends StatelessWidget {
@@ -53,10 +54,10 @@ class FullBleedPlayerLayout extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withOpacity(0.4),
-                  Colors.black.withOpacity(0.2),
-                  Colors.black.withOpacity(0.7),
-                  Colors.black.withOpacity(0.95),
+                  PrismColors.scrim.withValues(alpha: 0.4),
+                  PrismColors.scrim.withValues(alpha: 0.2),
+                  PrismColors.scrim.withValues(alpha: 0.7),
+                  PrismColors.scrim.withValues(alpha: 0.95),
                 ],
                 stops: const [0.0, 0.35, 0.7, 1.0],
               ),

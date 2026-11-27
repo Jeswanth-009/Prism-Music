@@ -5,6 +5,7 @@ import '../../../core/lyrics/word_synced_lyric.dart';
 import '../../blocs/player/player_bloc.dart';
 import '../../blocs/player/player_event.dart';
 import '../../blocs/player/player_state.dart';
+import '../../theme/prism_theme.dart';
 
 /// Interactive word-synced lyrics view with real-time syllable sweep highlights.
 class WordSyncedLyricsView extends StatefulWidget {
@@ -113,7 +114,7 @@ class _WordSyncedLyricsViewState extends State<WordSyncedLyricsView> {
                     fontWeight: isActive ? FontWeight.w800 : FontWeight.w500,
                     color: isActive
                         ? Colors.white
-                        : Colors.white.withOpacity(0.35),
+                        : PrismColors.onScrim.withValues(alpha: 0.35),
                   ),
                   child: line.hasWordTiming && isActive
                       ? _buildWordHighlightedLine(line, position, accent)
@@ -140,7 +141,7 @@ class _WordSyncedLyricsViewState extends State<WordSyncedLyricsView> {
             ? ShaderMask(
                 shaderCallback: (bounds) {
                   return LinearGradient(
-                    colors: [accent, Colors.white.withOpacity(0.4)],
+                    colors: [accent, PrismColors.onScrim.withValues(alpha: 0.4)],
                     stops: [progress, progress + 0.05],
                   ).createShader(bounds);
                 },
@@ -152,7 +153,7 @@ class _WordSyncedLyricsViewState extends State<WordSyncedLyricsView> {
             : Text(
                 w.word,
                 style: TextStyle(
-                  color: isCompleted ? accent : Colors.white.withOpacity(0.35),
+                  color: isCompleted ? accent : PrismColors.onScrim.withValues(alpha: 0.35),
                 ),
               );
       }).toList(),

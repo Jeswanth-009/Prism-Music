@@ -78,10 +78,10 @@ void main() {
 
 /// Allowed usage counts per metric. Only ever lower these.
 const baseline = <String, int>{
-  'Color(0x…)': 58,
-  'Colors.* (except transparent)': 208,
+  'Color(0x…)': 30,
+  'Colors.* (except transparent)': 153,
   'fontSize: <number>': 79,
-  'circular(<number>)': 138,
+  'circular(<number>)': 135,
   'fontWeight: FontWeight.*': 195,
   'TextStyle(': 61,
   'Icons.*_outlined / _sharp': 62,
