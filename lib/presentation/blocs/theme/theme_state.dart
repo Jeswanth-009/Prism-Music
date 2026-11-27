@@ -5,6 +5,11 @@ import 'theme_event.dart';
 import '../../theme/prism_page_transitions.dart';
 import '../../theme/prism_theme.dart';
 
+/// Contrast an artwork accent must hold as text on the surface. WCAG AA is
+/// 4.5; dark goes higher so the accent still separates from raised cards.
+const _kAccentContrastDark = 6.0;
+const _kAccentContrastLight = 4.7;
+
 /// Represents the complete theme state
 class ThemeState extends Equatable {
   /// Current theme mode
@@ -40,22 +45,68 @@ class ThemeState extends Equatable {
   /// Get ColorScheme for dark theme
   ColorScheme get darkColorScheme => _buildColorScheme(Brightness.dark);
 
+  /// Built on demand. ThemeBloc only emits on theme-mode, layout and
+  /// artwork-accent changes, so per-emission construction is rare; the
+  /// [PrismSpec] == implementation keeps AnimatedTheme from re-lerping
+  /// identical themes.
   ThemeData get lightTheme => _buildTheme(Brightness.light);
 
   ThemeData get darkTheme => _buildTheme(Brightness.dark);
 
-  /// Nudges the accent toward the lightness that reads well on the given
-  /// brightness, so one seed accent can serve both themes.
+  /// The accent for [brightness]: the brand accent as-is, or the artwork
+  /// accent toned until it reads as text on the theme's surface.
   Color _accentFor(Brightness brightness) {
-    final hsl = HSLColor.fromColor(primaryColor);
-    if (brightness == Brightness.dark) {
-      return hsl.withLightness(0.72).withSaturation(
-        hsl.saturation.clamp(0.45, 0.75),
-      ).toColor();
+    if (primaryColor == defaultPrimaryColor) {
+      return brightness == Brightness.dark
+          ? PrismColors.accentDark
+          : PrismColors.accentLight;
     }
-    return hsl.withLightness(0.48).withSaturation(
-      hsl.saturation.clamp(0.50, 0.80),
-    ).toColor();
+    return _tonedAccent(primaryColor, brightness);
+  }
+
+  /// Resolves an artwork accent to the tone that holds
+  /// [_kAccentContrastDark] / [_kAccentContrastLight] against the surface.
+  ///
+  /// HSL lightness is not perceptual — a "72%" amber is far brighter than a
+  /// "72%" blue — so the tone is picked by luminance. Every hue lands at the
+  /// same visual weight, and pale accents no longer take white glyphs they
+  /// cannot contrast with ([PrismColors.onColor] handles the glyph side).
+  static Color _tonedAccent(Color seed, Brightness brightness) {
+    final isDark = brightness == Brightness.dark;
+    final surface =
+        (isDark ? PrismColors.ink : PrismColors.paper).computeLuminance();
+    final contrast = isDark ? _kAccentContrastDark : _kAccentContrastLight;
+    final target = isDark
+        ? contrast * (surface + 0.05) - 0.05
+        : (surface + 0.05) / contrast - 0.05;
+
+    final base = HSLColor.fromColor(seed);
+    // A near-grey seed has no meaningful hue; borrow the brand's.
+    final hue = base.saturation < 0.08
+        ? HSLColor.fromColor(PrismColors.accentDark).hue
+        : base.hue;
+    final hsl = base
+        .withHue(hue)
+        .withSaturation(
+          base.saturation.clamp(isDark ? 0.45 : 0.50, isDark ? 0.75 : 0.80),
+        );
+
+    // Luminance rises monotonically with lightness. Find where it crosses
+    // the target, then keep the side that stays darker than it in light
+    // mode and lighter than it in dark mode.
+    var lo = 0.0;
+    var hi = 1.0;
+    for (var i = 0; i < 20; i++) {
+      final mid = (lo + hi) / 2;
+      final crossed =
+          hsl.withLightness(mid).toColor().computeLuminance() >= target;
+      if (crossed) {
+        hi = mid;
+      } else {
+        lo = mid;
+      }
+    }
+    return hsl.withLightness(isDark ? hi : lo).toColor();
   }
 
   ColorScheme _buildColorScheme(Brightness brightness) {
@@ -66,18 +117,22 @@ class ThemeState extends Equatable {
         ? const Color(0xFFF3F4F9)
         : const Color(0xFF171922);
 
+    final onAccent = PrismColors.onColor(accent);
+
     return ColorScheme(
       brightness: brightness,
       primary: accent,
-      onPrimary: Colors.white,
-      primaryContainer: isDark
-          ? PrismColors.accentContainerDark
-          : PrismColors.accentContainerLight,
-      onPrimaryContainer: isDark
-          ? const Color(0xFFCFC5FF)
-          : const Color(0xFF2A1D66),
+      onPrimary: onAccent,
+      // Containers follow the accent, so an amber track never sits in a
+      // violet container.
+      primaryContainer: Color.lerp(
+        isDark ? PrismColors.inkRaised : PrismColors.paperRaised,
+        accent,
+        isDark ? 0.22 : 0.14,
+      )!,
+      onPrimaryContainer: Color.lerp(onSurface, accent, isDark ? 0.55 : 0.6)!,
       secondary: accent.withValues(alpha: .55),
-      onSecondary: Colors.white,
+      onSecondary: onAccent,
       secondaryContainer: isDark
           ? PrismColors.inkHigh
           : PrismColors.paperHigh,
@@ -124,9 +179,7 @@ class ThemeState extends Equatable {
   }
 
   ThemeData _buildTheme(Brightness brightness) {
-    final scheme = brightness == Brightness.dark
-        ? darkColorScheme
-        : lightColorScheme;
+    final scheme = _buildColorScheme(brightness);
     final isDark = brightness == Brightness.dark;
 
     final baseTextTheme = (brightness == Brightness.dark
@@ -136,64 +189,97 @@ class ThemeState extends Equatable {
 
     final textTheme = baseTextTheme
         .copyWith(
+          // One scale, three weights (400 read / 500-600 emphasize /
+          // 700 announce). Tracking follows size: negative on display,
+          // neutral on body, positive on small labels and caps.
           displayLarge: baseTextTheme.displayLarge?.copyWith(
-            letterSpacing: -1.2,
-            fontWeight: FontWeight.w700,
-          ),
-          displayMedium: baseTextTheme.displayMedium?.copyWith(
-            letterSpacing: -1.0,
-            fontWeight: FontWeight.w700,
-          ),
-          displaySmall: baseTextTheme.displaySmall?.copyWith(
-            letterSpacing: -0.8,
-            fontWeight: FontWeight.w700,
-          ),
-          headlineLarge: baseTextTheme.headlineLarge?.copyWith(
+            fontSize: 44,
+            height: 1.1,
             letterSpacing: -0.9,
             fontWeight: FontWeight.w700,
           ),
+          displayMedium: baseTextTheme.displayMedium?.copyWith(
+            fontSize: 36,
+            height: 1.12,
+            letterSpacing: -0.72,
+            fontWeight: FontWeight.w700,
+          ),
+          displaySmall: baseTextTheme.displaySmall?.copyWith(
+            fontSize: 32,
+            height: 1.14,
+            letterSpacing: -0.5,
+            fontWeight: FontWeight.w700,
+          ),
+          headlineLarge: baseTextTheme.headlineLarge?.copyWith(
+            fontSize: 32,
+            height: 1.15,
+            letterSpacing: -0.5,
+            fontWeight: FontWeight.w700,
+          ),
           headlineMedium: baseTextTheme.headlineMedium?.copyWith(
-            letterSpacing: -0.6,
+            fontSize: 28,
+            height: 1.18,
+            letterSpacing: -0.35,
             fontWeight: FontWeight.w600,
           ),
           headlineSmall: baseTextTheme.headlineSmall?.copyWith(
-            letterSpacing: -0.4,
+            fontSize: 24,
+            height: 1.22,
+            letterSpacing: -0.25,
             fontWeight: FontWeight.w600,
           ),
           titleLarge: baseTextTheme.titleLarge?.copyWith(
-            letterSpacing: -0.3,
-            fontWeight: FontWeight.w600,
-          ),
-          titleMedium: baseTextTheme.titleMedium?.copyWith(
+            fontSize: 22,
+            height: 1.25,
             letterSpacing: -0.2,
             fontWeight: FontWeight.w600,
           ),
-          titleSmall: baseTextTheme.titleSmall?.copyWith(
+          titleMedium: baseTextTheme.titleMedium?.copyWith(
+            fontSize: 16,
+            height: 1.3,
             letterSpacing: -0.1,
+            fontWeight: FontWeight.w600,
+          ),
+          titleSmall: baseTextTheme.titleSmall?.copyWith(
+            fontSize: 14,
+            height: 1.35,
+            letterSpacing: 0,
             fontWeight: FontWeight.w500,
           ),
           bodyLarge: baseTextTheme.bodyLarge?.copyWith(
-            letterSpacing: 0.15,
+            fontSize: 16,
+            height: 1.5,
+            letterSpacing: 0,
             fontWeight: FontWeight.w400,
           ),
           bodyMedium: baseTextTheme.bodyMedium?.copyWith(
-            letterSpacing: 0.25,
+            fontSize: 14,
+            height: 1.45,
+            letterSpacing: 0,
             fontWeight: FontWeight.w400,
           ),
           bodySmall: baseTextTheme.bodySmall?.copyWith(
-            letterSpacing: 0.4,
+            fontSize: 12,
+            height: 1.4,
+            letterSpacing: 0.15,
             fontWeight: FontWeight.w400,
           ),
           labelLarge: baseTextTheme.labelLarge?.copyWith(
-            letterSpacing: 0.1,
+            fontSize: 14,
+            height: 1.2,
+            letterSpacing: 0.25,
             fontWeight: FontWeight.w500,
           ),
           labelMedium: baseTextTheme.labelMedium?.copyWith(
-            letterSpacing: 0.5,
+            fontSize: 12,
+            height: 1.25,
+            letterSpacing: 0.2,
             fontWeight: FontWeight.w500,
           ),
           labelSmall: baseTextTheme.labelSmall?.copyWith(
-            letterSpacing: 0.5,
+            fontSize: 11,
+            height: 1.2,
+            letterSpacing: 0.25,
             fontWeight: FontWeight.w500,
           ),
         )
@@ -245,29 +331,43 @@ class ThemeState extends Equatable {
         elevation: 0,
         color: scheme.surfaceContainer,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(PrismRadius.lg),
-          side: BorderSide(color: scheme.outlineVariant),
+          borderRadius: BorderRadius.circular(PrismRadius.md),
+          side: BorderSide(color: spec.hairline),
         ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        backgroundColor: scheme.surfaceContainerLow,
+        backgroundColor: scheme.surfaceContainer,
         elevation: 0,
         showDragHandle: true,
         dragHandleColor: scheme.outline,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: scheme.surfaceContainerHigh,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(PrismRadius.xl),
+        ),
+        titleTextStyle: textTheme.headlineSmall,
+        contentTextStyle: textTheme.bodyMedium,
       ),
       chipTheme: ChipThemeData(
         backgroundColor: scheme.surfaceContainerHigh.withValues(alpha: 0.45),
         selectedColor: spec.accentSoft,
         checkmarkColor: scheme.primary,
+        // Pills. A chip row scrolls on one line; it never wraps.
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(PrismRadius.pill),
         ),
         labelStyle: textTheme.labelLarge,
+        secondaryLabelStyle: textTheme.labelLarge?.copyWith(
+          color: scheme.primary,
+          fontWeight: FontWeight.w600,
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: .3)),
+        side: BorderSide(color: spec.hairline),
       ),
       sliderTheme: SliderThemeData(
         trackHeight: 4,
@@ -297,7 +397,7 @@ class ThemeState extends Equatable {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          side: BorderSide(color: scheme.outline),
+          side: BorderSide(color: spec.hairline),
         ),
       ),
       textButtonTheme: TextButtonThemeData(

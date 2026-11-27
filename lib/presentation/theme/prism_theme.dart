@@ -148,6 +148,34 @@ class PrismSpec extends ThemeExtension<PrismSpec> {
       scrim: Color.lerp(scrim, other.scrim, t)!,
     );
   }
+
+  /// Value equality. ThemeData compares its extensions, so without this a
+  /// rebuilt theme never equals the last one and AnimatedTheme re-runs.
+  @override
+  bool operator ==(Object other) =>
+      other is PrismSpec &&
+      other.accent == accent &&
+      other.accentSoft == accentSoft &&
+      other.onAccent == onAccent &&
+      other.success == success &&
+      other.warning == warning &&
+      other.skeletonBase == skeletonBase &&
+      other.skeletonHighlight == skeletonHighlight &&
+      other.hairline == hairline &&
+      other.scrim == scrim;
+
+  @override
+  int get hashCode => Object.hash(
+        accent,
+        accentSoft,
+        onAccent,
+        success,
+        warning,
+        skeletonBase,
+        skeletonHighlight,
+        hairline,
+        scrim,
+      );
 }
 
 extension PrismThemeX on BuildContext {
@@ -194,6 +222,22 @@ abstract final class PrismIconSize {
   static const lg = 24.0;
   static const xl = 32.0;
   static const xxl = 48.0;
+}
+
+/// Text roles the Material theme has no slot for.
+abstract final class PrismText {
+  /// Label for all-caps eyebrows ("NOW PLAYING"). Caps always ship with
+  /// tracking; uppercasing is the caller's job.
+  static TextStyle? overline(BuildContext context) =>
+      Theme.of(context).textTheme.labelMedium?.copyWith(
+            letterSpacing: 0.8,
+            fontWeight: FontWeight.w600,
+          );
+
+  /// [style] with tabular figures, so times, ranks and bitrates line up.
+  static TextStyle? tabular(TextStyle? style) => style?.copyWith(
+        fontFeatures: const [FontFeature.tabularFigures()],
+      );
 }
 
 /// Standard motion durations + curve with reduced-motion support.
