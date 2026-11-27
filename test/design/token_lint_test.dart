@@ -75,12 +75,12 @@ void main() {
 /// Allowed usage counts per metric. Only ever lower these.
 const baseline = <String, int>{
   'Color(0x…)': 96,
-  'Colors.* (except transparent)': 307,
-  'fontSize: <number>': 105,
-  'circular(<number>)': 162,
-  'fontWeight: FontWeight.*': 280,
-  'TextStyle(': 90,
-  'Icons.*_outlined / _sharp': 76,
+  'Colors.* (except transparent)': 294,
+  'fontSize: <number>': 99,
+  'circular(<number>)': 157,
+  'fontWeight: FontWeight.*': 264,
+  'TextStyle(': 88,
+  'Icons.*_outlined / _sharp': 69,
 };
 
 final _patterns = <String, RegExp>{

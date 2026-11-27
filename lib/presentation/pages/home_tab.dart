@@ -187,7 +187,12 @@ class _HomeTabState extends State<HomeTab>
           ),
           slivers: [
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
+              padding: const EdgeInsets.fromLTRB(
+                PrismSpacing.gutter,
+                PrismSpacing.lg,
+                PrismSpacing.md,
+                0,
+              ),
               sliver: SliverToBoxAdapter(
                 child: _TopBar(
                   onSettings: _openSettings,
@@ -212,7 +217,12 @@ class _HomeTabState extends State<HomeTab>
                         ),
                       if (_settings.isHomeSectionEnabled(HomeSectionId.hero))
                         SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                          padding: const EdgeInsets.fromLTRB(
+                PrismSpacing.gutter,
+                PrismSpacing.lg,
+                PrismSpacing.gutter,
+                0,
+              ),
                           sliver: SliverToBoxAdapter(
                             child: _Entrance(
                               child: _Hero(
@@ -320,7 +330,12 @@ class _HomeTabState extends State<HomeTab>
             ? library.recentlyPlayed.first
             : (_songs.isEmpty ? null : _songs.first);
         return SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          padding: const EdgeInsets.fromLTRB(
+                PrismSpacing.gutter,
+                PrismSpacing.lg,
+                PrismSpacing.gutter,
+                0,
+              ),
           sliver: SliverToBoxAdapter(
             child: _Entrance(
               child: _Hero(
@@ -354,7 +369,12 @@ class _HomeTabState extends State<HomeTab>
         final soundscape = LivingTimeService.instance.getSoundscape();
         return SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+            padding: const EdgeInsets.fromLTRB(
+                PrismSpacing.gutter,
+                PrismSpacing.lg,
+                PrismSpacing.gutter,
+                PrismSpacing.xs,
+              ),
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -379,35 +399,30 @@ class _HomeTabState extends State<HomeTab>
                     children: [
                       Icon(
                         soundscape.icon,
-                        size: 15,
+                        size: PrismIconSize.sm,
                         color: soundscape.primaryAccent,
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: PrismSpacing.xs + 2),
                       Expanded(
                         child: Text(
                           soundscape.uppercaseTagline,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.6,
+                          style: PrismText.overline(context)?.copyWith(
                             color: soundscape.primaryAccent,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: PrismSpacing.xs + 2),
                   Text(
                     soundscape.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: PrismSpacing.xxs),
                   Text(
                     soundscape.subtitle,
                     maxLines: 2,
@@ -435,10 +450,11 @@ class _HomeTabState extends State<HomeTab>
           child: SizedBox(
             height: 224,
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: PrismSpacing.gutter),
               scrollDirection: Axis.horizontal,
               itemCount: mixes.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 14),
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: PrismSpacing.railGap),
               itemBuilder: (context, index) {
                 final mix = mixes[index];
                 return PrismDailyMixCard(
@@ -484,10 +500,11 @@ class _HomeTabState extends State<HomeTab>
           child: SizedBox(
             height: 190,
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: PrismSpacing.gutter),
               scrollDirection: Axis.horizontal,
               itemCount: continueSongs.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 14),
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: PrismSpacing.railGap),
               itemBuilder: (_, index) {
                 final song = continueSongs[index];
                 return PrismMediaCard(
@@ -523,10 +540,11 @@ class _HomeTabState extends State<HomeTab>
           child: SizedBox(
             height: 194,
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: PrismSpacing.gutter),
               scrollDirection: Axis.horizontal,
               itemCount: displayRecs.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 14),
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: PrismSpacing.railGap),
               itemBuilder: (_, index) {
                 final song = displayRecs[index];
                 return PrismMediaCard(
@@ -552,10 +570,11 @@ class _HomeTabState extends State<HomeTab>
           child: SizedBox(
             height: 194,
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: PrismSpacing.gutter),
               scrollDirection: Axis.horizontal,
               itemCount: _newAlbums.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 14),
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: PrismSpacing.railGap),
               itemBuilder: (_, index) {
                 final album = _newAlbums[index];
                 return PrismMediaCard(
@@ -614,10 +633,11 @@ class _HomeTabState extends State<HomeTab>
           child: SizedBox(
             height: 132,
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: PrismSpacing.gutter),
               scrollDirection: Axis.horizontal,
               itemCount: charts.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: PrismSpacing.railGap),
               itemBuilder: (context, index) {
                 final chart = charts[index];
                 return _ChartTile(
@@ -656,10 +676,11 @@ class _HomeTabState extends State<HomeTab>
           child: SizedBox(
             height: 116,
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: PrismSpacing.gutter),
               scrollDirection: Axis.horizontal,
               itemCount: curated.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: PrismSpacing.railGap),
               itemBuilder: (context, index) {
                 final playlist = curated[index];
                 return _MixTile(
@@ -678,7 +699,12 @@ class _HomeTabState extends State<HomeTab>
 
       case HomeSectionId.historyPrompt:
         return SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+          padding: const EdgeInsets.fromLTRB(
+                PrismSpacing.gutter,
+                PrismSpacing.xl,
+                PrismSpacing.gutter,
+                PrismSpacing.xxxl,
+              ),
           sliver: SliverToBoxAdapter(
             child: _HistoryPrompt(
               hasHistory: library.recentlyPlayed.isNotEmpty,
@@ -826,7 +852,12 @@ class _HomeTabState extends State<HomeTab>
         if (subtitle != null)
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              padding: const EdgeInsets.fromLTRB(
+                PrismSpacing.gutter,
+                0,
+                PrismSpacing.gutter,
+                PrismSpacing.md,
+              ),
               child: Text(
                 subtitle,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -862,27 +893,27 @@ class _TopBar extends StatelessWidget {
   final VoidCallback onCustomize;
 
   @override
-  Widget build(BuildContext context) => Row(
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final spec = context.prismSpec;
+    return Row(
     children: [
       const PrismLogoMark(size: 34),
-      const SizedBox(width: 11),
+      const SizedBox(width: PrismSpacing.md),
       Text(
         'Prism',
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-          fontWeight: FontWeight.w700,
-          letterSpacing: -.4,
-        ),
+        style: Theme.of(context).textTheme.headlineSmall,
       ),
       const Spacer(),
       IconButton(
         onPressed: onCustomize,
         tooltip: 'Customize Home',
-        icon: const Icon(Icons.tune_rounded, size: 21),
+        icon: const Icon(Icons.tune_rounded, size: PrismIconSize.md),
       ),
       IconButton(
         onPressed: onSettings,
         tooltip: 'Settings',
-        icon: const Icon(Icons.settings_outlined, size: 22),
+        icon: const Icon(Icons.settings_rounded, size: PrismIconSize.md),
       ),
       GestureDetector(
         onTap: () => ProfileSwitcherSheet.show(context),
@@ -903,10 +934,13 @@ class _TopBar extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Color(profile.avatarColorValue),
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white24, width: 1.5),
+                    border: Border.all(color: spec.hairline, width: 1.5),
                   ),
                   child: Center(
-                    child: Text(profile.avatarEmoji, style: const TextStyle(fontSize: 14)),
+                    child: Text(
+                      profile.avatarEmoji,
+                      style: theme.textTheme.labelMedium,
+                    ),
                   ),
                 ),
               ),
@@ -916,6 +950,7 @@ class _TopBar extends StatelessWidget {
       ),
     ],
   );
+  }
 }
 
 class _Entrance extends StatelessWidget {
@@ -927,7 +962,7 @@ class _Entrance extends StatelessWidget {
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 420),
+      duration: PrismMotion.slowOf(context),
       curve: PrismMotion.curve,
       builder: (context, t, child) => Opacity(
         opacity: t,
@@ -977,6 +1012,7 @@ class _Hero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return GestureDetector(
       onTap: onPlay,
       child: Container(
@@ -1013,11 +1049,11 @@ class _Hero extends StatelessWidget {
                   begin: Alignment.bottomLeft,
                   end: Alignment.topRight,
                   colors: [
-                    Colors.black.withValues(alpha: .90),
-                    Colors.black.withValues(alpha: .45),
-                    Colors.black.withValues(alpha: .15),
+                    PrismColors.scrimHeavy,
+                    PrismColors.scrim,
+                    Colors.transparent,
                   ],
-                  stops: const [0, .6, 1],
+                  stops: const [0, .55, 1],
                 ),
               ),
             ),
@@ -1028,38 +1064,26 @@ class _Hero extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
+                      Flexible(
                         child: Text(
                           greeting.toUpperCase(),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.1,
-                            fontSize: 9.5,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: PrismText.overline(context)?.copyWith(
+                            color: PrismColors.onColor(PrismColors.scrim),
                           ),
                         ),
                       ),
                       if (song != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: Colors.white24, width: 0.5),
-                          ),
+                        const SizedBox(width: PrismSpacing.sm),
+                        Flexible(
                           child: Text(
                             _authenticBadge(song!),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.9),
-                              fontWeight: FontWeight.w600,
-                              fontSize: 9.0,
-                              letterSpacing: 0.3,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: PrismText.overline(context)?.copyWith(
+                              color: PrismColors.onColor(PrismColors.scrim)
+                                  .withValues(alpha: 0.85),
                             ),
                           ),
                         ),
@@ -1075,19 +1099,18 @@ class _Hero extends StatelessWidget {
                         : song!.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.2,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: PrismColors.onColor(PrismColors.scrim),
                     ),
                   ),
-                  const SizedBox(height: 1),
+                  const SizedBox(height: PrismSpacing.xxs),
                   Text(
                     song?.artist ?? 'Search millions of songs',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: .80),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: PrismColors.onColor(PrismColors.scrim)
+                          .withValues(alpha: .80),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -1095,16 +1118,22 @@ class _Hero extends StatelessWidget {
                     children: [
                       FilledButton.icon(
                         onPressed: onPlay,
-                        icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                        icon: const Icon(
+                          Icons.play_arrow_rounded,
+                          size: PrismIconSize.md,
+                        ),
                         label: const Text('Play'),
                         style: FilledButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          backgroundColor: scheme.onSurface,
+                          foregroundColor: scheme.surface,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: PrismSpacing.md + 2,
+                            vertical: PrismSpacing.xs + 2,
+                          ),
                           visualDensity: VisualDensity.compact,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: PrismSpacing.sm),
                       _HeroIconButton(
                         icon: Icons.shuffle_rounded,
                         tooltip: 'Shuffle all',
@@ -1164,15 +1193,6 @@ class _ChartTile extends StatelessWidget {
   final ChartDefinition chart;
   final VoidCallback onTap;
 
-  IconData get _icon => switch (chart.iconType) {
-    ChartIconType.global => Icons.public_rounded,
-    ChartIconType.viral => Icons.local_fire_department_rounded,
-    ChartIconType.trending => Icons.trending_up_rounded,
-    ChartIconType.top => Icons.emoji_events_outlined,
-    ChartIconType.chart => Icons.bar_chart_rounded,
-    ChartIconType.newRelease => Icons.auto_awesome_outlined,
-  };
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1189,36 +1209,27 @@ class _ChartTile extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(PrismRadius.lg),
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(PrismSpacing.md + 2),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: spec.accentSoft,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(_icon, size: 18, color: theme.colorScheme.primary),
-                ),
+                PrismChartChip(type: chart.iconType, size: 34),
                 const Spacer(),
                 Text(
                   chart.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: theme.textTheme.titleSmall,
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: PrismSpacing.xxs),
                 Text(
                   chartSourceLabel(chart.source),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w600,
+                  style: PrismText.tabular(
+                    theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                    ),
                   ),
                 ),
               ],
@@ -1253,7 +1264,7 @@ class _MixTile extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(PrismRadius.lg),
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(PrismSpacing.md + 2),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1264,11 +1275,11 @@ class _MixTile extends StatelessWidget {
                       height: 34,
                       decoration: BoxDecoration(
                         color: spec.accentSoft,
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(PrismRadius.sm),
                       ),
                       child: Icon(
                         playlist.icon,
-                        size: 18,
+                        size: PrismIconSize.sm + 2,
                         color: theme.colorScheme.primary,
                       ),
                     ),
@@ -1276,11 +1287,13 @@ class _MixTile extends StatelessWidget {
                       const Spacer(),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
+                            horizontal: PrismSpacing.xs + 2,
+                            vertical: PrismSpacing.xxs),
                         decoration: BoxDecoration(
                           color: theme.colorScheme.primary
                               .withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius:
+                              BorderRadius.circular(PrismRadius.xs),
                           border: Border.all(
                             color: theme.colorScheme.primary
                                 .withValues(alpha: 0.3),
@@ -1289,10 +1302,8 @@ class _MixTile extends StatelessWidget {
                         ),
                         child: Text(
                           playlist.seasonalTag!,
-                          style: theme.textTheme.labelSmall?.copyWith(
+                          style: PrismText.overline(context)?.copyWith(
                             color: theme.colorScheme.primary,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 9,
                           ),
                         ),
                       ),
@@ -1304,11 +1315,9 @@ class _MixTile extends StatelessWidget {
                   playlist.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: theme.textTheme.titleSmall,
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: PrismSpacing.xxs),
                 Text(
                   playlist.category,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -1343,22 +1352,21 @@ class _HistoryPrompt extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(PrismRadius.lg),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(PrismSpacing.lg),
           child: Row(
             children: [
               Icon(
                 Icons.history_rounded,
+                size: PrismIconSize.lg,
                 color: theme.colorScheme.primary,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: PrismSpacing.md),
               Expanded(
                 child: Text(
                   hasHistory
                       ? 'Open your recently played songs'
                       : 'Your listening history will appear here',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: theme.textTheme.titleSmall,
                 ),
               ),
               Icon(
