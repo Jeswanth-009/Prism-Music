@@ -28,11 +28,11 @@ class _ChartPageState extends State<ChartPage> {
 
   Color _getPlatformAccent(ChartSource source, ColorScheme scheme) {
     return switch (source) {
-      ChartSource.appleMusic => const Color(0xFFFA2D48),
-      ChartSource.spotify => const Color(0xFF1DB954),
-      ChartSource.youtube => const Color(0xFFFF0033),
-      ChartSource.billboard => const Color(0xFFD4AF37),
-      ChartSource.kworb => const Color(0xFF00ADB5),
+      ChartSource.appleMusic => PrismColors.brandApple,
+      ChartSource.spotify => PrismColors.brandSpotify,
+      ChartSource.youtube => PrismColors.brandYouTube,
+      ChartSource.billboard => PrismColors.brandBillboard,
+      ChartSource.kworb => PrismColors.dataTeal,
     };
   }
 
@@ -174,13 +174,10 @@ class _ChartPageState extends State<ChartPage> {
                                                     child: Text(
                                                       chartSourceLabel(
                                                           widget.chart.source),
-                                                      style: theme
-                                                          .textTheme.labelSmall
+                                                      style: PrismText
+                                                          .overline(context)
                                                           ?.copyWith(
                                                         color: platformAccent,
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                        letterSpacing: 0.4,
                                                       ),
                                                     ),
                                                   ),
@@ -200,11 +197,7 @@ class _ChartPageState extends State<ChartPage> {
                                               Text(
                                                 widget.chart.name,
                                                 style: theme
-                                                    .textTheme.titleLarge
-                                                    ?.copyWith(
-                                                  fontWeight: FontWeight.w800,
-                                                  letterSpacing: -0.4,
-                                                ),
+                                                    .textTheme.titleLarge,
                                               ),
                                             ],
                                           ),
@@ -251,10 +244,9 @@ class _ChartPageState extends State<ChartPage> {
                                               children: [
                                                 Text(
                                                   'Certified Official Rankings',
-                                                  style: theme
-                                                      .textTheme.labelSmall
+                                                  style: PrismText
+                                                      .overline(context)
                                                       ?.copyWith(
-                                                    fontWeight: FontWeight.w700,
                                                     color: platformAccent,
                                                   ),
                                                 ),
@@ -283,7 +275,10 @@ class _ChartPageState extends State<ChartPage> {
                                           child: FilledButton.icon(
                                             style: FilledButton.styleFrom(
                                               backgroundColor: platformAccent,
-                                              foregroundColor: Colors.white,
+                                              foregroundColor:
+                                                  PrismColors.onColor(
+                                                platformAccent,
+                                              ),
                                             ),
                                             onPressed: () => _play(0),
                                             icon: const Icon(
@@ -357,14 +352,14 @@ class _ChartPageState extends State<ChartPage> {
     Color textColor;
 
     if (rank == 1) {
-      badgeColor = const Color(0xFFFFD700); // Gold
-      textColor = Colors.black87;
+      badgeColor = PrismColors.medalGold;
+      textColor = PrismColors.onColor(badgeColor);
     } else if (rank == 2) {
-      badgeColor = const Color(0xFFC0C0C0); // Silver
-      textColor = Colors.black87;
+      badgeColor = PrismColors.medalSilver;
+      textColor = PrismColors.onColor(badgeColor);
     } else if (rank == 3) {
-      badgeColor = const Color(0xFFCD7F32); // Bronze
-      textColor = Colors.white;
+      badgeColor = PrismColors.medalBronze;
+      textColor = PrismColors.onColor(badgeColor);
     } else {
       badgeColor = Colors.transparent;
       textColor = theme.colorScheme.onSurfaceVariant;
@@ -373,49 +368,50 @@ class _ChartPageState extends State<ChartPage> {
     // Parse movement delta from recommendationReason
     Widget? deltaWidget;
     final reason = song.recommendationReason ?? '';
+    final spec = context.prismSpec;
     if (reason.contains('▲')) {
       final delta = RegExp(r'▲\s*(\d*)').firstMatch(reason)?.group(1);
       deltaWidget = Text(
         '▲${delta != null && delta.isNotEmpty ? ' $delta' : ''}',
-        style: const TextStyle(
-          color: Color(0xFF4CAF50),
-          fontSize: 9,
-          fontWeight: FontWeight.bold,
+        style: PrismText.tabular(
+          PrismText.overline(context)?.copyWith(
+            fontSize: 9,
+            color: spec.success,
+          ),
         ),
       );
     } else if (reason.contains('▼')) {
       final delta = RegExp(r'▼\s*(\d*)').firstMatch(reason)?.group(1);
       deltaWidget = Text(
         '▼${delta != null && delta.isNotEmpty ? ' $delta' : ''}',
-        style: const TextStyle(
-          color: Color(0xFFE53935),
-          fontSize: 9,
-          fontWeight: FontWeight.bold,
+        style: PrismText.tabular(
+          PrismText.overline(context)?.copyWith(
+            fontSize: 9,
+            color: theme.colorScheme.error,
+          ),
         ),
       );
     } else if (reason.contains('● NEW')) {
       deltaWidget = Container(
         padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
         decoration: BoxDecoration(
-          color: const Color(0xFF8E24AA).withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(4),
+          color: PrismColors.dataViolet.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(PrismRadius.xs),
         ),
-        child: const Text(
+        child: Text(
           'NEW',
-          style: TextStyle(
-            color: Color(0xFFBA68C8),
-            fontSize: 7.5,
-            fontWeight: FontWeight.w900,
+          style: PrismText.overline(context)?.copyWith(
+            fontSize: 8,
+            color: PrismColors.dataViolet,
           ),
         ),
       );
     } else if (reason.contains('→')) {
-      deltaWidget = const Text(
+      deltaWidget = Text(
         '→',
-        style: TextStyle(
-          color: Colors.grey,
+        style: PrismText.overline(context)?.copyWith(
           fontSize: 10,
-          fontWeight: FontWeight.bold,
+          color: theme.colorScheme.onSurfaceVariant,
         ),
       );
     }
@@ -445,10 +441,11 @@ class _ChartPageState extends State<ChartPage> {
                   child: Center(
                     child: Text(
                       '$rank',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        color: textColor,
+                      style: PrismText.tabular(
+                        PrismText.overline(context)?.copyWith(
+                          fontSize: 11,
+                          color: textColor,
+                        ),
                       ),
                     ),
                   ),
@@ -456,10 +453,10 @@ class _ChartPageState extends State<ChartPage> {
               : Text(
                   '$rank',
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: textColor,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+                  style: PrismText.tabular(
+                    theme.textTheme.labelMedium?.copyWith(
+                      color: textColor,
+                    ),
                   ),
                 ),
           if (deltaWidget != null) ...[

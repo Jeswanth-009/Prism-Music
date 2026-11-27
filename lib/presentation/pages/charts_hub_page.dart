@@ -26,11 +26,11 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
 
   Color _getPlatformAccent(ChartSource source, ColorScheme scheme) {
     return switch (source) {
-      ChartSource.appleMusic => const Color(0xFFFA2D48), // Apple Music pink-red
-      ChartSource.spotify => const Color(0xFF1DB954), // Spotify Green
-      ChartSource.youtube => const Color(0xFFFF0033), // YouTube Red
-      ChartSource.billboard => const Color(0xFFD4AF37), // Billboard Gold
-      ChartSource.kworb => const Color(0xFF00ADB5), // Kworb Cyan
+      ChartSource.appleMusic => PrismColors.brandApple,
+      ChartSource.spotify => PrismColors.brandSpotify,
+      ChartSource.youtube => PrismColors.brandYouTube,
+      ChartSource.billboard => PrismColors.brandBillboard,
+      ChartSource.kworb => PrismColors.dataTeal,
     };
   }
 
@@ -62,61 +62,61 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
         physics: const BouncingScrollPhysics(),
         slivers: [
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            padding: const EdgeInsets.fromLTRB(
+              PrismSpacing.gutter,
+              PrismSpacing.xl,
+              PrismSpacing.gutter,
+              PrismSpacing.md,
+            ),
             sliver: SliverToBoxAdapter(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Streaming Charts',
-                    style: theme.textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.9,
-                    ),
+                    style: theme.textTheme.headlineLarge,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: PrismSpacing.xs + 2),
                   Text(
                     'What the world is playing across Apple Music, Spotify, YouTube & Billboard.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: PrismSpacing.md + 2),
                   Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
+                    spacing: PrismSpacing.sm,
+                    runSpacing: PrismSpacing.xs + 2,
                     children: [
                       InkWell(
                         onTap: () => _showCountryPicker(context),
-                        borderRadius: BorderRadius.circular(999),
+                        borderRadius: BorderRadius.circular(PrismRadius.pill),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
+                            horizontal: PrismSpacing.sm + 2,
+                            vertical: PrismSpacing.xs + 2,
                           ),
                           decoration: BoxDecoration(
                             color: spec.accentSoft,
-                            borderRadius: BorderRadius.circular(999),
+                            borderRadius: BorderRadius.circular(PrismRadius.pill),
                             border: Border.all(color: spec.hairline),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                _settings.selectedCountry.flag,
-                                style: theme.textTheme.labelLarge,
+                              _RegionBadge(
+                                code: _settings.selectedCountry.code,
+                                hue: theme.colorScheme.primary,
                               ),
-                              const SizedBox(width: 6),
+                              const SizedBox(width: PrismSpacing.xs + 2),
                               Text(
                                 _settings.selectedCountry.name,
-                                style: theme.textTheme.labelLarge?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
+                                style: theme.textTheme.labelLarge,
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: PrismSpacing.xs),
                               Icon(
                                 Icons.keyboard_arrow_down_rounded,
-                                size: 16,
+                                size: PrismIconSize.sm,
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
                             ],
@@ -166,47 +166,47 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
                           isSelected: _selectedPlatform == null,
                           onTap: () => setState(() => _selectedPlatform = null),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: PrismSpacing.sm),
                         _buildFilterPill(
                           theme: theme,
                           label: 'Apple Music',
-                          accentColor: const Color(0xFFFA2D48),
+                          accentColor: PrismColors.brandApple,
                           isSelected: _selectedPlatform == ChartSource.appleMusic,
                           onTap: () => setState(() =>
                               _selectedPlatform = ChartSource.appleMusic),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: PrismSpacing.sm),
                         _buildFilterPill(
                           theme: theme,
                           label: 'Spotify',
-                          accentColor: const Color(0xFF1DB954),
+                          accentColor: PrismColors.brandSpotify,
                           isSelected: _selectedPlatform == ChartSource.spotify,
                           onTap: () => setState(
                               () => _selectedPlatform = ChartSource.spotify),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: PrismSpacing.sm),
                         _buildFilterPill(
                           theme: theme,
                           label: 'YouTube Music',
-                          accentColor: const Color(0xFFFF0033),
+                          accentColor: PrismColors.brandYouTube,
                           isSelected: _selectedPlatform == ChartSource.youtube,
                           onTap: () => setState(
                               () => _selectedPlatform = ChartSource.youtube),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: PrismSpacing.sm),
                         _buildFilterPill(
                           theme: theme,
                           label: 'Billboard',
-                          accentColor: const Color(0xFFD4AF37),
+                          accentColor: PrismColors.brandBillboard,
                           isSelected: _selectedPlatform == ChartSource.billboard,
                           onTap: () => setState(() =>
                               _selectedPlatform = ChartSource.billboard),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: PrismSpacing.sm),
                         _buildFilterPill(
                           theme: theme,
                           label: 'Kworb WW',
-                          accentColor: const Color(0xFF00ADB5),
+                          accentColor: PrismColors.dataTeal,
                           isSelected: _selectedPlatform == ChartSource.kworb,
                           onTap: () => setState(() =>
                               _selectedPlatform = ChartSource.kworb),
@@ -258,43 +258,14 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
                         color: theme.colorScheme.surfaceContainer,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(PrismRadius.lg),
-                          side: BorderSide(
-                            color: platformAccent.withValues(alpha: 0.25),
-                            width: 1,
-                          ),
+                          side: BorderSide(color: spec.hairline),
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(PrismSpacing.lg),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  PrismChartChip(type: chart.iconType, size: 38),
-                                  const Spacer(),
-                                  Flexible(
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: platformAccent.withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(
-                                            PrismRadius.pill),
-                                      ),
-                                      child: Text(
-                                        chartSourceLabel(chart.source),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.labelSmall?.copyWith(
-                                          color: platformAccent,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: 0.3,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                              PrismChartChip(type: chart.iconType, size: 38),
                               const Spacer(),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -304,11 +275,9 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
                                     chart.name,
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                                    style: theme.textTheme.titleMedium,
                                   ),
-                                  const SizedBox(height: 4),
+                                  const SizedBox(height: PrismSpacing.xs),
                                   Text(
                                     chart.description,
                                     maxLines: 2,
@@ -317,25 +286,26 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
                                       color: theme.colorScheme.onSurfaceVariant,
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
+                                  const SizedBox(height: PrismSpacing.sm),
                                   Row(
                                     children: [
                                       Icon(
                                         Icons.verified_rounded,
-                                        size: 11,
+                                        size: PrismIconSize.xs - 3,
                                         color: platformAccent,
                                       ),
-                                      const SizedBox(width: 4),
+                                      const SizedBox(width: PrismSpacing.xs),
                                       Expanded(
                                         child: Text(
                                           chart.provenance ?? 'Curated chart',
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: theme.textTheme.labelSmall
-                                              ?.copyWith(
-                                            fontSize: 10,
-                                            color: theme.colorScheme
-                                                .onSurfaceVariant,
+                                          style: PrismText.tabular(
+                                            theme.textTheme.labelSmall
+                                                ?.copyWith(
+                                              color: theme
+                                                  .colorScheme.onSurfaceVariant,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -381,7 +351,7 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
       isScrollControlled: true,
       backgroundColor: theme.colorScheme.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(PrismRadius.xl)),
       ),
       builder: (ctx) {
         String query = '';
@@ -416,14 +386,12 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: PrismSpacing.md),
                           Text(
                             'Select Music Region',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: theme.textTheme.titleMedium,
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: PrismSpacing.sm),
                           TextField(
                             decoration: InputDecoration(
                               hintText: 'Search countries...',
@@ -432,7 +400,8 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
                               filled: true,
                               fillColor: theme.colorScheme.surfaceContainerHigh,
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius:
+                                    BorderRadius.circular(PrismRadius.md),
                                 borderSide: BorderSide.none,
                               ),
                             ),
@@ -453,12 +422,16 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
                           final c = filtered[idx];
                           final isSelected = c.code == _settings.countryCode;
                           return ListTile(
-                            leading: Text(c.flag, style: const TextStyle(fontSize: 24)),
+                            leading: _RegionBadge(
+                              code: c.code,
+                              hue: theme.colorScheme.primary,
+                            ),
                             title: Text(
                               c.name,
-                              style: TextStyle(
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                color: isSelected ? theme.colorScheme.primary : null,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                color: isSelected
+                                    ? theme.colorScheme.primary
+                                    : null,
                               ),
                             ),
                             trailing: isSelected
@@ -491,29 +464,81 @@ class _ChartsHubPageState extends State<ChartsHubPage> {
     Color? accentColor,
   }) {
     final activeColor = accentColor ?? theme.colorScheme.primary;
+    final spec = context.prismSpec;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        duration: PrismMotion.fastOf(context),
+        curve: PrismMotion.curve,
+        padding: const EdgeInsets.symmetric(
+          horizontal: PrismSpacing.md + 2,
+          vertical: PrismSpacing.xs + 3,
+        ),
         decoration: BoxDecoration(
           color: isSelected
-              ? activeColor.withValues(alpha: 0.18)
+              ? spec.accentSoft
               : theme.colorScheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(PrismRadius.pill),
           border: Border.all(
-            color: isSelected ? activeColor : Colors.transparent,
+            color: isSelected
+                ? activeColor.withValues(alpha: 0.6)
+                : Colors.transparent,
             width: 1,
           ),
         ),
-        child: Text(
-          label,
-          style: theme.textTheme.labelMedium?.copyWith(
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected
-                ? activeColor
-                : theme.colorScheme.onSurfaceVariant,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (accentColor != null) ...[
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: activeColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: PrismSpacing.xs + 2),
+            ],
+            Text(
+              label,
+              style: PrismText.overline(context)?.copyWith(
+                color: isSelected
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Region identity as a two-letter code badge — flags stay out of the UI.
+class _RegionBadge extends StatelessWidget {
+  const _RegionBadge({required this.code, required this.hue});
+
+  final String code;
+  final Color hue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 28,
+      height: 20,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: hue.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(PrismRadius.xs),
+        border: Border.all(color: hue.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        code.toUpperCase(),
+        style: PrismText.overline(context)?.copyWith(
+          color: hue,
+          fontSize: 9,
+          height: 1,
         ),
       ),
     );
