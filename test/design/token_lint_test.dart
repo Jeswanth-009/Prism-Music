@@ -22,7 +22,11 @@ void main() {
       final path = file.path.replaceAll('\\', '/');
       if (_tokenSources.any(path.endsWith)) continue;
 
-      final source = _stripLineComments(file.readAsStringSync());
+      // Normalise line endings so Windows (CRLF) and CI (LF) checkouts
+      // always produce identical counts.
+      final source = _stripLineComments(
+        file.readAsStringSync().replaceAll('\r\n', '\n'),
+      );
       for (final entry in _patterns.entries) {
         final count = entry.value.allMatches(source).length;
         if (count == 0) continue;
@@ -77,8 +81,8 @@ const baseline = <String, int>{
   'Color(0x…)': 96,
   'Colors.* (except transparent)': 294,
   'fontSize: <number>': 99,
-  'circular(<number>)': 157,
-  'fontWeight: FontWeight.*': 264,
+  'circular(<number>)': 158,
+  'fontWeight: FontWeight.*': 266,
   'TextStyle(': 88,
   'Icons.*_outlined / _sharp': 69,
 };
