@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/prism_theme.dart';
 
 /// Segmented pill switch for switching between Audio (Song) and Video mode.
 class SongVideoToggle extends StatelessWidget {
@@ -25,10 +26,10 @@ class SongVideoToggle extends StatelessWidget {
       height: 34,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
+        color: PrismColors.onScrim.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.white.withOpacity(0.12),
+          color: PrismColors.onScrim.withValues(alpha: 0.12),
           width: 0.8,
         ),
       ),
@@ -45,7 +46,7 @@ class SongVideoToggle extends StatelessWidget {
               decoration: BoxDecoration(
                 color: !isVideoMode
                     ? (isDark
-                        ? Colors.white.withOpacity(0.2)
+                        ? PrismColors.onScrim.withValues(alpha: 0.2)
                         : Colors.white)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(16),
@@ -81,7 +82,7 @@ class SongVideoToggle extends StatelessWidget {
               decoration: BoxDecoration(
                 color: isVideoMode
                     ? (isDark
-                        ? Colors.white.withOpacity(0.2)
+                        ? PrismColors.onScrim.withValues(alpha: 0.2)
                         : Colors.white)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(16),

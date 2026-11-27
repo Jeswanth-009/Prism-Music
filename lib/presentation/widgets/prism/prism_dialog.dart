@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../theme/prism_theme.dart';
 
 /// Shows a standardized Prism styled dialog.
 Future<T?> showPrismDialog<T>({
@@ -8,20 +7,10 @@ Future<T?> showPrismDialog<T>({
   required Widget content,
   List<Widget>? actions,
 }) {
-  final theme = Theme.of(context);
   return showDialog<T>(
     context: context,
     builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(PrismRadius.lg),
-      ),
-      backgroundColor: theme.colorScheme.surfaceContainerHigh,
-      title: Text(
-        title,
-        style: theme.textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.w700,
-        ),
-      ),
+      title: Text(title, style: Theme.of(context).textTheme.headlineSmall),
       content: content,
       actions: actions,
     ),
@@ -42,16 +31,7 @@ Future<bool?> showPrismConfirmDialog({
   return showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(PrismRadius.lg),
-      ),
-      backgroundColor: theme.colorScheme.surfaceContainerHigh,
-      title: Text(
-        title,
-        style: theme.textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.w700,
-        ),
-      ),
+      title: Text(title, style: theme.textTheme.headlineSmall),
       content: Text(
         message,
         style: theme.textTheme.bodyMedium?.copyWith(

@@ -13,6 +13,7 @@ import '../../domain/repositories/music_repository.dart';
 import '../blocs/library/library.dart';
 import '../blocs/player/player.dart';
 import '../theme/prism_theme.dart';
+import '../widgets/common/bouncing_tap_widget.dart';
 import '../widgets/prism/prism_artwork.dart';
 import '../widgets/prism/prism_chart_chip.dart';
 import '../widgets/prism/prism_media_card.dart';
@@ -39,7 +40,11 @@ import '../../core/services/app_update_service.dart';
 import '../../core/services/daily_mix_service.dart';
 import '../../core/services/living_time_service.dart';
 import '../widgets/prism/prism_daily_mix_card.dart';
+import '../../core/services/chart_cover_resolver.dart';
 import 'daily_mix_page.dart';
+import 'liked_songs_page.dart';
+import 'stats_page.dart';
+import 'downloads_page.dart';
 
 /// Artwork-led Home surface: calm chrome, artwork carries the colour.
 class HomeTab extends StatefulWidget {
@@ -187,11 +192,23 @@ class _HomeTabState extends State<HomeTab>
           ),
           slivers: [
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
+              padding: const EdgeInsets.fromLTRB(
+                PrismSpacing.gutter,
+                PrismSpacing.lg,
+                PrismSpacing.md,
+                0,
+              ),
               sliver: SliverToBoxAdapter(
                 child: _TopBar(
                   onSettings: _openSettings,
                   onCustomize: _openCustomizeSections,
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: _GreetingHeader(
+                showPhase: _settings.isHomeSectionEnabled(
+                  HomeSectionId.livingPhase,
                 ),
               ),
             ),
@@ -212,7 +229,12 @@ class _HomeTabState extends State<HomeTab>
                         ),
                       if (_settings.isHomeSectionEnabled(HomeSectionId.hero))
                         SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                          padding: const EdgeInsets.fromLTRB(
+                PrismSpacing.gutter,
+                PrismSpacing.lg,
+                PrismSpacing.gutter,
+                0,
+              ),
                           sliver: SliverToBoxAdapter(
                             child: _Entrance(
                               child: _Hero(
@@ -320,107 +342,72 @@ class _HomeTabState extends State<HomeTab>
             ? library.recentlyPlayed.first
             : (_songs.isEmpty ? null : _songs.first);
         return SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          padding: const EdgeInsets.fromLTRB(
+            PrismSpacing.gutter,
+            0,
+            PrismSpacing.gutter,
+            0,
+          ),
           sliver: SliverToBoxAdapter(
-            child: _Entrance(
-              child: _Hero(
-                greeting: _greeting,
-                song: song,
-                isLoading: false,
-                onPlay: song == null
-                    ? null
-                    : () {
-                        if (fromHistory) {
-                          _play(song, queue: library.recentlyPlayed, index: 0);
-                        } else {
-                          _play(song, queue: _songs, index: 0);
-                        }
-                      },
-                onShuffle: (fromHistory ? library.recentlyPlayed : _songs).isEmpty
-                    ? null
-                    : () {
-                        final source = fromHistory
-                            ? library.recentlyPlayed
-                            : _songs;
-                        final shuffled = [...source]..shuffle();
-                        _play(shuffled.first, queue: shuffled, index: 0);
-                      },
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _Entrance(
+                  child: _Hero(
+                    greeting: _greeting,
+                    song: song,
+                    isLoading: false,
+                    onPlay: song == null
+                        ? null
+                        : () {
+                            if (fromHistory) {
+                              _play(song,
+                                  queue: library.recentlyPlayed, index: 0);
+                            } else {
+                              _play(song, queue: _songs, index: 0);
+                            }
+                          },
+                    onShuffle:
+                        (fromHistory ? library.recentlyPlayed : _songs).isEmpty
+                            ? null
+                            : () {
+                                final source = fromHistory
+                                    ? library.recentlyPlayed
+                                    : _songs;
+                                final shuffled = [...source]..shuffle();
+                                _play(shuffled.first,
+                                    queue: shuffled, index: 0);
+                              },
+                  ),
+                ),
+                const SizedBox(height: PrismSpacing.lg),
+                _QuickAccessStrip(
+                  likedCount: library.likedSongs.length,
+                  downloadCount: library.downloads.length,
+                  onOpenLiked: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const LikedSongsPage()),
+                  ),
+                  onOpenDownloads: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const DownloadsPage()),
+                  ),
+                  onOpenRecent: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const RecentlyPlayedPage()),
+                  ),
+                  onOpenStats: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const StatsPage()),
+                  ),
+                ),
+              ],
             ),
           ),
         );
 
       case HomeSectionId.livingPhase:
-        final soundscape = LivingTimeService.instance.getSoundscape();
-        return SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    soundscape.primaryAccent.withValues(alpha: 0.18),
-                    Theme.of(context).colorScheme.surfaceContainer,
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(PrismRadius.lg),
-                border: Border.all(
-                  color: soundscape.primaryAccent.withValues(alpha: 0.28),
-                  width: 1,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        soundscape.icon,
-                        size: 15,
-                        color: soundscape.primaryAccent,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          soundscape.uppercaseTagline,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.6,
-                            color: soundscape.primaryAccent,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    soundscape.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    soundscape.subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
+        // Rendered by the greeting header at the top of the page.
+        return null;
 
       case HomeSectionId.dailyMixes:
         final mixes = DailyMixService.instance.generateDailyMixes(
@@ -433,16 +420,20 @@ class _HomeTabState extends State<HomeTab>
           title: 'Made for you',
           subtitle: 'Made on your phone from what you play',
           child: SizedBox(
-            height: 224,
+            height: 232,
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(
+                horizontal: PrismSpacing.gutter,
+              ),
               scrollDirection: Axis.horizontal,
               itemCount: mixes.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 14),
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: PrismSpacing.railGap),
               itemBuilder: (context, index) {
                 final mix = mixes[index];
                 return PrismDailyMixCard(
                   mix: mix,
+                  width: 172,
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => DailyMixPage(mix: mix),
@@ -484,10 +475,11 @@ class _HomeTabState extends State<HomeTab>
           child: SizedBox(
             height: 190,
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: PrismSpacing.gutter),
               scrollDirection: Axis.horizontal,
               itemCount: continueSongs.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 14),
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: PrismSpacing.railGap),
               itemBuilder: (_, index) {
                 final song = continueSongs[index];
                 return PrismMediaCard(
@@ -523,10 +515,11 @@ class _HomeTabState extends State<HomeTab>
           child: SizedBox(
             height: 194,
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: PrismSpacing.gutter),
               scrollDirection: Axis.horizontal,
               itemCount: displayRecs.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 14),
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: PrismSpacing.railGap),
               itemBuilder: (_, index) {
                 final song = displayRecs[index];
                 return PrismMediaCard(
@@ -552,10 +545,11 @@ class _HomeTabState extends State<HomeTab>
           child: SizedBox(
             height: 194,
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: PrismSpacing.gutter),
               scrollDirection: Axis.horizontal,
               itemCount: _newAlbums.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 14),
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: PrismSpacing.railGap),
               itemBuilder: (_, index) {
                 final album = _newAlbums[index];
                 return PrismMediaCard(
@@ -606,22 +600,35 @@ class _HomeTabState extends State<HomeTab>
           _settings.countryCode,
           _settings.selectedCountry.name,
         );
+        final featuredCharts = <ChartDefinition>[];
+        for (final source in ChartSource.values) {
+          final match = charts.where((c) => c.source == source).firstOrNull;
+          if (match != null) featuredCharts.add(match);
+        }
         return _sliverSection(
           title: 'Top charts',
           subtitle: 'What everyone is playing',
           actionLabel: 'See all',
           onAction: _openCharts,
           child: SizedBox(
-            height: 132,
+            height: 150,
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: PrismSpacing.gutter),
               scrollDirection: Axis.horizontal,
-              itemCount: charts.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemCount: featuredCharts.length,
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: PrismSpacing.railGap),
               itemBuilder: (context, index) {
-                final chart = charts[index];
-                return _ChartTile(
+                final chart = featuredCharts[index];
+                return _ChartCoverTile(
                   chart: chart,
+                  accent: switch (chart.source) {
+                    ChartSource.appleMusic => PrismColors.brandApple,
+                    ChartSource.spotify => PrismColors.brandSpotify,
+                    ChartSource.youtube => PrismColors.brandYouTube,
+                    ChartSource.billboard => PrismColors.brandBillboard,
+                    ChartSource.kworb => PrismColors.dataTeal,
+                  },
                   onTap: () => _pushChart(chart),
                 );
               },
@@ -656,10 +663,11 @@ class _HomeTabState extends State<HomeTab>
           child: SizedBox(
             height: 116,
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: PrismSpacing.gutter),
               scrollDirection: Axis.horizontal,
               itemCount: curated.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: PrismSpacing.railGap),
               itemBuilder: (context, index) {
                 final playlist = curated[index];
                 return _MixTile(
@@ -678,7 +686,12 @@ class _HomeTabState extends State<HomeTab>
 
       case HomeSectionId.historyPrompt:
         return SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+          padding: const EdgeInsets.fromLTRB(
+                PrismSpacing.gutter,
+                PrismSpacing.xl,
+                PrismSpacing.gutter,
+                PrismSpacing.xxxl,
+              ),
           sliver: SliverToBoxAdapter(
             child: _HistoryPrompt(
               hasHistory: library.recentlyPlayed.isNotEmpty,
@@ -826,7 +839,12 @@ class _HomeTabState extends State<HomeTab>
         if (subtitle != null)
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              padding: const EdgeInsets.fromLTRB(
+                PrismSpacing.gutter,
+                0,
+                PrismSpacing.gutter,
+                PrismSpacing.md,
+              ),
               child: Text(
                 subtitle,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -862,27 +880,27 @@ class _TopBar extends StatelessWidget {
   final VoidCallback onCustomize;
 
   @override
-  Widget build(BuildContext context) => Row(
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final spec = context.prismSpec;
+    return Row(
     children: [
       const PrismLogoMark(size: 34),
-      const SizedBox(width: 11),
+      const SizedBox(width: PrismSpacing.md),
       Text(
         'Prism',
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-          fontWeight: FontWeight.w700,
-          letterSpacing: -.4,
-        ),
+        style: Theme.of(context).textTheme.headlineSmall,
       ),
       const Spacer(),
       IconButton(
         onPressed: onCustomize,
         tooltip: 'Customize Home',
-        icon: const Icon(Icons.tune_rounded, size: 21),
+        icon: const Icon(Icons.tune_rounded, size: PrismIconSize.md),
       ),
       IconButton(
         onPressed: onSettings,
         tooltip: 'Settings',
-        icon: const Icon(Icons.settings_outlined, size: 22),
+        icon: const Icon(Icons.settings_rounded, size: PrismIconSize.md),
       ),
       GestureDetector(
         onTap: () => ProfileSwitcherSheet.show(context),
@@ -903,10 +921,13 @@ class _TopBar extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Color(profile.avatarColorValue),
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white24, width: 1.5),
+                    border: Border.all(color: spec.hairline, width: 1.5),
                   ),
                   child: Center(
-                    child: Text(profile.avatarEmoji, style: const TextStyle(fontSize: 14)),
+                    child: Text(
+                      profile.avatarEmoji,
+                      style: theme.textTheme.labelMedium,
+                    ),
                   ),
                 ),
               ),
@@ -916,6 +937,7 @@ class _TopBar extends StatelessWidget {
       ),
     ],
   );
+  }
 }
 
 class _Entrance extends StatelessWidget {
@@ -927,7 +949,7 @@ class _Entrance extends StatelessWidget {
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 420),
+      duration: PrismMotion.slowOf(context),
       curve: PrismMotion.curve,
       builder: (context, t, child) => Opacity(
         opacity: t,
@@ -977,10 +999,11 @@ class _Hero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return GestureDetector(
       onTap: onPlay,
       child: Container(
-        height: 152,
+        height: 240,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(PrismRadius.lg),
@@ -1013,11 +1036,11 @@ class _Hero extends StatelessWidget {
                   begin: Alignment.bottomLeft,
                   end: Alignment.topRight,
                   colors: [
-                    Colors.black.withValues(alpha: .90),
-                    Colors.black.withValues(alpha: .45),
-                    Colors.black.withValues(alpha: .15),
+                    PrismColors.scrimHeavy,
+                    PrismColors.scrim,
+                    Colors.transparent,
                   ],
-                  stops: const [0, .6, 1],
+                  stops: const [0, .55, 1],
                 ),
               ),
             ),
@@ -1026,46 +1049,16 @@ class _Hero extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          greeting.toUpperCase(),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.1,
-                            fontSize: 9.5,
-                          ),
-                        ),
+                  if (song != null)
+                    Text(
+                      _authenticBadge(song!),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: PrismText.overline(context)?.copyWith(
+                        color: PrismColors.onColor(PrismColors.scrim)
+                            .withValues(alpha: 0.85),
                       ),
-                      if (song != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: Colors.white24, width: 0.5),
-                          ),
-                          child: Text(
-                            _authenticBadge(song!),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.9),
-                              fontWeight: FontWeight.w600,
-                              fontSize: 9.0,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+                    ),
                   const Spacer(),
                   Text(
                     song == null
@@ -1075,19 +1068,18 @@ class _Hero extends StatelessWidget {
                         : song!.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.2,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: PrismColors.onColor(PrismColors.scrim),
                     ),
                   ),
-                  const SizedBox(height: 1),
+                  const SizedBox(height: PrismSpacing.xxs),
                   Text(
                     song?.artist ?? 'Search millions of songs',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: .80),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: PrismColors.onColor(PrismColors.scrim)
+                          .withValues(alpha: .80),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -1095,16 +1087,22 @@ class _Hero extends StatelessWidget {
                     children: [
                       FilledButton.icon(
                         onPressed: onPlay,
-                        icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                        icon: const Icon(
+                          Icons.play_arrow_rounded,
+                          size: PrismIconSize.md,
+                        ),
                         label: const Text('Play'),
                         style: FilledButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          backgroundColor: scheme.onSurface,
+                          foregroundColor: scheme.surface,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: PrismSpacing.md + 2,
+                            vertical: PrismSpacing.xs + 2,
+                          ),
                           visualDensity: VisualDensity.compact,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: PrismSpacing.sm),
                       _HeroIconButton(
                         icon: Icons.shuffle_rounded,
                         tooltip: 'Shuffle all',
@@ -1140,7 +1138,7 @@ class _HeroIconButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: Colors.white.withValues(alpha: .18),
+        color: PrismColors.onScrim.withValues(alpha: .18),
         shape: const CircleBorder(
           side: BorderSide(color: Colors.white24),
         ),
@@ -1150,79 +1148,6 @@ class _HeroIconButton extends StatelessWidget {
           child: SizedBox.square(
             dimension: 44,
             child: Icon(icon, color: Colors.white, size: 20),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Flat chart tile — accent icon, no gradient.
-class _ChartTile extends StatelessWidget {
-  const _ChartTile({required this.chart, required this.onTap});
-
-  final ChartDefinition chart;
-  final VoidCallback onTap;
-
-  IconData get _icon => switch (chart.iconType) {
-    ChartIconType.global => Icons.public_rounded,
-    ChartIconType.viral => Icons.local_fire_department_rounded,
-    ChartIconType.trending => Icons.trending_up_rounded,
-    ChartIconType.top => Icons.emoji_events_outlined,
-    ChartIconType.chart => Icons.bar_chart_rounded,
-    ChartIconType.newRelease => Icons.auto_awesome_outlined,
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final spec = context.prismSpec;
-    return SizedBox(
-      width: 168,
-      child: Material(
-        color: theme.colorScheme.surfaceContainer,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(PrismRadius.lg),
-          side: BorderSide(color: spec.hairline),
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(PrismRadius.lg),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: spec.accentSoft,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(_icon, size: 18, color: theme.colorScheme.primary),
-                ),
-                const Spacer(),
-                Text(
-                  chart.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  chartSourceLabel(chart.source),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
       ),
@@ -1253,7 +1178,7 @@ class _MixTile extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(PrismRadius.lg),
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(PrismSpacing.md + 2),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1264,11 +1189,11 @@ class _MixTile extends StatelessWidget {
                       height: 34,
                       decoration: BoxDecoration(
                         color: spec.accentSoft,
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(PrismRadius.sm),
                       ),
                       child: Icon(
                         playlist.icon,
-                        size: 18,
+                        size: PrismIconSize.sm + 2,
                         color: theme.colorScheme.primary,
                       ),
                     ),
@@ -1276,11 +1201,13 @@ class _MixTile extends StatelessWidget {
                       const Spacer(),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
+                            horizontal: PrismSpacing.xs + 2,
+                            vertical: PrismSpacing.xxs),
                         decoration: BoxDecoration(
                           color: theme.colorScheme.primary
                               .withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius:
+                              BorderRadius.circular(PrismRadius.xs),
                           border: Border.all(
                             color: theme.colorScheme.primary
                                 .withValues(alpha: 0.3),
@@ -1289,10 +1216,8 @@ class _MixTile extends StatelessWidget {
                         ),
                         child: Text(
                           playlist.seasonalTag!,
-                          style: theme.textTheme.labelSmall?.copyWith(
+                          style: PrismText.overline(context)?.copyWith(
                             color: theme.colorScheme.primary,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 9,
                           ),
                         ),
                       ),
@@ -1304,11 +1229,9 @@ class _MixTile extends StatelessWidget {
                   playlist.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: theme.textTheme.titleSmall,
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: PrismSpacing.xxs),
                 Text(
                   playlist.category,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -1343,27 +1266,354 @@ class _HistoryPrompt extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(PrismRadius.lg),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(PrismSpacing.lg),
           child: Row(
             children: [
               Icon(
                 Icons.history_rounded,
+                size: PrismIconSize.lg,
                 color: theme.colorScheme.primary,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: PrismSpacing.md),
               Expanded(
                 child: Text(
                   hasHistory
                       ? 'Open your recently played songs'
                       : 'Your listening history will appear here',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: theme.textTheme.titleSmall,
                 ),
               ),
               Icon(
                 Icons.chevron_right_rounded,
                 color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Greeting block that opens the day: date overline, phase greeting and
+/// the soundscape tagline washed by its hue. The living-phase identity
+/// lives here instead of a standalone card.
+class _GreetingHeader extends StatelessWidget {
+  const _GreetingHeader({required this.showPhase});
+
+  final bool showPhase;
+
+  static const _weekdays = [
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
+    'Sunday',
+  ];
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final soundscape = LivingTimeService.instance.getSoundscape();
+    final now = DateTime.now();
+    final dateLabel = '${_weekdays[now.weekday - 1]}  ·  '
+        '${_months[now.month - 1]} ${now.day}';
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(0, PrismSpacing.lg, 0, 0),
+      padding: const EdgeInsets.fromLTRB(
+        PrismSpacing.gutter,
+        PrismSpacing.lg,
+        PrismSpacing.gutter,
+        PrismSpacing.lg,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            soundscape.primaryAccent.withValues(alpha: 0.10),
+            Colors.transparent,
+          ],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  dateLabel.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: PrismText.overline(context)?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              if (showPhase) ...[
+                const SizedBox(width: PrismSpacing.sm),
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: soundscape.primaryAccent,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: PrismSpacing.xs + 2),
+                Flexible(
+                  child: Text(
+                    soundscape.uppercaseTagline,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: PrismText.overline(context)?.copyWith(
+                      color: soundscape.primaryAccent,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: PrismSpacing.xs + 2),
+          Text(
+            soundscape.greeting,
+            style: theme.textTheme.headlineMedium,
+          ),
+          if (showPhase && soundscape.subtitle.isNotEmpty) ...[
+            const SizedBox(height: PrismSpacing.xxs + 1),
+            Text(
+              soundscape.subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Utility strip straight under the hero: the four destinations people
+/// actually open, as one row of quiet tiles.
+class _QuickAccessStrip extends StatelessWidget {
+  const _QuickAccessStrip({
+    required this.likedCount,
+    required this.downloadCount,
+    required this.onOpenLiked,
+    required this.onOpenDownloads,
+    required this.onOpenRecent,
+    required this.onOpenStats,
+  });
+
+  final int likedCount;
+  final int downloadCount;
+  final VoidCallback onOpenLiked;
+  final VoidCallback onOpenDownloads;
+  final VoidCallback onOpenRecent;
+  final VoidCallback onOpenStats;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final spec = context.prismSpec;
+    final tiles = [
+      (
+        icon: Icons.favorite_rounded,
+        label: 'Liked',
+        meta: '$likedCount songs',
+        onTap: onOpenLiked,
+      ),
+      (
+        icon: Icons.download_rounded,
+        label: 'Offline',
+        meta: '$downloadCount saved',
+        onTap: onOpenDownloads,
+      ),
+      (
+        icon: Icons.history_rounded,
+        label: 'Recent',
+        meta: 'History',
+        onTap: onOpenRecent,
+      ),
+      (
+        icon: Icons.leaderboard_rounded,
+        label: 'Stats',
+        meta: 'Rotation',
+        onTap: onOpenStats,
+      ),
+    ];
+
+    return Row(
+      children: [
+        for (var i = 0; i < tiles.length; i++) ...[
+          if (i > 0) const SizedBox(width: PrismSpacing.sm),
+          Expanded(
+            child: Material(
+              color: theme.colorScheme.surfaceContainer,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(PrismRadius.md),
+                side: BorderSide(color: spec.hairline),
+              ),
+              child: InkWell(
+                onTap: tiles[i].onTap,
+                borderRadius: BorderRadius.circular(PrismRadius.md),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: PrismSpacing.sm + 2,
+                    vertical: PrismSpacing.sm + 2,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        tiles[i].icon,
+                        size: PrismIconSize.md,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(height: PrismSpacing.xs + 2),
+                      Text(
+                        tiles[i].label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelLarge,
+                      ),
+                      Text(
+                        tiles[i].meta,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: PrismText.tabular(
+                          theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Charts teaser with the real cover: playlist artwork for Spotify,
+/// the #1 track's art elsewhere — the same covers the chart sites use.
+class _ChartCoverTile extends StatefulWidget {
+  const _ChartCoverTile({
+    required this.chart,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final ChartDefinition chart;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  State<_ChartCoverTile> createState() => _ChartCoverTileState();
+}
+
+class _ChartCoverTileState extends State<_ChartCoverTile> {
+  String? _cover;
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    _cover = ChartCoverResolver.peek(widget.chart);
+    if (_cover == null) {
+      ChartCoverResolver.resolve(widget.chart).then((url) {
+        if (!mounted || url == null || url == _cover) return;
+        setState(() => _cover = url);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final spec = context.prismSpec;
+    return BouncingTapWidget(
+      onTap: widget.onTap,
+      child: Container(
+        width: 252,
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(
+            widget.accent.withValues(alpha: 0.14),
+            theme.colorScheme.surfaceContainer,
+          ),
+          borderRadius: BorderRadius.circular(PrismRadius.lg),
+          border: Border.all(color: spec.hairline),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(PrismRadius.lg),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (_cover != null)
+                CachedNetworkImage(
+                  imageUrl: _cover!,
+                  fit: BoxFit.cover,
+                  fadeInDuration: const Duration(milliseconds: 200),
+                  errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                )
+              else
+                Icon(
+                  Icons.leaderboard_rounded,
+                  size: 64,
+                  color: widget.accent.withValues(alpha: 0.25),
+                ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomLeft,
+                    end: Alignment.topRight,
+                    colors: [
+                      PrismColors.scrimHeavy,
+                      PrismColors.scrim,
+                      Colors.transparent,
+                    ],
+                    stops: const [0, .55, 1],
+                  ),
+                ),
+              ),
+              Positioned(
+                left: PrismSpacing.md,
+                right: PrismSpacing.md,
+                bottom: PrismSpacing.md,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      chartSourceLabel(widget.chart.source).toUpperCase(),
+                      style: PrismText.overline(context)?.copyWith(
+                        color: PrismColors.onScrim.withValues(alpha: 0.85),
+                      ),
+                    ),
+                    const SizedBox(height: PrismSpacing.xxs + 1),
+                    Text(
+                      widget.chart.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: PrismColors.onScrim,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

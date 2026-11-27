@@ -50,23 +50,24 @@ class SearchCategoryBar extends StatelessWidget {
           final filter = _filters[index];
           final isSelected = filter == selected;
 
+          final spec = context.prismSpec;
           return Center(
             child: ChoiceChip(
               label: Text(_labelFor(filter)),
-              labelStyle: theme.textTheme.labelMedium?.copyWith(
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              labelStyle: PrismText.overline(context)?.copyWith(
                 color: isSelected
-                    ? theme.colorScheme.onPrimaryContainer
+                    ? theme.colorScheme.primary
                     : theme.colorScheme.onSurfaceVariant,
               ),
               selected: isSelected,
-              selectedColor: theme.colorScheme.primaryContainer,
-              backgroundColor: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.5),
+              selectedColor: spec.accentSoft,
+              backgroundColor:
+                  theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.5),
               showCheckmark: false,
               side: BorderSide(
                 color: isSelected
                     ? theme.colorScheme.primary.withValues(alpha: 0.6)
-                    : theme.colorScheme.outlineVariant.withValues(alpha: 0.25),
+                    : spec.hairline,
                 width: 1,
               ),
               shape: RoundedRectangleBorder(

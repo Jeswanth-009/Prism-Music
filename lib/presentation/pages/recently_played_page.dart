@@ -107,7 +107,7 @@ class RecentlyPlayedPage extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
@@ -148,7 +148,7 @@ class RecentlyPlayedPage extends StatelessWidget {
                       group.key.toUpperCase(),
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                         letterSpacing: 1.2,
                       ),
                     ),

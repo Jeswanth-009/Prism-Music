@@ -40,16 +40,16 @@ class _PrismUpdateCapsuleState extends State<PrismUpdateCapsule> {
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFF161922),
+            color: PrismColors.inkRaised,
             borderRadius: BorderRadius.circular(PrismRadius.lg),
             border: Border.all(
               color: isReady
-                  ? const Color(0xFF81C995).withValues(alpha: 0.35)
-                  : Colors.white.withValues(alpha: 0.08),
+                  ? PrismColors.successDark.withValues(alpha: 0.35)
+                  : PrismColors.onScrim.withValues(alpha: 0.08),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
+                color: PrismColors.scrim.withValues(alpha: 0.35),
                 blurRadius: 18,
                 offset: const Offset(0, 6),
               ),
@@ -127,8 +127,8 @@ class _PrismUpdateCapsuleState extends State<PrismUpdateCapsule> {
                                 color: isFailed
                                     ? Colors.redAccent.withValues(alpha: 0.8)
                                     : (isReady
-                                        ? const Color(0xFF81C995)
-                                        : Colors.white.withValues(alpha: 0.6)),
+                                        ? PrismColors.successDark
+                                        : PrismColors.onScrim.withValues(alpha: 0.6)),
                                 fontSize: 12,
                               ),
                               maxLines: 1,
@@ -145,15 +145,15 @@ class _PrismUpdateCapsuleState extends State<PrismUpdateCapsule> {
                         IconButton(
                           tooltip: 'Cancel download',
                           icon: const Icon(Icons.close_rounded, size: 18),
-                          color: Colors.white.withValues(alpha: 0.6),
+                          color: PrismColors.onScrim.withValues(alpha: 0.6),
                           visualDensity: VisualDensity.compact,
                           onPressed: () => service.cancelDownload(),
                         )
                       else if (isReady)
                         FilledButton(
                           style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF81C995),
-                            foregroundColor: const Color(0xFF13151A),
+                            backgroundColor: PrismColors.successDark,
+                            foregroundColor: PrismColors.ink,
                             visualDensity: VisualDensity.compact,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 14,
@@ -213,7 +213,7 @@ class _PrismUpdateCapsuleState extends State<PrismUpdateCapsule> {
                             IconButton(
                               tooltip: 'Dismiss',
                               icon: const Icon(Icons.close_rounded, size: 16),
-                              color: Colors.white.withValues(alpha: 0.4),
+                              color: PrismColors.onScrim.withValues(alpha: 0.4),
                               visualDensity: VisualDensity.compact,
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
@@ -262,7 +262,7 @@ class _PrismUpdateCapsuleState extends State<PrismUpdateCapsule> {
                         child: Text(
                           widget.updateInfo.changelog,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.7),
+                            color: PrismColors.onScrim.withValues(alpha: 0.7),
                             height: 1.4,
                             fontSize: 11,
                           ),
@@ -278,7 +278,7 @@ class _PrismUpdateCapsuleState extends State<PrismUpdateCapsule> {
                   LinearProgressIndicator(
                     value: downloadState.progress > 0 ? downloadState.progress : null,
                     minHeight: 3,
-                    backgroundColor: Colors.white.withValues(alpha: 0.05),
+                    backgroundColor: PrismColors.onScrim.withValues(alpha: 0.05),
                     valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
                   )
                 else
@@ -288,9 +288,9 @@ class _PrismUpdateCapsuleState extends State<PrismUpdateCapsule> {
                       gradient: LinearGradient(
                         colors: isReady
                             ? [
-                                const Color(0xFF81C995).withValues(alpha: 0.1),
-                                const Color(0xFF81C995),
-                                const Color(0xFF81C995).withValues(alpha: 0.1),
+                                PrismColors.successDark.withValues(alpha: 0.1),
+                                PrismColors.successDark,
+                                PrismColors.successDark.withValues(alpha: 0.1),
                               ]
                             : [
                                 Colors.transparent,
@@ -319,7 +319,7 @@ class _PrismUpdateCapsuleState extends State<PrismUpdateCapsule> {
             CircularProgressIndicator(
               value: state.progress > 0 ? state.progress : null,
               strokeWidth: 3,
-              backgroundColor: Colors.white.withValues(alpha: 0.1),
+              backgroundColor: PrismColors.onScrim.withValues(alpha: 0.1),
               valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
             ),
             Text(
@@ -340,12 +340,12 @@ class _PrismUpdateCapsuleState extends State<PrismUpdateCapsule> {
         width: 38,
         height: 38,
         decoration: BoxDecoration(
-          color: const Color(0xFF81C995).withValues(alpha: 0.15),
+          color: PrismColors.successDark.withValues(alpha: 0.15),
           shape: BoxShape.circle,
         ),
         child: const Icon(
           Icons.check_circle_outline_rounded,
-          color: Color(0xFF81C995),
+          color: PrismColors.successDark,
           size: 22,
         ),
       );

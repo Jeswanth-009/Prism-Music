@@ -41,7 +41,7 @@ class PlayerArtworkSection extends StatelessWidget {
               offset: const Offset(0, 16),
             ),
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
+              color: PrismColors.scrim.withValues(alpha: 0.25),
               blurRadius: 22,
               offset: const Offset(0, 10),
             ),
@@ -72,10 +72,10 @@ class PlayerArtworkSection extends StatelessWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.72),
+                        color: PrismColors.scrim.withValues(alpha: 0.72),
                         borderRadius: BorderRadius.circular(PrismRadius.pill),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.15),
+                          color: PrismColors.onScrim.withValues(alpha: 0.15),
                         ),
                       ),
                       child: Row(

@@ -158,6 +158,7 @@ class _AlbumPageState extends State<AlbumPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final songs = _songs;
     final artworkUrl = _artworkUrl;
 
@@ -190,8 +191,8 @@ class _AlbumPageState extends State<AlbumPage> {
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
                               colors: [
-                                Colors.black.withValues(alpha: 0.35),
-                                Colors.black.withValues(alpha: 0.65),
+                                PrismColors.scrim.withValues(alpha: 0.5),
+                                PrismColors.scrimHeavy,
                                 theme.colorScheme.surface.withValues(alpha: 0.95),
                                 theme.colorScheme.surface,
                               ],
@@ -218,7 +219,7 @@ class _AlbumPageState extends State<AlbumPage> {
                               tooltip: 'Back',
                               onPressed: () => Navigator.of(context).maybePop(),
                               icon: const Icon(Icons.arrow_back_rounded,
-                                  color: Colors.white),
+                                  color: PrismColors.onScrim),
                             ),
                             const Spacer(),
                             if (songs.isNotEmpty) ...[
@@ -233,7 +234,7 @@ class _AlbumPageState extends State<AlbumPage> {
                                   showPrismToast(context, 'Downloading ${songs.length} tracks…');
                                 },
                                 icon: const Icon(Icons.download_rounded,
-                                    color: Colors.white),
+                                    color: PrismColors.onScrim),
                               ),
                               IconButton(
                                 tooltip: 'Share',
@@ -243,7 +244,7 @@ class _AlbumPageState extends State<AlbumPage> {
                                   }
                                 },
                                 icon: const Icon(Icons.share_rounded,
-                                    color: Colors.white),
+                                    color: PrismColors.onScrim),
                               ),
                             ],
                           ],
@@ -256,9 +257,7 @@ class _AlbumPageState extends State<AlbumPage> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.headlineMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.6,
+                            color: PrismColors.onScrim,
                             height: 1.15,
                           ),
                         ),
@@ -269,19 +268,23 @@ class _AlbumPageState extends State<AlbumPage> {
                           children: [
                             CircleAvatar(
                               radius: 12,
-                              backgroundColor: Colors.white24,
-                              child: const Icon(Icons.person_rounded,
-                                  size: 15, color: Colors.white),
+                              backgroundColor: PrismColors.onScrim
+                                  .withValues(alpha: 0.24),
+                              child: Icon(
+                                Icons.person_rounded,
+                                size: PrismIconSize.sm - 1,
+                                color: PrismColors.onScrim,
+                              ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: PrismSpacing.sm),
                             Expanded(
                               child: Text(
                                 _album.artist,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.9),
-                                  fontWeight: FontWeight.w600,
+                                  color: PrismColors.onScrim
+                                      .withValues(alpha: 0.9),
                                 ),
                               ),
                             ),
@@ -292,9 +295,10 @@ class _AlbumPageState extends State<AlbumPage> {
                         // Format & Year
                         Text(
                           '$_formatType • ${_album.year ?? 2026}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.white70,
-                            fontWeight: FontWeight.w500,
+                          style: PrismText.tabular(
+                            theme.textTheme.bodySmall?.copyWith(
+                              color: PrismColors.onScrim.withValues(alpha: 0.7),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 14),
@@ -322,11 +326,13 @@ class _AlbumPageState extends State<AlbumPage> {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 14, vertical: 7),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.14),
+                                  color: PrismColors.onScrim
+                                      .withValues(alpha: 0.14),
                                   borderRadius:
                                       BorderRadius.circular(PrismRadius.pill),
                                   border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.2),
+                                    color: PrismColors.onScrim
+                                        .withValues(alpha: 0.2),
                                   ),
                                 ),
                                 child: Row(
@@ -335,19 +341,18 @@ class _AlbumPageState extends State<AlbumPage> {
                                     Icon(
                                       inLibrary
                                           ? Icons.bookmark_added_rounded
-                                          : Icons.bookmark_add_outlined,
-                                      size: 16,
-                                      color: Colors.white,
+                                          : Icons.bookmark_add_rounded,
+                                      size: PrismIconSize.sm,
+                                      color: PrismColors.onScrim,
                                     ),
-                                    const SizedBox(width: 6),
+                                    const SizedBox(width: PrismSpacing.xs + 2),
                                     Text(
                                       inLibrary
                                           ? 'Added to library'
-                                          : '+ Add to library',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
+                                          : 'Add to library',
+                                      style: theme.textTheme.labelMedium
+                                          ?.copyWith(
+                                        color: PrismColors.onScrim,
                                       ),
                                     ),
                                   ],
@@ -368,38 +373,35 @@ class _AlbumPageState extends State<AlbumPage> {
                                 child: Container(
                                   height: 48,
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: scheme.onSurface,
                                     borderRadius:
                                         BorderRadius.circular(PrismRadius.pill),
                                     boxShadow: [
                                       BoxShadow(
-                                        color:
-                                            Colors.black.withValues(alpha: 0.2),
+                                        color: PrismColors.scrim,
                                         blurRadius: 10,
                                         offset: const Offset(0, 3),
                                       ),
                                     ],
                                   ),
-                                  child: const Row(
+                                  child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Icon(Icons.play_arrow_rounded,
-                                          color: Colors.black, size: 24),
-                                      SizedBox(width: 6),
+                                          color: scheme.surface,
+                                          size: PrismIconSize.lg),
+                                      const SizedBox(width: PrismSpacing.xs + 2),
                                       Text(
                                         'Play',
-                                        style: TextStyle(
-                                          color: Colors.black,
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w700,
-                                        ),
+                                        style: theme.textTheme.titleSmall
+                                            ?.copyWith(color: scheme.surface),
                                       ),
                                     ],
                                   ),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: PrismSpacing.md),
 
                             // Shuffle Capsule (Dark Translucent)
                             Expanded(
@@ -408,26 +410,27 @@ class _AlbumPageState extends State<AlbumPage> {
                                 child: Container(
                                   height: 48,
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.15),
+                                    color: PrismColors.onScrim
+                                        .withValues(alpha: 0.15),
                                     borderRadius:
                                         BorderRadius.circular(PrismRadius.pill),
                                     border: Border.all(
-                                      color:
-                                          Colors.white.withValues(alpha: 0.25),
+                                      color: PrismColors.onScrim
+                                          .withValues(alpha: 0.25),
                                     ),
                                   ),
-                                  child: const Row(
+                                  child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Icon(Icons.shuffle_rounded,
-                                          color: Colors.white, size: 20),
-                                      SizedBox(width: 6),
+                                          color: PrismColors.onScrim,
+                                          size: PrismIconSize.md),
+                                      const SizedBox(width: PrismSpacing.xs + 2),
                                       Text(
                                         'Shuffle',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w700,
+                                        style: theme.textTheme.titleSmall
+                                            ?.copyWith(
+                                          color: PrismColors.onScrim,
                                         ),
                                       ),
                                     ],

@@ -27,7 +27,7 @@ class OfflineBanner extends StatelessWidget {
         final scheme = theme.colorScheme;
 
         return AnimatedSize(
-          duration: const Duration(milliseconds: 280),
+          duration: PrismMotion.baseOf(context),
           curve: Curves.easeInOutCubic,
           alignment: Alignment.topCenter,
           child: isOffline

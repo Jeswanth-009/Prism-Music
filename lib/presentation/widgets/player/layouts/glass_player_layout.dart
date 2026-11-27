@@ -7,6 +7,7 @@ import '../player_action_bar.dart';
 import '../player_controls_section.dart';
 import '../player_metadata_row.dart';
 import '../waveform_scrubber.dart';
+import '../../../theme/prism_theme.dart';
 
 /// Frosted glass player layout with deep Gaussian blur and glowing control deck.
 class GlassPlayerLayout extends StatelessWidget {
@@ -48,10 +49,10 @@ class GlassPlayerLayout extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
+                    color: PrismColors.onScrim.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(28),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.15),
+                      color: PrismColors.onScrim.withValues(alpha: 0.15),
                       width: 1.5,
                     ),
                   ),
@@ -80,7 +81,7 @@ class GlassPlayerLayout extends StatelessWidget {
                                 end: Alignment.bottomCenter,
                                 colors: [
                                   Colors.transparent,
-                                  Colors.black.withOpacity(0.4),
+                                  PrismColors.scrim.withValues(alpha: 0.4),
                                 ],
                               ),
                             ),
@@ -102,10 +103,10 @@ class GlassPlayerLayout extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.06),
+                    color: PrismColors.onScrim.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.12),
+                      color: PrismColors.onScrim.withValues(alpha: 0.12),
                       width: 1.0,
                     ),
                   ),
@@ -134,10 +135,10 @@ class GlassPlayerLayout extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
+                    color: PrismColors.onScrim.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.15),
+                      color: PrismColors.onScrim.withValues(alpha: 0.15),
                       width: 1.2,
                     ),
                   ),

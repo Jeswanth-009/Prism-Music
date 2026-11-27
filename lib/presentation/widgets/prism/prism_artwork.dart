@@ -93,19 +93,23 @@ class _ArtworkFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final spec = context.prismSpec;
+    // A hairline-tinted surface keeps artwork slots quiet: the grid reads
+    // as texture, not as a wall of loud fallback tiles.
     return Container(
       width: double.infinity,
       height: double.infinity,
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHigh,
+        color: spec.skeletonBase,
+        border: Border.all(color: spec.hairline, width: 1),
         shape: isCircular ? BoxShape.circle : BoxShape.rectangle,
         borderRadius: isCircular ? null : BorderRadius.circular(borderRadius),
       ),
       alignment: Alignment.center,
       child: Icon(
         _icon,
-        color: scheme.onSurfaceVariant.withValues(alpha: .5),
+        size: PrismIconSize.lg,
+        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: .5),
       ),
     );
   }

@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../core/utils/media_share_helper.dart';
 import '../../../domain/entities/song.dart';
 import '../prism/prism_sheet.dart';
+import '../../theme/prism_theme.dart';
 
 /// Show the modern branded share sheet for a song or single
 Future<void> showMediaShareModal(BuildContext context, Song song) {
@@ -117,18 +118,18 @@ class _MediaShareModalState extends State<MediaShareModal> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Color(0xFF1E1E28),
-                      Color(0xFF121218),
+                      PrismColors.inkHigh,
+                      PrismColors.ink,
                     ],
                   ),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.12),
+                    color: PrismColors.onScrim.withValues(alpha: 0.12),
                     width: 1,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.6),
+                      color: PrismColors.scrim.withValues(alpha: 0.6),
                       blurRadius: 24,
                       offset: const Offset(0, 10),
                     ),
@@ -141,7 +142,7 @@ class _MediaShareModalState extends State<MediaShareModal> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: PrismColors.onScrim.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
@@ -198,7 +199,7 @@ class _MediaShareModalState extends State<MediaShareModal> {
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.7),
+                        color: PrismColors.onScrim.withValues(alpha: 0.7),
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -214,7 +215,7 @@ class _MediaShareModalState extends State<MediaShareModal> {
                           height: 14,
                           decoration: const BoxDecoration(
                             gradient: LinearGradient(
-                              colors: [Color(0xFF8A2BE2), Color(0xFF00ADB5)],
+                              colors: [PrismColors.dataViolet, PrismColors.dataTeal],
                             ),
                             shape: BoxShape.circle,
                           ),
@@ -285,7 +286,7 @@ class _MediaShareModalState extends State<MediaShareModal> {
               color: theme.colorScheme.surfaceContainerHigh,
               shape: BoxShape.circle,
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.1),
+                color: PrismColors.onScrim.withValues(alpha: 0.1),
               ),
             ),
             child: Icon(icon, color: Colors.white, size: 22),

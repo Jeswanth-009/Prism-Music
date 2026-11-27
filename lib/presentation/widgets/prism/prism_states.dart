@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/prism_theme.dart';
+
 /// Unified empty state.
 class PrismEmptyState extends StatelessWidget {
   const PrismEmptyState({
@@ -24,25 +26,40 @@ class PrismEmptyState extends StatelessWidget {
     final theme = Theme.of(context);
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(PrismSpacing.xxxl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 44,
-              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: .55),
+            // The icon sits in a quiet ring, sized to the role it plays:
+            // a placeholder glyph, not a shout.
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: context.prismSpec.hairline),
+                color: theme.colorScheme.surfaceContainer.withValues(
+                  alpha: 0.5,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                icon,
+                size: PrismIconSize.xl,
+                color:
+                    theme.colorScheme.onSurfaceVariant.withValues(alpha: .55),
+              ),
             ),
-            SizedBox(height: compact ? 10 : 16),
+            SizedBox(
+              height: compact ? PrismSpacing.md : PrismSpacing.lg,
+            ),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: theme.textTheme.titleMedium,
             ),
             if (hint != null) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: PrismSpacing.xs + 2),
               Text(
                 hint!,
                 textAlign: TextAlign.center,
@@ -52,8 +69,11 @@ class PrismEmptyState extends StatelessWidget {
               ),
             ],
             if (actionLabel != null) ...[
-              const SizedBox(height: 18),
-              FilledButton.tonal(onPressed: onAction, child: Text(actionLabel!)),
+              const SizedBox(height: PrismSpacing.lg + 2),
+              FilledButton.tonal(
+                onPressed: onAction,
+                child: Text(actionLabel!),
+              ),
             ],
           ],
         ),
@@ -80,24 +100,35 @@ class PrismErrorState extends StatelessWidget {
     final theme = Theme.of(context);
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(PrismSpacing.xxxl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.cloud_off_outlined,
-              size: 44,
-              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: .55),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              title ?? 'Could not load music',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: context.prismSpec.hairline),
+                color: theme.colorScheme.surfaceContainer.withValues(
+                  alpha: 0.5,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                Icons.cloud_off_rounded,
+                size: PrismIconSize.xl,
+                color:
+                    theme.colorScheme.onSurfaceVariant.withValues(alpha: .55),
               ),
             ),
+            const SizedBox(height: PrismSpacing.lg),
+            Text(
+              title ?? 'Could not load music',
+              style: theme.textTheme.titleMedium,
+            ),
             if (message != null) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: PrismSpacing.xs + 2),
               Text(
                 message!,
                 maxLines: 3,
@@ -108,7 +139,7 @@ class PrismErrorState extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: 18),
+            const SizedBox(height: PrismSpacing.lg + 2),
             FilledButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded),

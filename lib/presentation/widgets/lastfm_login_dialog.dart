@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/prism_theme.dart';
 
 class LastFmLoginDialog extends StatefulWidget {
   final Function(String username, String password) onLogin;
@@ -49,7 +50,7 @@ class _LastFmLoginDialogState extends State<LastFmLoginDialog> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFFD51007),
+              color: PrismColors.brandLastfm,
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(Icons.music_note_rounded,

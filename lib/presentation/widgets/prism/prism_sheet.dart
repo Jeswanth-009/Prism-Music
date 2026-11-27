@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/prism_theme.dart';
+
 /// Styled bottom sheet — wraps content safely for keyboard insets and large text.
 Future<T?> showPrismSheet<T>({
   required BuildContext context,
@@ -13,7 +15,7 @@ Future<T?> showPrismSheet<T>({
     useSafeArea: useSafeArea,
     backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(PrismRadius.xl)),
     ),
     builder: (sheetContext) => SafeArea(
       child: Padding(
@@ -57,11 +59,8 @@ class PrismSheetAction extends StatelessWidget {
 
     return ListTile(
       onTap: onTap,
-      leading: Icon(icon, color: color),
-      title: Text(
-        label,
-        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w500),
-      ),
+      leading: Icon(icon, size: PrismIconSize.lg, color: color),
+      title: Text(label, style: theme.textTheme.titleSmall),
       subtitle: subtitle != null
           ? Text(
               subtitle!,
@@ -71,7 +70,9 @@ class PrismSheetAction extends StatelessWidget {
             )
           : null,
       trailing: trailing,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(PrismRadius.md),
+      ),
     );
   }
 }

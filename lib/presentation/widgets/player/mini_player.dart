@@ -58,7 +58,7 @@ class MiniPlayer extends StatelessWidget {
                 border: Border.all(color: context.prismSpec.hairline),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.16),
+                    color: PrismColors.scrim.withValues(alpha: 0.16),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
@@ -103,11 +103,7 @@ class MiniPlayer extends StatelessWidget {
                                           song.title,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: theme.textTheme.titleSmall
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.w600,
-                                                letterSpacing: -0.2,
-                                              ),
+                                          style: theme.textTheme.titleMedium,
                                         ),
                                       ),
                                       if (state.repeatMode != RepeatMode.off ||
@@ -130,7 +126,7 @@ class MiniPlayer extends StatelessWidget {
                                               if (state.isShuffleEnabled) ...[
                                                 Icon(
                                                   Icons.shuffle_rounded,
-                                                  size: 11,
+                                                  size: PrismIconSize.xs,
                                                   color: scheme
                                                       .onPrimaryContainer,
                                                 ),
@@ -142,7 +138,7 @@ class MiniPlayer extends StatelessWidget {
                                                   RepeatMode.one)
                                                 Icon(
                                                   Icons.repeat_one_rounded,
-                                                  size: 11,
+                                                  size: PrismIconSize.xs,
                                                   color: scheme
                                                       .onPrimaryContainer,
                                                 )
@@ -150,7 +146,7 @@ class MiniPlayer extends StatelessWidget {
                                                   RepeatMode.all)
                                                 Icon(
                                                   Icons.repeat_rounded,
-                                                  size: 11,
+                                                  size: PrismIconSize.xs,
                                                   color: scheme
                                                       .onPrimaryContainer,
                                                 ),
@@ -170,7 +166,6 @@ class MiniPlayer extends StatelessWidget {
                                       overflow: TextOverflow.ellipsis,
                                       style: theme.textTheme.bodySmall?.copyWith(
                                         color: scheme.error,
-                                        fontWeight: FontWeight.w500,
                                       ),
                                     )
                                   else if (state.status == PlayerStatus.completed)
@@ -180,7 +175,6 @@ class MiniPlayer extends StatelessWidget {
                                       overflow: TextOverflow.ellipsis,
                                       style: theme.textTheme.bodySmall?.copyWith(
                                         color: scheme.primary,
-                                        fontWeight: FontWeight.w600,
                                       ),
                                     )
                                   else if (state.isLoading &&
@@ -203,7 +197,6 @@ class MiniPlayer extends StatelessWidget {
                                             style: theme.textTheme.bodySmall
                                                 ?.copyWith(
                                                   color: scheme.primary,
-                                                  fontWeight: FontWeight.w600,
                                                 ),
                                           ),
                                         ),
@@ -233,12 +226,11 @@ class MiniPlayer extends StatelessWidget {
                                           const SizedBox(width: 4),
                                           Text(
                                             '· ${state.streamProvenanceLabel}',
-                                            style: theme.textTheme.labelSmall
-                                                ?.copyWith(
-                                                  color: scheme.primary,
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
+                                            style: PrismText.tabular(
+                                              theme.textTheme.labelSmall
+                                                  ?.copyWith(
+                                                color: scheme.primary,
+                                              )),
                                           ),
                                         ],
                                       ],

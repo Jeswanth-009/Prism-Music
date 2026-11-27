@@ -1,7 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../core/services/equalizer_service.dart';
 import '../../../core/models/reverb_preset.dart';
+import '../../theme/prism_theme.dart';
 import '../../../domain/entities/song.dart';
 
 /// Equalizer bottom sheet with presets and manual controls.
@@ -309,11 +312,18 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
 
             return Material(
               color: isSelected
-                  ? theme.colorScheme.primaryContainer
+                  ? context.prismSpec.accentSoft
                   : theme.colorScheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(PrismRadius.md),
+                side: BorderSide(
+                  color: isSelected
+                      ? theme.colorScheme.primary.withValues(alpha: 0.5)
+                      : context.prismSpec.hairline,
+                ),
+              ),
               child: InkWell(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(PrismRadius.md),
                 onTap: () async {
                   setState(() {
                     _selectedPreset = presetName;
@@ -335,9 +345,9 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
                         children: [
                           Icon(
                             _getPresetIcon(presetName),
-                            size: 18,
+                            size: PrismIconSize.sm + 2,
                             color: isSelected
-                                ? theme.colorScheme.onPrimaryContainer
+                                ? theme.colorScheme.primary
                                 : theme.colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: 8),
@@ -345,11 +355,8 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
                             child: Text(
                               presetName,
                               style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: isSelected
-                                    ? FontWeight.w700
-                                    : FontWeight.w600,
                                 color: isSelected
-                                    ? theme.colorScheme.onPrimaryContainer
+                                    ? theme.colorScheme.primary
                                     : theme.colorScheme.onSurface,
                               ),
                               maxLines: 1,
@@ -377,25 +384,19 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          _buildFrequencyBar(
-                              context, preset.bassBoost, isSelected),
-                          const SizedBox(width: 3),
-                          _buildFrequencyBar(
-                              context,
-                              (preset.bassBoost + preset.treble) / 2,
-                              isSelected),
-                          const SizedBox(width: 3),
-                          _buildFrequencyBar(
-                              context, preset.treble, isSelected),
-                          const SizedBox(width: 3),
-                          _buildFrequencyBar(context,
-                              preset.treble * 0.9, isSelected),
-                          const SizedBox(width: 3),
-                          _buildFrequencyBar(context,
-                              preset.bassBoost * 0.7, isSelected),
-                        ],
+                      SizedBox(
+                        height: 26,
+                        width: double.infinity,
+                        child: CustomPaint(
+                          painter: _EqCurvePainter(
+                            gains: preset.bandGains,
+                            bassBoost: preset.bassBoost,
+                            treble: preset.treble,
+                            color: isSelected
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -613,24 +614,6 @@ class _EqualizerBottomSheetState extends State<EqualizerBottomSheet>
     }
   }
 
-  Widget _buildFrequencyBar(
-      BuildContext context, double value, bool isSelected) {
-    final theme = Theme.of(context);
-    final height = (10 + (value * 25).clamp(0, 25)).toDouble();
-
-    return Expanded(
-      child: Container(
-        height: height,
-        decoration: BoxDecoration(
-          color: isSelected
-              ? theme.colorScheme.primary.withValues(alpha: 0.7)
-              : theme.colorScheme.onSurfaceVariant
-                  .withValues(alpha: 0.35),
-          borderRadius: BorderRadius.circular(2),
-        ),
-      ),
-    );
-  }
 }
 
 class _ManualSection extends StatelessWidget {
@@ -720,4 +703,100 @@ class _SliderRow extends StatelessWidget {
       ],
     );
   }
+}
+
+
+/// Smooth 10-band gain curve for a preset preview. Falls back to a bass/
+/// treble-derived arc when the preset carries no per-band gains.
+class _EqCurvePainter extends CustomPainter {
+  const _EqCurvePainter({
+    required this.gains,
+    required this.bassBoost,
+    required this.treble,
+    required this.color,
+  });
+
+  final List<double>? gains;
+  final double bassBoost;
+  final double treble;
+  final Color color;
+
+  static const _bandCount = 10;
+
+  List<double> get _values {
+    if (gains != null && gains!.length == _bandCount) {
+      return gains!;
+    }
+    // Derived shape: bass hump, mids flat, treble shoulder.
+    return [
+      bassBoost,
+      bassBoost * 0.85,
+      bassBoost * 0.55,
+      (bassBoost + treble) / 2 * 0.4,
+      0,
+      0,
+      treble * 0.5,
+      treble * 0.8,
+      treble,
+      treble * 0.9,
+    ];
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final values = _values;
+    final n = values.length;
+    final peak = values.fold(0.001, math.max);
+    final step = size.width / (n - 1);
+    final points = <Offset>[
+      for (var i = 0; i < n; i++)
+        Offset(
+          i * step,
+          size.height - 2 - (values[i] / peak) * (size.height - 6),
+        ),
+    ];
+
+    final fillPath = Path()
+      ..moveTo(0, size.height)
+      ..lineTo(points.first.dx, points.first.dy);
+    for (var i = 0; i < points.length - 1; i++) {
+      final a = points[i];
+      final b = points[i + 1];
+      final midX = (a.dx + b.dx) / 2;
+      fillPath.quadraticBezierTo(a.dx, a.dy, midX, (a.dy + b.dy) / 2);
+    }
+    fillPath
+      ..lineTo(size.width, size.height)
+      ..close();
+
+    canvas.drawPath(
+      fillPath,
+      Paint()
+        ..color = color.withValues(alpha: 0.18)
+        ..style = PaintingStyle.fill,
+    );
+    final linePath = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var i = 0; i < points.length - 1; i++) {
+      final a = points[i];
+      final b = points[i + 1];
+      final midX = (a.dx + b.dx) / 2;
+      linePath.quadraticBezierTo(a.dx, a.dy, midX, (a.dy + b.dy) / 2);
+    }
+    linePath.lineTo(points.last.dx, points.last.dy);
+    canvas.drawPath(
+      linePath,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_EqCurvePainter oldDelegate) =>
+      oldDelegate.gains != gains ||
+      oldDelegate.bassBoost != bassBoost ||
+      oldDelegate.treble != treble ||
+      oldDelegate.color != color;
 }

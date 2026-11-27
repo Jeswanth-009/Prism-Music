@@ -113,11 +113,11 @@ class PrismRailSkeleton extends StatelessWidget {
         height: cardWidth + 44,
         child: ListView(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: PrismSpacing.gutter),
           physics: const NeverScrollableScrollPhysics(),
           children: List.generate(3, (i) {
             return Padding(
-              padding: EdgeInsets.only(right: i == 2 ? 0 : 14),
+              padding: EdgeInsets.only(right: i == 2 ? 0 : PrismSpacing.railGap),
               child: SizedBox(
                 width: cardWidth,
                 child: Column(
@@ -130,9 +130,9 @@ class PrismRailSkeleton extends StatelessWidget {
                         height: double.infinity,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: PrismSpacing.md),
                     const PrismSkeleton(width: 100, height: 12),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: PrismSpacing.xs + 2),
                     const PrismSkeleton(width: 60, height: 10),
                   ],
                 ),
@@ -158,8 +158,8 @@ class PrismListSkeleton extends StatelessWidget {
       child: Column(
         children: List.generate(count, (i) {
           return Padding(
-            padding: (padding ?? const EdgeInsets.symmetric(horizontal: 20))
-                .add(const EdgeInsets.only(bottom: 14)),
+            padding: (padding ?? const EdgeInsets.symmetric(horizontal: PrismSpacing.gutter))
+                .add(const EdgeInsets.only(bottom: PrismSpacing.md)),
             child: Row(
               children: [
                 PrismSkeleton(
@@ -167,7 +167,7 @@ class PrismListSkeleton extends StatelessWidget {
                   height: 48,
                   borderRadius: PrismRadius.sm,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: PrismSpacing.md),
                 const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

@@ -55,8 +55,8 @@ class _CrossfadeVisualizerBadgeState extends State<CrossfadeVisualizerBadge>
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [
-                      Color(0xFF8B7BFF),
-                      Color(0xFF6355E8),
+                      PrismColors.accentDark,
+                      PrismColors.accentLight,
                     ],
                   ),
                   borderRadius: BorderRadius.circular(12),

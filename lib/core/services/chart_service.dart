@@ -196,6 +196,16 @@ class ChartService {
 
   /// Fetch certified official songs for a specific chart.
   /// Falls back to resilient search query when direct official endpoints fail or in offline/test environments.
+  /// Artwork of a cached chart's current #1 track, without any network.
+  /// Used for cover art before a resolver fetch would be worth starting.
+  String? peekCachedTopArtwork(ChartDefinition chart) {
+    final cached = _chartCache[chart.id];
+    if (cached == null || cached.songs.isEmpty) return null;
+    return cached.songs.first.thumbnails.max ??
+        cached.songs.first.thumbnails.high ??
+        cached.songs.first.thumbnailUrl;
+  }
+
   Future<List<Song>> getChartSongs(ChartDefinition chart) async {
     // Check cache first
     final cached = _chartCache[chart.id];

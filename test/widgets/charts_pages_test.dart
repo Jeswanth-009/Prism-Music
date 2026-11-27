@@ -33,9 +33,11 @@ void main() {
     await tester.pumpWidget(wrapForTests(const ChartsHubPage()));
     await tester.pump();
 
-    expect(find.text('Billboard Hot 100'), findsOneWidget);
-    expect(find.text('Spotify Global Top 50'), findsOneWidget);
-    expect(find.text('Apple Music Top 100 (United States)'), findsOneWidget);
+    // Flagship charts render twice: once in the featured strip, once in
+    // the provider-grouped leaderboard.
+    expect(find.text('Billboard Hot 100'), findsWidgets);
+    expect(find.text('Spotify Global Top 50'), findsWidgets);
+    expect(find.text('Apple Music Top 100 (United States)'), findsWidgets);
     // Source labels appear per card.
     expect(find.text('Billboard'), findsWidgets);
     expect(find.text('Spotify'), findsWidgets);

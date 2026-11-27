@@ -88,7 +88,7 @@ class PrismUpdateDialog extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
+                color: PrismColors.scrim.withValues(alpha: 0.35),
                 blurRadius: 32,
                 offset: const Offset(0, 14),
               ),

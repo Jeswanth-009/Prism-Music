@@ -29,9 +29,8 @@ class GenreDetailPage extends StatelessWidget {
                 flexibleSpace: FlexibleSpaceBar(
                   title: Text(
                     genre.name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -0.5,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: PrismColors.onScrim,
                     ),
                   ),
                   background: Stack(
@@ -42,7 +41,15 @@ class GenreDetailPage extends StatelessWidget {
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: genre.gradient,
+                            colors: [
+                              Color.alphaBlend(
+                                genre.gradient.first.withValues(alpha: 0.30),
+                                isDark
+                                    ? PrismColors.ink
+                                    : PrismColors.paper,
+                              ),
+                              isDark ? PrismColors.ink : PrismColors.paper,
+                            ],
                           ),
                         ),
                       ),
@@ -53,7 +60,7 @@ class GenreDetailPage extends StatelessWidget {
                             end: Alignment.bottomCenter,
                             colors: [
                               Colors.transparent,
-                              Colors.black.withOpacity(0.65),
+                              PrismColors.scrim,
                             ],
                           ),
                         ),
@@ -64,7 +71,7 @@ class GenreDetailPage extends StatelessWidget {
                         child: Icon(
                           genre.icon,
                           size: 96,
-                          color: Colors.white.withOpacity(0.22),
+                          color: genre.gradient.first.withValues(alpha: 0.20),
                         ),
                       ),
                     ],
@@ -89,15 +96,13 @@ class GenreDetailPage extends StatelessWidget {
                         children: [
                           Icon(
                             Icons.queue_music_rounded,
-                            size: 20,
-                            color: PrismColors.accentDark,
+                            size: PrismIconSize.md,
+                            color: theme.colorScheme.primary,
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: PrismSpacing.sm),
                           Text(
                             'Curated Playlists',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: theme.textTheme.titleMedium,
                           ),
                           const Spacer(),
                           Text(
@@ -145,34 +150,29 @@ class GenreDetailPage extends StatelessWidget {
                         },
                         child: Container(
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: playlist.gradient,
+                            color: Color.alphaBlend(
+                              playlist.gradient.first.withValues(alpha: 0.14),
+                              theme.colorScheme.surfaceContainer,
                             ),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: playlist.gradient.first.withOpacity(0.3),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
+                            borderRadius:
+                                BorderRadius.circular(PrismRadius.lg),
+                            border: Border.all(color: context.prismSpec.hairline),
                           ),
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(PrismSpacing.lg),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(8),
+                                padding: const EdgeInsets.all(PrismSpacing.sm),
                                 decoration: BoxDecoration(
-                                  color: Colors.black26,
+                                  color: playlist.gradient.first
+                                      .withValues(alpha: 0.16),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
                                   playlist.icon,
-                                  color: Colors.white,
-                                  size: 22,
+                                  color: playlist.gradient.first,
+                                  size: PrismIconSize.lg,
                                 ),
                               ),
                               const Spacer(),
@@ -180,19 +180,13 @@ class GenreDetailPage extends StatelessWidget {
                                 playlist.name,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: -0.2,
-                                ),
+                                style: theme.textTheme.titleSmall,
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: PrismSpacing.xs),
                               Text(
                                 playlist.category,
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 11,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ],

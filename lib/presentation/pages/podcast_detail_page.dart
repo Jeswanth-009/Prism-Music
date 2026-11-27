@@ -102,81 +102,114 @@ class _PodcastDetailPageState extends State<PodcastDetailPage> {
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: widget.podcast.artworkUrl.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: widget.podcast.artworkUrl,
-                                width: 110,
-                                height: 110,
-                                fit: BoxFit.cover,
-                                placeholder: (_, __) => Container(color: Colors.white10),
-                                errorWidget: (_, __, ___) => Container(
-                                  color: Colors.white10,
-                                  child: const Icon(Icons.podcasts_rounded, size: 36),
+                  padding: const EdgeInsets.fromLTRB(
+                    PrismSpacing.gutter,
+                    PrismSpacing.sm,
+                    PrismSpacing.gutter,
+                    PrismSpacing.lg,
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(PrismSpacing.lg),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainer,
+                      borderRadius: BorderRadius.circular(PrismRadius.xl),
+                      border: Border.all(color: context.prismSpec.hairline),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(PrismRadius.lg),
+                          child: widget.podcast.artworkUrl.isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: widget.podcast.artworkUrl,
+                                  width: 104,
+                                  height: 104,
+                                  fit: BoxFit.cover,
+                                  placeholder: (_, __) => Container(
+                                    color: theme
+                                        .colorScheme.surfaceContainerHigh,
+                                  ),
+                                  errorWidget: (_, __, ___) => Container(
+                                    color:
+                                        theme.colorScheme.surfaceContainerHigh,
+                                    child: Icon(
+                                      Icons.podcasts_rounded,
+                                      size: PrismIconSize.xl,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                )
+                              : Container(
+                                  width: 104,
+                                  height: 104,
+                                  color:
+                                      theme.colorScheme.surfaceContainerHigh,
+                                  child: Icon(
+                                    Icons.podcasts_rounded,
+                                    size: PrismIconSize.xl,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
-                              )
-                            : Container(
-                                width: 110,
-                                height: 110,
-                                color: Colors.white10,
-                                child: const Icon(Icons.podcasts_rounded, size: 36),
-                              ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.podcast.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              widget.podcast.author,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            ElevatedButton.icon(
-                              onPressed: _toggleSubscription,
-                              icon: Icon(
-                                _isSubscribed ? Icons.check_rounded : Icons.bookmark_add_outlined,
-                                size: 16,
-                              ),
-                              label: Text(_isSubscribed ? 'Subscribed' : 'Subscribe'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _isSubscribed
-                                    ? Colors.white12
-                                    : PrismColors.accentDark,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              ),
-                            ),
-                          ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: PrismSpacing.lg),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.podcast.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleLarge,
+                              ),
+                              const SizedBox(height: PrismSpacing.xs),
+                              Text(
+                                widget.podcast.author,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: PrismSpacing.md),
+                              FilledButton.icon(
+                                onPressed: _toggleSubscription,
+                                icon: Icon(
+                                  _isSubscribed
+                                      ? Icons.check_rounded
+                                      : Icons.bookmark_add_rounded,
+                                  size: PrismIconSize.sm,
+                                ),
+                                label: Text(
+                                    _isSubscribed ? 'Subscribed' : 'Subscribe'),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: _isSubscribed
+                                      ? theme.colorScheme.surfaceContainerHigh
+                                      : theme.colorScheme.primary,
+                                  foregroundColor: _isSubscribed
+                                      ? theme.colorScheme.onSurface
+                                      : context.prismSpec.onAccent,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: PrismSpacing.lg,
+                                    vertical: PrismSpacing.xs + 2,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
               if (widget.podcast.description.isNotEmpty)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: PrismSpacing.gutter,
+                    ),
                     child: Text(
                       widget.podcast.description,
                       maxLines: 3,
@@ -195,8 +228,8 @@ class _PodcastDetailPageState extends State<PodcastDetailPage> {
                     children: [
                       Text(
                         'Episodes',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
+                        style: PrismText.overline(context)?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                       const Spacer(),
@@ -256,7 +289,7 @@ class _PodcastDetailPageState extends State<PodcastDetailPage> {
 
                       return Container(
                         decoration: BoxDecoration(
-                          color: isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.03),
+                          color: isDark ? PrismColors.onScrim.withValues(alpha: 0.04) : PrismColors.scrim.withValues(alpha: 0.03),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: ListTile(

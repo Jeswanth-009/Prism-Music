@@ -93,7 +93,7 @@ class DailyMixPage extends StatelessWidget {
                               Text(
                                 mix.title,
                                 style: theme.textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -123,7 +123,10 @@ class DailyMixPage extends StatelessWidget {
                           child: FilledButton.icon(
                             style: FilledButton.styleFrom(
                               backgroundColor: mix.primaryAccent,
-                              foregroundColor: Colors.white,
+                              foregroundColor:
+                                  PrismColors.onColor(
+                                Theme.of(context).colorScheme.primary,
+                              ),
                             ),
                             onPressed: mix.songs.isEmpty ? null : () => _play(context, 0),
                             icon: const Icon(Icons.play_arrow_rounded),

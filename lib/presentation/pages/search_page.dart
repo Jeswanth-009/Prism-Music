@@ -403,9 +403,7 @@ class _SearchPageState extends State<SearchPage> {
                   artist.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: Theme.of(context).textTheme.titleSmall,
                 ),
                 subtitle: const Text('Artist'),
               );
@@ -501,9 +499,7 @@ class _SearchPageState extends State<SearchPage> {
                   playlist.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: Theme.of(context).textTheme.titleSmall,
                 ),
                 subtitle: Text('${playlist.trackCount} tracks'),
               );
@@ -639,9 +635,7 @@ class _SearchPageState extends State<SearchPage> {
                 artist.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                style: Theme.of(context).textTheme.titleSmall,
               ),
               subtitle: const Text('Artist'),
             );
@@ -753,9 +747,7 @@ class _SearchPageState extends State<SearchPage> {
                 playlist.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                style: Theme.of(context).textTheme.titleSmall,
               ),
               subtitle: Text('${playlist.trackCount} tracks'),
             );
@@ -839,36 +831,39 @@ class _SearchPageState extends State<SearchPage> {
                           ),
                           Center(
                             child: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.65),
+                              padding: const EdgeInsets.all(PrismSpacing.md - 2),
+                              decoration: const BoxDecoration(
+                                color: PrismColors.scrim,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.play_arrow_rounded,
-                                color: Colors.white,
-                                size: 30,
+                                color: PrismColors.onColor(PrismColors.scrim),
+                                size: PrismIconSize.xl - 2,
                               ),
                             ),
                           ),
                           Positioned(
-                            right: 8,
-                            bottom: 8,
+                            right: PrismSpacing.sm,
+                            bottom: PrismSpacing.sm,
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
+                                horizontal: PrismSpacing.xs + 2,
+                                vertical: PrismSpacing.xxs,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.8),
+                                color: PrismColors.scrimHeavy,
                                 borderRadius:
                                     BorderRadius.circular(PrismRadius.xs),
                               ),
                               child: Text(
                                 video.durationFormatted,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
+                                style: PrismText.tabular(
+                                  theme.textTheme.labelSmall?.copyWith(
+                                    color: PrismColors.onColor(
+                                      PrismColors.scrimHeavy,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -888,11 +883,9 @@ class _SearchPageState extends State<SearchPage> {
                                   video.title,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                  style: theme.textTheme.titleSmall,
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: PrismSpacing.xs),
                                 Row(
                                   children: [
                                     Expanded(
@@ -921,12 +914,12 @@ class _SearchPageState extends State<SearchPage> {
                                       ),
                                       child: Text(
                                         'YouTube · Video',
-                                        style: theme.textTheme.labelSmall
-                                            ?.copyWith(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w600,
-                                          color: theme
-                                              .colorScheme.onPrimaryContainer,
+                                        style: PrismText.tabular(
+                                          theme.textTheme.labelSmall
+                                              ?.copyWith(
+                                            color: theme
+                                                .colorScheme.onPrimaryContainer,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -1037,7 +1030,7 @@ class _AlbumGridCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(PrismRadius.lg),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: .18),
+                    color: PrismColors.scrim.withValues(alpha: .18),
                     blurRadius: 14,
                     offset: const Offset(0, 6),
                   ),
@@ -1061,9 +1054,7 @@ class _AlbumGridCard extends StatelessWidget {
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: theme.textTheme.titleSmall,
           ),
           Text(
             subtitle,

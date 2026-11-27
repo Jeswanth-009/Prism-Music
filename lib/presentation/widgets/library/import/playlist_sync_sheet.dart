@@ -8,6 +8,7 @@ import '../../../blocs/library/library_bloc.dart';
 import '../../../blocs/library/library_event.dart';
 import '../../prism/prism_artwork.dart';
 import '../../prism/prism_sheet.dart';
+import '../../../theme/prism_theme.dart';
 
 /// Modal bottom sheet for comparing an imported Spotify or YouTube playlist
 /// with upstream changes, visualizing diffs, and applying updates atomically.
@@ -190,8 +191,8 @@ class _PlaylistSyncSheetState extends State<PlaylistSyncSheet> {
                       ? Icons.graphic_eq_rounded
                       : (isApple ? Icons.music_note_rounded : Icons.play_circle_fill),
                   color: isSpotify
-                      ? const Color(0xFF1DB954)
-                      : (isApple ? const Color(0xFFFC3C44) : const Color(0xFFFF0000)),
+                      ? PrismColors.brandSpotify
+                      : (isApple ? PrismColors.brandApple : PrismColors.brandYouTube),
                   size: 28,
                 ),
                 const SizedBox(width: 12),

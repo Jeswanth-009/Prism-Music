@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../domain/entities/song.dart';
 import '../../../blocs/library/library_bloc.dart';
+import '../../../theme/prism_theme.dart';
 import '../../../blocs/library/library_event.dart';
 import '../../../blocs/library/library_state.dart';
 import '../../../blocs/player/player_state.dart';
@@ -229,10 +230,10 @@ class _VinylPlayerLayoutState extends State<VinylPlayerLayout>
             height: diskSize + 12,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFF161619),
+              color: VinylHardware.platter,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.55),
+                  color: VinylHardware.platterShadow,
                   blurRadius: 26,
                   spreadRadius: 2,
                   offset: const Offset(0, 10),
@@ -250,15 +251,15 @@ class _VinylPlayerLayoutState extends State<VinylPlayerLayout>
                 shape: BoxShape.circle,
                 gradient: const RadialGradient(
                   colors: [
-                    Color(0xFF26262C),
-                    Color(0xFF141416),
-                    Color(0xFF1D1D21),
-                    Color(0xFF0F0F10),
+                    VinylHardware.discCore,
+                    VinylHardware.discMid,
+                    VinylHardware.discInner,
+                    VinylHardware.discEdge,
                   ],
                   stops: [0.0, 0.45, 0.85, 1.0],
                 ),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.08),
+                  color: PrismColors.onScrim.withValues(alpha: 0.08),
                   width: 1.5,
                 ),
               ),
@@ -272,7 +273,7 @@ class _VinylPlayerLayoutState extends State<VinylPlayerLayout>
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.05),
+                        color: PrismColors.onScrim.withValues(alpha: 0.05),
                         width: 1,
                       ),
                     ),
@@ -284,7 +285,7 @@ class _VinylPlayerLayoutState extends State<VinylPlayerLayout>
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.04),
+                        color: PrismColors.onScrim.withValues(alpha: 0.04),
                         width: 1,
                       ),
                     ),
@@ -296,7 +297,7 @@ class _VinylPlayerLayoutState extends State<VinylPlayerLayout>
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.05),
+                        color: PrismColors.onScrim.withValues(alpha: 0.05),
                         width: 1,
                       ),
                     ),
@@ -308,7 +309,7 @@ class _VinylPlayerLayoutState extends State<VinylPlayerLayout>
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: const Color(0xFFD4AF37).withValues(alpha: 0.6),
+                        color: VinylHardware.brass.withValues(alpha: 0.6),
                         width: 2,
                       ),
                     ),
@@ -327,14 +328,14 @@ class _VinylPlayerLayoutState extends State<VinylPlayerLayout>
                     height: 22,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF121214),
+                      color: VinylHardware.needlePost,
                       border: Border.all(
-                        color: const Color(0xFFD4AF37),
+                        color: VinylHardware.brass,
                         width: 2,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.7),
+                          color: PrismColors.scrim.withValues(alpha: 0.7),
                           blurRadius: 4,
                         ),
                       ],
@@ -395,15 +396,15 @@ class AudiophileTonearm extends StatelessWidget {
               width: 14,
               height: 18,
               decoration: BoxDecoration(
-                color: const Color(0xFF222226),
+                color: VinylHardware.tonearmBody,
                 borderRadius: BorderRadius.circular(3),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.12),
+                  color: PrismColors.onScrim.withValues(alpha: 0.12),
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.4),
+                    color: PrismColors.scrim.withValues(alpha: 0.4),
                     blurRadius: 4,
                     offset: const Offset(1, 1),
                   ),
@@ -414,7 +415,7 @@ class AudiophileTonearm extends StatelessWidget {
                   width: 6,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF141416),
+                    color: VinylHardware.discMid,
                     borderRadius: BorderRadius.circular(1.5),
                   ),
                 ),
@@ -446,21 +447,21 @@ class AudiophileTonearm extends StatelessWidget {
                           borderRadius: BorderRadius.circular(3),
                           gradient: const LinearGradient(
                             colors: [
-                              Color(0xFF6E6E78),
-                              Color(0xFF323238),
-                              Color(0xFF1C1C20),
-                              Color(0xFF4E4E56),
+                              VinylHardware.grooveLight,
+                              VinylHardware.grooveMid,
+                              VinylHardware.grooveDeep,
+                              VinylHardware.grooveSoft,
                             ],
                             begin: Alignment.centerLeft,
                             end: Alignment.centerRight,
                           ),
                           border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.15),
+                            color: PrismColors.onScrim.withValues(alpha: 0.15),
                             width: 0.8,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.5),
+                              color: PrismColors.scrim.withValues(alpha: 0.5),
                               blurRadius: 4,
                               offset: const Offset(1, 1),
                             ),
@@ -479,17 +480,17 @@ class AudiophileTonearm extends StatelessWidget {
                           borderRadius: BorderRadius.circular(2.5),
                           gradient: const LinearGradient(
                             colors: [
-                              Color(0xFFE8E8EE),
-                              Color(0xFFA8A8B2),
-                              Color(0xFF686870),
-                              Color(0xFF383840),
+                              VinylHardware.labelLight,
+                              VinylHardware.labelMid,
+                              VinylHardware.labelDark,
+                              VinylHardware.labelDeep,
                             ],
                             begin: Alignment.centerLeft,
                             end: Alignment.centerRight,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.45),
+                              color: PrismColors.scrim.withValues(alpha: 0.45),
                               blurRadius: 6,
                               offset: const Offset(2.5, 3),
                             ),
@@ -506,7 +507,7 @@ class AudiophileTonearm extends StatelessWidget {
                         width: 6,
                         height: 2.5,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFC0C0C8),
+                          color: VinylHardware.spindle,
                           borderRadius: BorderRadius.circular(1),
                         ),
                       ),
@@ -525,15 +526,15 @@ class AudiophileTonearm extends StatelessWidget {
                               width: 10,
                               height: 20,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1A1A1E),
+                                color: VinylHardware.tonearmHub,
                                 borderRadius: BorderRadius.circular(2.5),
                                 border: Border.all(
-                                  color: const Color(0xFFD4AF37).withValues(alpha: 0.8),
+                                  color: VinylHardware.brass.withValues(alpha: 0.8),
                                   width: 1,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.6),
+                                    color: PrismColors.scrim.withValues(alpha: 0.6),
                                     blurRadius: 4,
                                     offset: const Offset(1.5, 2),
                                   ),
@@ -543,7 +544,7 @@ class AudiophileTonearm extends StatelessWidget {
                                 child: Container(
                                   width: 2.5,
                                   height: 10,
-                                  color: const Color(0xFFD4AF37),
+                                  color: VinylHardware.brass,
                                 ),
                               ),
                             ),
@@ -552,11 +553,11 @@ class AudiophileTonearm extends StatelessWidget {
                               width: 2.5,
                               height: 4.5,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFF453A),
+                                color: VinylHardware.stopRed,
                                 borderRadius: BorderRadius.circular(1),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFFFF453A).withValues(alpha: 0.9),
+                                    color: VinylHardware.stopRed.withValues(alpha: 0.9),
                                     blurRadius: 3,
                                   ),
                                 ],
@@ -583,19 +584,19 @@ class AudiophileTonearm extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: const RadialGradient(
                   colors: [
-                    Color(0xFF5E5E68),
-                    Color(0xFF2C2C32),
-                    Color(0xFF141416),
+                    VinylHardware.sheenLight,
+                    VinylHardware.sheenMid,
+                    VinylHardware.discMid,
                   ],
                   stops: [0.0, 0.65, 1.0],
                 ),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.22),
+                  color: PrismColors.onScrim.withValues(alpha: 0.22),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.65),
+                    color: PrismColors.scrim.withValues(alpha: 0.65),
                     blurRadius: 8,
                     offset: const Offset(1, 3),
                   ),
@@ -607,9 +608,9 @@ class AudiophileTonearm extends StatelessWidget {
                   height: 11,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFFD4AF37).withValues(alpha: 0.8),
+                    color: VinylHardware.brass.withValues(alpha: 0.8),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.5),
+                      color: PrismColors.onScrim.withValues(alpha: 0.5),
                       width: 1,
                     ),
                   ),

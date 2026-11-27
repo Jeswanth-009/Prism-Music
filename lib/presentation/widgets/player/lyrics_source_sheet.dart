@@ -65,12 +65,12 @@ class LyricsSourceSheet extends StatelessWidget {
       builder: (context, scrollController) {
         return Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF13151A),
+            color: PrismColors.ink,
             borderRadius: const BorderRadius.vertical(
               top: Radius.circular(PrismRadius.xl),
             ),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.08),
+              color: PrismColors.onScrim.withValues(alpha: 0.08),
             ),
           ),
           child: Column(
@@ -82,7 +82,7 @@ class LyricsSourceSheet extends StatelessWidget {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.25),
+                    color: PrismColors.onScrim.withValues(alpha: 0.25),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -104,7 +104,7 @@ class LyricsSourceSheet extends StatelessWidget {
                     FilledButton.tonalIcon(
                       style: FilledButton.styleFrom(
                         visualDensity: VisualDensity.compact,
-                        backgroundColor: Colors.white.withValues(alpha: 0.08),
+                        backgroundColor: PrismColors.onScrim.withValues(alpha: 0.08),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       ),
@@ -127,7 +127,7 @@ class LyricsSourceSheet extends StatelessWidget {
                   child: Text(
                     'Re-download fetches $currentSourceName\'s lyrics again and replaces the saved copy',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.55),
+                      color: PrismColors.onScrim.withValues(alpha: 0.55),
                       height: 1.3,
                     ),
                   ),
@@ -146,10 +146,10 @@ class LyricsSourceSheet extends StatelessWidget {
                         children: [
                           Container(
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1B1E26),
+                              color: PrismColors.inkRaised,
                               borderRadius: BorderRadius.circular(PrismRadius.lg),
                               border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.06),
+                                color: PrismColors.onScrim.withValues(alpha: 0.06),
                               ),
                             ),
                             child: ClipRRect(
@@ -169,7 +169,7 @@ class LyricsSourceSheet extends StatelessWidget {
                                         Divider(
                                           height: 1,
                                           thickness: 1,
-                                          color: Colors.white.withValues(alpha: 0.05),
+                                          color: PrismColors.onScrim.withValues(alpha: 0.05),
                                         ),
                                       ListTile(
                                         contentPadding: const EdgeInsets.symmetric(
@@ -184,26 +184,26 @@ class LyricsSourceSheet extends StatelessWidget {
                                                 ? FontWeight.w700
                                                 : FontWeight.w500,
                                             color: isSelected
-                                                ? const Color(0xFF8AB4F8)
+                                                ? PrismColors.dataBlue
                                                 : (desc.isAvailable
                                                     ? Colors.white
-                                                    : Colors.white.withValues(alpha: 0.4)),
+                                                    : PrismColors.onScrim.withValues(alpha: 0.4)),
                                           ),
                                         ),
                                         subtitle: Text(
                                           desc.statusDescription,
                                           style: theme.textTheme.bodySmall?.copyWith(
                                             color: isSelected
-                                                ? const Color(0xFF8AB4F8).withValues(alpha: 0.8)
+                                                ? PrismColors.dataBlue.withValues(alpha: 0.8)
                                                 : (desc.isAvailable
-                                                    ? Colors.white.withValues(alpha: 0.55)
-                                                    : Colors.white.withValues(alpha: 0.3)),
+                                                    ? PrismColors.onScrim.withValues(alpha: 0.55)
+                                                    : PrismColors.onScrim.withValues(alpha: 0.3)),
                                           ),
                                         ),
                                         trailing: isSelected
                                             ? const Icon(
                                                 Icons.check_rounded,
-                                                color: Color(0xFF8AB4F8),
+                                                color: PrismColors.dataBlue,
                                                 size: 22,
                                               )
                                             : null,
@@ -234,9 +234,9 @@ class LyricsSourceSheet extends StatelessWidget {
                     width: double.infinity,
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1B1E26),
+                        backgroundColor: PrismColors.inkRaised,
                         side: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.1),
+                          color: PrismColors.onScrim.withValues(alpha: 0.1),
                         ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(PrismRadius.md),

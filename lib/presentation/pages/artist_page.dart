@@ -279,8 +279,8 @@ class _ArtistPageState extends State<ArtistPage> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withValues(alpha: 0.25),
-                    Colors.black.withValues(alpha: 0.65),
+                    PrismColors.scrim.withValues(alpha: 0.5),
+                    PrismColors.scrimHeavy,
                   ],
                 ),
               ),
@@ -318,15 +318,17 @@ class _ArtistPageState extends State<ArtistPage> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.verified_rounded, size: 10, color: Colors.white),
-                                const SizedBox(width: 3),
+                                Icon(
+                                  Icons.verified_rounded,
+                                  size: PrismIconSize.xs - 4,
+                                  color: context.prismSpec.onAccent,
+                                ),
+                                const SizedBox(width: PrismSpacing.xxs + 1),
                                 Text(
                                   'VERIFIED ARTIST',
-                                  style: theme.textTheme.labelSmall?.copyWith(
+                                  style: PrismText.overline(context)?.copyWith(
                                     fontSize: 9,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                    letterSpacing: 0.5,
+                                    color: context.prismSpec.onAccent,
                                   ),
                                 ),
                               ],
@@ -335,10 +337,8 @@ class _ArtistPageState extends State<ArtistPage> {
                           const SizedBox(height: 4),
                           Text(
                             artist.name,
-                            style: theme.textTheme.titleLarge
-                                ?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              color: PrismColors.onScrim,
                             ),
                           ),
                           if (artist.description != null &&
@@ -352,7 +352,9 @@ class _ArtistPageState extends State<ArtistPage> {
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.bodyMedium
                                     ?.copyWith(
-                                        color: Colors.white70),
+                                  color: PrismColors.onScrim
+                                      .withValues(alpha: 0.70),
+                                ),
                               ),
                             ),
                         ],
@@ -368,8 +370,8 @@ class _ArtistPageState extends State<ArtistPage> {
                                 : Icons.favorite_outline_rounded,
                             color: isFavorite
                                 ? theme.colorScheme.primary
-                                : Colors.white,
-                            size: 24,
+                                : PrismColors.onScrim,
+                            size: PrismIconSize.lg,
                           ),
                           tooltip: isFavorite
                               ? 'Remove from favorites'

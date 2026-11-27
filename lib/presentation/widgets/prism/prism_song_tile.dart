@@ -44,6 +44,7 @@ class PrismSongTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final spec = context.prismSpec;
     final accent = isPlaying ? spec.accent : null;
 
@@ -56,7 +57,10 @@ class PrismSongTile extends StatelessWidget {
         onLongPress: onLongPress ?? () => showPrismSongActions(context, song),
         borderRadius: BorderRadius.circular(PrismRadius.md),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(
+            horizontal: PrismSpacing.md,
+            vertical: PrismSpacing.sm,
+          ),
           child: Row(
             children: [
               if (numbered && index != null) ...[
@@ -64,17 +68,14 @@ class PrismSongTile extends StatelessWidget {
                   width: 26,
                   child: Text(
                     '${index! + 1}',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: accent ??
-                          theme.colorScheme.onSurfaceVariant.withValues(
-                            alpha: .8,
-                          ),
-                      fontWeight: FontWeight.w700,
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                    style: PrismText.tabular(
+                      theme.textTheme.labelLarge?.copyWith(
+                        color: accent ?? scheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: PrismSpacing.md),
               ],
               SizedBox.square(
                 dimension: artSize,
@@ -89,12 +90,12 @@ class PrismSongTile extends StatelessWidget {
                       Positioned.fill(
                         child: DecoratedBox(
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: .45),
+                            color: spec.scrim,
                             borderRadius: BorderRadius.circular(PrismRadius.sm),
                           ),
                           child: Center(
                             child: _PlayingBars(
-                              color: Colors.white,
+                              color: PrismColors.onColor(spec.scrim),
                               paused: isPlayingPaused,
                             ),
                           ),
@@ -103,7 +104,7 @@ class PrismSongTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: PrismSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -112,21 +113,19 @@ class PrismSongTile extends StatelessWidget {
                       song.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: accent,
-                      ),
+                      style:
+                          theme.textTheme.titleSmall?.copyWith(color: accent),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: PrismSpacing.xxs),
                     Row(
                       children: [
                         if (isDownloaded) ...[
                           Icon(
                             Icons.download_done_rounded,
-                            size: 13,
-                            color: theme.colorScheme.primary,
+                            size: PrismIconSize.xs,
+                            color: spec.success,
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: PrismSpacing.xs),
                         ],
                         Expanded(
                           child: Text(
@@ -134,7 +133,7 @@ class PrismSongTile extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+                              color: scheme.onSurfaceVariant,
                             ),
                           ),
                         ),
@@ -143,21 +142,25 @@ class PrismSongTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: PrismSpacing.sm),
               if (trailing != null)
                 trailing!
               else ...[
                 Text(
                   song.durationFormatted,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+                  style: PrismText.tabular(
+                    theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
                 if (showOverflowAction) ...[
-                  const SizedBox(width: 4),
+                  const SizedBox(width: PrismSpacing.xs),
                   IconButton(
-                    icon: const Icon(Icons.more_vert_rounded, size: 18),
+                    icon: const Icon(
+                      Icons.more_vert_rounded,
+                      size: PrismIconSize.md,
+                    ),
                     tooltip: 'More options for ${song.title}',
                     padding: EdgeInsets.zero,
                     constraints:
@@ -194,8 +197,10 @@ class _PlayingBarsState extends State<_PlayingBars>
   );
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // First start lives here: _update() reads MediaQuery through context,
+    // which initState may not.
     _update();
   }
 
@@ -206,7 +211,7 @@ class _PlayingBarsState extends State<_PlayingBars>
   }
 
   void _update() {
-    if (widget.paused) {
+    if (widget.paused || PrismMotion.isReducedMotion(context)) {
       _controller.stop();
     } else {
       _controller.repeat();
