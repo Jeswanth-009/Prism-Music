@@ -40,11 +40,19 @@ abstract final class PrismColors {
   static const scrim = Color(0x8C000000);
   static const scrimHeavy = Color(0xB3000000);
 
+  /// Readable foreground on top of [scrim]. White in both themes.
+  static const onScrim = Color(0xFFFFFFFF);
+
   // ── Data colours (chart provider identities; never chrome) ────────────
   static const brandApple = Color(0xFFFA57C1);
   static const brandSpotify = Color(0xFF1DB954);
   static const brandYouTube = Color(0xFFFF5252);
   static const brandBillboard = Color(0xFFFFC53D);
+
+  // ── Rank medals (chart positions; data, never chrome) ─────────────────
+  static const medalGold = Color(0xFFFFD700);
+  static const medalSilver = Color(0xFFC0C0C0);
+  static const medalBronze = Color(0xFFCD7F32);
 
   // ── Data hues (chart categories; data, never chrome) ──────────────────
   static const dataBlue = Color(0xFF5B9CF6);
@@ -53,6 +61,20 @@ abstract final class PrismColors {
   static const dataAmber = Color(0xFFF2B33D);
   static const dataViolet = Color(0xFF8B7BFF);
   static const dataPink = Color(0xFFF07EB0);
+  static const dataOrange = Color(0xFFFF9A4D);
+  static const dataSlate = Color(0xFF8FA1B3);
+
+  /// Stable hue pick for data items without an assigned colour.
+  static const dataHues = [
+    dataBlue,
+    dataCoral,
+    dataTeal,
+    dataAmber,
+    dataViolet,
+    dataPink,
+    dataOrange,
+    dataSlate,
+  ];
 
   /// Logo mark only. Never use for surfaces.
   static const spectrum = LinearGradient(
