@@ -28,6 +28,7 @@ import '../../core/services/app_update_service.dart';
 import '../widgets/dialogs/prism_update_dialog.dart';
 
 import '../blocs/theme/theme_bloc.dart';
+import '../theme/prism_theme.dart';
 import '../blocs/theme/theme_event.dart';
 import '../blocs/theme/theme_state.dart';
 import '../blocs/player/player_bloc.dart';
@@ -425,9 +426,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       const SizedBox(width: 8),
                       Text(
                         'Local Diagnostic Logs',
-                        style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: Theme.of(ctx).textTheme.titleMedium,
                       ),
                       const Spacer(),
                       IconButton(
@@ -840,9 +839,9 @@ class _SettingsPageState extends State<SettingsPage> {
     final connected = _lastFmService.isAuthenticated;
     final recoMode = _recommendationService?.mode;
     final isDark = theme.brightness == Brightness.dark;
-    final titleColor = isDark ? Colors.white : theme.colorScheme.onSurface;
+    final titleColor = isDark ? PrismColors.onScrim : theme.colorScheme.onSurface;
     final subtitleColor = isDark
-        ? Colors.white.withValues(alpha: 0.85)
+        ? PrismColors.onScrim.withValues(alpha: 0.85)
         : theme.colorScheme.onSurfaceVariant;
 
     return SliverAppBar(
@@ -878,10 +877,8 @@ class _SettingsPageState extends State<SettingsPage> {
               children: [
                 Text(
                   'Settings',
-                  style: theme.textTheme.headlineMedium?.copyWith(
+                  style: theme.textTheme.headlineLarge?.copyWith(
                     color: titleColor,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.6,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -982,8 +979,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 subtitle: 'Automatically track your listening history',
                 trailing: Icon(
                   Icons.check_circle_rounded,
-                  color: Colors.green.shade600,
-                  size: 20,
+                  color: context.prismSpec.success,
+                  size: PrismIconSize.md,
                 ),
               ),
             ],
@@ -1384,7 +1381,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 if (isIgnored) {
                   return Icon(
                     Icons.check_circle_rounded,
-                    color: Colors.green.shade600,
+                    color: context.prismSpec.success,
                     size: 20,
                   );
                 }

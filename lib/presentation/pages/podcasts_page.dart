@@ -4,6 +4,7 @@ import '../../core/services/podcast_service.dart';
 import '../../domain/entities/podcast.dart';
 import '../theme/prism_theme.dart';
 import '../widgets/player/mini_player.dart';
+import '../widgets/prism/prism_skeleton.dart';
 import '../widgets/prism/prism_states.dart';
 import 'podcast_detail_page.dart';
 
@@ -125,12 +126,10 @@ class _PodcastsPageState extends State<PodcastsPage> {
     final theme = Theme.of(context);
     final isTablet = MediaQuery.sizeOf(context).width > 600;
 
+    final spec = context.prismSpec;
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Podcasts',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Podcasts'),
         elevation: 0,
       ),
       body: Stack(
@@ -140,17 +139,36 @@ class _PodcastsPageState extends State<PodcastsPage> {
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  padding: const EdgeInsets.fromLTRB(
+                    PrismSpacing.gutter,
+                    PrismSpacing.sm,
+                    PrismSpacing.gutter,
+                    PrismSpacing.md,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Search field
+                      Text(
+                        'LISTEN ON',
+                        style: PrismText.overline(context)?.copyWith(
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(height: PrismSpacing.xs),
+                      Text(
+                        'Podcasts & Shows',
+                        style: theme.textTheme.headlineLarge,
+                      ),
+                      const SizedBox(height: PrismSpacing.lg),
                       TextField(
                         controller: _searchController,
                         onSubmitted: _search,
                         decoration: InputDecoration(
                           hintText: 'Search podcasts, hosts, shows...',
-                          prefixIcon: const Icon(Icons.search_rounded),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            size: PrismIconSize.lg,
+                          ),
                           suffixIcon: _searchController.text.isNotEmpty
                               ? IconButton(
                                   tooltip: 'Clear search',
@@ -162,33 +180,55 @@ class _PodcastsPageState extends State<PodcastsPage> {
                                 )
                               : null,
                           filled: true,
-                          fillColor: theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
+                          fillColor:
+                              theme.colorScheme.surfaceContainerHigh,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius:
+                                BorderRadius.circular(PrismRadius.pill),
                             borderSide: BorderSide.none,
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: PrismSpacing.lg,
+                            vertical: PrismSpacing.md + 2,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: PrismSpacing.md + 2),
                       // Category chips
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         physics: const BouncingScrollPhysics(),
                         child: Row(
                           children: _categories.map((cat) {
-                            final isSelected = _activeCategory == cat.toLowerCase();
+                            final isSelected =
+                                _activeCategory == cat.toLowerCase();
                             return Padding(
-                              padding: const EdgeInsets.only(right: 8),
+                              padding: const EdgeInsets.only(
+                                right: PrismSpacing.sm,
+                              ),
                               child: ChoiceChip(
                                 label: Text(cat),
                                 selected: isSelected,
-                                selectedColor: PrismColors.accentDark,
+                                selectedColor: spec.accentSoft,
                                 onSelected: (_) => _loadCategory(cat),
-                                labelStyle: TextStyle(
-                                  color: isSelected ? Colors.white : null,
-                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                labelStyle: PrismText.overline(context)
+                                    ?.copyWith(
+                                  color: isSelected
+                                      ? theme.colorScheme.primary
+                                      : theme.colorScheme.onSurfaceVariant,
                                 ),
+                                side: BorderSide(
+                                  color: isSelected
+                                      ? theme.colorScheme.primary
+                                          .withValues(alpha: 0.6)
+                                      : spec.hairline,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    PrismRadius.pill,
+                                  ),
+                                ),
+                                showCheckmark: false,
                               ),
                             );
                           }).toList(),
@@ -203,23 +243,31 @@ class _PodcastsPageState extends State<PodcastsPage> {
               if (_subscribedPodcasts.isNotEmpty) ...[
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    padding: const EdgeInsets.fromLTRB(
+                      PrismSpacing.gutter,
+                      PrismSpacing.lg,
+                      PrismSpacing.gutter,
+                      PrismSpacing.sm,
+                    ),
                     child: Text(
-                      'Your Subscriptions',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                      'YOUR SUBSCRIPTIONS',
+                      style: PrismText.overline(context)?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
                 ),
                 SliverToBoxAdapter(
                   child: SizedBox(
-                    height: 140,
+                    height: 148,
                     child: ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: PrismSpacing.gutter,
+                      ),
                       scrollDirection: Axis.horizontal,
                       itemCount: _subscribedPodcasts.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(width: PrismSpacing.railGap),
                       itemBuilder: (context, index) {
                         final sub = _subscribedPodcasts[index];
                         return GestureDetector(
@@ -235,34 +283,44 @@ class _PodcastsPageState extends State<PodcastsPage> {
                               });
                             });
                           },
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: CachedNetworkImage(
-                                  imageUrl: sub.artworkUrl,
-                                  width: 90,
-                                  height: 90,
-                                  fit: BoxFit.cover,
-                                  placeholder: (_, __) => Container(color: Colors.white10),
-                                  errorWidget: (_, __, ___) => Container(
-                                    color: Colors.white10,
-                                    child: const Icon(Icons.podcasts_rounded),
+                          child: SizedBox(
+                            width: 92,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ClipOval(
+                                  child: SizedBox(
+                                    width: 92,
+                                    height: 92,
+                                    child: CachedNetworkImage(
+                                      imageUrl: sub.artworkUrl,
+                                      fit: BoxFit.cover,
+                                      placeholder: (_, __) => Container(
+                                        color: theme
+                                            .colorScheme.surfaceContainerHigh,
+                                      ),
+                                      errorWidget: (_, __, ___) => Container(
+                                        color: theme
+                                            .colorScheme.surfaceContainerHigh,
+                                        child: Icon(
+                                          Icons.podcasts_rounded,
+                                          size: PrismIconSize.lg,
+                                          color: theme
+                                              .colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(height: 6),
-                              SizedBox(
-                                width: 90,
-                                child: Text(
+                                const SizedBox(height: PrismSpacing.sm),
+                                Text(
                                   sub.title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                  style: theme.textTheme.labelLarge,
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -273,21 +331,39 @@ class _PodcastsPageState extends State<PodcastsPage> {
 
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  padding: const EdgeInsets.fromLTRB(
+                    PrismSpacing.gutter,
+                    PrismSpacing.xl,
+                    PrismSpacing.gutter,
+                    PrismSpacing.sm,
+                  ),
                   child: Text(
                     'Explore Shows',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: theme.textTheme.titleLarge,
                   ),
                 ),
               ),
 
               if (_isLoading)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: CircularProgressIndicator(),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: PrismSpacing.gutter,
+                  ),
+                  sliver: SliverToBoxAdapter(
+                    child: GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: 4,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: isTablet ? 3 : 2,
+                        childAspectRatio: 0.78,
+                        crossAxisSpacing: PrismSpacing.railGap,
+                        mainAxisSpacing: PrismSpacing.railGap,
+                      ),
+                      itemBuilder: (_, __) => const PrismSkeletonGroup(
+                        child: PrismSkeleton(height: 180),
+                      ),
+                    ),
                   ),
                 )
               else if (_error != null)
@@ -302,29 +378,26 @@ class _PodcastsPageState extends State<PodcastsPage> {
               else if (_podcasts.isEmpty)
                 SliverFillRemaining(
                   hasScrollBody: false,
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.search_off_rounded, size: 48, color: Colors.white24),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No podcasts found',
-                          style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
+                  child: PrismEmptyState(
+                    icon: Icons.search_off_rounded,
+                    message: 'No podcasts found',
+                    hint: 'Try another category or search term.',
                   ),
                 )
               else
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                  padding: const EdgeInsets.fromLTRB(
+                    PrismSpacing.gutter,
+                    0,
+                    PrismSpacing.gutter,
+                    100,
+                  ),
                   sliver: SliverGrid(
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: isTablet ? 3 : 2,
                       childAspectRatio: 0.78,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
+                      crossAxisSpacing: PrismSpacing.railGap,
+                      mainAxisSpacing: PrismSpacing.railGap,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
@@ -344,42 +417,53 @@ class _PodcastsPageState extends State<PodcastsPage> {
                           },
                           child: Container(
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(16),
+                              color: theme.colorScheme.surfaceContainer,
+                              borderRadius:
+                                  BorderRadius.circular(PrismRadius.lg),
+                              border: Border.all(color: spec.hairline),
                             ),
-                            padding: const EdgeInsets.all(10),
+                            padding: const EdgeInsets.all(PrismSpacing.md),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 AspectRatio(
                                   aspectRatio: 1,
                                   child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius:
+                                        BorderRadius.circular(PrismRadius.md),
                                     child: CachedNetworkImage(
                                       imageUrl: podcast.artworkUrl,
                                       fit: BoxFit.cover,
-                                      placeholder: (_, __) => Container(color: Colors.white10),
+                                      placeholder: (_, __) => Container(
+                                        color: theme
+                                            .colorScheme.surfaceContainerHigh,
+                                      ),
                                       errorWidget: (_, __, ___) => Container(
-                                        color: Colors.white10,
-                                        child: const Icon(Icons.podcasts_rounded, size: 36),
+                                        color: theme
+                                            .colorScheme.surfaceContainerHigh,
+                                        child: Icon(
+                                          Icons.podcasts_rounded,
+                                          size: PrismIconSize.xl,
+                                          color: theme
+                                              .colorScheme.onSurfaceVariant,
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: PrismSpacing.sm + 2),
                                 Text(
                                   podcast.title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  style: theme.textTheme.titleSmall,
                                 ),
-                                const SizedBox(height: 2),
+                                const SizedBox(height: PrismSpacing.xxs + 1),
                                 Text(
                                   podcast.author,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11,
+                                  style: theme.textTheme.bodySmall?.copyWith(
                                     color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ),

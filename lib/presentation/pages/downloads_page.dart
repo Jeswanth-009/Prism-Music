@@ -187,12 +187,12 @@ class _DownloadsPageState extends State<DownloadsPage> {
           else ...[
             IconButton(
               tooltip: 'Verify Integrity',
-              icon: const Icon(Icons.verified_outlined),
+              icon: const Icon(Icons.verified_rounded),
               onPressed: _downloadedSongs.isEmpty ? null : _verifyAllDownloads,
             ),
             IconButton(
               tooltip: 'Offline & Storage Info',
-              icon: const Icon(Icons.info_outline_rounded),
+              icon: const Icon(Icons.info_rounded),
               onPressed: () => showOfflineStorageInfoSheet(context),
             ),
           ],
@@ -217,9 +217,9 @@ class _DownloadsPageState extends State<DownloadsPage> {
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
                           child: Text(
-                            'Transfer Queue',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
+                            'TRANSFER QUEUE',
+                            style: PrismText.overline(context)?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ),
@@ -414,17 +414,18 @@ class _DownloadsPageState extends State<DownloadsPage> {
               ),
               const SizedBox(width: 8),
               Text(
-                'Storage Breakdown',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
+                'STORAGE BREAKDOWN',
+                style: PrismText.overline(context)?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
               const Spacer(),
               Text(
                 _downloadService.formatBytes(_totalSize),
-                style: theme.textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: theme.colorScheme.primary,
+                style: PrismText.tabular(
+                  theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.primary,
+                  ),
                 ),
               ),
             ],
@@ -614,10 +615,8 @@ class _DownloadsPageState extends State<DownloadsPage> {
           const SizedBox(width: 3),
           Text(
             label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: color,
+            style: PrismText.tabular(
+              theme.textTheme.labelSmall?.copyWith(color: color),
             ),
           ),
         ],

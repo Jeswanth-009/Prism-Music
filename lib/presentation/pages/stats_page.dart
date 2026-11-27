@@ -165,22 +165,22 @@ class _OverviewTab extends StatelessWidget {
         const SizedBox(height: 24),
         if (!loadingHistory) ...[
           Text(
-            'Last 14 days',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
+            'LAST 14 DAYS',
+            style: PrismText.overline(context)?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: PrismSpacing.sm + 2),
           _PlaysChart(entries: entries),
           const SizedBox(height: 24),
         ],
         Text(
-          'Top of your rotation',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
+          'TOP OF YOUR ROTATION',
+          style: PrismText.overline(context)?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: PrismSpacing.sm + 2),
         _TopRow(
           icon: Icons.person_rounded,
           label: 'Top artist',
@@ -285,9 +285,7 @@ class _WeeklyRecapTab extends StatelessWidget {
                 children: [
                   Text(
                     'WEEKLY RECAP',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      letterSpacing: 1.2,
-                      fontWeight: FontWeight.w700,
+                    style: PrismText.overline(context)?.copyWith(
                       color: theme.colorScheme.primary,
                     ),
                   ),
@@ -430,17 +428,16 @@ class _YearInReviewTab extends StatelessWidget {
                 children: [
                   Text(
                     'YOUR YEAR IN MUSIC',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      letterSpacing: 1.4,
-                      fontWeight: FontWeight.w800,
+                    style: PrismText.overline(context)?.copyWith(
                       color: theme.colorScheme.primary,
                     ),
                   ),
                   Text(
                     '${review.year}',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: theme.colorScheme.primary,
+                    style: PrismText.tabular(
+                      theme.textTheme.titleMedium?.copyWith(
+                        color: theme.colorScheme.primary,
+                      ),
                     ),
                   ),
                 ],
@@ -459,9 +456,7 @@ class _YearInReviewTab extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       review.personalityBadge,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: theme.textTheme.titleSmall,
                     ),
                   ],
                 ),
@@ -773,15 +768,14 @@ class _StatTile extends StatelessWidget {
               fit: BoxFit.scaleDown,
               child: Text(
                 value,
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
+                style: PrismText.tabular(theme.textTheme.headlineMedium),
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: PrismSpacing.xs + 2),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

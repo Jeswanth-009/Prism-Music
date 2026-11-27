@@ -27,13 +27,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
           'JioSaavn with fast playback — no account, no sign-up required.',
     ),
     (
-      icon: Icons.shield_outlined,
+      icon: Icons.shield_rounded,
       title: 'Private by design',
       body:
           'Your likes, playlists, and listening history stay on your device without user tracking. Streams are fetched directly from external providers (YouTube/JioSaavn), and optional features like Last.fm scrobbling are entirely up to you.',
     ),
     (
-      icon: Icons.verified_user_outlined,
+      icon: Icons.verified_user_rounded,
       title: 'Transparent\nPermissions',
       body:
           'We only ask for permissions that improve your listening:\n\n'
@@ -115,35 +115,45 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Container(
-                            width: 108,
-                            height: 108,
+                            width: 132,
+                            height: 132,
                             decoration: BoxDecoration(
-                              color: context.prismSpec.accentSoft,
-                              borderRadius: BorderRadius.circular(32),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: context.prismSpec.hairline,
+                              ),
+                              gradient: RadialGradient(
+                                colors: [
+                                  theme.colorScheme.primary
+                                      .withValues(alpha: 0.16),
+                                  theme.colorScheme.primary
+                                      .withValues(alpha: 0.02),
+                                ],
+                              ),
                             ),
                             child: Icon(
                               slide.icon,
-                              size: 52,
+                              size: PrismIconSize.xxl,
                               color: theme.colorScheme.primary,
                             ),
                           ),
-                          const SizedBox(height: 36),
+                          const SizedBox(height: PrismSpacing.xxl + 8),
                           Text(
                             slide.title,
                             textAlign: TextAlign.center,
-                            style: theme.textTheme.headlineLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -1,
-                              height: 1.1,
-                            ),
+                            style: theme.textTheme.headlineMedium,
                           ),
-                          const SizedBox(height: 14),
-                          Text(
-                            slide.body,
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                              height: 1.45,
+                          const SizedBox(height: PrismSpacing.md + 2),
+                          ConstrainedBox(
+                            constraints:
+                                const BoxConstraints(maxWidth: 320),
+                            child: Text(
+                              slide.body,
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                height: 1.45,
+                              ),
                             ),
                           ),
                         ],
@@ -188,7 +198,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
                             label: const Text('Search & Play Music'),
                             style: FilledButton.styleFrom(
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(
+                                  PrismRadius.lg,
+                                ),
                               ),
                             ),
                           ),
@@ -199,11 +211,16 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           height: 48,
                           child: OutlinedButton.icon(
                             onPressed: () => _finish(initialIndex: 0),
-                            icon: const Icon(Icons.explore_outlined, size: 20),
+                            icon: const Icon(
+                              Icons.explore_rounded,
+                              size: PrismIconSize.md,
+                            ),
                             label: const Text('Explore Trending & Home'),
                             style: OutlinedButton.styleFrom(
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(
+                                  PrismRadius.lg,
+                                ),
                               ),
                             ),
                           ),

@@ -419,25 +419,21 @@ class _HomeTabState extends State<HomeTab>
         return _sliverSection(
           title: 'Made for you',
           subtitle: 'Made on your phone from what you play',
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: PrismSpacing.gutter,
-            ),
-            child: GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: mixes.length.clamp(0, 6),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.74,
-                crossAxisSpacing: PrismSpacing.railGap,
-                mainAxisSpacing: PrismSpacing.lg,
+          child: SizedBox(
+            height: 232,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(
+                horizontal: PrismSpacing.gutter,
               ),
+              scrollDirection: Axis.horizontal,
+              itemCount: mixes.length,
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: PrismSpacing.railGap),
               itemBuilder: (context, index) {
                 final mix = mixes[index];
                 return PrismDailyMixCard(
                   mix: mix,
-                  width: null,
+                  width: 172,
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => DailyMixPage(mix: mix),
