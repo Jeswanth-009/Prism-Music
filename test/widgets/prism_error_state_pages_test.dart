@@ -24,7 +24,7 @@ void main() {
 
       expect(find.text('Could not load podcasts'), findsOneWidget);
       expect(find.text('Network connection failed'), findsOneWidget);
-      expect(find.byIcon(Icons.cloud_off_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.cloud_off_rounded), findsOneWidget);
 
       final retryButton = find.text('Try again');
       expect(retryButton, findsOneWidget);

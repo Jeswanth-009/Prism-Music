@@ -46,6 +46,14 @@ abstract final class PrismColors {
   static const brandYouTube = Color(0xFFFF5252);
   static const brandBillboard = Color(0xFFFFC53D);
 
+  // ── Data hues (chart categories; data, never chrome) ──────────────────
+  static const dataBlue = Color(0xFF5B9CF6);
+  static const dataCoral = Color(0xFFFF6B5E);
+  static const dataTeal = Color(0xFF2FBF9B);
+  static const dataAmber = Color(0xFFF2B33D);
+  static const dataViolet = Color(0xFF8B7BFF);
+  static const dataPink = Color(0xFFF07EB0);
+
   /// Logo mark only. Never use for surfaces.
   static const spectrum = LinearGradient(
     begin: Alignment.topLeft,
@@ -102,8 +110,25 @@ class PrismSpec extends ThemeExtension<PrismSpec> {
   /// Scrim over imagery.
   final Color scrim;
 
-  static PrismSpec of(BuildContext context) =>
-      Theme.of(context).extension<PrismSpec>()!;
+  static PrismSpec of(BuildContext context) {
+    final theme = Theme.of(context);
+    final spec = theme.extension<PrismSpec>();
+    if (spec != null) return spec;
+    // Bare MaterialApps (widget-test harnesses, embedders) mount without
+    // the app theme; derive a quiet default instead of crashing.
+    final scheme = theme.colorScheme;
+    return PrismSpec(
+      accent: scheme.primary,
+      accentSoft: scheme.primary.withValues(alpha: 0.12),
+      onAccent: PrismColors.onColor(scheme.primary),
+      success: PrismColors.successDark,
+      warning: PrismColors.warningDark,
+      skeletonBase: scheme.surfaceContainerHigh,
+      skeletonHighlight: scheme.surfaceContainerHighest,
+      hairline: scheme.outlineVariant,
+      scrim: PrismColors.scrim,
+    );
+  }
 
   @override
   PrismSpec copyWith({

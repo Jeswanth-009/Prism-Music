@@ -31,12 +31,16 @@ class PrismQuickTile extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(PrismRadius.lg),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(PrismSpacing.md + 2),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, size: 24, color: theme.colorScheme.primary),
+              Icon(
+                icon,
+                size: PrismIconSize.lg,
+                color: theme.colorScheme.primary,
+              ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -45,11 +49,9 @@ class PrismQuickTile extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: theme.textTheme.titleSmall,
                   ),
-                  const SizedBox(height: 1),
+                  const SizedBox(height: PrismSpacing.xxs),
                   Text(
                     meta,
                     maxLines: 1,

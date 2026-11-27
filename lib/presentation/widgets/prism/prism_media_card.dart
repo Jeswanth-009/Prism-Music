@@ -47,16 +47,14 @@ class PrismMediaCard extends StatelessWidget {
                       fit: BoxFit.cover,
                     ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: PrismSpacing.md),
             Text(
               title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: theme.textTheme.titleMedium,
             ),
-            const SizedBox(height: 1),
+            const SizedBox(height: PrismSpacing.xxs),
             Text(
               subtitle,
               maxLines: 1,
