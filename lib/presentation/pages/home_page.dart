@@ -248,7 +248,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 labelType: NavigationRailLabelType.all,
                 destinations: const [
                   NavigationRailDestination(
-                    icon: Icon(Icons.home_outlined),
+                    icon: Icon(Icons.home_rounded),
                     selectedIcon: Icon(Icons.home_rounded),
                     label: Text('Home'),
                   ),
@@ -258,12 +258,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     label: Text('Search'),
                   ),
                   NavigationRailDestination(
-                    icon: Icon(Icons.bar_chart_outlined),
+                    icon: Icon(Icons.bar_chart_rounded),
                     selectedIcon: Icon(Icons.bar_chart_rounded),
                     label: Text('Charts'),
                   ),
                   NavigationRailDestination(
-                    icon: Icon(Icons.library_music_outlined),
+                    icon: Icon(Icons.library_music_rounded),
                     selectedIcon: Icon(Icons.library_music_rounded),
                     label: Text('Library'),
                   ),
@@ -359,7 +359,7 @@ class _PrismNavBar extends StatelessWidget {
       label: 'Charts',
     ),
     (
-      icon: Icons.library_music_outlined,
+      icon: Icons.library_music_rounded,
       selected: Icons.library_music_rounded,
       label: 'Library',
     ),
@@ -370,19 +370,32 @@ class _PrismNavBar extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final spec = context.prismSpec;
 
+    // Floating capsule: detached from the screen edge, one consistent
+    // treatment for every tab. It sits on the scaffold surface and reads
+    // as a control, not a chrome strip.
     return Container(
+      margin: const EdgeInsets.fromLTRB(
+        PrismSpacing.lg,
+        PrismSpacing.xs,
+        PrismSpacing.lg,
+        PrismSpacing.sm,
+      ),
       decoration: BoxDecoration(
         color: scheme.surfaceContainer,
-        border: Border(top: BorderSide(color: spec.hairline)),
+        borderRadius: BorderRadius.circular(PrismRadius.pill),
+        border: Border.all(color: spec.hairline),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: PrismSpacing.sm,
+        vertical: PrismSpacing.xs + 2,
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: List.generate(_items.length, (i) {
@@ -403,40 +416,36 @@ class _PrismNavBar extends StatelessWidget {
                   },
                   child: InkWell(
                     onTap: () => onSelect(i),
-                    borderRadius: BorderRadius.circular(PrismRadius.md),
+                    borderRadius: BorderRadius.circular(PrismRadius.pill),
                     child: AnimatedContainer(
                       duration: PrismMotion.baseOf(context),
                       curve: PrismMotion.curve,
                       constraints: const BoxConstraints(minHeight: 48),
-                      padding: const EdgeInsets.symmetric(vertical: 6),
                       decoration: BoxDecoration(
                         color:
                             isSelected ? spec.accentSoft : Colors.transparent,
-                        borderRadius: BorderRadius.circular(PrismRadius.md),
+                        borderRadius: BorderRadius.circular(PrismRadius.pill),
                       ),
                       child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            isSelected ? item.selected : item.icon,
-                            size: 22,
+                            item.icon,
+                            size: PrismIconSize.lg,
                             color: isSelected
                                 ? scheme.primary
                                 : scheme.onSurfaceVariant,
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: PrismSpacing.xxs),
                           Text(
                             item.label,
                             maxLines: 1,
-                            style:
-                                Theme.of(context).textTheme.labelSmall?.copyWith(
-                                      fontWeight: isSelected
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
-                                      color: isSelected
-                                          ? scheme.primary
-                                          : scheme.onSurfaceVariant,
-                                    ),
+                            style: PrismText.overline(context)?.copyWith(
+                                  color: isSelected
+                                      ? scheme.primary
+                                      : scheme.onSurfaceVariant,
+                                ),
                           ),
                         ],
                       ),
