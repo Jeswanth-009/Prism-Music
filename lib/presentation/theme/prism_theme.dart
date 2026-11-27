@@ -48,6 +48,7 @@ abstract final class PrismColors {
   static const brandSpotify = Color(0xFF1DB954);
   static const brandYouTube = Color(0xFFFF5252);
   static const brandBillboard = Color(0xFFFFC53D);
+  static const brandLastfm = Color(0xFFD51007);
 
   // ── Rank medals (chart positions; data, never chrome) ─────────────────
   static const medalGold = Color(0xFFFFD700);

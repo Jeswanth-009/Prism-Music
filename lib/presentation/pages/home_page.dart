@@ -386,7 +386,7 @@ class _PrismNavBar extends StatelessWidget {
         border: Border.all(color: spec.hairline),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
+            color: PrismColors.scrim.withValues(alpha: 0.18),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),

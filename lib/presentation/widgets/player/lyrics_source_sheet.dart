@@ -65,7 +65,7 @@ class LyricsSourceSheet extends StatelessWidget {
       builder: (context, scrollController) {
         return Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF13151A),
+            color: PrismColors.ink,
             borderRadius: const BorderRadius.vertical(
               top: Radius.circular(PrismRadius.xl),
             ),
@@ -146,7 +146,7 @@ class LyricsSourceSheet extends StatelessWidget {
                         children: [
                           Container(
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1B1E26),
+                              color: PrismColors.inkRaised,
                               borderRadius: BorderRadius.circular(PrismRadius.lg),
                               border: Border.all(
                                 color: PrismColors.onScrim.withValues(alpha: 0.06),
@@ -184,7 +184,7 @@ class LyricsSourceSheet extends StatelessWidget {
                                                 ? FontWeight.w700
                                                 : FontWeight.w500,
                                             color: isSelected
-                                                ? const Color(0xFF8AB4F8)
+                                                ? PrismColors.dataBlue
                                                 : (desc.isAvailable
                                                     ? Colors.white
                                                     : PrismColors.onScrim.withValues(alpha: 0.4)),
@@ -194,7 +194,7 @@ class LyricsSourceSheet extends StatelessWidget {
                                           desc.statusDescription,
                                           style: theme.textTheme.bodySmall?.copyWith(
                                             color: isSelected
-                                                ? const Color(0xFF8AB4F8).withValues(alpha: 0.8)
+                                                ? PrismColors.dataBlue.withValues(alpha: 0.8)
                                                 : (desc.isAvailable
                                                     ? PrismColors.onScrim.withValues(alpha: 0.55)
                                                     : PrismColors.onScrim.withValues(alpha: 0.3)),
@@ -203,7 +203,7 @@ class LyricsSourceSheet extends StatelessWidget {
                                         trailing: isSelected
                                             ? const Icon(
                                                 Icons.check_rounded,
-                                                color: Color(0xFF8AB4F8),
+                                                color: PrismColors.dataBlue,
                                                 size: 22,
                                               )
                                             : null,
@@ -234,7 +234,7 @@ class LyricsSourceSheet extends StatelessWidget {
                     width: double.infinity,
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1B1E26),
+                        backgroundColor: PrismColors.inkRaised,
                         side: BorderSide(
                           color: PrismColors.onScrim.withValues(alpha: 0.1),
                         ),

@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../core/services/playlist_collaboration_service.dart';
 import '../../../domain/entities/playlist.dart';
 import '../prism/prism_sheet.dart';
+import '../../theme/prism_theme.dart';
 
 /// Modal bottom sheet displaying peer-to-peer playlist QR code and link sharing options.
 class PlaylistShareQrDialog extends StatelessWidget {
@@ -65,7 +66,7 @@ class PlaylistShareQrDialog extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
+                    color: PrismColors.scrim.withValues(alpha: 0.12),
                     blurRadius: 16,
                     offset: const Offset(0, 4),
                   ),

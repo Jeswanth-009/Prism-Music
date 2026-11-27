@@ -58,7 +58,7 @@ class MiniPlayer extends StatelessWidget {
                 border: Border.all(color: context.prismSpec.hairline),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.16),
+                    color: PrismColors.scrim.withValues(alpha: 0.16),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),

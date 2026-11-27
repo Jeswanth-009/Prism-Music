@@ -1030,7 +1030,7 @@ class _AlbumGridCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(PrismRadius.lg),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: .18),
+                    color: PrismColors.scrim.withValues(alpha: .18),
                     blurRadius: 14,
                     offset: const Offset(0, 6),
                   ),

@@ -289,7 +289,7 @@ class _PodcastDetailPageState extends State<PodcastDetailPage> {
 
                       return Container(
                         decoration: BoxDecoration(
-                          color: isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.03),
+                          color: isDark ? PrismColors.onScrim.withValues(alpha: 0.04) : PrismColors.scrim.withValues(alpha: 0.03),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: ListTile(

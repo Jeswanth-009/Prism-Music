@@ -1138,7 +1138,7 @@ class _HeroIconButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: Colors.white.withValues(alpha: .18),
+        color: PrismColors.onScrim.withValues(alpha: .18),
         shape: const CircleBorder(
           side: BorderSide(color: Colors.white24),
         ),

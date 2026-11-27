@@ -136,7 +136,7 @@ class _PlaylistShareSheetState extends State<PlaylistShareSheet> {
                       borderRadius: BorderRadius.circular(PrismRadius.lg),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.12),
+                          color: PrismColors.scrim.withValues(alpha: 0.12),
                           blurRadius: 14,
                           offset: const Offset(0, 4),
                         ),

@@ -118,8 +118,8 @@ class _MediaShareModalState extends State<MediaShareModal> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Color(0xFF1E1E28),
-                      Color(0xFF121218),
+                      PrismColors.inkHigh,
+                      PrismColors.ink,
                     ],
                   ),
                   borderRadius: BorderRadius.circular(20),
@@ -215,7 +215,7 @@ class _MediaShareModalState extends State<MediaShareModal> {
                           height: 14,
                           decoration: const BoxDecoration(
                             gradient: LinearGradient(
-                              colors: [Color(0xFF8A2BE2), Color(0xFF00ADB5)],
+                              colors: [PrismColors.dataViolet, PrismColors.dataTeal],
                             ),
                             shape: BoxShape.circle,
                           ),

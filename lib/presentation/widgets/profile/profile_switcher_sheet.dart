@@ -300,7 +300,7 @@ class _ProfileSwitcherSheetState extends State<ProfileSwitcherSheet> {
                 ),
                 tileColor: isActive
                     ? PrismColors.accentDark.withOpacity(0.12)
-                    : Colors.white.withOpacity(0.04),
+                    : PrismColors.onScrim.withValues(alpha: 0.04),
                 leading: CircleAvatar(
                   backgroundColor: Color(profile.avatarColorValue),
                   child: Text(profile.avatarEmoji, style: const TextStyle(fontSize: 18)),

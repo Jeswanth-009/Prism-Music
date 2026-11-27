@@ -48,7 +48,7 @@ class PlaylistCollageArtwork extends StatelessWidget {
         border: Border.all(color: spec.hairline),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
+            color: PrismColors.scrim.withValues(alpha: 0.15),
             blurRadius: 14,
             offset: const Offset(0, 4),
           ),

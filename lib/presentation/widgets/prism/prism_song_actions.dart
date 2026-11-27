@@ -116,7 +116,7 @@ class _SongActionsSheet extends StatelessWidget {
                       context: context,
                       icon: Icons.play_arrow_rounded,
                       label: 'Play',
-                      color: const Color(0xFFFF5722),
+                      color: PrismColors.dataOrange,
                       onTap: () {
                         Navigator.pop(context);
                         context
@@ -128,7 +128,7 @@ class _SongActionsSheet extends StatelessWidget {
                       context: context,
                       icon: Icons.shuffle_rounded,
                       label: 'Shuffle',
-                      color: const Color(0xFFFFB300),
+                      color: PrismColors.dataAmber,
                       onTap: () {
                         Navigator.pop(context);
                         context
@@ -140,7 +140,7 @@ class _SongActionsSheet extends StatelessWidget {
                       context: context,
                       icon: Icons.low_priority_rounded,
                       label: 'Play Next',
-                      color: const Color(0xFF00ADB5),
+                      color: PrismColors.dataTeal,
                       onTap: () {
                         Navigator.pop(context);
                         context.read<PlayerBloc>().add(
@@ -153,7 +153,7 @@ class _SongActionsSheet extends StatelessWidget {
                       context: context,
                       icon: Icons.queue_music_rounded,
                       label: 'Add Queue',
-                      color: const Color(0xFF8A2BE2),
+                      color: PrismColors.dataViolet,
                       onTap: () {
                         Navigator.pop(context);
                         context

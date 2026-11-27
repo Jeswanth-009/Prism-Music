@@ -52,8 +52,8 @@ class PrismDailyMixCard extends StatelessWidget {
                             end: Alignment.bottomCenter,
                             colors: [
                               Colors.transparent,
-                              Colors.black.withValues(alpha: 0.15),
-                              Colors.black.withValues(alpha: 0.85),
+                              PrismColors.scrim.withValues(alpha: 0.15),
+                              PrismColors.scrim.withValues(alpha: 0.85),
                             ],
                             stops: const [0.4, 0.7, 1.0],
                           ),

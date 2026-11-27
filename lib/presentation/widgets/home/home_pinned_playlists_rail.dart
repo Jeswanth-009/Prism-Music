@@ -104,7 +104,7 @@ class _PinnedCard extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.65),
+                        color: PrismColors.scrim.withValues(alpha: 0.65),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(

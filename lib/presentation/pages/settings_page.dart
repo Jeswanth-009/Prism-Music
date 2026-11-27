@@ -1826,12 +1826,12 @@ class _PillBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.black.withValues(alpha: 0.22)
+            ? PrismColors.scrim.withValues(alpha: 0.22)
             : theme.colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isDark
-              ? Colors.white.withValues(alpha: 0.25)
+              ? PrismColors.onScrim.withValues(alpha: 0.25)
               : theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
         ),
       ),
