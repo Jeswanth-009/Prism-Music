@@ -5,6 +5,9 @@ import '../../pages/smart_playlist_page.dart';
 import '../../theme/prism_theme.dart';
 
 /// Card tile representing a computed dynamic smart playlist.
+///
+/// The playlist's hue tints a quiet card — loud gradient fills pulled the
+/// whole rail off-palette; the hue still identifies the mix.
 class SmartPlaylistCard extends StatelessWidget {
   final SmartPlaylist smartPlaylist;
 
@@ -13,6 +16,8 @@ class SmartPlaylistCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final spec = context.prismSpec;
+    final hue = smartPlaylist.gradientColors.first;
 
     return InkWell(
       onTap: () {
@@ -27,22 +32,15 @@ class SmartPlaylistCard extends StatelessWidget {
       child: Container(
         width: 170,
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: smartPlaylist.gradientColors,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+          color: Color.alphaBlend(
+            hue.withValues(alpha: 0.14),
+            theme.colorScheme.surfaceContainer,
           ),
           borderRadius: BorderRadius.circular(PrismRadius.lg),
-          boxShadow: [
-            BoxShadow(
-              color: smartPlaylist.gradientColors.first.withValues(alpha: 0.28),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          border: Border.all(color: spec.hairline),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(PrismSpacing.md + 2),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -51,37 +49,36 @@ class SmartPlaylistCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(PrismSpacing.sm),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.22),
+                      color: hue.withValues(alpha: 0.16),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       smartPlaylist.icon,
-                      color: Colors.white,
-                      size: 20,
+                      color: hue,
+                      size: PrismIconSize.md,
                     ),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
+                      horizontal: PrismSpacing.sm,
+                      vertical: PrismSpacing.xxs + 1,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.2),
+                      color: hue.withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(PrismRadius.xs),
                     ),
                     child: Text(
                       '${smartPlaylist.trackCount}',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                      style: PrismText.tabular(
+                        theme.textTheme.labelSmall?.copyWith(color: hue),
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: PrismSpacing.lg),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -89,19 +86,15 @@ class SmartPlaylistCard extends StatelessWidget {
                     smartPlaylist.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: theme.textTheme.titleSmall,
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: PrismSpacing.xxs),
                   Text(
                     smartPlaylist.subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.85),
-                      fontSize: 11,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],

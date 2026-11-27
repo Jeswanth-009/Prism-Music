@@ -22,6 +22,7 @@ import '../widgets/library/library_quick_access_grid.dart';
 import '../widgets/library/library_stats_card.dart';
 import '../widgets/library/smart_playlist_card.dart';
 import '../widgets/playlist/playlist_export_sheet.dart';
+import '../widgets/prism/prism_dialog.dart';
 import '../widgets/prism/prism_section_header.dart';
 import '../widgets/prism/prism_sheet.dart';
 import '../widgets/prism/prism_states.dart';
@@ -108,7 +109,12 @@ class _LibraryTabState extends State<LibraryTab>
             physics: const BouncingScrollPhysics(),
             slivers: [
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
+              padding: const EdgeInsets.fromLTRB(
+                PrismSpacing.gutter,
+                PrismSpacing.lg,
+                PrismSpacing.md,
+                0,
+              ),
               sliver: SliverToBoxAdapter(
                 child: Row(
                   children: [
@@ -118,12 +124,9 @@ class _LibraryTabState extends State<LibraryTab>
                         children: [
                           Text(
                             'Library',
-                            style: theme.textTheme.headlineLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.9,
-                            ),
+                            style: theme.textTheme.headlineLarge,
                           ),
-                          const SizedBox(height: 3),
+                          const SizedBox(height: PrismSpacing.xxs + 1),
                           Text(
                             'Your music, all in one place.',
                             style: theme.textTheme.bodyMedium?.copyWith(
@@ -139,20 +142,25 @@ class _LibraryTabState extends State<LibraryTab>
                           builder: (_) => const SettingsPage(),
                         ),
                       ),
-                      icon: const Icon(Icons.settings_outlined),
+                      icon: const Icon(Icons.settings_rounded),
                       tooltip: 'Settings',
                     ),
                   ],
                 ),
               ),
             ),
-            const SliverPadding(padding: EdgeInsets.only(top: 20)),
+            const SliverPadding(padding: EdgeInsets.only(top: PrismSpacing.xl)),
             LibraryQuickAccessGrid(
               state: state,
               onCreatePlaylist: _createPlaylist,
             ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              padding: const EdgeInsets.fromLTRB(
+                PrismSpacing.gutter,
+                PrismSpacing.md,
+                PrismSpacing.gutter,
+                0,
+              ),
               sliver: SliverToBoxAdapter(
                 child: BlocListener<LibraryBloc, LibraryState>(
                   listenWhen: (prev, next) =>
@@ -182,10 +190,15 @@ class _LibraryTabState extends State<LibraryTab>
               ),
             ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+              padding: const EdgeInsets.fromLTRB(
+                PrismSpacing.gutter,
+                PrismSpacing.sm + 2,
+                PrismSpacing.gutter,
+                0,
+              ),
               sliver: SliverToBoxAdapter(
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(PrismRadius.lg),
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(
@@ -194,39 +207,55 @@ class _LibraryTabState extends State<LibraryTab>
                     );
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: PrismSpacing.lg,
+                      vertical: PrismSpacing.md + 2,
+                    ),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHigh.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white10),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHigh
+                          .withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(PrismRadius.lg),
+                      border: Border.all(color: context.prismSpec.hairline),
                     ),
                     child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: const EdgeInsets.all(PrismSpacing.sm),
                           decoration: BoxDecoration(
-                            color: PrismColors.accentDark.withOpacity(0.2),
+                            color: context.prismSpec.accentSoft,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.podcasts_rounded, color: PrismColors.accentDark, size: 22),
+                          child: Icon(
+                            Icons.podcasts_rounded,
+                            color: Theme.of(context).colorScheme.primary,
+                            size: PrismIconSize.lg,
+                          ),
                         ),
-                        const SizedBox(width: 14),
+                        const SizedBox(width: PrismSpacing.md + 2),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Podcasts & Shows',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                style: theme.textTheme.titleMedium,
                               ),
                               Text(
                                 'Explore shows, subscribe & stream episodes',
-                                style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color:
+                                      theme.colorScheme.onSurfaceVariant,
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        const Icon(Icons.chevron_right_rounded, color: Colors.white54),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ],
                     ),
                   ),
@@ -237,7 +266,12 @@ class _LibraryTabState extends State<LibraryTab>
             const SliverToBoxAdapter(
               child: PrismSectionHeader(
                 title: 'Smart Playlists',
-                padding: EdgeInsets.fromLTRB(20, 24, 20, 10),
+                padding: EdgeInsets.fromLTRB(
+                  PrismSpacing.gutter,
+                  PrismSpacing.xl + 4,
+                  PrismSpacing.gutter,
+                  PrismSpacing.md + 2,
+                ),
               ),
             ),
             SliverToBoxAdapter(
@@ -251,11 +285,14 @@ class _LibraryTabState extends State<LibraryTab>
                   return SizedBox(
                     height: 124,
                     child: ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: PrismSpacing.gutter,
+                      ),
                       scrollDirection: Axis.horizontal,
                       physics: const BouncingScrollPhysics(),
                       itemCount: smartLists.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(width: PrismSpacing.railGap),
                       itemBuilder: (context, index) =>
                           SmartPlaylistCard(smartPlaylist: smartLists[index]),
                     ),
@@ -460,9 +497,7 @@ class _LibraryTabState extends State<LibraryTab>
               children: [
                 Text(
                   'New playlist',
-                  style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                  style: Theme.of(sheetContext).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -506,27 +541,14 @@ class _LibraryTabState extends State<LibraryTab>
   }
 
   Future<void> _deletePlaylist(String id, String name) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showPrismConfirmDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete playlist?'),
-        content:
-            Text('"$name" will be removed. Songs are kept in your library.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(dialogContext).colorScheme.error,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+      title: 'Delete playlist?',
+      message: '"$name" will be removed. Songs are kept in your library.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      isDestructive: true,
+      onConfirm: () {},
     );
 
     if (confirmed != true || !mounted) return;
