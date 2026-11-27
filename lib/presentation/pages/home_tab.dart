@@ -13,6 +13,7 @@ import '../../domain/repositories/music_repository.dart';
 import '../blocs/library/library.dart';
 import '../blocs/player/player.dart';
 import '../theme/prism_theme.dart';
+import '../widgets/common/bouncing_tap_widget.dart';
 import '../widgets/prism/prism_artwork.dart';
 import '../widgets/prism/prism_chart_chip.dart';
 import '../widgets/prism/prism_media_card.dart';
@@ -39,7 +40,11 @@ import '../../core/services/app_update_service.dart';
 import '../../core/services/daily_mix_service.dart';
 import '../../core/services/living_time_service.dart';
 import '../widgets/prism/prism_daily_mix_card.dart';
+import '../../core/services/chart_cover_resolver.dart';
 import 'daily_mix_page.dart';
+import 'liked_songs_page.dart';
+import 'stats_page.dart';
+import 'downloads_page.dart';
 
 /// Artwork-led Home surface: calm chrome, artwork carries the colour.
 class HomeTab extends StatefulWidget {
@@ -200,6 +205,13 @@ class _HomeTabState extends State<HomeTab>
                 ),
               ),
             ),
+            SliverToBoxAdapter(
+              child: _GreetingHeader(
+                showPhase: _settings.isHomeSectionEnabled(
+                  HomeSectionId.livingPhase,
+                ),
+              ),
+            ),
             BlocBuilder<LibraryBloc, LibraryState>(
               builder: (context, library) {
                 if (_loading) {
@@ -331,111 +343,71 @@ class _HomeTabState extends State<HomeTab>
             : (_songs.isEmpty ? null : _songs.first);
         return SliverPadding(
           padding: const EdgeInsets.fromLTRB(
-                PrismSpacing.gutter,
-                PrismSpacing.lg,
-                PrismSpacing.gutter,
-                0,
-              ),
+            PrismSpacing.gutter,
+            0,
+            PrismSpacing.gutter,
+            0,
+          ),
           sliver: SliverToBoxAdapter(
-            child: _Entrance(
-              child: _Hero(
-                greeting: _greeting,
-                song: song,
-                isLoading: false,
-                onPlay: song == null
-                    ? null
-                    : () {
-                        if (fromHistory) {
-                          _play(song, queue: library.recentlyPlayed, index: 0);
-                        } else {
-                          _play(song, queue: _songs, index: 0);
-                        }
-                      },
-                onShuffle: (fromHistory ? library.recentlyPlayed : _songs).isEmpty
-                    ? null
-                    : () {
-                        final source = fromHistory
-                            ? library.recentlyPlayed
-                            : _songs;
-                        final shuffled = [...source]..shuffle();
-                        _play(shuffled.first, queue: shuffled, index: 0);
-                      },
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _Entrance(
+                  child: _Hero(
+                    greeting: _greeting,
+                    song: song,
+                    isLoading: false,
+                    onPlay: song == null
+                        ? null
+                        : () {
+                            if (fromHistory) {
+                              _play(song,
+                                  queue: library.recentlyPlayed, index: 0);
+                            } else {
+                              _play(song, queue: _songs, index: 0);
+                            }
+                          },
+                    onShuffle:
+                        (fromHistory ? library.recentlyPlayed : _songs).isEmpty
+                            ? null
+                            : () {
+                                final source = fromHistory
+                                    ? library.recentlyPlayed
+                                    : _songs;
+                                final shuffled = [...source]..shuffle();
+                                _play(shuffled.first,
+                                    queue: shuffled, index: 0);
+                              },
+                  ),
+                ),
+                const SizedBox(height: PrismSpacing.lg),
+                _QuickAccessStrip(
+                  likedCount: library.likedSongs.length,
+                  downloadCount: library.downloads.length,
+                  onOpenLiked: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const LikedSongsPage()),
+                  ),
+                  onOpenDownloads: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const DownloadsPage()),
+                  ),
+                  onOpenRecent: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const RecentlyPlayedPage()),
+                  ),
+                  onOpenStats: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const StatsPage()),
+                  ),
+                ),
+              ],
             ),
           ),
         );
 
       case HomeSectionId.livingPhase:
-        final soundscape = LivingTimeService.instance.getSoundscape();
-        return SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-                PrismSpacing.gutter,
-                PrismSpacing.lg,
-                PrismSpacing.gutter,
-                PrismSpacing.xs,
-              ),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    soundscape.primaryAccent.withValues(alpha: 0.18),
-                    Theme.of(context).colorScheme.surfaceContainer,
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(PrismRadius.lg),
-                border: Border.all(
-                  color: soundscape.primaryAccent.withValues(alpha: 0.28),
-                  width: 1,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        soundscape.icon,
-                        size: PrismIconSize.sm,
-                        color: soundscape.primaryAccent,
-                      ),
-                      const SizedBox(width: PrismSpacing.xs + 2),
-                      Expanded(
-                        child: Text(
-                          soundscape.uppercaseTagline,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: PrismText.overline(context)?.copyWith(
-                            color: soundscape.primaryAccent,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: PrismSpacing.xs + 2),
-                  Text(
-                    soundscape.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: PrismSpacing.xxs),
-                  Text(
-                    soundscape.subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
+        // Rendered by the greeting header at the top of the page.
+        return null;
 
       case HomeSectionId.dailyMixes:
         final mixes = DailyMixService.instance.generateDailyMixes(
@@ -447,18 +419,25 @@ class _HomeTabState extends State<HomeTab>
         return _sliverSection(
           title: 'Made for you',
           subtitle: 'Made on your phone from what you play',
-          child: SizedBox(
-            height: 224,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: PrismSpacing.gutter),
-              scrollDirection: Axis.horizontal,
-              itemCount: mixes.length,
-              separatorBuilder: (_, __) =>
-                  const SizedBox(width: PrismSpacing.railGap),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: PrismSpacing.gutter,
+            ),
+            child: GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: mixes.length.clamp(0, 6),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.74,
+                crossAxisSpacing: PrismSpacing.railGap,
+                mainAxisSpacing: PrismSpacing.lg,
+              ),
               itemBuilder: (context, index) {
                 final mix = mixes[index];
                 return PrismDailyMixCard(
                   mix: mix,
+                  width: null,
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => DailyMixPage(mix: mix),
@@ -625,23 +604,35 @@ class _HomeTabState extends State<HomeTab>
           _settings.countryCode,
           _settings.selectedCountry.name,
         );
+        final featuredCharts = <ChartDefinition>[];
+        for (final source in ChartSource.values) {
+          final match = charts.where((c) => c.source == source).firstOrNull;
+          if (match != null) featuredCharts.add(match);
+        }
         return _sliverSection(
           title: 'Top charts',
           subtitle: 'What everyone is playing',
           actionLabel: 'See all',
           onAction: _openCharts,
           child: SizedBox(
-            height: 132,
+            height: 150,
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: PrismSpacing.gutter),
               scrollDirection: Axis.horizontal,
-              itemCount: charts.length,
+              itemCount: featuredCharts.length,
               separatorBuilder: (_, __) =>
                   const SizedBox(width: PrismSpacing.railGap),
               itemBuilder: (context, index) {
-                final chart = charts[index];
-                return _ChartTile(
+                final chart = featuredCharts[index];
+                return _ChartCoverTile(
                   chart: chart,
+                  accent: switch (chart.source) {
+                    ChartSource.appleMusic => PrismColors.brandApple,
+                    ChartSource.spotify => PrismColors.brandSpotify,
+                    ChartSource.youtube => PrismColors.brandYouTube,
+                    ChartSource.billboard => PrismColors.brandBillboard,
+                    ChartSource.kworb => PrismColors.dataTeal,
+                  },
                   onTap: () => _pushChart(chart),
                 );
               },
@@ -1016,7 +1007,7 @@ class _Hero extends StatelessWidget {
     return GestureDetector(
       onTap: onPlay,
       child: Container(
-        height: 152,
+        height: 240,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(PrismRadius.lg),
@@ -1062,34 +1053,16 @@ class _Hero extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          greeting.toUpperCase(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: PrismText.overline(context)?.copyWith(
-                            color: PrismColors.onColor(PrismColors.scrim),
-                          ),
-                        ),
+                  if (song != null)
+                    Text(
+                      _authenticBadge(song!),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: PrismText.overline(context)?.copyWith(
+                        color: PrismColors.onColor(PrismColors.scrim)
+                            .withValues(alpha: 0.85),
                       ),
-                      if (song != null) ...[
-                        const SizedBox(width: PrismSpacing.sm),
-                        Flexible(
-                          child: Text(
-                            _authenticBadge(song!),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: PrismText.overline(context)?.copyWith(
-                              color: PrismColors.onColor(PrismColors.scrim)
-                                  .withValues(alpha: 0.85),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+                    ),
                   const Spacer(),
                   Text(
                     song == null
@@ -1099,7 +1072,7 @@ class _Hero extends StatelessWidget {
                         : song!.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleLarge?.copyWith(
+                    style: theme.textTheme.headlineSmall?.copyWith(
                       color: PrismColors.onColor(PrismColors.scrim),
                     ),
                   ),
@@ -1179,61 +1152,6 @@ class _HeroIconButton extends StatelessWidget {
           child: SizedBox.square(
             dimension: 44,
             child: Icon(icon, color: Colors.white, size: 20),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Flat chart tile — accent icon, no gradient.
-class _ChartTile extends StatelessWidget {
-  const _ChartTile({required this.chart, required this.onTap});
-
-  final ChartDefinition chart;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final spec = context.prismSpec;
-    return SizedBox(
-      width: 168,
-      child: Material(
-        color: theme.colorScheme.surfaceContainer,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(PrismRadius.lg),
-          side: BorderSide(color: spec.hairline),
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(PrismRadius.lg),
-          child: Padding(
-            padding: const EdgeInsets.all(PrismSpacing.md + 2),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                PrismChartChip(type: chart.iconType, size: 34),
-                const Spacer(),
-                Text(
-                  chart.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall,
-                ),
-                const SizedBox(height: PrismSpacing.xxs),
-                Text(
-                  chartSourceLabel(chart.source),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: PrismText.tabular(
-                    theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
       ),
@@ -1372,6 +1290,334 @@ class _HistoryPrompt extends StatelessWidget {
               Icon(
                 Icons.chevron_right_rounded,
                 color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Greeting block that opens the day: date overline, phase greeting and
+/// the soundscape tagline washed by its hue. The living-phase identity
+/// lives here instead of a standalone card.
+class _GreetingHeader extends StatelessWidget {
+  const _GreetingHeader({required this.showPhase});
+
+  final bool showPhase;
+
+  static const _weekdays = [
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
+    'Sunday',
+  ];
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final soundscape = LivingTimeService.instance.getSoundscape();
+    final now = DateTime.now();
+    final dateLabel = '${_weekdays[now.weekday - 1]}  ·  '
+        '${_months[now.month - 1]} ${now.day}';
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(0, PrismSpacing.lg, 0, 0),
+      padding: const EdgeInsets.fromLTRB(
+        PrismSpacing.gutter,
+        PrismSpacing.lg,
+        PrismSpacing.gutter,
+        PrismSpacing.lg,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            soundscape.primaryAccent.withValues(alpha: 0.10),
+            Colors.transparent,
+          ],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  dateLabel.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: PrismText.overline(context)?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              if (showPhase) ...[
+                const SizedBox(width: PrismSpacing.sm),
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: soundscape.primaryAccent,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: PrismSpacing.xs + 2),
+                Flexible(
+                  child: Text(
+                    soundscape.uppercaseTagline,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: PrismText.overline(context)?.copyWith(
+                      color: soundscape.primaryAccent,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: PrismSpacing.xs + 2),
+          Text(
+            soundscape.greeting,
+            style: theme.textTheme.headlineMedium,
+          ),
+          if (showPhase && soundscape.subtitle.isNotEmpty) ...[
+            const SizedBox(height: PrismSpacing.xxs + 1),
+            Text(
+              soundscape.subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Utility strip straight under the hero: the four destinations people
+/// actually open, as one row of quiet tiles.
+class _QuickAccessStrip extends StatelessWidget {
+  const _QuickAccessStrip({
+    required this.likedCount,
+    required this.downloadCount,
+    required this.onOpenLiked,
+    required this.onOpenDownloads,
+    required this.onOpenRecent,
+    required this.onOpenStats,
+  });
+
+  final int likedCount;
+  final int downloadCount;
+  final VoidCallback onOpenLiked;
+  final VoidCallback onOpenDownloads;
+  final VoidCallback onOpenRecent;
+  final VoidCallback onOpenStats;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final spec = context.prismSpec;
+    final tiles = [
+      (
+        icon: Icons.favorite_rounded,
+        label: 'Liked',
+        meta: '$likedCount songs',
+        onTap: onOpenLiked,
+      ),
+      (
+        icon: Icons.download_rounded,
+        label: 'Offline',
+        meta: '$downloadCount saved',
+        onTap: onOpenDownloads,
+      ),
+      (
+        icon: Icons.history_rounded,
+        label: 'Recent',
+        meta: 'History',
+        onTap: onOpenRecent,
+      ),
+      (
+        icon: Icons.leaderboard_rounded,
+        label: 'Stats',
+        meta: 'Rotation',
+        onTap: onOpenStats,
+      ),
+    ];
+
+    return Row(
+      children: [
+        for (var i = 0; i < tiles.length; i++) ...[
+          if (i > 0) const SizedBox(width: PrismSpacing.sm),
+          Expanded(
+            child: Material(
+              color: theme.colorScheme.surfaceContainer,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(PrismRadius.md),
+                side: BorderSide(color: spec.hairline),
+              ),
+              child: InkWell(
+                onTap: tiles[i].onTap,
+                borderRadius: BorderRadius.circular(PrismRadius.md),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: PrismSpacing.sm + 2,
+                    vertical: PrismSpacing.sm + 2,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        tiles[i].icon,
+                        size: PrismIconSize.md,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(height: PrismSpacing.xs + 2),
+                      Text(
+                        tiles[i].label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelLarge,
+                      ),
+                      Text(
+                        tiles[i].meta,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: PrismText.tabular(
+                          theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Charts teaser with the real cover: playlist artwork for Spotify,
+/// the #1 track's art elsewhere — the same covers the chart sites use.
+class _ChartCoverTile extends StatefulWidget {
+  const _ChartCoverTile({
+    required this.chart,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final ChartDefinition chart;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  State<_ChartCoverTile> createState() => _ChartCoverTileState();
+}
+
+class _ChartCoverTileState extends State<_ChartCoverTile> {
+  String? _cover;
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    _cover = ChartCoverResolver.peek(widget.chart);
+    if (_cover == null) {
+      ChartCoverResolver.resolve(widget.chart).then((url) {
+        if (!mounted || url == null || url == _cover) return;
+        setState(() => _cover = url);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final spec = context.prismSpec;
+    return BouncingTapWidget(
+      onTap: widget.onTap,
+      child: Container(
+        width: 252,
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(
+            widget.accent.withValues(alpha: 0.14),
+            theme.colorScheme.surfaceContainer,
+          ),
+          borderRadius: BorderRadius.circular(PrismRadius.lg),
+          border: Border.all(color: spec.hairline),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(PrismRadius.lg),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (_cover != null)
+                CachedNetworkImage(
+                  imageUrl: _cover!,
+                  fit: BoxFit.cover,
+                  fadeInDuration: const Duration(milliseconds: 200),
+                  errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                )
+              else
+                Icon(
+                  Icons.leaderboard_rounded,
+                  size: 64,
+                  color: widget.accent.withValues(alpha: 0.25),
+                ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomLeft,
+                    end: Alignment.topRight,
+                    colors: [
+                      PrismColors.scrimHeavy,
+                      PrismColors.scrim,
+                      Colors.transparent,
+                    ],
+                    stops: const [0, .55, 1],
+                  ),
+                ),
+              ),
+              Positioned(
+                left: PrismSpacing.md,
+                right: PrismSpacing.md,
+                bottom: PrismSpacing.md,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      chartSourceLabel(widget.chart.source).toUpperCase(),
+                      style: PrismText.overline(context)?.copyWith(
+                        color: PrismColors.onScrim.withValues(alpha: 0.85),
+                      ),
+                    ),
+                    const SizedBox(height: PrismSpacing.xxs + 1),
+                    Text(
+                      widget.chart.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: PrismColors.onScrim,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

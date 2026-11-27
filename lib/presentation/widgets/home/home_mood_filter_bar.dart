@@ -37,38 +37,40 @@ class HomeMoodFilterBar extends StatelessWidget {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.symmetric(
+          horizontal: PrismSpacing.gutter,
+        ),
         itemCount: HomeMoodFilter.values.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final mood = HomeMoodFilter.values[index];
           final isSelected = mood == selected;
+          final spec = context.prismSpec;
 
           return Center(
             child: FilterChip(
               avatar: Icon(
                 mood.icon,
-                size: 16,
+                size: PrismIconSize.sm,
                 color: isSelected
-                    ? theme.colorScheme.onPrimaryContainer
+                    ? theme.colorScheme.primary
                     : theme.colorScheme.onSurfaceVariant,
               ),
               label: Text(mood.label),
-              labelStyle: theme.textTheme.labelMedium?.copyWith(
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              labelStyle: PrismText.overline(context)?.copyWith(
                 color: isSelected
-                    ? theme.colorScheme.onPrimaryContainer
+                    ? theme.colorScheme.primary
                     : theme.colorScheme.onSurfaceVariant,
               ),
               selected: isSelected,
-              selectedColor: theme.colorScheme.primaryContainer,
+              selectedColor: spec.accentSoft,
               backgroundColor:
                   theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.5),
               showCheckmark: false,
               side: BorderSide(
                 color: isSelected
                     ? theme.colorScheme.primary.withValues(alpha: 0.6)
-                    : theme.colorScheme.outlineVariant.withValues(alpha: 0.25),
+                    : spec.hairline,
                 width: 1,
               ),
               shape: RoundedRectangleBorder(

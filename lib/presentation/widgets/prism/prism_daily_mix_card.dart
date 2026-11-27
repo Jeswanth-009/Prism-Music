@@ -11,10 +11,14 @@ class PrismDailyMixCard extends StatelessWidget {
   final DailyMix mix;
   final VoidCallback onTap;
 
+  /// Fixed width for rails; null fills the parent (grids).
+  final double? width;
+
   const PrismDailyMixCard({
     super.key,
     required this.mix,
     required this.onTap,
+    this.width,
   });
 
   @override
@@ -24,7 +28,7 @@ class PrismDailyMixCard extends StatelessWidget {
     return BouncingTapWidget(
       onTap: onTap,
       child: SizedBox(
-        width: 156,
+        width: width,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -70,12 +74,10 @@ class PrismDailyMixCard extends StatelessWidget {
                             mix.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.2,
-                              shadows: [
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              color: PrismColors.onScrim,
+                              fontWeight: FontWeight.w700,
+                              shadows: const [
                                 Shadow(
                                   color: Colors.black54,
                                   blurRadius: 4,
@@ -171,13 +173,13 @@ class PrismDailyMixCard extends StatelessWidget {
 
   Widget _buildQuadItem(String url) {
     if (url.isEmpty) {
-      return Container(color: Colors.grey.shade900);
+      return Container(color: PrismColors.inkHigh);
     }
     return CachedNetworkImage(
       imageUrl: url,
       fit: BoxFit.cover,
       fadeInDuration: const Duration(milliseconds: 150),
-      errorWidget: (_, __, ___) => Container(color: Colors.grey.shade900),
+      errorWidget: (_, __, ___) => Container(color: PrismColors.inkHigh),
     );
   }
 }
