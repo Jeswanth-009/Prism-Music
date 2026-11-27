@@ -65,12 +65,12 @@ class SearchHeroCard extends StatelessWidget {
                   : null,
               borderRadius: BorderRadius.circular(PrismRadius.lg),
               child: Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(PrismSpacing.md + 2),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(PrismRadius.lg),
                   border: Border.all(
-                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
+                    color: context.prismSpec.hairline,
                     width: 1,
                   ),
                 ),
@@ -92,7 +92,7 @@ class SearchHeroCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 14),
+                    const SizedBox(width: PrismSpacing.md + 2),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,22 +100,18 @@ class SearchHeroCard extends StatelessWidget {
                         children: [
                           Text(
                             'TOP MATCH',
-                            style: theme.textTheme.labelSmall?.copyWith(
+                            style: PrismText.overline(context)?.copyWith(
                               color: theme.colorScheme.primary,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.1,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: PrismSpacing.xxs),
                           Text(
                             topResult.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
+                            style: theme.textTheme.titleMedium,
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: PrismSpacing.xxs),
                           Text(
                             topResult.subtitle,
                             maxLines: 1,
@@ -125,11 +121,11 @@ class SearchHeroCard extends StatelessWidget {
                             ),
                           ),
                           if (badge != null) ...[
-                            const SizedBox(height: 6),
+                            const SizedBox(height: PrismSpacing.xs + 2),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
+                                horizontal: PrismSpacing.xs + 2,
+                                vertical: PrismSpacing.xxs,
                               ),
                               decoration: BoxDecoration(
                                 color: theme.colorScheme.secondaryContainer
@@ -139,10 +135,11 @@ class SearchHeroCard extends StatelessWidget {
                               ),
                               child: Text(
                                 badge,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.onSecondaryContainer,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 10,
+                                style: PrismText.tabular(
+                                  theme.textTheme.labelSmall?.copyWith(
+                                    color:
+                                        theme.colorScheme.onSecondaryContainer,
+                                  ),
                                 ),
                               ),
                             ),
@@ -150,7 +147,7 @@ class SearchHeroCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: PrismSpacing.sm),
                     if (song != null) ...[
                       IconButton(
                         icon: const Icon(Icons.low_priority_rounded, size: 20),

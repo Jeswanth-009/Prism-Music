@@ -10,8 +10,9 @@ import '../prism/prism_dialog.dart';
 import '../prism/prism_section_header.dart';
 
 /// Discovery landing view rendered when search query is empty.
-/// Contains recent search history chips with quick delete and categorized genre/mood tiles.
-/// Uses pure vector iconography with zero emojis.
+/// Recent search history chips, then genre tiles: quiet cards tinted by
+/// one data hue each — the hue identifies the genre, the chrome stays
+/// neutral so nearby artwork carries the colour.
 class SearchDiscoveryView extends StatelessWidget {
   const SearchDiscoveryView({
     super.key,
@@ -20,16 +21,33 @@ class SearchDiscoveryView extends StatelessWidget {
 
   final ValueChanged<String> onApplyQuery;
 
-  static const _curatedGenres = [
-    _CategoryTileData('Telugu Hits', [Color(0xFF4A148C), Color(0xFF7B1FA2)]),
-    _CategoryTileData('Bollywood', [Color(0xFF880E4F), Color(0xFFAD1457)]),
-    _CategoryTileData('Tamil Beats', [Color(0xFF0D47A1), Color(0xFF1976D2)]),
-    _CategoryTileData('Global Pop', [Color(0xFF1A237E), Color(0xFF3949AB)]),
-    _CategoryTileData('Lo-Fi & Chill', [Color(0xFF004D40), Color(0xFF00897B)]),
-    _CategoryTileData('Hip-Hop', [Color(0xFF263238), Color(0xFF455A64)]),
-    _CategoryTileData('Rock & Metal', [Color(0xFF212121), Color(0xFF424242)]),
-    _CategoryTileData('Devotional', [Color(0xFFE65100), Color(0xFFF57C00)]),
+  static const _genreTitles = [
+    'Telugu Hits',
+    'Bollywood',
+    'Tamil Beats',
+    'Global Pop',
+    'Lo-Fi & Chill',
+    'Hip-Hop',
+    'Rock & Metal',
+    'Devotional',
   ];
+
+  static const _genreHues = <String, Color>{
+    'Telugu Hits': PrismColors.dataViolet,
+    'Bollywood': PrismColors.dataPink,
+    'Tamil Beats': PrismColors.dataBlue,
+    'Global Pop': PrismColors.dataTeal,
+    'Lo-Fi & Chill': PrismColors.dataAmber,
+    'Hip-Hop': PrismColors.dataCoral,
+    'Rock & Metal': PrismColors.dataSlate,
+    'Devotional': PrismColors.dataOrange,
+  };
+
+  Color _hueFor(String title) =>
+      _genreHues[title] ??
+      // A genre outside the curated eight still gets a stable hue.
+      PrismColors
+          .dataHues[title.hashCode.abs() % PrismColors.dataHues.length];
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +56,8 @@ class SearchDiscoveryView extends StatelessWidget {
         final entries = state.historyEntries.isNotEmpty
             ? state.historyEntries
             : state.history.map((q) => {'query': q, 'id': q}).toList();
+
+        final genres = _genreTitles;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,13 +77,20 @@ class SearchDiscoveryView extends StatelessWidget {
                         context.read<SearchBloc>().add(const ClearHistoryEvent()),
                   );
                 },
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                padding: const EdgeInsets.fromLTRB(
+                  PrismSpacing.gutter,
+                  PrismSpacing.lg,
+                  PrismSpacing.gutter,
+                  PrismSpacing.sm,
+                ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: PrismSpacing.gutter,
+                ),
                 child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: PrismSpacing.sm,
+                  runSpacing: PrismSpacing.sm,
                   children: entries.take(8).map((entry) {
                     final query = entry['query'] ?? '';
                     final id = entry['id'] ?? query;
@@ -71,7 +98,7 @@ class SearchDiscoveryView extends StatelessWidget {
                     return InputChip(
                       avatar: Icon(
                         Icons.history_rounded,
-                        size: 16,
+                        size: PrismIconSize.sm,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                       label: Text(query),
@@ -94,26 +121,33 @@ class SearchDiscoveryView extends StatelessWidget {
                   builder: (_) => const GenreBrowsePage(),
                 ),
               ),
-              padding: const EdgeInsets.fromLTRB(16, 22, 16, 10),
+              padding: const EdgeInsets.fromLTRB(
+                PrismSpacing.gutter,
+                PrismSpacing.xl + 2,
+                PrismSpacing.gutter,
+                PrismSpacing.md + 2,
+              ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(
+                horizontal: PrismSpacing.gutter,
+              ),
               child: GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: _curatedGenres.length,
+                itemCount: genres.length,
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   childAspectRatio: 2.3,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
+                  crossAxisSpacing: PrismSpacing.railGap,
+                  mainAxisSpacing: PrismSpacing.railGap,
                 ),
                 itemBuilder: (context, index) {
-                  final cat = _curatedGenres[index];
+                  final genre = genres[index];
                   return _GenreCard(
-                    title: cat.title,
-                    colors: cat.gradient,
-                    onTap: () => onApplyQuery(cat.title),
+                    title: genre,
+                    hue: _hueFor(genre),
+                    onTap: () => onApplyQuery(genre),
                   );
                 },
               ),
@@ -125,56 +159,60 @@ class SearchDiscoveryView extends StatelessWidget {
   }
 }
 
-class _CategoryTileData {
-  final String title;
-  final List<Color> gradient;
-  const _CategoryTileData(this.title, this.gradient);
-}
-
 class _GenreCard extends StatelessWidget {
   const _GenreCard({
     required this.title,
-    required this.colors,
+    required this.hue,
     required this.onTap,
   });
 
   final String title;
-  final List<Color> colors;
+  final Color hue;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final spec = context.prismSpec;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(PrismRadius.md),
-        child: Container(
+        child: Ink(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: colors,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+            color: Color.alphaBlend(
+              hue.withValues(alpha: 0.14),
+              theme.colorScheme.surfaceContainer,
             ),
             borderRadius: BorderRadius.circular(PrismRadius.md),
-            boxShadow: [
-              BoxShadow(
-                color: colors.first.withValues(alpha: 0.25),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
+            border: Border.all(color: spec.hairline),
+          ),
+          padding: const EdgeInsets.all(PrismSpacing.md),
+          child: Align(
+            alignment: Alignment.bottomLeft,
+            child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: hue,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: PrismSpacing.sm),
+              Flexible(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall,
+                ),
               ),
             ],
           ),
-          padding: const EdgeInsets.all(12),
-          alignment: Alignment.bottomLeft,
-          child: Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-              letterSpacing: -0.2,
-            ),
           ),
         ),
       ),
