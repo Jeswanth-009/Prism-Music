@@ -51,8 +51,10 @@ class _SmartPlaylistPageState extends State<SmartPlaylistPage> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      playlist.gradientColors.first.withValues(alpha: 0.8),
-                      playlist.gradientColors.last.withValues(alpha: 0.3),
+                      Color.alphaBlend(
+                        playlist.gradientColors.first.withValues(alpha: 0.30),
+                        theme.colorScheme.surface,
+                      ),
                       theme.colorScheme.surface,
                     ],
                     begin: Alignment.topCenter,
@@ -69,18 +71,18 @@ class _SmartPlaylistPageState extends State<SmartPlaylistPage> {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.all(PrismSpacing.md),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
+                                color: PrismColors.onScrim.withValues(alpha: 0.2),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
                                 playlist.icon,
-                                color: Colors.white,
-                                size: 28,
+                                color: PrismColors.onScrim,
+                                size: PrismIconSize.xl - 4,
                               ),
                             ),
-                            const SizedBox(width: 14),
+                            const SizedBox(width: PrismSpacing.md + 2),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -91,17 +93,16 @@ class _SmartPlaylistPageState extends State<SmartPlaylistPage> {
                                       vertical: 3,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.2),
+                                      color: PrismColors.onScrim
+                                          .withValues(alpha: 0.2),
                                       borderRadius:
                                           BorderRadius.circular(PrismRadius.xs),
                                     ),
                                     child: Text(
                                       'SMART PLAYLIST',
-                                      style: theme.textTheme.labelSmall
+                                      style: PrismText.overline(context)
                                           ?.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.8,
+                                        color: PrismColors.onScrim,
                                       ),
                                     ),
                                   ),
@@ -110,8 +111,7 @@ class _SmartPlaylistPageState extends State<SmartPlaylistPage> {
                                     playlist.title,
                                     style: theme.textTheme.headlineSmall
                                         ?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
+                                      color: PrismColors.onScrim,
                                     ),
                                   ),
                                 ],
@@ -125,15 +125,17 @@ class _SmartPlaylistPageState extends State<SmartPlaylistPage> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.85),
+                            color: PrismColors.onScrim.withValues(alpha: 0.85),
                           ),
                         ),
                         const SizedBox(height: 6),
                         Text(
                           '${playlist.trackCount} tracks · ${Formatters.formatDuration(Duration(seconds: _totalDurationSeconds))} · ${playlist.ruleSummary}',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontWeight: FontWeight.w500,
+                          style: PrismText.tabular(
+                            theme.textTheme.labelSmall?.copyWith(
+                              color:
+                                  PrismColors.onScrim.withValues(alpha: 0.7),
+                            ),
                           ),
                         ),
                       ],

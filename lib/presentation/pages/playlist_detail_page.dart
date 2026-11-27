@@ -310,7 +310,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
           child: Text(
             'Drag songs to change playlist order',
             style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),

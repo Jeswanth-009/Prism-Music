@@ -183,6 +183,8 @@ class _GenreBrowsePageState extends State<GenreBrowsePage> {
 
   Widget _buildFilterChip(int index, String label) {
     final isSelected = _selectedFilterIndex == index;
+    final theme = Theme.of(context);
+    final spec = context.prismSpec;
     return ChoiceChip(
       label: Text(label),
       selected: isSelected,
@@ -191,11 +193,11 @@ class _GenreBrowsePageState extends State<GenreBrowsePage> {
           _selectedFilterIndex = index;
         });
       },
-      selectedColor: PrismColors.accentDark,
-      labelStyle: TextStyle(
-        color: isSelected ? Colors.white : null,
-        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-        fontSize: 13,
+      selectedColor: spec.accentSoft,
+      labelStyle: PrismText.overline(context)?.copyWith(
+        color: isSelected
+            ? theme.colorScheme.primary
+            : theme.colorScheme.onSurfaceVariant,
       ),
     );
   }
@@ -209,26 +211,22 @@ class _GenreCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final spec = context.prismSpec;
+    final hue = genre.gradient.first;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: genre.gradient,
+          color: Color.alphaBlend(
+            hue.withValues(alpha: 0.14),
+            theme.colorScheme.surfaceContainer,
           ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: genre.gradient.first.withOpacity(0.35),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(PrismRadius.lg),
+          border: Border.all(color: spec.hairline),
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(PrismRadius.lg),
           child: Stack(
             children: [
               Positioned(
@@ -237,46 +235,42 @@ class _GenreCard extends StatelessWidget {
                 child: Icon(
                   genre.icon,
                   size: 78,
-                  color: Colors.white.withOpacity(0.24),
+                  color: hue.withValues(alpha: 0.14),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(PrismSpacing.md + 2),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       genre.name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: -0.3,
-                      ),
+                      style: theme.textTheme.titleMedium,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: PrismSpacing.xs),
                     Text(
                       '${genre.playlistCount} playlists',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
+                      style: PrismText.tabular(
+                        theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                     const Spacer(),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: PrismSpacing.sm,
+                        vertical: PrismSpacing.xxs + 1,
+                      ),
                       decoration: BoxDecoration(
-                        color: Colors.black26,
-                        borderRadius: BorderRadius.circular(8),
+                        color: hue.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(PrismRadius.xs),
                       ),
                       child: Text(
                         genre.isMood ? 'MOOD' : 'GENRE',
-                        style: const TextStyle(
-                          color: Colors.white70,
+                        style: PrismText.overline(context)?.copyWith(
+                          color: hue,
                           fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.6,
                         ),
                       ),
                     ),

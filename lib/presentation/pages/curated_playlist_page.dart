@@ -234,7 +234,7 @@ class _CuratedPlaylistPageState extends State<CuratedPlaylistPage> {
                                         'Discovery mix · Search fallback',
                                         style: theme.textTheme.labelSmall?.copyWith(
                                           color: theme.colorScheme.tertiary,
-                                          fontWeight: FontWeight.w600,
+                                          fontWeight: FontWeight.w500,
                                         ),
                                       ),
                                     )
@@ -283,7 +283,7 @@ class _CuratedPlaylistPageState extends State<CuratedPlaylistPage> {
                                                   style: theme
                                                       .textTheme.bodySmall
                                                       ?.copyWith(
-                                                    fontWeight: FontWeight.w600,
+                                                    fontWeight: FontWeight.w500,
                                                   ),
                                                 ),
                                               ),
@@ -305,14 +305,11 @@ class _CuratedPlaylistPageState extends State<CuratedPlaylistPage> {
                                                   ),
                                                   child: Text(
                                                     widget.playlist.seasonalTag!,
-                                                    style: theme
-                                                        .textTheme.labelSmall
+                                                    style: PrismText.overline(
+                                                            context)
                                                         ?.copyWith(
                                                       color: theme
                                                           .colorScheme.primary,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                      fontSize: 9,
                                                     ),
                                                   ),
                                                 ),
