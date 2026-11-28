@@ -66,6 +66,11 @@ class MainActivity : AudioServiceActivity() {
                         setTreble(level)
                         result.success(null)
                     }
+                    "setBandGains" -> {
+                        val gains = call.argument<List<Double>>("gains") ?: emptyList()
+                        setBandGains(gains)
+                        result.success(null)
+                    }
                     "setReverb" -> {
                         val preset = call.argument<String>("preset") ?: "NONE"
                         setReverb(preset)
@@ -169,10 +174,50 @@ class MainActivity : AudioServiceActivity() {
             }
 
             // Convert 0.0-1.0 range to 0-1000 range for Android BassBoost API
-            val strength = (level * 1000.0).toInt().toShort()
+            val clamped = level.coerceIn(0.0, 1.0)
+            val strength = (clamped * 1000.0).toInt().toShort()
             bassBoost?.enabled = false
             bassBoost?.setStrength(strength)
             bassBoost?.enabled = true
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun setBandGains(gains: List<Double>) {
+        if (gains.isEmpty()) return
+        try {
+            if (equalizer == null && audioSessionId != 0) {
+                equalizer = Equalizer(1, audioSessionId)
+                equalizer?.enabled = true
+            }
+            val eq = equalizer ?: return
+            val bands = eq.numberOfBands.toInt()
+            if (bands <= 0) return
+
+            val range = eq.bandLevelRange
+            val uiCentersHz = doubleArrayOf(
+                31.0, 62.0, 125.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0, 16000.0
+            )
+            val maxBands = minOf(gains.size, uiCentersHz.size)
+
+            for (b in 0 until bands) {
+                val bandFreqHz = eq.getCenterFreq(b.toShort()) / 1000.0
+                var bestIdx = 0
+                var bestDist = kotlin.math.abs(bandFreqHz - uiCentersHz[0])
+                for (i in 1 until maxBands) {
+                    val dist = kotlin.math.abs(bandFreqHz - uiCentersHz[i])
+                    if (dist < bestDist) {
+                        bestDist = dist
+                        bestIdx = i
+                    }
+                }
+                val millibels = (gains[bestIdx] * 100.0)
+                    .coerceIn(range[0].toDouble(), range[1].toDouble())
+                    .toInt()
+                    .toShort()
+                eq.setBandLevel(b.toShort(), millibels)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -193,6 +238,7 @@ class MainActivity : AudioServiceActivity() {
             val eq = equalizer ?: return
 
             val bands = eq.numberOfBands.toShort()
+            if (bands <= 0) return
             val topBand = (bands - 1).toShort()
             val range = eq.bandLevelRange
             val targetSpanMb = 1200.0 // ±600 millibels = ±6 dB

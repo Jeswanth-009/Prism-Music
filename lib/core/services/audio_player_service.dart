@@ -88,6 +88,7 @@ class AudioPlayerService {
   late EqualizerService _equalizerService;
   double _rawVolume = 1.0;
   Song? _currentNormalizingSong;
+  double _fadeScalar = 1.0;
 
   /// Whether player holds an active queue managed via [AudioPlayer.setAudioSources]
   bool _isQueueMode = false;
@@ -162,7 +163,7 @@ class AudioPlayerService {
       _initialized ? _player.bufferedPosition : Duration.zero;
   Duration? get duration => _initialized ? _player.duration : null;
   bool get playing => _initialized ? _player.playing : false;
-  double get volume => _initialized ? _player.volume : 1.0;
+  double get volume => _rawVolume;
   bool get isCrossfading => _isCrossfading;
   bool get buffering => _initialized
       ? (_player.processingState == ProcessingState.buffering ||
@@ -693,7 +694,7 @@ class AudioPlayerService {
     if (_currentNormalizingSong != null) {
       scalar = AudioNormalizationService.instance.computeGainFactor(_currentNormalizingSong!);
     }
-    final effective = (_rawVolume * scalar).clamp(0.0, 1.0);
+    final effective = (_rawVolume * scalar * _fadeScalar).clamp(0.0, 1.0);
     await _player.setVolume(effective);
   }
 
@@ -720,7 +721,6 @@ class AudioPlayerService {
   }) async {
     if (!_initialized) return null;
 
-    final initialVolume = _player.volume;
     final totalFadeMs = duration.inMilliseconds.clamp(0, 10000);
     // Split fade duration equally between fade out and fade in
     final halfFadeMs = totalFadeMs ~/ 2;
@@ -738,11 +738,12 @@ class AudioPlayerService {
         for (int i = steps; i >= 1; i--) {
           final factor = i / steps;
           // Perceptually smooth quadratic loudness curve
-          final v = (initialVolume * factor * factor).clamp(0.0, 1.0);
-          await _player.setVolume(v);
+          _fadeScalar = (factor * factor).clamp(0.0, 1.0);
+          await _applyNormalizedVolume();
           await Future<void>.delayed(stepDuration);
         }
-        await _player.setVolume(0.0);
+        _fadeScalar = 0.0;
+        await _applyNormalizedVolume();
       }
 
       final d = await setUrl(
@@ -759,7 +760,8 @@ class AudioPlayerService {
       );
 
       if (d == null) {
-        await _player.setVolume(initialVolume);
+        _fadeScalar = 1.0;
+        await _applyNormalizedVolume();
         return null;
       }
 
@@ -768,15 +770,17 @@ class AudioPlayerService {
       if (halfFadeMs > 0) {
         for (int i = 1; i <= steps; i++) {
           final factor = i / steps;
-          final v = (initialVolume * factor * factor).clamp(0.0, 1.0);
-          await _player.setVolume(v);
+          _fadeScalar = (factor * factor).clamp(0.0, 1.0);
+          await _applyNormalizedVolume();
           await Future<void>.delayed(stepDuration);
         }
       }
-      await _player.setVolume(initialVolume);
+      _fadeScalar = 1.0;
+      await _applyNormalizedVolume();
       return d;
     } catch (_) {
-      await _player.setVolume(initialVolume);
+      _fadeScalar = 1.0;
+      await _applyNormalizedVolume();
       rethrow;
     } finally {
       _isCrossfading = false;

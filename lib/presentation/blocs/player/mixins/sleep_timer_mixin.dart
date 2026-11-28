@@ -39,8 +39,14 @@ mixin SleepTimerMixin {
     }
 
     _sleepTimer = Timer(duration, () {
-      cancelSleepTimer(onRestoreVolume: onRestoreVolume);
+      _sleepTimer = null;
+      _fadeDelayTimer?.cancel();
+      _fadeDelayTimer = null;
+      _fadeTimer?.cancel();
+      _fadeTimer = null;
+      // Pause playback BEFORE restoring pre-fade volume to avoid a bedtime volume spike
       onElapsed();
+      onRestoreVolume?.call();
     });
   }
 

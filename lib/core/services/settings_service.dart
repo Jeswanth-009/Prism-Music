@@ -449,6 +449,24 @@ class SettingsService {
     await _settingsBox?.put(_eqPresetKey, preset);
   }
 
+  /// Get persisted 10-band equalizer gains (dB)
+  List<double> get equalizerBandGains {
+    try {
+      final raw = _settingsBox?.get('equalizer_band_gains');
+      if (raw is List) {
+        return raw.map((e) => (e as num).toDouble()).toList();
+      }
+      return const [];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Persist active 10-band equalizer gains (dB)
+  Future<void> setEqualizerBandGains(List<double> gains) async {
+    await _settingsBox?.put('equalizer_band_gains', gains);
+  }
+
   /// Get active equalizer bass boost level (0.0 to 1.0)
   double get equalizerBassBoostLevel {
     try {

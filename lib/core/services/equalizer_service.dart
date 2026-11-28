@@ -123,11 +123,17 @@ class EqualizerService {
         _customPresets[entry.key] = EqualizerPreset.fromMap(entry.value);
       }
 
-      // Reapply preset band gains if found
+      // Reapply preset band gains if found, else restore persisted manual/custom gains
       final preset = allPresets[_currentPresetName];
+      final savedBands = s.equalizerBandGains;
       if (preset?.bandGains != null && preset!.bandGains!.isNotEmpty) {
         for (int i = 0; i < math.min(preset.bandGains!.length, _bandGains.length); i++) {
           _bandGains[i] = preset.bandGains![i];
+          _biquadFilter.setBandGain(i, _bandGains[i]);
+        }
+      } else if (savedBands.isNotEmpty) {
+        for (int i = 0; i < math.min(savedBands.length, _bandGains.length); i++) {
+          _bandGains[i] = savedBands[i].clamp(-12.0, 12.0);
           _biquadFilter.setBandGain(i, _bandGains[i]);
         }
       }
@@ -138,6 +144,7 @@ class EqualizerService {
     try {
       final s = SettingsService.instance;
       s.setEqualizerPreset(_currentPresetName);
+      s.setEqualizerBandGains(_bandGains);
       s.setEqualizerBassBoostLevel(_bassBoostLevel);
       s.setEqualizerTrebleLevel(_trebleLevel);
       s.setBassBoost(_bassBoostEnabled);
