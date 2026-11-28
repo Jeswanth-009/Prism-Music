@@ -112,7 +112,7 @@ class WearOsBridge(private val context: Context, messenger: BinaryMessenger) : M
                     putExtra("isPlaying", isPlaying)
                     putExtra("artworkUrl", artworkUrl)
                 }
-                context.sendBroadcast(broadcastIntent)
+                context.sendBroadcast(broadcastIntent, "com.prismmusic.prism_music.permission.CONTROL")
                 result.success(true)
             }
             else -> result.notImplemented()

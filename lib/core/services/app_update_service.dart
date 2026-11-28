@@ -512,10 +512,10 @@ class AppUpdateService {
   /// automatically triggers native Android installation when done.
   Future<void> startDownload(AppUpdateInfo info) async {
     final downloadUrl = info.apkDownloadUrl;
-    if (downloadUrl == null || downloadUrl.isEmpty) {
+    if (downloadUrl == null || downloadUrl.isEmpty || !_isAllowedReleaseHost(downloadUrl)) {
       downloadState.value = downloadState.value.copyWith(
         status: UpdateStatus.failed,
-        errorMessage: 'Direct APK download URL is not available.',
+        errorMessage: 'Direct APK download URL is missing or untrusted.',
       );
       return;
     }
@@ -574,37 +574,72 @@ class AppUpdateService {
 
       // Verify file downloaded successfully
       if (await file.exists() && await file.length() > 0) {
-        // SEC-13 / FIX-16: Checksum verification against authentic release hash
-        if (info.apkSha256DownloadUrl != null) {
-          try {
-            final shaRes = await _client.get(
-              Uri.parse(info.apkSha256DownloadUrl!),
-              headers: const {'User-Agent': 'Prism-Music-App'},
-            ).timeout(const Duration(seconds: 10));
+        // SEC-13 / FIX-16: Fail-closed checksum verification against authentic release hash
+        final shaUrl = info.apkSha256DownloadUrl;
+        if (shaUrl == null || shaUrl.isEmpty || !_isAllowedReleaseHost(shaUrl)) {
+          logError('AppUpdateService: Missing or untrusted APK SHA-256 URL; aborting install.');
+          await file.delete();
+          downloadState.value = downloadState.value.copyWith(
+            status: UpdateStatus.failed,
+            errorMessage: 'Integrity check failed: release checksum is missing or untrusted.',
+          );
+          return;
+        }
 
-            if (shaRes.statusCode == 200) {
-              final expectedHash =
-                  shaRes.body.trim().split(RegExp(r'\s+')).first.toLowerCase();
-              final bytes = await file.readAsBytes();
-              final actualHash =
-                  crypto.sha256.convert(bytes).toString().toLowerCase();
+        try {
+          final shaRes = await _client.get(
+            Uri.parse(shaUrl),
+            headers: const {'User-Agent': 'Prism-Music-App'},
+          ).timeout(const Duration(seconds: 10));
 
-              if (expectedHash.isNotEmpty && actualHash != expectedHash) {
-                logError(
-                  'AppUpdateService: Integrity check failed! Expected: $expectedHash, Actual: $actualHash',
-                );
-                await file.delete();
-                downloadState.value = downloadState.value.copyWith(
-                  status: UpdateStatus.failed,
-                  errorMessage: 'Integrity check failed: checksum mismatch.',
-                );
-                return;
-              }
-              logDebug('AppUpdateService: APK integrity verified via SHA-256 ($actualHash)');
-            }
-          } catch (shaErr) {
-            logError('AppUpdateService: Error verifying APK checksum', shaErr);
+          if (shaRes.statusCode != 200) {
+            logError('AppUpdateService: Checksum fetch failed with HTTP ${shaRes.statusCode}');
+            await file.delete();
+            downloadState.value = downloadState.value.copyWith(
+              status: UpdateStatus.failed,
+              errorMessage: 'Integrity check failed: unable to fetch checksum (HTTP ${shaRes.statusCode}).',
+            );
+            return;
           }
+
+          final expectedHash =
+              shaRes.body.trim().split(RegExp(r'\s+')).first.toLowerCase();
+          if (!RegExp(r'^[a-f0-9]{64}$').hasMatch(expectedHash)) {
+            logError('AppUpdateService: Malformed SHA-256 checksum payload.');
+            await file.delete();
+            downloadState.value = downloadState.value.copyWith(
+              status: UpdateStatus.failed,
+              errorMessage: 'Integrity check failed: invalid checksum format.',
+            );
+            return;
+          }
+
+          final bytes = await file.readAsBytes();
+          final actualHash =
+              crypto.sha256.convert(bytes).toString().toLowerCase();
+
+          if (actualHash != expectedHash) {
+            logError(
+              'AppUpdateService: Integrity check failed! Expected: $expectedHash, Actual: $actualHash',
+            );
+            await file.delete();
+            downloadState.value = downloadState.value.copyWith(
+              status: UpdateStatus.failed,
+              errorMessage: 'Integrity check failed: checksum mismatch.',
+            );
+            return;
+          }
+          logDebug('AppUpdateService: APK integrity verified via SHA-256 ($actualHash)');
+        } catch (shaErr) {
+          logError('AppUpdateService: Error verifying APK checksum', shaErr);
+          if (await file.exists()) {
+            await file.delete();
+          }
+          downloadState.value = downloadState.value.copyWith(
+            status: UpdateStatus.failed,
+            errorMessage: 'Integrity check failed: could not verify APK checksum.',
+          );
+          return;
         }
 
         downloadState.value = UpdateDownloadState(
@@ -840,17 +875,28 @@ class AppUpdateService {
     return null;
   }
 
+  bool _isAllowedReleaseHost(String rawUrl) {
+    final uri = Uri.tryParse(rawUrl);
+    if (uri == null || uri.scheme.toLowerCase() != 'https') return false;
+    final host = uri.host.toLowerCase();
+    return host == 'github.com' ||
+        host == 'objects.githubusercontent.com' ||
+        host == 'release-assets.githubusercontent.com' ||
+        host == 'github-releases.githubusercontent.com';
+  }
+
   String? _extractDesktopDownloadUrl(List assets) {
     for (final asset in assets) {
       if (asset is! Map<String, dynamic>) continue;
       final name = (asset['name'] as String?)?.toLowerCase() ?? '';
       final url = asset['browser_download_url'] as String?;
-      if (url == null) continue;
+      if (url == null || !_isAllowedReleaseHost(url)) continue;
 
-      if (name.endsWith('.zip') || name.contains('windows')) {
+      if (Platform.isWindows && (name.endsWith('.zip') || name.contains('windows'))) {
         return url;
       }
-      if (name.endsWith('.tar.gz') || name.contains('linux')) {
+      if (Platform.isLinux &&
+          (name.endsWith('.tar.gz') || name.endsWith('.appimage') || name.contains('linux'))) {
         return url;
       }
     }

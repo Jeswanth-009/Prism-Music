@@ -104,7 +104,13 @@ class MainActivity : AudioServiceActivity() {
                         return@setMethodCallHandler
                     }
                     try {
-                        val file = java.io.File(filePath)
+                        val updatesRoot = java.io.File(cacheDir, "app_updates").canonicalFile
+                        val file = java.io.File(filePath).canonicalFile
+                        val rootPrefix = updatesRoot.path + java.io.File.separator
+                        if (!file.path.startsWith(rootPrefix) || !file.name.lowercase().endsWith(".apk")) {
+                            result.error("INVALID_PATH", "APK path outside allowed updates directory", null)
+                            return@setMethodCallHandler
+                        }
                         if (!file.exists()) {
                             result.error("FILE_NOT_FOUND", "APK file does not exist", null)
                             return@setMethodCallHandler

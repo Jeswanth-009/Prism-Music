@@ -28,9 +28,6 @@
     
     <!-- Network state for connectivity checks -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-    
-    <!-- Receive boot completed for restoring playback -->
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
     <!-- Declares the intent to ask for a battery-optimization exemption; without
          this declaration the runtime request silently no-ops (permission_handler
@@ -158,12 +155,21 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.prismmusic.prism_music.ACTION_PLAY_PAUSE" />
-                <action android:name="com.prismmusic.prism_music.ACTION_NEXT" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/prism_playback_widget_info" />
+        </receiver>
+
+        <!-- Internal non-exported receiver for home screen widget controls -->
+        <receiver
+            android:name=".WidgetActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.prismmusic.prism_music.ACTION_PREVIOUS" />
+                <action android:name="com.prismmusic.prism_music.ACTION_PLAY_PAUSE" />
+                <action android:name="com.prismmusic.prism_music.ACTION_NEXT" />
+            </intent-filter>
         </receiver>
 
         <!-- FileProvider for secure in-app APK installation -->

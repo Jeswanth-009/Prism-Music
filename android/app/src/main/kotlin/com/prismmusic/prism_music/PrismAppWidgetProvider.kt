@@ -136,8 +136,8 @@ class PrismAppWidgetProvider : AppWidgetProvider() {
             )
             views.setOnClickPendingIntent(R.id.widget_container, pendingLaunch)
 
-            // Previous intent
-            val prevIntent = Intent(context, PrismAppWidgetProvider::class.java).apply {
+            // Previous intent (routed to non-exported WidgetActionReceiver)
+            val prevIntent = Intent(context, WidgetActionReceiver::class.java).apply {
                 action = ACTION_PREVIOUS
                 setPackage(context.packageName)
             }
@@ -150,7 +150,7 @@ class PrismAppWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.widget_btn_previous, pendingPrev)
 
             // Play/Pause intent
-            val playPauseIntent = Intent(context, PrismAppWidgetProvider::class.java).apply {
+            val playPauseIntent = Intent(context, WidgetActionReceiver::class.java).apply {
                 action = ACTION_PLAY_PAUSE
                 setPackage(context.packageName)
             }
@@ -163,7 +163,7 @@ class PrismAppWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.widget_btn_play_pause, pendingPlayPause)
 
             // Next intent
-            val nextIntent = Intent(context, PrismAppWidgetProvider::class.java).apply {
+            val nextIntent = Intent(context, WidgetActionReceiver::class.java).apply {
                 action = ACTION_NEXT
                 setPackage(context.packageName)
             }
