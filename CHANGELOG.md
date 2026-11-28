@@ -8,6 +8,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [1.1.1] - 2026-11-28
+
+### Fixed
+
+- Resolve double history counting, copywith null clears & startup crashes
+- Sanitize lan party server, p2p decompression & deep link hosts
+- Harden native android permissions, backup rules & updater
+
 ## [1.1.0] - 2026-11-27
 
 ### Added
@@ -1511,3 +1519,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [1.0.13]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.13
 [1.0.14]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.14
 [1.1.0]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.1.0
+[1.1.1]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.1.1
