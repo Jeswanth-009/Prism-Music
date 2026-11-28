@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -33,8 +34,9 @@ bool isAcceptableStreamUrl(String url) {
   if (uri == null || !uri.hasScheme) return false;
   if (uri.scheme == 'https') return true;
   if (uri.scheme == 'http') {
-    const loopbackHosts = {'127.0.0.1', 'localhost', '::1', '10.0.2.2'};
-    return loopbackHosts.contains(uri.host);
+    const loopbackHosts = {'127.0.0.1', 'localhost', '::1'};
+    if (loopbackHosts.contains(uri.host)) return true;
+    return kDebugMode && uri.host == '10.0.2.2';
   }
   return false;
 }
@@ -63,7 +65,13 @@ bool isPathWithinAllowedRoots(String path, List<String> roots) {
 
   for (final root in roots) {
     if (root.isEmpty) continue;
-    final canonicalRoot = p.canonicalize(root);
+    var canonicalRoot = p.canonicalize(root);
+    try {
+      final rootDir = Directory(root);
+      if (rootDir.existsSync()) {
+        canonicalRoot = p.canonicalize(rootDir.resolveSymbolicLinksSync());
+      }
+    } catch (_) {}
     // Never treat the root itself (or a parent of the root) as deletable.
     if (resolved == canonicalRoot) continue;
     if (p.isWithin(canonicalRoot, resolved)) return true;
@@ -80,6 +88,9 @@ class DownloadPathGuard {
   DownloadPathGuard._();
 
   static List<String>? _cachedRoots;
+
+  /// Clears cached roots when user changes the download directory setting.
+  static void invalidateCache() => _cachedRoots = null;
 
   /// App-owned roots: the user-configured download folder (if any) plus every
   /// app-specific/legacy PrismMusic directory the app may have used.

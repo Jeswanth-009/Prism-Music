@@ -355,7 +355,11 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
                 break;
             }
 
-            final candidateDecryptedUrl = decryptedUrl.replaceAll('_96.mp4', targetSuffix);
+            final rawCandidate = decryptedUrl.replaceAll('_96.mp4', targetSuffix);
+            final parsedCandidate = Uri.parse(rawCandidate);
+            final candidateDecryptedUrl = parsedCandidate.isScheme('http')
+                ? parsedCandidate.replace(scheme: 'https').toString()
+                : rawCandidate;
             final uri = Uri.parse(candidateDecryptedUrl);
             final originalHost = uri.host;
             
@@ -501,6 +505,9 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
     final ecb = ECBBlockCipher(cipher);
     
     final encryptedBytes = base64Decode(encryptedText);
+    if (encryptedBytes.isEmpty || encryptedBytes.length % ecb.blockSize != 0) {
+      throw const FormatException('Invalid 3DES ciphertext block length');
+    }
     final decryptedBytes = Uint8List(encryptedBytes.length);
     
     for (var i = 0; i < encryptedBytes.length; i += ecb.blockSize) {
@@ -508,6 +515,11 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
     }
     
     final paddingLength = decryptedBytes.last;
+    if (paddingLength < 1 ||
+        paddingLength > ecb.blockSize ||
+        paddingLength > decryptedBytes.length) {
+      throw const FormatException('Invalid PKCS5 padding in decrypted JioSaavn URL');
+    }
     final unpadded = decryptedBytes.sublist(0, decryptedBytes.length - paddingLength);
     
     return utf8.decode(unpadded);

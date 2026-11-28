@@ -6,6 +6,7 @@ import 'package:xml/xml.dart' as xml;
 
 import '../../domain/entities/podcast.dart';
 import '../../domain/entities/song.dart';
+import '../utils/path_safety.dart';
 
 /// Service managing podcast discovery, episode parsing, and subscriptions.
 class PodcastService {
@@ -75,14 +76,19 @@ class PodcastService {
 
   /// Fetch and parse episodes from a podcast's RSS feed
   Future<List<PodcastEpisode>> fetchEpisodes(Podcast podcast) async {
-    if (podcast.feedUrl.isEmpty) return [];
+    if (podcast.feedUrl.isEmpty || !isAcceptableStreamUrl(podcast.feedUrl)) return [];
 
     try {
       final response = await _dio.get<String>(
         podcast.feedUrl,
-        options: Options(responseType: ResponseType.plain),
+        options: Options(
+          responseType: ResponseType.plain,
+          followRedirects: true,
+          maxRedirects: 3,
+        ),
       );
 
+      if (!isAcceptableStreamUrl(response.realUri.toString())) return [];
       if (response.statusCode == 200 && response.data != null) {
         return parseRssFeed(response.data!, podcast);
       }
@@ -108,7 +114,7 @@ class PodcastService {
         final enclosure = item.findElements('enclosure').firstOrNull;
         final audioUrl = enclosure?.getAttribute('url')?.trim() ?? '';
 
-        if (audioUrl.isEmpty) continue;
+        if (audioUrl.isEmpty || !isAcceptableStreamUrl(audioUrl)) continue;
 
         // Parse pubDate
         DateTime? pubDate;

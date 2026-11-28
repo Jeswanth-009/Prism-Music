@@ -39,8 +39,6 @@ class _P2PPlaylistImportSheetState extends State<P2PPlaylistImportSheet> {
     if (widget.initialData != null && widget.initialData!.isNotEmpty) {
       _controller.text = widget.initialData!;
       _tryParse(widget.initialData!);
-    } else {
-      _checkClipboard();
     }
   }
 
@@ -48,17 +46,6 @@ class _P2PPlaylistImportSheetState extends State<P2PPlaylistImportSheet> {
   void dispose() {
     _controller.dispose();
     super.dispose();
-  }
-
-  Future<void> _checkClipboard() async {
-    try {
-      final data = await Clipboard.getData(Clipboard.kTextPlain);
-      final text = data?.text?.trim();
-      if (text != null && (text.startsWith('prism://playlist') || text.contains('playlist#data='))) {
-        _controller.text = text;
-        _tryParse(text);
-      }
-    } catch (_) {}
   }
 
   void _tryParse(String input) {
@@ -160,6 +147,7 @@ class _P2PPlaylistImportSheetState extends State<P2PPlaylistImportSheet> {
                     tooltip: 'Paste from clipboard',
                     onPressed: () async {
                       final data = await Clipboard.getData(Clipboard.kTextPlain);
+                      if (!mounted) return;
                       if (data?.text != null) {
                         _controller.text = data!.text!.trim();
                         _tryParse(_controller.text);

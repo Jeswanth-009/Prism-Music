@@ -867,11 +867,13 @@ class LocalBackupService {
   ) {
     final map = Map<String, dynamic>.from(value);
     if (boxName == 'downloads') {
-      final dynamic path = map['localPath'];
-      if (path is! String ||
-          path.isEmpty ||
-          !isPathWithinAllowedRoots(path, downloadRoots)) {
-        map.remove('localPath');
+      for (final pathKey in const ['localPath', 'localArtworkPath', 'localLyricsPath']) {
+        final dynamic path = map[pathKey];
+        if (path is! String ||
+            path.isEmpty ||
+            !isPathWithinAllowedRoots(path, downloadRoots)) {
+          map.remove(pathKey);
+        }
       }
     }
     return map;

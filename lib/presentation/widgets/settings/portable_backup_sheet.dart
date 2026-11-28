@@ -51,6 +51,7 @@ class PortableBackupSheetContent extends StatefulWidget {
 class _PortableBackupSheetContentState extends State<PortableBackupSheetContent> {
   bool _loading = true;
   bool _exporting = false;
+  bool _restoring = false;
   BackupSnapshotInfo? _latestInfo;
 
   final TextEditingController _pathController = TextEditingController();
@@ -148,20 +149,43 @@ class _PortableBackupSheetContentState extends State<PortableBackupSheetContent>
   }
 
   Future<void> _restore({required File file, required bool isMerge}) async {
-    final res = isMerge
-        ? await LocalBackupService.instance.mergeBackupFromFile(file)
-        : await LocalBackupService.instance.importBackupFromFile(file, overwrite: true);
+    if (_restoring) return;
 
-    if (!mounted) return;
+    if (!isMerge) {
+      var confirmed = false;
+      await showPrismConfirmDialog(
+        context: context,
+        title: 'Overwrite Entire Library?',
+        message:
+            'Clean Restore will permanently erase your current playlists, liked songs, and listening history before importing this backup. Continue?',
+        confirmLabel: 'Overwrite Library',
+        isDestructive: true,
+        onConfirm: () {
+          confirmed = true;
+        },
+      );
+      if (!confirmed || !mounted) return;
+    }
 
-    if (res.isSuccess) {
-      context.read<LibraryBloc>().add(const LoadLibraryEvent());
-      final mode = isMerge ? 'Merged' : 'Restored';
-      showPrismToast(context, '$mode ${res.totalRestored} items into library');
-      await _loadBackupInfo();
-      widget.onBackupChanged?.call();
-    } else {
-      showPrismToast(context, 'Restore failed: ${res.error ?? 'unknown error'}');
+    setState(() => _restoring = true);
+    try {
+      final res = isMerge
+          ? await LocalBackupService.instance.mergeBackupFromFile(file)
+          : await LocalBackupService.instance.importBackupFromFile(file, overwrite: true);
+
+      if (!mounted) return;
+
+      if (res.isSuccess) {
+        context.read<LibraryBloc>().add(const LoadLibraryEvent());
+        final mode = isMerge ? 'Merged' : 'Restored';
+        showPrismToast(context, '$mode ${res.totalRestored} items into library');
+        await _loadBackupInfo();
+        widget.onBackupChanged?.call();
+      } else {
+        showPrismToast(context, 'Restore failed: ${res.error ?? 'unknown error'}');
+      }
+    } finally {
+      if (mounted) setState(() => _restoring = false);
     }
   }
 

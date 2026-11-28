@@ -4,6 +4,7 @@ import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../utils/logger.dart';
+import '../utils/path_safety.dart';
 
 /// Country information for music region selection
 class CountryInfo {
@@ -194,6 +195,7 @@ class SettingsService {
   FlutterSecureStorage _secureStorage;
   String? _spotifyClientId;
   String? _spotifyClientSecret;
+  String? _sentryDsn;
 
   // Private constructor for singleton
   SettingsService._({FlutterSecureStorage? secureStorage})
@@ -247,6 +249,16 @@ class SettingsService {
             await _secureStorage.write(key: _spotifyClientSecretKey, value: _spotifyClientSecret!);
           }
           await _settingsBox?.delete(_spotifyClientSecretKey);
+        }
+
+        _sentryDsn = await _secureStorage.read(key: _sentryDsnKey);
+        final legacySentryDsn = _settingsBox?.get(_sentryDsnKey)?.toString();
+        if (legacySentryDsn != null && legacySentryDsn.isNotEmpty) {
+          if (_sentryDsn == null || _sentryDsn!.isEmpty) {
+            _sentryDsn = legacySentryDsn.trim();
+            await _secureStorage.write(key: _sentryDsnKey, value: _sentryDsn!);
+          }
+          await _settingsBox?.delete(_sentryDsnKey);
         }
       } catch (e, stack) {
         if (e is! MissingPluginException) {
@@ -728,6 +740,7 @@ class SettingsService {
     } else {
       await _settingsBox?.put(_downloadFolderKey, path);
     }
+    DownloadPathGuard.invalidateCache();
     logDebug('SettingsService: Download folder set to ${path ?? "default"}');
   }
 
@@ -990,20 +1003,31 @@ class SettingsService {
   }
 
   /// Optional Sentry DSN endpoint for self-hosted or cloud crash reporting.
-  String? get sentryDsn {
-    try {
-      return _settingsBox?.get(_sentryDsnKey) as String?;
-    } catch (_) {
-      return null;
-    }
-  }
+  String? get sentryDsn => _sentryDsn;
 
-  /// Persist custom Sentry DSN.
+  /// Persist custom Sentry DSN in secure storage.
   Future<void> setSentryDsn(String? dsn) async {
-    if (dsn == null || dsn.trim().isEmpty) {
+    final trimmed = dsn?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      _sentryDsn = null;
+      try {
+        await _secureStorage.delete(key: _sentryDsnKey);
+      } catch (e, stack) {
+        if (e is! MissingPluginException) {
+          logError('SettingsService: Error deleting secure Sentry DSN', e, stack);
+        }
+      }
       await _settingsBox?.delete(_sentryDsnKey);
     } else {
-      await _settingsBox?.put(_sentryDsnKey, dsn.trim());
+      _sentryDsn = trimmed;
+      try {
+        await _secureStorage.write(key: _sentryDsnKey, value: trimmed);
+      } catch (e, stack) {
+        if (e is! MissingPluginException) {
+          logError('SettingsService: Error writing secure Sentry DSN', e, stack);
+        }
+      }
+      await _settingsBox?.delete(_sentryDsnKey);
     }
   }
 

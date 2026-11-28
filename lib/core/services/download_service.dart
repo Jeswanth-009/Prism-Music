@@ -372,21 +372,14 @@ class DownloadService {
     }
 
     // Permissions: Default downloads use app-specific external storage which
-    // requires no runtime permissions. Only check storage permissions if a
-    // custom download directory is configured.
+    // requires no runtime permissions. On Android <30 with custom folder, request storage.
     final customFolder = _settingsService.downloadFolderPath;
     if (customFolder != null && customFolder.isNotEmpty && Platform.isAndroid) {
       try {
         final plugin = DeviceInfoPlugin();
         final androidInfo = await plugin.androidInfo;
-        if (androidInfo.version.sdkInt >= 30) {
-          if (!await Permission.manageExternalStorage.isGranted) {
-            await Permission.manageExternalStorage.request();
-          }
-        } else {
-          if (!await Permission.storage.isGranted) {
-            await Permission.storage.request();
-          }
+        if (androidInfo.version.sdkInt < 30 && !await Permission.storage.isGranted) {
+          await Permission.storage.request();
         }
       } catch (e) {
         logError('Custom folder permission check failed: $e');
@@ -612,19 +605,43 @@ class DownloadService {
         requestHeaders['Range'] = 'bytes=$existingBytes-';
       }
 
-      // Download file to temp destination with HTTP Range resume support
-      final response = await _dio.get<ResponseBody>(
-        streamUrl,
-        cancelToken: cancelToken,
-        options: Options(
-          headers: requestHeaders,
-          responseType: ResponseType.stream,
-          followRedirects: true,
-          validateStatus: (status) => status != null && (status == 200 || status == 206),
-          sendTimeout: const Duration(seconds: 60),
-          receiveTimeout: const Duration(seconds: 60),
-        ),
-      );
+      // Download file to temp destination with HTTP Range resume support & validated redirects
+      var currentUrl = streamUrl;
+      Response<ResponseBody>? response;
+      for (var hop = 0; hop <= 3; hop++) {
+        final candidate = await _dio.get<ResponseBody>(
+          currentUrl,
+          cancelToken: cancelToken,
+          options: Options(
+            headers: requestHeaders,
+            responseType: ResponseType.stream,
+            followRedirects: false,
+            validateStatus: (status) =>
+                status != null && (status == 200 || status == 206 || (status >= 300 && status < 400)),
+            sendTimeout: const Duration(seconds: 60),
+            receiveTimeout: const Duration(seconds: 60),
+          ),
+        );
+        final status = candidate.statusCode ?? 0;
+        if (status >= 300 && status < 400) {
+          final location = candidate.headers.value('location');
+          await candidate.data?.stream.drain<void>().catchError((_) {});
+          if (location == null || hop == 3) {
+            throw Exception('Too many or invalid redirects during download');
+          }
+          final nextUri = Uri.parse(currentUrl).resolve(location);
+          if (!isAcceptableStreamUrl(nextUri.toString())) {
+            throw Exception('Blocked insecure redirect target: ${nextUri.host}');
+          }
+          currentUrl = nextUri.toString();
+          continue;
+        }
+        response = candidate;
+        break;
+      }
+      if (response == null) {
+        throw Exception('Failed to obtain audio download response');
+      }
 
       final isPartial = response.statusCode == 206;
       final fileMode = (isPartial && existingBytes > 0) ? FileMode.append : FileMode.write;
@@ -690,7 +707,7 @@ class DownloadService {
 
       // 1. Download and persist high-resolution offline artwork alongside audio
       String? localArtworkPath;
-      if (song.thumbnailUrl.isNotEmpty) {
+      if (song.thumbnailUrl.isNotEmpty && isAcceptableStreamUrl(song.thumbnailUrl)) {
         try {
           final downloadDir = await _getDownloadDirectory();
           final artworkName =

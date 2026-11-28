@@ -81,16 +81,21 @@ class PlaylistCollaborationService {
         normalized += '=';
       }
 
-      final compressedBytes = base64.decode(normalized);
+      const maxBytes = 256 * 1024;
+      if (token.length > maxBytes * 2) return null;
 
-      // Decompress gzip payload, with fallback to zlib or plain json
+      final compressedBytes = base64.decode(normalized);
+      if (compressedBytes.length > maxBytes) return null;
+
+      // Decompress gzip payload with strict size cap to prevent zip bombs
       List<int> decompressedBytes;
       try {
-        decompressedBytes = gzip.decode(compressedBytes);
+        decompressedBytes = _boundedDecompress(gzip.decoder, compressedBytes, maxBytes);
       } catch (_) {
         try {
-          decompressedBytes = zlib.decode(compressedBytes);
-        } catch (_) {
+          decompressedBytes = _boundedDecompress(zlib.decoder, compressedBytes, maxBytes);
+        } catch (e) {
+          if (e is FormatException) return null;
           decompressedBytes = compressedBytes;
         }
       }
@@ -154,5 +159,23 @@ class PlaylistCollaborationService {
       logError('PlaylistCollaborationService: Failed to decode payload: $e\n$st');
       return null;
     }
+  }
+
+  List<int> _boundedDecompress(
+    Converter<List<int>, List<int>> decoder,
+    List<int> input,
+    int maxBytes,
+  ) {
+    final output = <int>[];
+    final sink = ByteConversionSink.withCallback((chunk) {
+      if (output.length + chunk.length > maxBytes) {
+        throw const FormatException('Decompressed P2P payload exceeds size limit');
+      }
+      output.addAll(chunk);
+    });
+    final conversionSink = decoder.startChunkedConversion(sink);
+    conversionSink.add(input);
+    conversionSink.close();
+    return output;
   }
 }

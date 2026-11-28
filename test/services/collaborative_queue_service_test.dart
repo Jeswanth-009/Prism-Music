@@ -95,8 +95,11 @@ void main() {
       final unauthRes = await http.get(Uri.parse('http://127.0.0.1:$testPort/api/search?q=test'));
       expect(unauthRes.statusCode, 401);
 
-      // 2. With valid PIN - returns results
-      final res = await http.get(Uri.parse('http://127.0.0.1:$testPort/api/search?q=test&pin=${service.pin}'));
+      // 2. With valid PIN in X-Party-Pin header - returns results
+      final res = await http.get(
+        Uri.parse('http://127.0.0.1:$testPort/api/search?q=test'),
+        headers: {'X-Party-Pin': service.pin},
+      );
       expect(res.statusCode, 200);
       final json = jsonDecode(res.body) as Map<String, dynamic>;
       expect((json['results'] as List).length, 1);

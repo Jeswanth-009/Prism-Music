@@ -6,6 +6,7 @@ import 'dart:math';
 import '../../domain/entities/song.dart';
 import '../../domain/repositories/music_repository.dart';
 import '../utils/logger.dart';
+import '../utils/path_safety.dart';
 
 /// Represents a song submission by a party guest.
 class PartyActivityEntry {
@@ -54,6 +55,13 @@ class CollaborativeQueueService {
 
   void _recordFailedAttempt(String ip) {
     final now = DateTime.now();
+    if (_failedAttemptsByIp.length > 200) {
+      _failedAttemptsByIp.removeWhere((_, list) =>
+          list.every((t) => now.difference(t) > const Duration(minutes: 1)));
+      if (_failedAttemptsByIp.length > 200) {
+        _failedAttemptsByIp.clear();
+      }
+    }
     final attempts = _failedAttemptsByIp.putIfAbsent(ip, () => []);
     attempts.removeWhere((t) => now.difference(t) > const Duration(minutes: 1));
     attempts.add(now);
@@ -120,10 +128,19 @@ class CollaborativeQueueService {
   }
 
   Future<void> _handleRequest(HttpRequest request) async {
-    // Add CORS headers for local web client
-    request.response.headers.add('Access-Control-Allow-Origin', '*');
+    final origin = request.headers.value('origin');
+    final allowedOrigins = <String>{
+      if (_localIp != null)
+        Uri(scheme: 'http', host: _localIp, port: _port).toString(),
+      Uri(scheme: 'http', host: '127.0.0.1', port: _port).toString(),
+      Uri(scheme: 'http', host: 'localhost', port: _port).toString(),
+    };
+    if (origin != null && allowedOrigins.contains(origin)) {
+      request.response.headers.add('Access-Control-Allow-Origin', origin);
+      request.response.headers.add('Vary', 'Origin');
+    }
     request.response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    request.response.headers.add('Access-Control-Allow-Headers', 'Content-Type');
+    request.response.headers.add('Access-Control-Allow-Headers', 'Content-Type, X-Party-Pin');
 
     if (request.method == 'OPTIONS') {
       request.response.statusCode = HttpStatus.ok;
@@ -196,7 +213,7 @@ class CollaborativeQueueService {
       return;
     }
 
-    final reqPin = request.uri.queryParameters['pin']?.trim().toUpperCase();
+    final reqPin = request.headers.value('x-party-pin')?.trim().toUpperCase();
     if (reqPin != _pin) {
       _recordFailedAttempt(clientIp);
       request.response.statusCode = HttpStatus.unauthorized;
@@ -252,7 +269,18 @@ class CollaborativeQueueService {
       return;
     }
 
-    final bodyStr = await utf8.decoder.bind(request).join();
+    const maxBodyBytes = 64 * 1024;
+    final bytes = <int>[];
+    await for (final chunk in request) {
+      bytes.addAll(chunk);
+      if (bytes.length > maxBodyBytes) {
+        request.response.statusCode = HttpStatus.requestEntityTooLarge;
+        request.response.write(jsonEncode({'error': 'Request body too large'}));
+        await request.response.close();
+        return;
+      }
+    }
+    final bodyStr = utf8.decode(bytes);
     final dynamic body = jsonDecode(bodyStr);
 
     if (body is! Map) {
@@ -277,7 +305,10 @@ class CollaborativeQueueService {
     final guestName = body['guestName']?.toString().trim().isNotEmpty == true
         ? body['guestName'].toString().trim()
         : 'Guest';
-    final thumbnail = body['thumbnail']?.toString() ?? '';
+    final rawThumbnail = body['thumbnail']?.toString().trim() ?? '';
+    final thumbnail = rawThumbnail.isNotEmpty && isAcceptableStreamUrl(rawThumbnail)
+        ? rawThumbnail
+        : '';
     final durationSeconds = int.tryParse(body['duration']?.toString() ?? '180') ?? 180;
 
     if (title.isEmpty) {
@@ -331,9 +362,10 @@ class CollaborativeQueueService {
       );
       for (final interface in interfaces) {
         for (final addr in interface.addresses) {
-          if (!addr.isLoopback && addr.address.startsWith('192.168.') ||
-              addr.address.startsWith('10.') ||
-              addr.address.startsWith('172.')) {
+          if (!addr.isLoopback &&
+              (addr.address.startsWith('192.168.') ||
+                  addr.address.startsWith('10.') ||
+                  addr.address.startsWith('172.'))) {
             return addr.address;
           }
         }
@@ -459,7 +491,9 @@ class CollaborativeQueueService {
         return;
       }
       try {
-        const res = await fetch('/api/search?q=' + encodeURIComponent(q) + '&pin=' + encodeURIComponent(pin));
+        const res = await fetch('/api/search?q=' + encodeURIComponent(q), {
+          headers: { 'X-Party-Pin': pin }
+        });
         if (res.status === 401) {
           alert('Incorrect or missing party PIN');
           return;

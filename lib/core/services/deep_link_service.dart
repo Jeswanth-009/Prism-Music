@@ -6,7 +6,9 @@ import '../../data/datasources/remote/youtube/youtube_music_datasource.dart';
 import '../../domain/entities/song.dart';
 import '../../presentation/blocs/player/player_bloc.dart';
 import '../../presentation/blocs/player/player_event.dart';
+import '../utils/link_validation.dart';
 import '../utils/media_share_helper.dart';
+import '../utils/path_safety.dart';
 
 /// Supported types of deep links within Prism Music.
 enum DeepLinkType {
@@ -144,17 +146,28 @@ class DeepLinkService {
         if (host == 'song') {
           final id = uri.queryParameters['id'];
           if (id != null && id.isNotEmpty) {
+            final rawArt = uri.queryParameters['artwork'];
+            final safeArt = (rawArt != null && isAcceptableStreamUrl(rawArt)) ? rawArt : null;
             return ParsedDeepLink(
               type: DeepLinkType.song,
               id: id,
               title: uri.queryParameters['title'],
               artist: uri.queryParameters['artist'],
               album: uri.queryParameters['album'],
-              artworkUrl: uri.queryParameters['artwork'],
+              artworkUrl: safeArt,
               raw: input,
             );
           }
         } else if (host == 'playlist') {
+          final p2pData = uri.queryParameters['data'];
+          if (p2pData != null && p2pData.isNotEmpty) {
+            return ParsedDeepLink(
+              type: DeepLinkType.playlist,
+              id: 'p2p',
+              title: uri.queryParameters['name'],
+              raw: input,
+            );
+          }
           final id = uri.queryParameters['id'];
           if (id != null && id.isNotEmpty) {
             return ParsedDeepLink(
@@ -178,7 +191,7 @@ class DeepLinkService {
 
       // 3. YouTube and YouTube Music URLs
       final hostLower = uri.host.toLowerCase();
-      if (hostLower.contains('youtube.com')) {
+      if (isYouTubePlaylistHost(hostLower) && hostLower != 'youtu.be') {
         // Track: /watch?v=...
         if (uri.path.startsWith('/watch')) {
           final v = uri.queryParameters['v'];

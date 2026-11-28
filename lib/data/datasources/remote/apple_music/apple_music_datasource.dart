@@ -56,7 +56,7 @@ class AppleMusicDataSourceImpl implements AppleMusicDataSource {
   }) async {
     final trimmedUrl = playlistUrl.trim();
     final uri = Uri.tryParse(trimmedUrl);
-    if (uri == null || !isAppleMusicPlaylistHost(uri.host)) {
+    if (uri == null || !uri.isScheme('https') || !isAppleMusicPlaylistHost(uri.host)) {
       return null;
     }
 
@@ -70,10 +70,16 @@ class AppleMusicDataSourceImpl implements AppleMusicDataSource {
             'Accept-Language': 'en-US,en;q=0.9',
           },
           responseType: ResponseType.plain,
+          followRedirects: true,
+          maxRedirects: 3,
           validateStatus: (status) => status != null && status < 500,
         ),
       );
 
+      final finalUri = response.realUri;
+      if (!finalUri.isScheme('https') || !isAppleMusicPlaylistHost(finalUri.host)) {
+        return null;
+      }
       if (response.statusCode != 200 || response.data == null) {
         return null;
       }
@@ -367,15 +373,23 @@ class AppleMusicDataSourceImpl implements AppleMusicDataSource {
 
   List<Song> _scrapeTracksFromHtml(String html) {
     final tracks = <Song>[];
-    // Regex looking for track rows in Apple Music page markup
-    final rowRegex = RegExp(
-      r'class=["\x27][^"\x27]*songs-list-row[^"\x27]*["\x27][\s\S]*?class=["\x27][^"\x27]*songs-list-row__song-name[^"\x27]*["\x27]>([^<]+)<\/[\s\S]*?class=["\x27][^"\x27]*songs-list-row__link[^"\x27]*["\x27]>([^<]+)<\/',
+    final segments = html.split('songs-list-row');
+    final nameRegex = RegExp(
+      r'songs-list-row__song-name[^"\x27]*["\x27]>([^<]{1,300})<\/',
+      caseSensitive: false,
+    );
+    final artistRegex = RegExp(
+      r'songs-list-row__link[^"\x27]*["\x27]>([^<]{1,200})<\/',
       caseSensitive: false,
     );
 
-    for (final match in rowRegex.allMatches(html)) {
-      final title = _unescapeHtml(match.group(1)?.trim());
-      final artist = _unescapeHtml(match.group(2)?.trim());
+    for (var i = 1; i < segments.length; i++) {
+      final chunk = segments[i].length > 3000 ? segments[i].substring(0, 3000) : segments[i];
+      final nameMatch = nameRegex.firstMatch(chunk);
+      final artistMatch = artistRegex.firstMatch(chunk);
+      if (nameMatch == null || artistMatch == null) continue;
+      final title = _unescapeHtml(nameMatch.group(1)?.trim());
+      final artist = _unescapeHtml(artistMatch.group(1)?.trim());
       if (title != null && title.isNotEmpty) {
         tracks.add(
           Song(
