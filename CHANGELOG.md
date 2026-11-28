@@ -8,6 +8,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 _Nothing yet._
 
+## [1.1.2] - 2026-11-28
+
+### Fixed
+
+- Fix unicode search wipe, jiosaavn keys & lyrics providers
+- Harden dsp analyzers, stream cache & core services
+- Implement android 10-band hardware eq & volume normalization
+
 ## [1.1.1] - 2026-11-28
 
 ### Fixed
@@ -1520,3 +1528,4 @@ _Initial public alpha. ([release](https://github.com/Jeswanth-009/Prism-Music/re
 [1.0.14]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.0.14
 [1.1.0]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.1.0
 [1.1.1]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.1.1
+[1.1.2]: https://github.com/Jeswanth-009/Prism-Music/releases/tag/v1.1.2
