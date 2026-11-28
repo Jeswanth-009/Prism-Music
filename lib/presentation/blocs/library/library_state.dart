@@ -110,6 +110,8 @@ class LibraryState extends Equatable {
     int? importTotalTracks,
     ImportPlaylistResult? lastImportResult,
     String? errorMessage,
+    bool clearImportProgress = false,
+    bool clearErrorMessage = false,
   }) {
     return LibraryState(
       status: status ?? this.status,
@@ -124,11 +126,11 @@ class LibraryState extends Equatable {
       downloadedSongIds: downloadedSongIds ?? this.downloadedSongIds,
       favoriteArtists: favoriteArtists ?? this.favoriteArtists,
       favoriteArtistIds: favoriteArtistIds ?? this.favoriteArtistIds,
-      importProgress: importProgress ?? this.importProgress,
-      importCurrentTrack: importCurrentTrack ?? this.importCurrentTrack,
-      importTotalTracks: importTotalTracks ?? this.importTotalTracks,
+      importProgress: clearImportProgress ? null : (importProgress ?? this.importProgress),
+      importCurrentTrack: clearImportProgress ? null : (importCurrentTrack ?? this.importCurrentTrack),
+      importTotalTracks: clearImportProgress ? null : (importTotalTracks ?? this.importTotalTracks),
       lastImportResult: lastImportResult ?? this.lastImportResult,
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
     );
   }
 

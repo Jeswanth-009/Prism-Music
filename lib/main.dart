@@ -13,10 +13,13 @@ import 'core/localization/prism_localizations.dart';
 import 'core/di/injection.dart';
 import 'core/services/crash_reporting_service.dart';
 import 'core/services/audio_player_service.dart';
+import 'core/services/kids_mode_service.dart';
+import 'core/services/lastfm_service.dart';
 import 'core/services/media_session_coordinator.dart';
 import 'core/services/local_backup_service.dart';
 import 'core/services/prism_audio_handler.dart';
 import 'core/services/settings_service.dart';
+import 'core/services/user_profile_service.dart';
 import 'core/services/wear_os_service.dart';
 import 'core/services/desktop_window_service.dart';
 import 'core/services/desktop_shortcuts_service.dart';
@@ -135,6 +138,12 @@ Future<void> _initializeBackgroundServices() async {
     }
 
     WearOsService.instance.initialize(playerService: audioPlayerService);
+
+    await Future.wait([
+      KidsModeService.instance.initialize(),
+      UserProfileService.instance.initialize(),
+      getIt<LastFmService>().initialize(),
+    ]);
 
     // Restore user library from the on-device backup (survives uninstall).
     try {

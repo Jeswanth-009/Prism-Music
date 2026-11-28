@@ -265,7 +265,7 @@ void main() {
   });
 
   group('F01: Playback startup does not wait for entire lifetime', () {
-    test('commits playing state and records history immediately even if play future is pending',
+    test('commits playing state immediately even if play future is pending, and records history once at threshold',
         () async {
       audioPlayer.pendingPlayCompleter = Completer<void>();
       final songA = createSong('s1', 'Song A');
@@ -276,8 +276,9 @@ void main() {
       bloc.add(PlaySongEvent(song: songA));
       await playingFuture;
 
-      expect(libraryRepo.history, contains(songA));
       expect(bloc.state.status, PlayerStatus.playing);
+      // Instant skip at 0s must not inflate listening history
+      expect(libraryRepo.history, isEmpty);
     });
   });
 

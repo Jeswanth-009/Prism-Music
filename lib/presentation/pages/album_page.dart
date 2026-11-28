@@ -172,37 +172,37 @@ class _AlbumPageState extends State<AlbumPage> {
           SliverToBoxAdapter(
             child: Stack(
               children: [
-                // Backdrop Artwork with bottom fade gradient
-                if (artworkUrl.isNotEmpty)
-                  Positioned.fill(
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
+                // Backdrop Artwork with unconditional dark scrim for white foreground contrast
+                Positioned.fill(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (artworkUrl.isNotEmpty)
                         CachedNetworkImage(
                           imageUrl: artworkUrl,
                           fit: BoxFit.cover,
                           alignment: Alignment.topCenter,
                           errorWidget: (_, __, ___) => const SizedBox(),
                         ),
-                        // Dark scrim and gradient fading downwards
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                PrismColors.scrim.withValues(alpha: 0.5),
-                                PrismColors.scrimHeavy,
-                                theme.colorScheme.surface.withValues(alpha: 0.95),
-                                theme.colorScheme.surface,
-                              ],
-                              stops: const [0.0, 0.45, 0.85, 1.0],
-                            ),
+                      // Dark scrim and gradient fading downwards
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              PrismColors.scrim.withValues(alpha: artworkUrl.isNotEmpty ? 0.5 : 0.78),
+                              PrismColors.scrimHeavy,
+                              theme.colorScheme.surface.withValues(alpha: 0.95),
+                              theme.colorScheme.surface,
+                            ],
+                            stops: const [0.0, 0.45, 0.85, 1.0],
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
+                ),
 
                 // Content Overlay
                 SafeArea(

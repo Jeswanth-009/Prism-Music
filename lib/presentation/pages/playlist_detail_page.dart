@@ -33,6 +33,7 @@ class PlaylistDetailPage extends StatefulWidget {
 
 class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
   final TextEditingController _searchCtrl = TextEditingController();
+  final Set<String> _optimisticallyRemovedIds = {};
   bool _isReordering = false;
   bool _showSearch = false;
 
@@ -153,7 +154,9 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
             widget.playlist;
         final isPinned = SettingsService.instance.isPlaylistPinned(current.id) || current.isPinned;
 
-        final songs = current.songs ?? const [];
+        final songs = (current.songs ?? const [])
+            .where((s) => !_optimisticallyRemovedIds.contains(s.id))
+            .toList();
         final query = _searchCtrl.text.trim().toLowerCase();
         final displaySongs = query.isEmpty
             ? songs
@@ -530,6 +533,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                       ),
                     ),
                     onDismissed: (_) {
+                      setState(() => _optimisticallyRemovedIds.add(song.id));
                       context.read<LibraryBloc>().add(
                             RemoveFromPlaylistEvent(
                               playlistId: playlist.id,
@@ -543,6 +547,9 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                           action: SnackBarAction(
                             label: 'Undo',
                             onPressed: () {
+                              if (mounted) {
+                                setState(() => _optimisticallyRemovedIds.remove(song.id));
+                              }
                               context.read<LibraryBloc>().add(
                                     AddToPlaylistEvent(
                                       playlistId: playlist.id,

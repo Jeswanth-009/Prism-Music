@@ -260,6 +260,7 @@ class PlayerState extends Equatable {
   PlayerState copyWith({
     PlayerStatus? status,
     Song? currentSong,
+    bool clearCurrentSong = false,
     Duration? position,
     Duration? bufferedPosition,
     Duration? duration,
@@ -275,6 +276,7 @@ class PlayerState extends Equatable {
     List<Song>? originalQueue,
     int? queueIndex,
     String? errorMessage,
+    bool clearErrorMessage = false,
     DateTime? sleepTimerEnd,
     bool? sleepTimerEndOfTrack,
     bool? sleepTimerBedtimeMode,
@@ -292,7 +294,7 @@ class PlayerState extends Equatable {
   }) {
     return PlayerState(
       status: status ?? this.status,
-      currentSong: currentSong ?? this.currentSong,
+      currentSong: clearCurrentSong ? null : (currentSong ?? this.currentSong),
       position: position ?? this.position,
       bufferedPosition: bufferedPosition ?? this.bufferedPosition,
       duration: duration ?? this.duration,
@@ -308,7 +310,7 @@ class PlayerState extends Equatable {
       queue: queue ?? this.queue,
       originalQueue: originalQueue ?? this.originalQueue,
       queueIndex: queueIndex ?? this.queueIndex,
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
       sleepTimerEnd:
           clearSleepTimer ? sleepTimerEnd : (sleepTimerEnd ?? this.sleepTimerEnd),
       sleepTimerEndOfTrack: sleepTimerEndOfTrack ??

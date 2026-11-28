@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import '../../../../core/di/injection.dart';
 import '../../../../core/services/lastfm_service.dart';
 import '../../../../core/services/recommendation_service.dart';
 import '../../../../domain/entities/entities.dart';
@@ -7,7 +8,10 @@ import '../../../../domain/repositories/repositories.dart';
 
 /// Mixin encapsulating Last.fm now playing, scrobbling, and history persistence.
 mixin ScrobbleMixin {
-  LastFmService _lastFmService = LastFmService();
+  LastFmService? _lastFmServiceOverride;
+  LastFmService get _lastFmService =>
+      _lastFmServiceOverride ??
+      (getIt.isRegistered<LastFmService>() ? getIt<LastFmService>() : LastFmService());
 
   bool _hasScrobbled = false;
   bool _hasUpdatedNowPlaying = false;
@@ -17,7 +21,7 @@ mixin ScrobbleMixin {
 
   @visibleForTesting
   void setLastFmServiceForTesting(LastFmService service) {
-    _lastFmService = service;
+    _lastFmServiceOverride = service;
   }
 
   /// Reset all scrobbling and history deduplication flags on new track transition.

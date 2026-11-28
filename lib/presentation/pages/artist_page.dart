@@ -166,9 +166,12 @@ class _ArtistPageState extends State<ArtistPage> {
       }
 
       if (!mounted) return;
+      final mergedArtist = _mergeArtist(
+          base: artist, details: null, fallbackThumbnail: fallbackThumb);
+      final hasData = _topSongs.isNotEmpty || _albums.isNotEmpty || artist != null;
       setState(() {
-        _artist = _mergeArtist(
-            base: artist, details: null, fallbackThumbnail: fallbackThumb);
+        _artist = mergedArtist;
+        if (hasData) _error = null;
         _loading = false;
       });
     } catch (e, stack) {

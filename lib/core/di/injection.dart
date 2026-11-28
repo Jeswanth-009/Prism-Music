@@ -41,6 +41,7 @@ import '../services/audio_recognition_service.dart';
 import '../services/deep_link_service.dart';
 import '../services/dj_sequencer_service.dart';
 import '../services/kids_mode_service.dart';
+import '../services/lastfm_service.dart';
 import '../services/music_video_service.dart';
 
 /// Global service locator instance
@@ -329,6 +330,11 @@ getIt.registerLazySingleton<LibraryRepository>(
     // Audio Recognition Service
     getIt.registerLazySingleton<AudioRecognitionService>(
       () => AudioRecognitionService.instance,
+    );
+
+    // Last.fm Scrobbling Service (shared singleton across Settings & ScrobbleMixin)
+    getIt.registerLazySingleton<LastFmService>(
+      () => LastFmService(),
     );
 
     // ============ BLOCS ============

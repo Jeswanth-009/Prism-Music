@@ -473,14 +473,34 @@ class _YearInReviewTab extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        Row(
-          children: [
-            _StatTile(value: '$totalMins', label: 'Minutes listened'),
-            const SizedBox(width: 10),
-            _StatTile(value: '${review.uniqueSongs}', label: 'Unique tracks'),
-            const SizedBox(width: 10),
-            _StatTile(value: '${review.uniqueArtists}', label: 'Artists discovered'),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 340) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(child: _StatTile(value: '$totalMins', label: 'Minutes listened')),
+                      const SizedBox(width: 10),
+                      Expanded(child: _StatTile(value: '${review.uniqueSongs}', label: 'Unique tracks')),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _StatTile(value: '${review.uniqueArtists}', label: 'Artists discovered'),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: _StatTile(value: '$totalMins', label: 'Minutes listened')),
+                const SizedBox(width: 10),
+                Expanded(child: _StatTile(value: '${review.uniqueSongs}', label: 'Unique tracks')),
+                const SizedBox(width: 10),
+                Expanded(child: _StatTile(value: '${review.uniqueArtists}', label: 'Artists discovered')),
+              ],
+            );
+          },
         ),
         if (review.mostActiveMonth != null) ...[
           const SizedBox(height: 16),
@@ -717,12 +737,13 @@ class _HeadlineStats extends StatelessWidget {
         final isNarrow = constraints.maxWidth < 340;
         if (isNarrow) {
           return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
                 children: [
-                  _StatTile(value: '${stats.totalPlays}', label: 'Plays'),
+                  Expanded(child: _StatTile(value: '${stats.totalPlays}', label: 'Plays')),
                   const SizedBox(width: 10),
-                  _StatTile(value: '${stats.uniqueSongs}', label: 'Unique songs'),
+                  Expanded(child: _StatTile(value: '${stats.uniqueSongs}', label: 'Unique songs')),
                 ],
               ),
               const SizedBox(height: 10),
@@ -732,11 +753,11 @@ class _HeadlineStats extends StatelessWidget {
         }
         return Row(
           children: [
-            _StatTile(value: '${stats.totalPlays}', label: 'Plays'),
+            Expanded(child: _StatTile(value: '${stats.totalPlays}', label: 'Plays')),
             const SizedBox(width: 10),
-            _StatTile(value: '${stats.uniqueSongs}', label: 'Unique songs'),
+            Expanded(child: _StatTile(value: '${stats.uniqueSongs}', label: 'Unique songs')),
             const SizedBox(width: 10),
-            _StatTile(value: listeningTime, label: 'Listening time'),
+            Expanded(child: _StatTile(value: listeningTime, label: 'Listening time')),
           ],
         );
       },
@@ -753,9 +774,8 @@ class _StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(16),
+    return Container(
+      padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(PrismRadius.lg),
@@ -782,8 +802,7 @@ class _StatTile extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 }
 

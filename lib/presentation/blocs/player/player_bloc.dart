@@ -928,8 +928,6 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
           ),
         );
 
-        _libraryRepository.addToHistory(songToPlay);
-        _recommendationService?.recordPlay(songToPlay);
         _reliability.registerSuccess(songToPlay.playableId);
         _attemptedFreshResolutions.remove(songToPlay.playableId);
         try {
@@ -1881,14 +1879,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     _reliability.registerFailure(failedSong.playableId);
     _mediaResolver.invalidate(failedSong.playableId);
 
-    if (isOffline) {
-      try {
-        _downloadService.deleteSong(failedSong.playableId);
-        _log(
-          'PlayerBloc: Removed invalid local download entry for ${failedSong.playableId}',
-        );
-      } catch (_) {}
-    }
+    // Do NOT delete offline downloaded files on transient codec/playback errors;
+    // preserve user's offline library and surface playback failure cleanly.
 
     // A stale attempt (user already skipped to another song) must not
     // schedule retries or advance the queue.
@@ -2352,9 +2344,6 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState>
     _safePrefetchUpcomingArtwork(state.queue, blocIndex);
     _prefetchAhead(state.queue, blocIndex);
     MediaSessionCoordinator.instance.notifyQueueChanged();
-    // Add to history in background.
-    _libraryRepository.addToHistory(newSong);
-    _recommendationService?.recordPlay(newSong);
 
     // Check if we need more recommendations.
     _checkAndAddRecommendations();
