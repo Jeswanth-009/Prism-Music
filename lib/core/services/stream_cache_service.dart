@@ -74,7 +74,7 @@ class StreamCacheService {
   /// Get cached stream if available and not expired
   StreamInfo? getCached(String videoId, [AudioQuality? quality]) {
     final key = _buildKey(videoId, quality);
-    final entry = _cache[key] ?? (quality != null ? _cache[videoId] : null);
+    final entry = _cache[key];
     if (entry == null) {
       return null;
     }
@@ -100,10 +100,6 @@ class StreamCacheService {
     final entry = _CacheEntry(streamInfo, actualTtl);
     final key = _buildKey(videoId, quality);
     _cache[key] = entry;
-    // Also store canonical fallback entry if quality-specific
-    if (key != videoId) {
-      _cache[videoId] = entry;
-    }
     debugPrint('StreamCache: Cached $key (TTL: ${actualTtl.inMinutes}m)');
   }
   

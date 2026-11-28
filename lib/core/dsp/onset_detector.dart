@@ -192,7 +192,8 @@ class OnsetDetector {
     int bestStartFrame = 0;
 
     // Slide across frames (skip first 10% intro to avoid false climax on quiet intros)
-    final startOffset = (numFrames * 0.10).round();
+    final maxStart = numFrames > windowFrames ? numFrames - windowFrames : 0;
+    final startOffset = (numFrames * 0.10).round().clamp(0, maxStart);
     for (int i = 0; i < startOffset && i + windowFrames < numFrames; i++) {
       currentWindowScore += (energy[i + windowFrames] + flux[i + windowFrames] * 2.0) -
           (energy[i] + flux[i] * 2.0);
@@ -206,7 +207,7 @@ class OnsetDetector {
           (energy[i] + flux[i] * 2.0);
       if (currentWindowScore > maxScore) {
         maxScore = currentWindowScore;
-        bestStartFrame = i;
+        bestStartFrame = i + 1;
       }
     }
 

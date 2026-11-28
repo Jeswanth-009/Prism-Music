@@ -78,7 +78,7 @@ class KeyEstimator {
       return const KeyAnalysisResult(
         keyName: 'C Major',
         camelotCode: '8B',
-        confidence: 0.5,
+        confidence: 0.0,
       );
     }
 
@@ -140,7 +140,7 @@ class KeyEstimator {
         // Pitch class: 12 * log2(f / 440) + 69
         final midiNote = 12.0 * (math.log(freq / 440.0) / math.ln2) + 69.0;
         final pitchClass = (midiNote.round() % 12 + 12) % 12;
-        chroma[pitchClass] += spectrum[k].power;
+        chroma[pitchClass] += math.log(1.0 + spectrum[k].power);
       }
     }
 

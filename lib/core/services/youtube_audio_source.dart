@@ -461,12 +461,8 @@ class YouTubeAudioSource extends StreamAudioSource {
     throw Exception('Failed to load audio from YouTube');
   }
 
-  /// Clear cached stream info (useful when stream expires)
+  /// Clear cached stream info (useful when stream expires) without killing active sibling sockets
   void clearCache() {
-    for (final client in _activeClients.toList()) {
-      client.close();
-    }
-    _activeClients.clear();
     _cachedStreamInfo = null;
     _cacheTime = null;
     _lastRequestPosition = null;

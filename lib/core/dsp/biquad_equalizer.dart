@@ -14,9 +14,11 @@ class BiquadBand {
   double _a1 = 0.0;
   double _a2 = 0.0;
 
-  // Filter state (Direct Form II Transposed)
+  // Filter state per channel (Direct Form II Transposed)
   double _s1 = 0.0;
   double _s2 = 0.0;
+  double _s1R = 0.0;
+  double _s2R = 0.0;
 
   BiquadBand({
     required this.centerFrequency,
@@ -67,7 +69,7 @@ class BiquadBand {
     _a2 = a2 / a0;
   }
 
-  /// Processes a single audio sample through the filter.
+  /// Processes a single left/mono audio sample through the filter.
   @pragma('vm:prefer-inline')
   double processSample(double x) {
     final y = _b0 * x + _s1;
@@ -76,10 +78,21 @@ class BiquadBand {
     return y;
   }
 
+  /// Processes a single right-channel audio sample with isolated stereo state.
+  @pragma('vm:prefer-inline')
+  double processSampleRight(double x) {
+    final y = _b0 * x + _s1R;
+    _s1R = _b1 * x - _a1 * y + _s2R;
+    _s2R = _b2 * x - _a2 * y;
+    return y;
+  }
+
   /// Resets filter history/state.
   void reset() {
     _s1 = 0.0;
     _s2 = 0.0;
+    _s1R = 0.0;
+    _s2R = 0.0;
   }
 }
 
@@ -131,7 +144,7 @@ class BiquadEqualizer {
   /// Retrieves current band gains.
   List<double> getGains() => bands.map((b) => b.gainDb).toList();
 
-  /// Processes mono or interleaved audio samples through the 10-band cascade.
+  /// Processes mono audio samples through the 10-band cascade.
   Float32List process(Float32List samples) {
     final output = Float32List(samples.length);
     for (int i = 0; i < samples.length; i++) {
@@ -141,6 +154,22 @@ class BiquadEqualizer {
       }
       // Soft saturation clamp to prevent harsh digital distortion
       output[i] = s.clamp(-1.0, 1.0);
+    }
+    return output;
+  }
+
+  /// Processes interleaved stereo `[L, R, L, R, ...]` samples with isolated channel states.
+  Float32List processStereo(Float32List interleaved) {
+    final output = Float32List(interleaved.length);
+    for (int i = 0; i + 1 < interleaved.length; i += 2) {
+      double l = interleaved[i];
+      double r = interleaved[i + 1];
+      for (int b = 0; b < bands.length; b++) {
+        l = bands[b].processSample(l);
+        r = bands[b].processSampleRight(r);
+      }
+      output[i] = l.clamp(-1.0, 1.0);
+      output[i + 1] = r.clamp(-1.0, 1.0);
     }
     return output;
   }

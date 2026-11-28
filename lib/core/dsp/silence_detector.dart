@@ -49,6 +49,7 @@ class SilenceDetector {
     final totalSamples = samples.length;
 
     int startSample = 0;
+    bool foundActive = false;
     for (int i = 0; i + blockSize <= totalSamples; i += blockSize) {
       double sumSquares = 0.0;
       for (int j = 0; j < blockSize; j++) {
@@ -58,8 +59,19 @@ class SilenceDetector {
       final rms = math.sqrt(sumSquares / blockSize);
       if (rms >= linearThreshold) {
         startSample = i;
+        foundActive = true;
         break;
       }
+    }
+
+    if (!foundActive) {
+      final totalSeconds = (totalSamples / sampleRate * 100).roundToDouble() / 100.0;
+      return SilenceAnalysisResult(
+        leadSilenceSeconds: totalSeconds,
+        tailSilenceSeconds: 0.0,
+        trimStartSample: totalSamples,
+        trimEndSample: totalSamples,
+      );
     }
 
     int endSample = totalSamples;

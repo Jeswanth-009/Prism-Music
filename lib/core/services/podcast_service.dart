@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show HttpDate;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -116,13 +117,16 @@ class PodcastService {
 
         if (audioUrl.isEmpty || !isAcceptableStreamUrl(audioUrl)) continue;
 
-        // Parse pubDate
+        // Parse pubDate (ISO-8601 or RFC 822 / RFC 1123 RSS date)
         DateTime? pubDate;
         final pubDateStr = item.findElements('pubDate').firstOrNull?.innerText.trim();
-        if (pubDateStr != null) {
-          try {
-            pubDate = DateTime.tryParse(pubDateStr);
-          } catch (_) {}
+        if (pubDateStr != null && pubDateStr.isNotEmpty) {
+          pubDate = DateTime.tryParse(pubDateStr);
+          if (pubDate == null) {
+            try {
+              pubDate = HttpDate.parse(pubDateStr);
+            } catch (_) {}
+          }
         }
 
         // Parse duration

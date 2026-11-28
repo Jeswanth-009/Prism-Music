@@ -52,26 +52,55 @@ List<Complex> fft(List<Complex> input) {
   return _fftRadix2(padded);
 }
 
-/// Recursive radix-2 Decimation-In-Time FFT implementation.
+/// Iterative in-place radix-2 Cooley-Tukey FFT implementation.
 List<Complex> _fftRadix2(List<Complex> x) {
   final n = x.length;
   if (n <= 1) return x;
 
-  final even = List<Complex>.generate(n ~/ 2, (i) => x[i * 2]);
-  final odd = List<Complex>.generate(n ~/ 2, (i) => x[i * 2 + 1]);
+  final real = Float64List(n);
+  final imag = Float64List(n);
 
-  final dEven = _fftRadix2(even);
-  final dOdd = _fftRadix2(odd);
-
-  final result = List<Complex>.filled(n, const Complex(0.0, 0.0));
-  for (int k = 0; k < n ~/ 2; k++) {
-    final angle = -2.0 * math.pi * k / n;
-    final wk = Complex(math.cos(angle), math.sin(angle));
-    final t = wk * dOdd[k];
-    result[k] = dEven[k] + t;
-    result[k + n ~/ 2] = dEven[k] - t;
+  // Bit-reversal permutation
+  int j = 0;
+  for (int i = 0; i < n; i++) {
+    real[j] = x[i].real;
+    imag[j] = x[i].imag;
+    int bit = n >> 1;
+    while ((j & bit) != 0) {
+      j ^= bit;
+      bit >>= 1;
+    }
+    j ^= bit;
   }
-  return result;
+
+  for (int len = 2; len <= n; len <<= 1) {
+    final half = len >> 1;
+    final angleStep = -2.0 * math.pi / len;
+    final wStepR = math.cos(angleStep);
+    final wStepI = math.sin(angleStep);
+
+    for (int start = 0; start < n; start += len) {
+      double wr = 1.0;
+      double wi = 0.0;
+      for (int k = 0; k < half; k++) {
+        final idxEven = start + k;
+        final idxOdd = idxEven + half;
+        final tR = wr * real[idxOdd] - wi * imag[idxOdd];
+        final tI = wr * imag[idxOdd] + wi * real[idxOdd];
+
+        real[idxOdd] = real[idxEven] - tR;
+        imag[idxOdd] = imag[idxEven] - tI;
+        real[idxEven] += tR;
+        imag[idxEven] += tI;
+
+        final nextWr = wr * wStepR - wi * wStepI;
+        wi = wr * wStepI + wi * wStepR;
+        wr = nextWr;
+      }
+    }
+  }
+
+  return List<Complex>.generate(n, (i) => Complex(real[i], imag[i]), growable: false);
 }
 
 /// Computes the Inverse Fast Fourier Transform (IFFT).
@@ -109,6 +138,7 @@ Float64List hannWindow(int length) {
 /// Calculates power spectrum $|X[k]|^2 / N$ for non-negative frequencies up to Nyquist.
 Float64List powerSpectrum(List<Complex> fftOutput) {
   final n = fftOutput.length;
+  if (n == 0) return Float64List(0);
   final half = n ~/ 2 + 1;
   final spectrum = Float64List(half);
   final norm = 1.0 / n;

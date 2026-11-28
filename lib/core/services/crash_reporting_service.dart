@@ -22,7 +22,7 @@ class CrashReport {
     required this.stackTrace,
     this.context,
     required this.osPlatform,
-    this.appVersion = '0.2.83',
+    this.appVersion = '1.1.0+148',
   });
 
   Map<String, dynamic> toMap() => {
@@ -43,7 +43,7 @@ class CrashReport {
       stackTrace: map['stackTrace']?.toString() ?? '',
       context: map['context']?.toString(),
       osPlatform: map['osPlatform']?.toString() ?? Platform.operatingSystem,
-      appVersion: map['appVersion']?.toString() ?? '0.2.83',
+      appVersion: map['appVersion']?.toString() ?? '1.1.0+148',
     );
   }
 }
@@ -98,9 +98,15 @@ class CrashReportingService {
       '[REDACTED_EMAIL]',
     );
 
+    // Redact Bearer auth tokens
+    sanitized = sanitized.replaceAll(
+      RegExp(r'Bearer\s+[A-Za-z0-9._-]+', caseSensitive: false),
+      'Bearer [REDACTED_TOKEN]',
+    );
+
     // Redact local user directory paths
     sanitized = sanitized.replaceAll(
-      RegExp(r'(/Users/[^/]+|C:\\Users\\[^\\]+)'),
+      RegExp(r'(/Users/[^/\s]+|/home/[^/\s]+|/data/user/\d+/[^/\s]+|C:\\Users\\[^\\\s]+)'),
       '[USER_DIR]',
     );
 

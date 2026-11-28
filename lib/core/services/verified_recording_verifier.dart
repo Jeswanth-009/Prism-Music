@@ -71,7 +71,7 @@ class VerifiedRecordingVerifier {
         codec.contains('opus') ||
         codec.contains('aac');
 
-    if (!hasValidCodec && candidateStream.url.isEmpty) {
+    if (!hasValidCodec || candidateStream.url.isEmpty) {
       return VerificationResult(
         isVerified: false,
         confidence: 0.0,
@@ -81,7 +81,7 @@ class VerifiedRecordingVerifier {
     }
 
     // 3. Token similarity calculation
-    double tokenScore = candidateStream.matchConfidence ?? 0.85;
+    double tokenScore = candidateStream.matchConfidence ?? 0.5;
     if (candidateTitle != null && candidateTitle.isNotEmpty) {
       tokenScore = calculateTokenSimilarity(
         '${referenceSong.title} ${referenceSong.artist}',
