@@ -293,6 +293,11 @@ class LocalDataSourceImpl implements LocalDataSource {
     'year': song.year,
     'genre': song.genre,
     'playCount': song.playCount,
+    'streamUrl': song.streamUrl,
+    'cachedQuality': song.cachedQuality?.name,
+    'streamProvenance': song.streamProvenance,
+    'isrc': song.isrc,
+    'matchConfidence': song.matchConfidence,
   };
 
   Song _mapToSong(Map data) {
@@ -328,6 +333,16 @@ class LocalDataSourceImpl implements LocalDataSource {
       year: data['year'] as int?,
       genre: data['genre'] as String?,
       playCount: data['playCount'] as int?,
+      streamUrl: data['streamUrl'] as String?,
+      cachedQuality: data['cachedQuality'] is String
+          ? AudioQuality.values.cast<AudioQuality?>().firstWhere(
+                (q) => q?.name == data['cachedQuality'],
+                orElse: () => null,
+              )
+          : null,
+      streamProvenance: data['streamProvenance'] as String?,
+      isrc: data['isrc'] as String?,
+      matchConfidence: (data['matchConfidence'] as num?)?.toDouble(),
     );
   }
 

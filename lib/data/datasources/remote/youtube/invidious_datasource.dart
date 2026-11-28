@@ -12,7 +12,12 @@ class InvidiousInstances {
   
   static String get currentInstance => _health.getHealthyInvidious();
   
-  static void rotateInstance() {}
+  static void rotateInstance() {
+    final current = currentInstance;
+    for (var i = 0; i < InstanceHealthService.failureThreshold; i++) {
+      _health.recordFailure(current, 'Rotated by InvidiousInstances');
+    }
+  }
   static void reset() {
     _health.resetQuarantines();
   }

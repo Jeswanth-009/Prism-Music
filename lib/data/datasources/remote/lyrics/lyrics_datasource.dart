@@ -153,25 +153,34 @@ class LyricsDataSourceImpl implements LyricsDataSource {
       }
     }
 
-    // 2. Cache lookup (bypass on forceRefresh)
+    // 2. Cache lookup across all 12 providers (bypass on forceRefresh)
     if (!forceRefresh) {
-      final cached = await _cache.get(
-        title,
-        artist,
-        effectiveSongId,
-        duration: duration,
-        provider: preferredProviderId ?? 'LRCLIB',
-      );
-      if (cached != null) return cached;
-
-      final fallbackCached = await _cache.get(
-        title,
-        artist,
-        effectiveSongId,
-        duration: duration,
-        provider: 'lyrics.ovh',
-      );
-      if (fallbackCached != null) return fallbackCached;
+      final candidateProviderIds = <String>[
+        ?preferredProviderId,
+        _betterLyrics.id,
+        _lyricsPlus.id,
+        _qqMusic.id,
+        _bini.id,
+        _unison.id,
+        _lrclib.id,
+        'LRCLIB',
+        _netEase.id,
+        _kuGou.id,
+        _ytTranscript.id,
+        _jioSaavn.id,
+        _genius.id,
+        'lyrics.ovh',
+      ];
+      for (final pid in candidateProviderIds.toSet()) {
+        final cached = await _cache.get(
+          title,
+          artist,
+          effectiveSongId,
+          duration: duration,
+          provider: pid,
+        );
+        if (cached != null) return cached;
+      }
 
       final isKnownNotFound = await _cache.isMarkedNotFound(
         title,
@@ -191,6 +200,7 @@ class LyricsDataSourceImpl implements LyricsDataSource {
       _unison,
     ];
 
+    Lyrics? tier1SyncedFallback;
     for (final provider in tier1Providers) {
       try {
         final result = await provider.fetchLyrics(
@@ -202,6 +212,9 @@ class LyricsDataSourceImpl implements LyricsDataSource {
         if (result != null && result.isWordSynced) {
           await _cacheSuccess(title, artist, result, duration: duration);
           return result;
+        }
+        if (result != null && result.isSynced && tier1SyncedFallback == null) {
+          tier1SyncedFallback = result;
         }
       } catch (_) {
         // Individual provider timeout / error falls through
@@ -232,6 +245,11 @@ class LyricsDataSourceImpl implements LyricsDataSource {
       } catch (_) {
         // Fall through
       }
+    }
+
+    if (tier1SyncedFallback != null) {
+      await _cacheSuccess(title, artist, tier1SyncedFallback, duration: duration);
+      return tier1SyncedFallback;
     }
 
     // Tier 3: Plain text fallbacks (Genius, Lyrics.ovh)

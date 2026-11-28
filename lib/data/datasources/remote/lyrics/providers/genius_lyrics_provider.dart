@@ -61,14 +61,9 @@ class GeniusLyricsProvider implements LyricsProvider {
       final songPath = result['path'] as String?;
       if (songPath == null) return null;
 
-      return Lyrics(
-        songId: songId ?? '${artist}_$title',
-        plainLyrics: 'Genius song entry: https://genius.com$songPath',
-        syncedLyrics: null,
-        source: displayName,
-        syncType: LyricsSyncType.plain,
-        providerId: id,
-      );
+      // Genius Search API does not return full lyrics text; return null rather than
+      // polluting the lyrics cache/UI with a placeholder URL string.
+      return null;
     } catch (_) {
       return null;
     }

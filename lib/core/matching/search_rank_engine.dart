@@ -22,7 +22,7 @@ class SearchRankEngine {
     if (input.isEmpty) return '';
     var s = input.toLowerCase().trim();
     s = s.replaceAll('&', ' and ');
-    s = s.replaceAll(RegExp(r"[^\w\s\d]"), '');
+    s = s.replaceAll(RegExp(r'[^\p{L}\p{N}\s]', unicode: true), '');
     return s.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 

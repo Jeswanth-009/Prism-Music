@@ -642,9 +642,11 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
 
       return Artist(
         id: id,
-        name: data['name']?.toString() ?? 'Unknown',
+        name: data['name']?.toString() ?? data['title']?.toString() ?? 'Unknown',
         thumbnails: _parseThumbnails(data['image']),
-        subscriberCount: int.tryParse(data['followerCount']?.toString() ?? ''),
+        subscriberCount: int.tryParse(
+          (data['follower_count'] ?? data['followerCount'])?.toString() ?? '',
+        ),
       );
     } on GeoRestrictionException {
       rethrow;
@@ -683,17 +685,21 @@ class JioSaavnDataSourceImpl implements JioSaavnDataSource {
       final id = data['id']?.toString();
       if (id == null) return null;
 
-      // Parse songs
-      final songsData = data['songs'] as List? ?? [];
+      // Parse songs (api.php returns 'list', legacy returns 'songs')
+      final songsData = (data['list'] ?? data['songs']) as List? ?? [];
       final songs = songsData.map((s) => _parseSong(s as Map<String, dynamic>)).whereType<Song>().toList();
 
       String artistName = data['primaryArtists']?.toString() ??
                          data['artist']?.toString() ??
+                         (data['more_info']?['artistMap']?['primary_artists'] is List &&
+                                 (data['more_info']['artistMap']['primary_artists'] as List).isNotEmpty
+                             ? (data['more_info']['artistMap']['primary_artists'] as List).first['name']?.toString()
+                             : null) ??
                          'Unknown Artist';
 
       return Album(
         id: id,
-        title: data['name']?.toString() ?? 'Unknown Album',
+        title: data['title']?.toString() ?? data['name']?.toString() ?? 'Unknown Album',
         artist: artistName,
         thumbnails: _parseThumbnails(data['image']),
         year: int.tryParse(data['year']?.toString() ?? ''),

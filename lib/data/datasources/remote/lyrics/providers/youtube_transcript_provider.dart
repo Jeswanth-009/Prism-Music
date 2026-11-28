@@ -30,10 +30,11 @@ class YouTubeTranscriptProvider implements LyricsProvider {
     Duration? duration,
     String? songId,
   }) async {
-    // If the songId appears to be a valid 11-char YouTube Video ID, query it directly
-    final candidateId = (songId != null && songId.length == 11 && !songId.contains('_'))
-        ? songId
-        : null;
+    // If the songId appears to be a valid 11-char YouTube Video ID (including '_'), query it directly
+    final candidateId =
+        (songId != null && RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(songId))
+            ? songId
+            : null;
 
     if (candidateId == null) {
       // YouTube closed captions require a concrete video ID

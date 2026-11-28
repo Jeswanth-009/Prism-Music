@@ -14,8 +14,18 @@ class PipedInstances {
   static String get currentApiInstance => _health.getHealthyPipedApi();
   static String get currentProxyInstance => _health.getHealthyPipedProxy();
 
-  static void rotateApiInstance() {}
-  static void rotateProxyInstance() {}
+  static void rotateApiInstance() {
+    final current = currentApiInstance;
+    for (var i = 0; i < InstanceHealthService.failureThreshold; i++) {
+      _health.recordFailure(current, 'Rotated by PipedInstances');
+    }
+  }
+  static void rotateProxyInstance() {
+    final current = currentProxyInstance;
+    for (var i = 0; i < InstanceHealthService.failureThreshold; i++) {
+      _health.recordFailure(current, 'Rotated by PipedInstances');
+    }
+  }
   static void reset() {
     _health.resetQuarantines();
   }

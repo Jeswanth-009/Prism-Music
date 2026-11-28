@@ -161,7 +161,7 @@ String _stripTrailingFeat(String input) {
     previous = text;
     text = text.replaceAll(
       RegExp(
-        r'[\(\[\{\uFF08\uFF3B\u3010]?\s*(feat\.?|ft\.?|featuring)\s+.*$',
+        r'(?:[\(\[\{\uFF08\uFF3B\u3010]\s*|\b)(?:feat\.?|ft\.?|featuring)\s+.*$',
         caseSensitive: false,
       ),
       '',

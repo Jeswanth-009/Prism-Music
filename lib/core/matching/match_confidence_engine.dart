@@ -437,9 +437,9 @@ class MatchConfidenceEngine {
       if (!changed) break;
     }
 
-    // Strip trailing feat / ft / with
+    // Strip trailing feat / ft / with (require word boundary or opening bracket so "Lift"/"Soft" never truncate)
     title = title.replaceAll(
-      RegExp(r'[\(\[\{\uFF08\uFF3B\u3010]?\s*(feat\.?|ft\.?|featuring)\s+.*$', caseSensitive: false),
+      RegExp(r'(?:[\(\[\{\uFF08\uFF3B\u3010]\s*|\b)(?:feat\.?|ft\.?|featuring)\s+.*$', caseSensitive: false),
       '',
     );
     title = title.replaceAll(RegExp(r'\s*[-–—|]\s*$'), '');

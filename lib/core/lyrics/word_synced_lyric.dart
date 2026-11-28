@@ -162,7 +162,7 @@ class WordSyncedLyricParser {
 
       final min = int.tryParse(match.group(1) ?? '0') ?? 0;
       final sec = int.tryParse(match.group(2) ?? '0') ?? 0;
-      final ms = int.tryParse(match.group(3) ?? '0') ?? 0;
+      final ms = _parseSubSecondsMs(match.group(3) ?? '0');
       final lineBase = Duration(minutes: min, seconds: sec, milliseconds: ms);
 
       final content = match.group(4) ?? '';
@@ -252,10 +252,7 @@ class WordSyncedLyricParser {
 
       final min = int.tryParse(match.group(1) ?? '0') ?? 0;
       final sec = int.tryParse(match.group(2) ?? '0') ?? 0;
-      final msStr = match.group(3) ?? '0';
-      final ms = msStr.length == 2
-          ? (int.tryParse(msStr) ?? 0) * 10
-          : int.tryParse(msStr) ?? 0;
+      final ms = _parseSubSecondsMs(match.group(3) ?? '0');
 
       final startTime = Duration(minutes: min, seconds: sec, milliseconds: ms);
       final text = (match.group(4) ?? '').trim();
@@ -285,10 +282,21 @@ class WordSyncedLyricParser {
     return lines;
   }
 
+  static int _parseSubSecondsMs(String raw) {
+    if (raw.isEmpty) return 0;
+    if (raw.length == 1) return (int.tryParse(raw) ?? 0) * 100;
+    if (raw.length == 2) return (int.tryParse(raw) ?? 0) * 10;
+    return int.tryParse(raw.substring(0, 3)) ?? 0;
+  }
+
   static Duration _parseClockTime(String time) {
-    // Parses "00:01:23.456" or "12.345s"
+    // Parses "00:01:23.456", "123ms", or "12.345s"
+    if (time.endsWith('ms')) {
+      final ms = double.tryParse(time.substring(0, time.length - 2)) ?? 0.0;
+      return Duration(milliseconds: ms.round());
+    }
     if (time.endsWith('s')) {
-      final sec = double.tryParse(time.replaceAll('s', '')) ?? 0.0;
+      final sec = double.tryParse(time.substring(0, time.length - 1)) ?? 0.0;
       return Duration(milliseconds: (sec * 1000).round());
     }
     final parts = time.split(':');
